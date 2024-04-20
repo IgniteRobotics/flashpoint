@@ -1,0 +1,10 @@
+{
+    "metrics_prefix": "/Robot/m_robotContainer/",
+    "preferences_prefix": "NT:/Preferences/",
+    "fms_prefix": "/FMSInfo/",
+    "autonomous_prefix": "/SmartDashboard/Autonomous/",
+    "ds_prefix": "DS:",
+    "metadata_prefix": "MetaData",
+    "photon_prefix": "/photonvision",
+    "camerapub_prefix": "/CameraPublisher"
+}
