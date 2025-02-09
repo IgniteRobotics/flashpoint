@@ -1,0 +1,19 @@
+[Unit]
+Description=IP Monitor and Rsync Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="PYENV_ROOT=/home/your_username/.pyenv"
+Environment="PATH=/home/your_username/.pyenv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/bin/bash -c 'eval "$(pyenv init --path)"; eval "$(pyenv init -)"; pyenv activate flashpoint && python /usr/local/bin/sync_monitor.py'
+Restart=always
+RestartSec=10
+User=your_username
+StandardOutput=journal
+StandardError=journal
+WorkingDirectory=/home/your_username
+
+[Install]
+WantedBy=multi-user.target

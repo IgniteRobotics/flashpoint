@@ -5,9 +5,18 @@ from sqlite3 import connect
 import csv_converter 
 import json
 import numpy as np
+import hashlib
+from datetime import datetime
 
 
 
+def calculate_file_hash(filepath):
+    """Calculate SHA-256 hash of a file"""
+    sha256_hash = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
 
 def setup_db(db_name):
 
@@ -15,10 +24,23 @@ def setup_db(db_name):
 
     cursor = connection.cursor()
 
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS file_metadata (
+        filename TEXT PRIMARY KEY,
+        import_timestamp INTEGER,
+        file_hash TEXT,
+        success BOOLEAN,
+        last_attempt_timestamp INTEGER
+    )
+    ''')
+    connection.commit()
+
     cursor.execute('CREATE TABLE IF NOT EXISTS log_metadata (filename TEXT PRIMARY KEY, build_date TEXT, commit_hash TEXT, git_date TEXT, git_branch TEXT, project_name TEXT, git_dirty TEXT, event TEXT, match_id TEXT, replay_num TEXT, match_type TEXT, is_red_alliance TEXT, station_num TEXT)')
     connection.commit()
 
     cursor.execute('CREATE TABLE IF NOT EXISTS metrics (entry TEXT, data_type TEXT, value TEXT, timestamp REAL, match_time REAL, subsystem TEXT, component TEXT, part TEXT, type TEXT, metric TEXT , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
+
+
 
     cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event on metrics (event)')
     cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_filename on metrics (filename)')
@@ -45,6 +67,61 @@ def setup_db(db_name):
     connection.commit()
 
     return connection
+
+
+def is_file_already_imported(connection, filepath):
+    """
+    Check if a file has already been successfully imported by comparing its hash
+    against existing entries in file_metadata table.
+    
+    Args:
+        connection: SQLite database connection
+        filepath: Path to the file to check
+        
+    Returns:
+        tuple: (bool, str) - (is_duplicate, existing_filename)
+        where is_duplicate indicates if file was previously imported
+        and existing_filename contains the name of the duplicate file (if found)
+    """
+    try:
+        cursor = connection.cursor()
+        file_hash = calculate_file_hash(filepath)
+        
+        # Query for successful imports with matching hash
+        cursor.execute('''
+            SELECT filename 
+            FROM file_metadata 
+            WHERE file_hash = ? AND success = 1
+        ''', (file_hash,))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            return True, result[0]
+        return False, None
+        
+    except Exception as e:
+        print(f"Error checking file hash: {e}")
+        return False, None
+
+
+def update_file_metadata(connection, filename, hash, success):
+    """Update or insert file metadata"""
+    cursor = connection.cursor()
+    current_time = int(datetime.now().timestamp())
+    
+    try:
+        
+        cursor.execute('''
+        INSERT OR REPLACE INTO file_metadata 
+        (filename, import_timestamp, file_hash, success, last_attempt_timestamp)
+        VALUES (?, ?, ?, ?, ?)
+        ''', (filename, current_time, hash, success, current_time))
+        
+        connection.commit()
+    except Exception as e:
+        print(f"Error updating metadata for {filename}: {e}")
+        connection.rollback()
 
 
 def flush_tables(connection, filename):
@@ -214,6 +291,11 @@ if __name__ == "__main__":
         print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
         sys.exit(1)
 
+    filepath = sys.argv[1]
+
+    #only use the filename for the key, but use the path to calculate the hash
+    filename = os.path.basename(filepath)
+    hash = calculate_file_hash(filepath)
 
     #load config from `config.json`
     config = json.load(open('config.json'))
@@ -223,10 +305,23 @@ if __name__ == "__main__":
     #open the db connection:
     conn = setup_db("db/metrics.db")
 
-    #read the input
-    (logfile, df) = read_logfile(sys.argv[1])
 
-    flush_tables(conn, logfile)
+    #start the import by checking if the file has already been imported.
+    (is_duplicate, existing_filename) = is_file_already_imported(conn, filepath)
+
+    if is_duplicate:
+        print(f"File {filename} has already been imported as {existing_filename}. Skipping.")
+        sys.exit(0)
+    else:
+        print(f'Starting import of {filename} from {filepath}')
+
+    #create entry, but mark it as False
+    update_file_metadata(conn, filename, hash, 0)
+
+    #read the input
+    (logfile, df) = read_logfile(filepath)
+
+    #flush_tables(conn, logfile)
 
     
     (meta_df, fms_df, metrics_df, vision_df, preferences_df) = split_dataframe(df, config)
@@ -262,5 +357,10 @@ if __name__ == "__main__":
     write_dataframe(preferences_df, 'preferences',conn)
 
     write_dataframe(vision_df, 'vision', conn)
-    
+
+    #come back and make it true
+    update_file_metadata(conn, filename, hash, 1)
+
     close_db(conn)
+
+    print('Done.')
