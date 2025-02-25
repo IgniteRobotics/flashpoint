@@ -5,8 +5,9 @@
 
 import array
 import struct
-import msgpack
 from typing import List, SupportsBytes
+
+import msgpack
 
 __all__ = ["StartRecordData", "MetadataRecordData", "DataLogRecord", "DataLogReader"]
 
@@ -167,14 +168,14 @@ class DataLogRecord:
             arr.append(val)
         return arr
 
-    def _readInnerString(self, pos: int) -> tuple:
+    def _readInnerString(self, pos: int) -> tuple[str, int]:
         size = int.from_bytes(
-            self.data[pos: pos + 4], byteorder="little", signed=False
+            self.data[pos : pos + 4], byteorder="little", signed=False
         )
         end = pos + 4 + size
         if end > len(self.data):
             raise TypeError("invalid string size")
-        return str(self.data[pos + 4: end], encoding="utf-8"), end
+        return str(self.data[pos + 4 : end], encoding="utf-8"), end
 
 
 class DataLogIterator:
@@ -210,7 +211,7 @@ class DataLogIterator:
         record = DataLogRecord(
             entry,
             timestamp,
-            self.buf[self.pos + headerLen: self.pos + headerLen + size],
+            self.buf[self.pos + headerLen : self.pos + headerLen + size],
         )
         self.pos += headerLen + size
         return record
@@ -250,7 +251,7 @@ class DataLogReader:
         if len(self.buf) < 12:
             return ""
         size = int.from_bytes(self.buf[8:12], byteorder="little", signed=False)
-        return str(self.buf[12: 12 + size], encoding="utf-8")
+        return str(self.buf[12 : 12 + size], encoding="utf-8")
 
     def __iter__(self) -> DataLogIterator:
         extraHeaderSize = int.from_bytes(
@@ -260,9 +261,9 @@ class DataLogReader:
 
 
 if __name__ == "__main__":
-    from datetime import datetime
     import mmap
     import sys
+    from datetime import datetime
 
     if len(sys.argv) != 2:
         print("Usage: datalog.py <file>", file=sys.stderr)
@@ -287,7 +288,7 @@ if __name__ == "__main__":
                     if data.entry in entries:
                         print("...DUPLICATE entry ID, overriding")
                     entries[data.entry] = data
-                except TypeError as e:
+                except TypeError:
                     print("Start(INVALID)")
             elif record.isFinish():
                 try:
@@ -297,7 +298,7 @@ if __name__ == "__main__":
                         print("...ID not found")
                     else:
                         del entries[entry]
-                except TypeError as e:
+                except TypeError:
                     print("Finish(INVALID)")
             elif record.isSetMetadata():
                 try:
@@ -305,7 +306,7 @@ if __name__ == "__main__":
                     print(f"SetMetadata({data.entry}, '{data.metadata}') [{timestamp}]")
                     if data.entry not in entries:
                         print("...ID not found")
-                except TypeError as e:
+                except TypeError:
                     print("SetMetadata(INVALID)")
             elif record.isControl():
                 print("Unrecognized control record")
@@ -349,5 +350,5 @@ if __name__ == "__main__":
                     elif entry.type == "string[]":
                         arr = record.getStringArray()
                         print(f"  {arr}")
-                except TypeError as e:
+                except TypeError:
                     print("  invalid")
