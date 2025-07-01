@@ -12,7 +12,6 @@ Restart=always
 RestartSec=10
 User=your_username
 StandardOutput=journal
-StandardError=journal
 WorkingDirectory=/home/your_username
 
 [Install]
