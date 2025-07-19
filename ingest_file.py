@@ -8,8 +8,8 @@ import numpy as np
 import hashlib
 from datetime import datetime
 
-
-
+#calculates file hash from a file path 
+#so that the database has a means of connection to the log file
 def calculate_file_hash(filepath):
     """Calculate SHA-256 hash of a file"""
     sha256_hash = hashlib.sha256()
@@ -18,12 +18,19 @@ def calculate_file_hash(filepath):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+#sets up database
+#this creates the table and indexes
+#however, it does not yet fill them with actual values
 def setup_db(db_name):
-
+    
+    #creates a "connection"
     connection = connect(db_name)
-
+    
+    #creates a mean of running scripts on that connnection
     cursor = connection.cursor()
 
+
+    #creates file metadata table and indices
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS file_metadata (
         filename TEXT PRIMARY KEY,
@@ -35,19 +42,54 @@ def setup_db(db_name):
     ''')
     connection.commit()
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS log_metadata (filename TEXT PRIMARY KEY, build_date TEXT, commit_hash TEXT, git_date TEXT, git_branch TEXT, project_name TEXT, git_dirty TEXT, event TEXT, match_id TEXT, replay_num TEXT, match_type TEXT, is_red_alliance TEXT, station_num TEXT)')
+    #creates log metadata table and indices
+    cursor.execute('''CREATE TABLE IF NOT EXISTS log_metadata (
+        filename TEXT PRIMARY KEY, 
+        build_date TEXT, 
+        commit_hash TEXT, 
+        git_date TEXT, 
+        git_branch TEXT, 
+        project_name TEXT, 
+        git_dirty TEXT, 
+        event TEXT, 
+        match_id TEXT, 
+        replay_num TEXT, 
+        match_type TEXT, 
+        is_red_alliance TEXT, 
+        station_num TEXT)''')
     connection.commit()
-
-    cursor.execute('CREATE TABLE IF NOT EXISTS metrics (entry TEXT, data_type TEXT, value TEXT, timestamp REAL, match_time REAL, subsystem TEXT, component TEXT, part TEXT, type TEXT, metric TEXT , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
-
-
-
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event on metrics (event)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_filename on metrics (filename)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event_match on metrics (event, match_id)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component, metric)')
+    
+    #creates raw device data table and indices
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
+        event_year REAL, 
+        event TEXT, 
+        match_id REAL, 
+        replay_num REAL, 
+        filename TEXT, 
+        entry TEXT, 
+        data_type TEXT, 
+        value TEXT, 
+        timestamp REAL, 
+        match_time REAL, 
+        subsystem TEXT,
+        assembly TEXT, 
+        subassembly TEXT, 
+        component TEXT, 
+        metric TEXT , 
+        boolean_value TEXT, 
+        numeric_value REAL)''')
     connection.commit()
+    
+    #cursor.execute('CREATE TABLE IF NOT EXISTS metrics (entry TEXT, data_type TEXT, value TEXT, timestamp REAL, match_time REAL, subsystem TEXT, component TEXT, part TEXT, type TEXT, metric TEXT , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
+
+
+
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event on metrics (event)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_filename on metrics (filename)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event_match on metrics (event, match_id)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component, metric)')
+    #connection.commit()
 
     # cursor.execute('CREATE TABLE IF NOT EXISTS metrics_summary (component TEXT, metric TEXT ,minimum REAL ,maximun REAL ,average REAL ,filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
 
@@ -57,17 +99,16 @@ def setup_db(db_name):
     # cursor.execute('CREATE INDEX IF NOT EXISTS metrics_summary_idx_component on metrics_summary (component)')
     # cursor.execute('CREATE INDEX IF NOT EXISTS metrics_summary_idx_component_metric on metrics_summary (component, metric)')
     # connection.commit()
+    
+    #cursor.execute('CREATE TABLE IF NOT EXISTS preferences ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS preference_idx_filename on preferences (filename)')
+    #connection.commit()
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS preferences ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS preference_idx_filename on preferences (filename)')
-    connection.commit()
-
-    cursor.execute('CREATE TABLE IF NOT EXISTS vision ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS vision_idx_filename on vision (filename)')
-    connection.commit()
+    #cursor.execute('CREATE TABLE IF NOT EXISTS vision ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS vision_idx_filename on vision (filename)')
+    #connection.commit()
 
     return connection
-
 
 def is_file_already_imported(connection, filepath):
     """
@@ -104,7 +145,7 @@ def is_file_already_imported(connection, filepath):
         print(f"Error checking file hash: {e}")
         return False, None
 
-
+#fills the metadata table and indices
 def update_file_metadata(connection, filename, hash, success):
     """Update or insert file metadata"""
     cursor = connection.cursor()
@@ -123,7 +164,7 @@ def update_file_metadata(connection, filename, hash, success):
         print(f"Error updating metadata for {filename}: {e}")
         connection.rollback()
 
-
+#clears data base for new imports
 def flush_tables(connection, filename):
     cursor = connection.cursor()
 
@@ -138,8 +179,7 @@ def flush_tables(connection, filename):
 
         connection.commit()
 
-
-
+#writes data frame to table via connection
 def write_dataframe(df, tablename, connection, filename = None):
 
     df.to_sql(tablename, connection, if_exists='append', index=False)
@@ -147,11 +187,13 @@ def write_dataframe(df, tablename, connection, filename = None):
 
     if filename is not None:
         df.to_csv(filename, index=False)
-
+        
+# safely closes connection
 def close_db(connection):
     connection.commit()
     connection.close()
 
+#converts logfile into a .csv file and reads a dataframe from it
 def read_logfile(filename):
     print(f'Converting {filename}')
     #convert wpilog to a csv file
@@ -168,6 +210,8 @@ def read_logfile(filename):
 
     return (log_filename, df)
 
+#splits output dataframe from log file into dataframes to be utilized individually
+#utlizies prefixes from homemade config
 def split_dataframe(df, cfg):
     meta_df = df.loc[df['entry'].str.startswith(cfg['metadata_prefix'])]
     fms_df = df.loc[df['entry'].str.startswith(cfg['fms_prefix'])]
@@ -286,11 +330,16 @@ def add_keys(df, filename, event, match_id, replay_num):
 
 if __name__ == "__main__":
 
+    #Debug statement
     print('Starting....')
+    
+    #checks that the "system arguments" array's length is two
+    #note that argv[0] is always the script name
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
         sys.exit(1)
 
+    #the argument passed in by the user is the filename
     filepath = sys.argv[1]
 
     #only use the filename for the key, but use the path to calculate the hash
@@ -298,8 +347,10 @@ if __name__ == "__main__":
     hash = calculate_file_hash(filepath)
 
     #load config from `config.json`
+    #this config lists "prefixes" from log entries that can be used to organize the data
     config = json.load(open('config.json'))
-
+    
+    #reads in home-made dataframe
     map_df = pd.read_csv('map.csv', header=0)
 
     #open the db connection:
@@ -319,11 +370,13 @@ if __name__ == "__main__":
     update_file_metadata(conn, filename, hash, 0)
 
     #read the input
+    #also creates another variable for the filename for some reason?
     (logfile, df) = read_logfile(filepath)
 
     #flush_tables(conn, logfile)
 
-    
+    #splits the output dataframe from the "read_logfile" function into dataframes to be utilized seperately
+    #meta_df is log metadata, not file metadata
     (meta_df, fms_df, metrics_df, vision_df, preferences_df) = split_dataframe(df, config)
 
     meta_df = parse_metadata(meta_df, fms_df, logfile)
