@@ -221,7 +221,7 @@ def split_dataframe(df, cfg):
 
     return (meta_df, fms_df, metrics_df, vision_df, preferences_df)
 
-
+#creates a new metadata frame from log metadata and fms data
 def parse_metadata(meta_df, fms_df, filename):
     print('Parsing Metadata')
     #get metadata
@@ -263,6 +263,7 @@ def parse_metadata(meta_df, fms_df, filename):
     
     return meta_df
 
+#essentially find match start
 def calculate_match_start(df):
     print('Finding Match Start')
     # filter dataframe to after the match starts to get rid of unneeded data
@@ -286,6 +287,7 @@ def trim_df_by_timestamp(df, ts):
     return df
 
 #fix datatypes
+#things have been a string up until now
 def fix_datatypes(df):
     df_boolean_log_data = df[df['data_type'] == 'boolean']
     df_boolean_log_data['boolean_value'] = df_boolean_log_data['value'].astype(bool)
@@ -301,6 +303,7 @@ def fix_datatypes(df):
     
 def parse_metrics(df, logfile, comp_name, match_id, replay_num):
     print(f'Parsing Metrics')
+    #replaces "entry" in metrics_df
     metrics_df['entry'] = metrics_df['entry'].str.replace('/Robot/m_robotContainer/','')
 
     # metrics_df[['component', 'metric']] = metrics_df['entry'].str.rsplit('/',n=1, expand=True)
@@ -378,14 +381,19 @@ if __name__ == "__main__":
     #splits the output dataframe from the "read_logfile" function into dataframes to be utilized seperately
     #meta_df is log metadata, not file metadata
     (meta_df, fms_df, metrics_df, vision_df, preferences_df) = split_dataframe(df, config)
-
+    
+    #effictively merges the log metadata and fms data into a single clean metadata dataframe
+    #still note this metadata dataframe does not contain file metadata
     meta_df = parse_metadata(meta_df, fms_df, logfile)
-    #add match time and filter early data.
-
+    
+    #finds match time
     enabled_ts = calculate_match_start(df)
 
+    #trims metrics dataframe to after the match starts
+    #also adds match time to data_frame
     metrics_df = trim_df_by_timestamp(metrics_df, enabled_ts)
 
+    #mergs map_df and metrics_df
     metrics_df = metrics_df.merge(right=map_df, how='left', on='entry')
 
     metrics_df = parse_metrics(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
@@ -393,6 +401,7 @@ if __name__ == "__main__":
     preferences_df = fix_datatypes(preferences_df)
     vision_df = fix_datatypes(vision_df)
 
+    #adds keys from meta_df to dataframes to show obvious connection between dataframes
     add_keys(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
     # add_keys(summary_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
     add_keys(preferences_df,logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
