@@ -303,7 +303,7 @@ def fix_datatypes(df):
     
 def parse_metrics(df, logfile, comp_name, match_id, replay_num):
     print(f'Parsing Metrics')
-    #replaces "entry" in metrics_df
+    #gets rid of the '/Robot/m_robotContainer' in front of the entries in the metrics_df
     metrics_df['entry'] = metrics_df['entry'].str.replace('/Robot/m_robotContainer/','')
 
     # metrics_df[['component', 'metric']] = metrics_df['entry'].str.rsplit('/',n=1, expand=True)
