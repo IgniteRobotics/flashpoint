@@ -52,6 +52,7 @@ def setup_db(db_name):
         project_name TEXT, 
         git_dirty TEXT, 
         event TEXT, 
+        event_year TEXT,
         match_id TEXT, 
         replay_num TEXT, 
         match_type TEXT, 
@@ -61,11 +62,11 @@ def setup_db(db_name):
     
     #creates raw device data table and indices
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
-        event_year REAL, 
+        filename TEXT PRIMARY KEY,
+        event_year TEXT, 
         event TEXT, 
         match_id REAL, 
         replay_num REAL, 
-        filename TEXT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT, 
@@ -222,15 +223,21 @@ def split_dataframe(df, cfg):
     return (meta_df, fms_df, metrics_df, vision_df, preferences_df)
 
 #creates a new metadata frame from log metadata and fms data
+#also gets the year from the build date
 def parse_metadata(meta_df, fms_df, filename):
     print('Parsing Metadata')
     #get metadata
     metadata = {}
+    #event year
+    year = ""
     #iterate and split records because it's logged funky
     for index, row in meta_df.iterrows():
         #split on ': '
         (key, value) = row['value'].split(': ')
         metadata[key] = value
+        if key == 'Build Date':
+            year = value.split("-")[0]
+            
     
     metadata['filename'] = filename
 
@@ -241,6 +248,7 @@ def parse_metadata(meta_df, fms_df, filename):
         key = row['entry'].split('/')[-1]
         if key in fms_items:
             metadata[key] = row['value']
+            print(metadata[key])
 
     
     #dataframe from dict
@@ -261,7 +269,7 @@ def parse_metadata(meta_df, fms_df, filename):
         'IsRedAlliance': 'is_red_alliance',
         'StationNumber': 'station_num'}, inplace=True)
     
-    return meta_df
+    return (meta_df, year)
 
 #essentially find match start
 def calculate_match_start(df):
@@ -384,7 +392,14 @@ if __name__ == "__main__":
     
     #effictively merges the log metadata and fms data into a single clean metadata dataframe
     #still note this metadata dataframe does not contain file metadata
-    meta_df = parse_metadata(meta_df, fms_df, logfile)
+    (meta_df, year) = parse_metadata(meta_df, fms_df, logfile)
+    
+    if year == "":
+        print("Failed to get year from build date")
+    else: 
+        meta_df["event_year"] = year
+        metrics_df["event_year"] = year
+        print("Successfully got year from build date")
     
     #finds match time
     enabled_ts = calculate_match_start(df)
@@ -398,14 +413,14 @@ if __name__ == "__main__":
 
     metrics_df = parse_metrics(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
     
-    preferences_df = fix_datatypes(preferences_df)
-    vision_df = fix_datatypes(vision_df)
+    #preferences_df = fix_datatypes(preferences_df)
+    #vision_df = fix_datatypes(vision_df)
 
     #adds keys from meta_df to dataframes to show obvious connection between dataframes
     add_keys(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
     # add_keys(summary_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    add_keys(preferences_df,logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    add_keys(vision_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
+    #add_keys(preferences_df,logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
+    #add_keys(vision_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
     
     #########################  DB LOADING #########################
     print('loading into DB')
@@ -414,14 +429,14 @@ if __name__ == "__main__":
 
     # write_dataframe(summary_df, 'metrics_summary',conn)
 
-    write_dataframe(metrics_df, 'metrics',conn)
+    #write_dataframe(metrics_df, 'metrics',conn)
 
-    write_dataframe(preferences_df, 'preferences',conn)
+    #write_dataframe(preferences_df, 'preferences',conn)
 
-    write_dataframe(vision_df, 'vision', conn)
+    #write_dataframe(vision_df, 'vision', conn)
 
     #come back and make it true
-    update_file_metadata(conn, filename, hash, 1)
+    update_file_metadata(conn, filename, hash, 0)
 
     close_db(conn)
 
