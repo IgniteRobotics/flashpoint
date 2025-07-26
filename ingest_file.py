@@ -62,7 +62,7 @@ def setup_db(db_name):
     
     #creates raw device data table and indices
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
-        filename TEXT PRIMARY KEY,
+        filename TEXT,
         event_year TEXT, 
         event TEXT, 
         match_id REAL, 
@@ -363,6 +363,7 @@ if __name__ == "__main__":
     
     #reads in home-made dataframe
     map_df = pd.read_csv('map.csv', header=0)
+    metrics_map_df = pd.read_csv('metrics_map.csv', header=0)
 
     #open the db connection:
     conn = setup_db("db/metrics.db")
@@ -409,7 +410,7 @@ if __name__ == "__main__":
     metrics_df = trim_df_by_timestamp(metrics_df, enabled_ts)
 
     #mergs map_df and metrics_df
-    metrics_df = metrics_df.merge(right=map_df, how='left', on='entry')
+    metrics_df = metrics_df.merge(right=metrics_map_df, how='left', on='entry')
 
     metrics_df = parse_metrics(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
     
@@ -426,6 +427,8 @@ if __name__ == "__main__":
     print('loading into DB')
 
     write_dataframe(meta_df, 'log_metadata',conn)
+    
+    write_dataframe(metrics_df, 'device_data_raw', conn)
 
     # write_dataframe(summary_df, 'metrics_summary',conn)
 
@@ -436,7 +439,7 @@ if __name__ == "__main__":
     #write_dataframe(vision_df, 'vision', conn)
 
     #come back and make it true
-    update_file_metadata(conn, filename, hash, 0)
+    update_file_metadata(conn, filename, hash, 1)
 
     close_db(conn)
 
