@@ -4,6 +4,7 @@ import gzip
 from datetime import datetime
 import mmap
 import sys
+import os
 
 def csv_convert(file_name):
      with open(file_name, "r") as f:
@@ -129,6 +130,7 @@ def csv_convert(file_name):
         f_out.writelines(f_in)
         f_out.close()
         f_in.close()
+        os.remove(output_csv)
         print("--Complete--")
 
 #script that actually runs when 

@@ -30,7 +30,7 @@ def setup_db(db_name):
     cursor = connection.cursor()
 
 
-    #creates file metadata table and indices
+    #creates file metadata table
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS file_metadata (
         filename TEXT PRIMARY KEY,
@@ -42,7 +42,7 @@ def setup_db(db_name):
     ''')
     connection.commit()
 
-    #creates log metadata table and indices
+    #creates log metadata table
     cursor.execute('''CREATE TABLE IF NOT EXISTS log_metadata (
         filename TEXT PRIMARY KEY, 
         build_date TEXT, 
@@ -52,7 +52,6 @@ def setup_db(db_name):
         project_name TEXT, 
         git_dirty TEXT, 
         event TEXT, 
-        event_year TEXT,
         match_id TEXT, 
         replay_num TEXT, 
         match_type TEXT, 
@@ -60,7 +59,7 @@ def setup_db(db_name):
         station_num TEXT)''')
     connection.commit()
     
-    #creates raw device data table and indices
+    #creates raw device data table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
         filename TEXT,
         event_year TEXT, 
@@ -80,6 +79,28 @@ def setup_db(db_name):
         boolean_value TEXT, 
         numeric_value REAL)''')
     connection.commit()
+    
+    #creates device telemetry table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
+    event_year TEXT,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    match_time REAL,
+    subsystem TEXT,
+    assembly TEXT,
+    subassembly TEXT,
+    component TEXT,
+    position REAL,
+    velocity REAL,
+    voltage REAL,
+    current REAL,
+    temperature REAL)''')
+    connection.commit()
+    
+    #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_match on device_telemetry (event_year, event, match_id)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_component on device_telemetry (subsystem, assembly, subassembly, component)')
+    #connection.commit()
     
     #cursor.execute('CREATE TABLE IF NOT EXISTS metrics (entry TEXT, data_type TEXT, value TEXT, timestamp REAL, match_time REAL, subsystem TEXT, component TEXT, part TEXT, type TEXT, metric TEXT , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
 
@@ -146,7 +167,7 @@ def is_file_already_imported(connection, filepath):
         print(f"Error checking file hash: {e}")
         return False, None
 
-#fills the metadata table and indices
+#fills the metadata table
 def update_file_metadata(connection, filename, hash, success):
     """Update or insert file metadata"""
     cursor = connection.cursor()
@@ -228,17 +249,12 @@ def parse_metadata(meta_df, fms_df, filename):
     print('Parsing Metadata')
     #get metadata
     metadata = {}
-    #event year
-    year = ""
     #iterate and split records because it's logged funky
     for index, row in meta_df.iterrows():
         #split on ': '
         (key, value) = row['value'].split(': ')
         metadata[key] = value
-        if key == 'Build Date':
-            year = value.split("-")[0]
             
-    
     metadata['filename'] = filename
 
 
@@ -248,7 +264,6 @@ def parse_metadata(meta_df, fms_df, filename):
         key = row['entry'].split('/')[-1]
         if key in fms_items:
             metadata[key] = row['value']
-            print(metadata[key])
 
     
     #dataframe from dict
@@ -269,7 +284,7 @@ def parse_metadata(meta_df, fms_df, filename):
         'IsRedAlliance': 'is_red_alliance',
         'StationNumber': 'station_num'}, inplace=True)
     
-    return (meta_df, year)
+    return (meta_df)
 
 #essentially find match start
 def calculate_match_start(df):
@@ -331,8 +346,8 @@ def parse_metrics(df, logfile, comp_name, match_id, replay_num):
     return df_log_data
 
 
-def add_keys(df, filename, event, match_id, replay_num):
-    df['filename'] = filename
+def add_keys(df, event_year, event, match_id, replay_num):
+    df['event_year'] = event_year
     df['event'] = event
     df['match_id'] = pd.to_numeric(match_id)
     df['replay_num'] = pd.to_numeric(replay_num)
@@ -393,14 +408,7 @@ if __name__ == "__main__":
     
     #effictively merges the log metadata and fms data into a single clean metadata dataframe
     #still note this metadata dataframe does not contain file metadata
-    (meta_df, year) = parse_metadata(meta_df, fms_df, logfile)
-    
-    if year == "":
-        print("Failed to get year from build date")
-    else: 
-        meta_df["event_year"] = year
-        metrics_df["event_year"] = year
-        print("Successfully got year from build date")
+    (meta_df) = parse_metadata(meta_df, fms_df, logfile)
     
     #finds match time
     enabled_ts = calculate_match_start(df)
@@ -417,19 +425,52 @@ if __name__ == "__main__":
     #preferences_df = fix_datatypes(preferences_df)
     #vision_df = fix_datatypes(vision_df)
 
-    #adds keys from meta_df to dataframes to show obvious connection between dataframes
-    add_keys(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    # add_keys(summary_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    #add_keys(preferences_df,logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    #add_keys(vision_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
+    #creates new telemetry dataframe
+    telemetry_df = metrics_df.copy(True)
     
+    #drops irrelevant columns
+    telemetry_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
+    
+    #removes data that is not necessary for this dataframe
+    telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'VOLTAGE') 
+                                    |(telemetry_df['metric'] == 'CURRENT')
+                                    |(telemetry_df['metric'] == 'VELOCITY')
+                                    |(telemetry_df['metric'] == 'POSITION')
+                                    |(telemetry_df['metric'] == 'TEMP')]
+    
+    #makes columns representing the individual "metric" values with numeric values from "numeric_value"
+    telemetry_df = pd.concat([telemetry_df, telemetry_df.pivot(columns = 'metric', values = 'numeric_value')], axis = 1)
+    
+    #drops "metric" and "numeric value" columns
+    telemetry_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    
+    #renames columns
+    telemetry_df.rename(columns={
+        'VOLTAGE':'voltage',
+        'CURRENT':'current',
+        'VELOCITY':'velocity',
+        'POSITION':'position',
+        'TEMP': 'temperature'}, inplace = True)
+    
+    #combines columns so that each row contains all the data for a component at a timestamp rather than each row containing one
+    telemetry_df = telemetry_df.groupby(['match_time','subsystem', 'assembly', 'subassembly', 'component'], dropna = False)[[
+        'voltage', 'current', 'velocity', 'position', 'temperature']].sum().reset_index()
+    
+    #adds additional keys
+    add_keys(metrics_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    metrics_df['filename'] = logfile
+    
+    add_keys(telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+     
     #########################  DB LOADING #########################
     print('loading into DB')
 
-    write_dataframe(meta_df, 'log_metadata',conn)
+    write_dataframe(meta_df, 'log_metadata', conn)
     
     write_dataframe(metrics_df, 'device_data_raw', conn)
-
+    
+    write_dataframe(telemetry_df, 'device_telemetry', conn)
+    
     # write_dataframe(summary_df, 'metrics_summary',conn)
 
     #write_dataframe(metrics_df, 'metrics',conn)
