@@ -98,6 +98,56 @@ def setup_db(db_name):
     temperature REAL)''')
     connection.commit()
     
+    #creates device telemetry table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
+    event_year TEXT,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    match_time REAL,
+    subsystem TEXT,
+    assembly TEXT,
+    subassembly TEXT,
+    component TEXT,
+    position REAL,
+    velocity REAL,
+    voltage REAL,
+    current REAL,
+    temperature REAL)''')
+    connection.commit()
+    
+    #creates device_states table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_stats (
+    event_year REAL,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    subsystem TEXT,
+    assembly TEXT,
+    subassembly TEXT,
+    component TEXT,
+    avg_velocity REAL,
+    min_velocity REAL,
+    max_velocity REAL,
+    stddev_velocity REAL,
+    avg_voltage REAL,  
+    min_voltage REAL,
+    max_voltage REAL,
+    stddev_voltage REAL,
+    avg_current REAL,
+    min_current REAL,
+    max_current REAL,
+    stddev_current REAL,
+    avg_temperature REAL,
+    min_temperature REAL,
+    max_temperature REAL,
+    stddev_temperature REAL,
+    avg_position REAL,
+    min_position REAL,
+    max_position REAL,
+    stddev_position REAL)''')
+    connection.commit()
+    
     #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_match on device_telemetry (event_year, event, match_id)')
     #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_component on device_telemetry (subsystem, assembly, subassembly, component)')
     #connection.commit()
@@ -456,12 +506,44 @@ if __name__ == "__main__":
     telemetry_df = telemetry_df.groupby(['match_time','subsystem', 'assembly', 'subassembly', 'component'], dropna = False)[[
         'voltage', 'current', 'velocity', 'position', 'temperature']].sum().reset_index()
     
+    device_stats_df = telemetry_df.copy(True)
+    device_stats_df.drop(columns = 'match_time', inplace = True)
+    device_stats_df = device_stats_df.groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False).agg(
+        avg_velocity = ('velocity', 'mean'),
+        min_velocity = ('velocity', 'min'),
+        max_velocity = ('velocity', 'max'),
+        stddev_velocity = ('velocity', 'std'),
+        
+        avg_voltage = ('voltage', 'mean'),
+        min_voltage = ('voltage', 'min'),
+        max_voltage = ('voltage', 'max'),
+        stddev_voltage = ('voltage', 'std'),
+        
+        avg_current = ('current', 'mean'),
+        min_current = ('current', 'min'),
+        max_current = ('current', 'max'),
+        stddev_current = ('current', 'std'),
+        
+        avg_temperature = ('temperature', 'mean'),
+        min_temperature = ('temperature', 'min'),
+        max_temperature = ('temperature', 'max'),
+        stddev_temperature = ('temperature', 'std'),
+        
+        avg_position = ('position', 'mean'),
+        min_position = ('position', 'min'),
+        max_position = ('position', 'max'),
+        stddev_position = ('position', 'std')).reset_index()
+    
     #adds additional keys
     add_keys(metrics_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     metrics_df['filename'] = logfile
     
     add_keys(telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
+    add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
      
+    #add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     #########################  DB LOADING #########################
     print('loading into DB')
 
@@ -470,6 +552,10 @@ if __name__ == "__main__":
     write_dataframe(metrics_df, 'device_data_raw', conn)
     
     write_dataframe(telemetry_df, 'device_telemetry', conn)
+    
+    write_dataframe(device_stats_df, 'device_stats', conn)
+    
+    #write_dataframe(device_stats_df, 'device_stats', conn)
     
     # write_dataframe(summary_df, 'metrics_summary',conn)
 
