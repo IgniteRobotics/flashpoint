@@ -75,7 +75,7 @@ def setup_db(db_name):
         assembly TEXT, 
         subassembly TEXT, 
         component TEXT, 
-        metric TEXT , 
+        metric TEXT, 
         boolean_value TEXT, 
         numeric_value REAL)''')
     connection.commit()
@@ -98,25 +98,7 @@ def setup_db(db_name):
     temperature REAL)''')
     connection.commit()
     
-    #creates device telemetry table
-    cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
-    event_year TEXT,
-    event TEXT,
-    match_id REAL,
-    replay_num REAL,
-    match_time REAL,
-    subsystem TEXT,
-    assembly TEXT,
-    subassembly TEXT,
-    component TEXT,
-    position REAL,
-    velocity REAL,
-    voltage REAL,
-    current REAL,
-    temperature REAL)''')
-    connection.commit()
-    
-    #creates device_states table
+    #creates device_stats table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_stats (
     event_year REAL,
     event TEXT,
@@ -146,6 +128,53 @@ def setup_db(db_name):
     min_position REAL,
     max_position REAL,
     stddev_position REAL)''')
+    connection.commit()
+    
+    #creates vision_data_raw table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS vision_data_raw (
+        filename TEXT,
+        event_year TEXT, 
+        event TEXT, 
+        match_id REAL, 
+        replay_num REAL, 
+        entry TEXT, 
+        data_type TEXT, 
+        value TEXT, 
+        timestamp REAL, 
+        match_time REAL, 
+        camera TEXT,
+        metric TEXT , 
+        boolean_value TEXT, 
+        numeric_value REAL)''')
+    connection.commit()
+    
+    #creates vision telemetry table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS vision_telemetry (
+    event_year TEXT,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    match_time REAL,
+    camera TEXT,
+    latency REAL,
+    heartbeat REAL)''')
+    connection.commit()
+    
+    #creates vision stats table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS vision_stats (
+    event_year TEXT,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    camera TEXT,
+    avg_latency REAL,
+    min_latency REAL,
+    max_latency REAL,
+    stddev_latency REAL,
+    avg_heartbeat REAL,
+    min_heartbeat REAL,
+    max_heartbeat REAL,
+    stddev_heartbeat REAL)''')
     connection.commit()
     
     #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_match on device_telemetry (event_year, event, match_id)')
@@ -373,36 +402,114 @@ def fix_datatypes(df):
 
     return df_log_data
 
-    
-def parse_metrics(df, logfile, comp_name, match_id, replay_num):
-    print(f'Parsing Metrics')
-    #gets rid of the '/Robot/m_robotContainer' in front of the entries in the metrics_df
-    metrics_df['entry'] = metrics_df['entry'].str.replace('/Robot/m_robotContainer/','')
-
-    # metrics_df[['component', 'metric']] = metrics_df['entry'].str.rsplit('/',n=1, expand=True)
-  
-    #fix datatypes
-    df_log_data = fix_datatypes(metrics_df)
-
-    
-    # #calculate metrics stats (min, max, median)
-    # match_metrics = df_numerical_log_data.groupby(['component', 'metric']).agg(
-    #     minimum=pd.NamedAgg(column='numeric_value', aggfunc='min'),
-    #     maximun=pd.NamedAgg(column='numeric_value', aggfunc='max'),
-    #     average=pd.NamedAgg(column='numeric_value', aggfunc=np.mean)
-    # ).reset_index()
-
-
-    return df_log_data
-
-
 def add_keys(df, event_year, event, match_id, replay_num):
     df['event_year'] = event_year
     df['event'] = event
     df['match_id'] = pd.to_numeric(match_id)
     df['replay_num'] = pd.to_numeric(replay_num)
 
+def read_device_data_raw(df):
+     #creates new telemetry dataframe
+    telemetry_df = metrics_df.copy(True)
+    
+    #drops irrelevant columns
+    telemetry_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
+    
+    #removes data that is not necessary for this dataframe
+    telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'VOLTAGE') 
+                                    |(telemetry_df['metric'] == 'CURRENT')
+                                    |(telemetry_df['metric'] == 'VELOCITY')
+                                    |(telemetry_df['metric'] == 'POSITION')
+                                    |(telemetry_df['metric'] == 'TEMP')]
+    
+    #makes columns representing the individual "metric" values with numeric values from "numeric_value"
+    telemetry_df = pd.concat([telemetry_df, telemetry_df.pivot(columns = 'metric', values = 'numeric_value')], axis = 1)
+    
+    #drops "metric" and "numeric value" columns
+    telemetry_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    
+    #renames columns
+    telemetry_df.rename(columns={
+        'VOLTAGE':'voltage',
+        'CURRENT':'current',
+        'VELOCITY':'velocity',
+        'POSITION':'position',
+        'TEMP': 'temperature'}, inplace = True)
+    
+    #combines columns so that each row contains all the data for a component at a timestamp rather than each row containing one
+    telemetry_df = telemetry_df.groupby(['match_time','subsystem', 'assembly', 'subassembly', 'component'], dropna = False)[[
+        'voltage', 'current', 'velocity', 'position', 'temperature']].sum().reset_index()
+    
+    stats_df = telemetry_df.copy(True)
+    stats_df.drop(columns = 'match_time', inplace = True)
+    stats_df = stats_df.groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False).agg(
+        avg_velocity = ('velocity', 'mean'),
+        min_velocity = ('velocity', 'min'),
+        max_velocity = ('velocity', 'max'),
+        stddev_velocity = ('velocity', 'std'),
+        
+        avg_voltage = ('voltage', 'mean'),
+        min_voltage = ('voltage', 'min'),
+        max_voltage = ('voltage', 'max'),
+        stddev_voltage = ('voltage', 'std'),
+        
+        avg_current = ('current', 'mean'),
+        min_current = ('current', 'min'),
+        max_current = ('current', 'max'),
+        stddev_current = ('current', 'std'),
+        
+        avg_temperature = ('temperature', 'mean'),
+        min_temperature = ('temperature', 'min'),
+        max_temperature = ('temperature', 'max'),
+        stddev_temperature = ('temperature', 'std'),
+        
+        avg_position = ('position', 'mean'),
+        min_position = ('position', 'min'),
+        max_position = ('position', 'max'),
+        stddev_position = ('position', 'std')).reset_index()
+    
+    return(telemetry_df, stats_df)
 
+def read_vision_data_raw (df):
+    #creates a deep copy of the raw dataframe
+    telemetry_df = df.copy(True)
+    
+    #drops unnecessary columns
+    telemetry_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
+    
+    #removes data that is not necessary for this dataframe
+    telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'LATENCY') 
+                                    |(telemetry_df['metric'] == 'HEARTBEAT')]
+    
+    #makes columns representing the individual "metric" values with numeric values from "numeric_value"
+    telemetry_df = pd.concat([telemetry_df, telemetry_df.pivot(columns = 'metric', values = 'numeric_value')], axis = 1)
+    
+    #drops "metric" and "numeric value" columns
+    telemetry_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    
+    #renames columns
+    telemetry_df.rename(columns={
+        'LATENCY':'latency',
+        'HEARTBEAT':'heartbeat'}, inplace = True)
+    
+    #combines columns so that each row contains all the data for a component at a timestamp rather than each row containing one
+    telemetry_df = telemetry_df.groupby(['match_time', 'camera'], dropna = False)[[
+        'heartbeat', 'latency']].sum().reset_index()
+    
+    stats_df = telemetry_df.copy(True)
+    stats_df.drop(columns = 'match_time', inplace = True)
+    stats_df = stats_df.groupby(['camera'], dropna = False).agg(
+        avg_latency = ('latency', 'mean'),
+        min_latency = ('latency', 'min'),
+        max_latency = ('latency', 'max'),
+        stddev_latency = ('latency', 'std'),
+        
+        avg_heartbeat = ('heartbeat', 'mean'),
+        min_heartbeat = ('heartbeat', 'min'),
+        max_heartbeat = ('heartbeat', 'max'),
+        stddev_heartbeat = ('heartbeat', 'std')).reset_index()
+    
+    return(telemetry_df, stats_df)
 
 if __name__ == "__main__":
 
@@ -429,10 +536,10 @@ if __name__ == "__main__":
     #reads in home-made dataframe
     map_df = pd.read_csv('map.csv', header=0)
     metrics_map_df = pd.read_csv('metrics_map.csv', header=0)
+    vision_map_df = pd.read_csv('vision_map.csv', header=0)
 
     #open the db connection:
-    conn = setup_db("db/metrics.db")
-
+    conn = setup_db("db/robot.db")
 
     #start the import by checking if the file has already been imported.
     (is_duplicate, existing_filename) = is_file_already_imported(conn, filepath)
@@ -466,83 +573,40 @@ if __name__ == "__main__":
     #trims metrics dataframe to after the match starts
     #also adds match time to data_frame
     metrics_df = trim_df_by_timestamp(metrics_df, enabled_ts)
+    
+    vision_df = trim_df_by_timestamp(vision_df, enabled_ts)
 
-    #mergs map_df and metrics_df
+    #merges dataframes with maps
     metrics_df = metrics_df.merge(right=metrics_map_df, how='left', on='entry')
+    vision_df = vision_df.merge(right=vision_map_df, how ='left', on='entry')
 
-    metrics_df = parse_metrics(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
+    print(f'Parsing')
+    metrics_df['entry'] = metrics_df['entry'].str.replace('/Robot/m_robotContainer/','')
+    metrics_df = fix_datatypes(metrics_df)
     
-    #preferences_df = fix_datatypes(preferences_df)
-    #vision_df = fix_datatypes(vision_df)
-
-    #creates new telemetry dataframe
-    telemetry_df = metrics_df.copy(True)
+    vision_df['entry'] = vision_df['entry'].str.replace('/photonvision/', '')
+    vision_df = fix_datatypes(vision_df)
     
-    #drops irrelevant columns
-    telemetry_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
-    
-    #removes data that is not necessary for this dataframe
-    telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'VOLTAGE') 
-                                    |(telemetry_df['metric'] == 'CURRENT')
-                                    |(telemetry_df['metric'] == 'VELOCITY')
-                                    |(telemetry_df['metric'] == 'POSITION')
-                                    |(telemetry_df['metric'] == 'TEMP')]
-    
-    #makes columns representing the individual "metric" values with numeric values from "numeric_value"
-    telemetry_df = pd.concat([telemetry_df, telemetry_df.pivot(columns = 'metric', values = 'numeric_value')], axis = 1)
-    
-    #drops "metric" and "numeric value" columns
-    telemetry_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
-    
-    #renames columns
-    telemetry_df.rename(columns={
-        'VOLTAGE':'voltage',
-        'CURRENT':'current',
-        'VELOCITY':'velocity',
-        'POSITION':'position',
-        'TEMP': 'temperature'}, inplace = True)
-    
-    #combines columns so that each row contains all the data for a component at a timestamp rather than each row containing one
-    telemetry_df = telemetry_df.groupby(['match_time','subsystem', 'assembly', 'subassembly', 'component'], dropna = False)[[
-        'voltage', 'current', 'velocity', 'position', 'temperature']].sum().reset_index()
-    
-    device_stats_df = telemetry_df.copy(True)
-    device_stats_df.drop(columns = 'match_time', inplace = True)
-    device_stats_df = device_stats_df.groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False).agg(
-        avg_velocity = ('velocity', 'mean'),
-        min_velocity = ('velocity', 'min'),
-        max_velocity = ('velocity', 'max'),
-        stddev_velocity = ('velocity', 'std'),
-        
-        avg_voltage = ('voltage', 'mean'),
-        min_voltage = ('voltage', 'min'),
-        max_voltage = ('voltage', 'max'),
-        stddev_voltage = ('voltage', 'std'),
-        
-        avg_current = ('current', 'mean'),
-        min_current = ('current', 'min'),
-        max_current = ('current', 'max'),
-        stddev_current = ('current', 'std'),
-        
-        avg_temperature = ('temperature', 'mean'),
-        min_temperature = ('temperature', 'min'),
-        max_temperature = ('temperature', 'max'),
-        stddev_temperature = ('temperature', 'std'),
-        
-        avg_position = ('position', 'mean'),
-        min_position = ('position', 'min'),
-        max_position = ('position', 'max'),
-        stddev_position = ('position', 'std')).reset_index()
+    #creates parsed dataframes
+    (device_telemetry_df, device_stats_df) = read_device_data_raw(metrics_df)
+    (vision_telemetry_df, vision_stats_df) = read_vision_data_raw(vision_df)
     
     #adds additional keys
     add_keys(metrics_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     metrics_df['filename'] = logfile
     
-    add_keys(telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(device_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     
     add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     
-     
+    add_keys(vision_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    vision_df['filename'] = logfile
+    
+    add_keys(vision_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
+    add_keys(vision_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
+    
     #add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     #########################  DB LOADING #########################
     print('loading into DB')
@@ -551,9 +615,15 @@ if __name__ == "__main__":
     
     write_dataframe(metrics_df, 'device_data_raw', conn)
     
-    write_dataframe(telemetry_df, 'device_telemetry', conn)
+    write_dataframe(device_telemetry_df, 'device_telemetry', conn)
     
     write_dataframe(device_stats_df, 'device_stats', conn)
+    
+    write_dataframe(vision_df, 'vision_data_raw', conn)
+    
+    write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
+    
+    write_dataframe(vision_stats_df, 'vision_stats', conn)
     
     #write_dataframe(device_stats_df, 'device_stats', conn)
     
