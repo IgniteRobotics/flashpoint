@@ -157,7 +157,7 @@ def setup_db(db_name):
     match_time REAL,
     camera TEXT,
     latency REAL,
-    heartbeat REAL)''')
+    hasTarget TEXT)''')
     connection.commit()
     
     #creates vision stats table
@@ -170,11 +170,7 @@ def setup_db(db_name):
     avg_latency REAL,
     min_latency REAL,
     max_latency REAL,
-    stddev_latency REAL,
-    avg_heartbeat REAL,
-    min_heartbeat REAL,
-    max_heartbeat REAL,
-    stddev_heartbeat REAL)''')
+    stddev_latency REAL)''')
     connection.commit()
     
     #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_match on device_telemetry (event_year, event, match_id)')
@@ -366,21 +362,30 @@ def parse_metadata(meta_df, fms_df, filename):
     return (meta_df)
 
 #essentially find match start
-def calculate_match_start(df):
+def calculate_match_period(df):
     print('Finding Match Start')
     # filter dataframe to after the match starts to get rid of unneeded data
     #everything is a string right now.  kinda dumb.
     enabled_df = df.loc[(df['entry'] == 'DS:enabled') & (df['value'] == "True")]
-    enable_ts = enabled_df['timestamp'].min()
+    enable_ts = enabled_df['timestamp'].astype('int64').min()
     print(f'enabled at: {enable_ts}')
-    return enable_ts
+    
+    terminated_ts = -1
+    try:
+        terminated_df = df.loc[(df['entry'] == 'DS:enabled') & (df['value'] == "False") & (df['timestamp'] > enable_ts)]
+        terminated_ts = terminated_df['timestamp'].astype('int64').min()
+        print(f'disabled at: {terminated_ts}')
+    except KeyError as e:
+        print('Failed to find termination timestamp')
+    
+    return (enable_ts, terminated_ts)
 
     
 
 def trim_df_by_timestamp(df, ts):
     print('dropping rows before start')
     # drop rows before the enable timestamp
-    df = df[df['timestamp'] > ts]
+    df = df[df['timestamp'].astype('int64') > ts]
 
     #now calcuate match_time.
     print('adding match time')
@@ -388,11 +393,18 @@ def trim_df_by_timestamp(df, ts):
 
     return df
 
+def trim_tail(df, ts):
+    print('dropping rows after end')
+    #drop rows after disabled timestamp
+    df = df[df['timestamp'].astype('int64') < ts]
+    
+    return df
+    
 #fix datatypes
 #things have been a string up until now
 def fix_datatypes(df):
     df_boolean_log_data = df[df['data_type'] == 'boolean']
-    df_boolean_log_data['boolean_value'] = df_boolean_log_data['value'].astype(bool)
+    df_boolean_log_data['boolean_value'] = df_boolean_log_data['value']
     df_numerical_log_data = df[(df['data_type'] == 'int64') | (df['data_type'] == 'double') | (df['data_type'] == 'float')]
     df_numerical_log_data['numeric_value'] = pd.to_numeric(df_numerical_log_data['value'])
     df_other_log_data = df[(df['data_type'] != 'boolean') & (df['data_type'] != 'int64') & (df['data_type'] != 'double') & (df['data_type'] != 'float')]
@@ -443,10 +455,10 @@ def read_device_data_raw(df):
     stats_df = telemetry_df.copy(True)
     stats_df.drop(columns = 'match_time', inplace = True)
     stats_df = stats_df.groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False).agg(
-        avg_velocity = ('velocity', 'mean'),
+        avg_velocity = ('velocity', lambda x : x.abs().mean()),
         min_velocity = ('velocity', 'min'),
         max_velocity = ('velocity', 'max'),
-        stddev_velocity = ('velocity', 'std'),
+        stddev_velocity = ('velocity', lambda x: x.abs().std()),
         
         avg_voltage = ('voltage', 'mean'),
         min_voltage = ('voltage', 'min'),
@@ -475,39 +487,35 @@ def read_vision_data_raw (df):
     telemetry_df = df.copy(True)
     
     #drops unnecessary columns
-    telemetry_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
+    telemetry_df.drop(columns = ['entry', 'value', 'timestamp', 'data_type'], inplace = True)
     
     #removes data that is not necessary for this dataframe
-    telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'LATENCY') 
-                                    |(telemetry_df['metric'] == 'HEARTBEAT')]
+    #also splits up data temporarily as needed
+    latency_df = telemetry_df.loc[(telemetry_df['metric'] == 'LATENCY')]
+    target_df = telemetry_df.loc[(telemetry_df['metric'] == 'HAS_TARGET')]
     
-    #makes columns representing the individual "metric" values with numeric values from "numeric_value"
-    telemetry_df = pd.concat([telemetry_df, telemetry_df.pivot(columns = 'metric', values = 'numeric_value')], axis = 1)
+    #drops no longer needed columns
+    latency_df.drop(columns = ['metric', 'boolean_value'], inplace = True)
+    target_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
     
-    #drops "metric" and "numeric value" columns
-    telemetry_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    #renames columns appropriately
+    latency_df.rename(columns = {
+        'numeric_value' : 'latency'
+    }, inplace = True)
+    target_df.rename(columns = {
+        'boolean_value' : 'hasTarget'
+    }, inplace = True)
     
-    #renames columns
-    telemetry_df.rename(columns={
-        'LATENCY':'latency',
-        'HEARTBEAT':'heartbeat'}, inplace = True)
-    
-    #combines columns so that each row contains all the data for a component at a timestamp rather than each row containing one
-    telemetry_df = telemetry_df.groupby(['match_time', 'camera'], dropna = False)[[
-        'heartbeat', 'latency']].sum().reset_index()
+    #creates new completed telemetry dataframe
+    telemetry_df = pd.merge(latency_df, target_df, on = ['match_time', 'camera'], how = 'outer')
     
     stats_df = telemetry_df.copy(True)
-    stats_df.drop(columns = 'match_time', inplace = True)
+    stats_df.drop(columns = ['match_time', 'hasTarget'], inplace = True)
     stats_df = stats_df.groupby(['camera'], dropna = False).agg(
         avg_latency = ('latency', 'mean'),
         min_latency = ('latency', 'min'),
         max_latency = ('latency', 'max'),
-        stddev_latency = ('latency', 'std'),
-        
-        avg_heartbeat = ('heartbeat', 'mean'),
-        min_heartbeat = ('heartbeat', 'min'),
-        max_heartbeat = ('heartbeat', 'max'),
-        stddev_heartbeat = ('heartbeat', 'std')).reset_index()
+        stddev_latency = ('latency', 'std')).reset_index()
     
     return(telemetry_df, stats_df)
 
@@ -553,7 +561,7 @@ if __name__ == "__main__":
     #create entry, but mark it as False
     update_file_metadata(conn, filename, hash, 0)
 
-    #read the input
+    #reads the input
     #also creates another variable for the filename for some reason?
     (logfile, df) = read_logfile(filepath)
 
@@ -568,13 +576,16 @@ if __name__ == "__main__":
     (meta_df) = parse_metadata(meta_df, fms_df, logfile)
     
     #finds match time
-    enabled_ts = calculate_match_start(df)
+    (enabled_ts, disabled_ts) = calculate_match_period(df)
 
     #trims metrics dataframe to after the match starts
     #also adds match time to data_frame
     metrics_df = trim_df_by_timestamp(metrics_df, enabled_ts)
-    
     vision_df = trim_df_by_timestamp(vision_df, enabled_ts)
+    
+    if(disabled_ts != -1):
+        metrics_df = trim_tail(metrics_df, disabled_ts)
+        vision_df = trim_tail(vision_df, disabled_ts)
 
     #merges dataframes with maps
     metrics_df = metrics_df.merge(right=metrics_map_df, how='left', on='entry')

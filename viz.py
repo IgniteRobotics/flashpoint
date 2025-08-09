@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 from sqlite3 import connect 
 title = 'Firematics Robot Telemetry'
-conn = connect("db/metrics.db")
+conn = connect("db/robot.db")
 
 # Adjust the width of the Streamlit page
 st.set_page_config(
@@ -18,7 +18,7 @@ st.title(title)
 @st.cache_resource
 def get_pyg_renderer() -> "StreamlitRenderer":
     # df = pd.read_csv("out.csv", header=None, skipinitialspace = True, quotechar = '|', names=['NTName', 'type','value','ts'])
-    df = pd.read_sql_query("SELECT * FROM metrics", conn)
+    df = pd.read_sql_query("SELECT * FROM device_stats", conn)
     # If you want to use feature of saving chart config, set `spec_io_mode="rw"`
     return StreamlitRenderer(df, spec="./gw_config.json", spec_io_mode="rw")
 renderer = get_pyg_renderer()
