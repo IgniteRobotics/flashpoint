@@ -173,6 +173,19 @@ def setup_db(db_name):
     stddev_latency REAL)''')
     connection.commit()
     
+    #creates raw device data table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS preferences (
+        event_year TEXT, 
+        event TEXT, 
+        match_id REAL, 
+        replay_num REAL, 
+        entry TEXT, 
+        data_type TEXT, 
+        value TEXT)''')
+    connection.commit()
+    
+    
+    
     #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_match on device_telemetry (event_year, event, match_id)')
     #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_component on device_telemetry (subsystem, assembly, subassembly, component)')
     #connection.commit()
@@ -526,7 +539,7 @@ if __name__ == "__main__":
     
     #checks that the "system arguments" array's length is two
     #note that argv[0] is always the script name
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3:
         print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
         sys.exit(1)
 
@@ -547,7 +560,8 @@ if __name__ == "__main__":
     vision_map_df = pd.read_csv('vision_map.csv', header=0)
 
     #open the db connection:
-    conn = setup_db("db/robot.db")
+    #"db/robot.db"
+    conn = setup_db(sys.argv[2])
 
     #start the import by checking if the file has already been imported.
     (is_duplicate, existing_filename) = is_file_already_imported(conn, filepath)
@@ -617,6 +631,8 @@ if __name__ == "__main__":
     
     add_keys(vision_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     
+    add_keys(preferences_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    preferences_df.drop(columns = 'timestamp', inplace = True)
     
     #add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     #########################  DB LOADING #########################
@@ -635,6 +651,8 @@ if __name__ == "__main__":
     write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
     
     write_dataframe(vision_stats_df, 'vision_stats', conn)
+    
+    write_dataframe(preferences_df, 'preferences', conn)
     
     #write_dataframe(device_stats_df, 'device_stats', conn)
     
