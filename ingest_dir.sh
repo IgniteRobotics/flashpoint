@@ -1,4 +1,4 @@
 for file in data/*.wpilog
 do
-  python ingest_file.py "$file"
+  python ingest_file.py "$file" db/robot.db
 done

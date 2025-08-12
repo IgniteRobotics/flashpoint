@@ -8,8 +8,8 @@ import numpy as np
 import hashlib
 from datetime import datetime
 
-
-
+#calculates file hash from a file path 
+#so that the database has a means of connection to the log file
 def calculate_file_hash(filepath):
     """Calculate SHA-256 hash of a file"""
     sha256_hash = hashlib.sha256()
@@ -18,12 +18,19 @@ def calculate_file_hash(filepath):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+#sets up database
+#this creates the table and indexes
+#however, it does not yet fill them with actual values
 def setup_db(db_name):
-
+    
+    #creates a "connection"
     connection = connect(db_name)
-
+    
+    #creates a mean of running scripts on that connnection
     cursor = connection.cursor()
 
+
+    #creates file metadata table
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS file_metadata (
         filename TEXT PRIMARY KEY,
@@ -35,19 +42,164 @@ def setup_db(db_name):
     ''')
     connection.commit()
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS log_metadata (filename TEXT PRIMARY KEY, build_date TEXT, commit_hash TEXT, git_date TEXT, git_branch TEXT, project_name TEXT, git_dirty TEXT, event TEXT, match_id TEXT, replay_num TEXT, match_type TEXT, is_red_alliance TEXT, station_num TEXT)')
+    #creates log metadata table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS log_metadata (
+        filename TEXT PRIMARY KEY, 
+        build_date TEXT, 
+        commit_hash TEXT, 
+        git_date TEXT, 
+        git_branch TEXT, 
+        project_name TEXT, 
+        git_dirty TEXT, 
+        event TEXT, 
+        match_id TEXT, 
+        replay_num TEXT, 
+        match_type TEXT, 
+        is_red_alliance TEXT, 
+        station_num TEXT)''')
     connection.commit()
-
-    cursor.execute('CREATE TABLE IF NOT EXISTS metrics (entry TEXT, data_type TEXT, value TEXT, timestamp REAL, match_time REAL, subsystem TEXT, component TEXT, part TEXT, type TEXT, metric TEXT , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
-
-
-
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event on metrics (event)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_filename on metrics (filename)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event_match on metrics (event, match_id)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component, metric)')
+    
+    #creates raw device data table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
+        filename TEXT,
+        event_year TEXT, 
+        event TEXT, 
+        match_id REAL, 
+        replay_num REAL, 
+        entry TEXT, 
+        data_type TEXT, 
+        value TEXT, 
+        timestamp REAL, 
+        match_time REAL, 
+        subsystem TEXT,
+        assembly TEXT, 
+        subassembly TEXT, 
+        component TEXT, 
+        metric TEXT, 
+        boolean_value TEXT, 
+        numeric_value REAL)''')
     connection.commit()
+    
+    #creates device telemetry table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
+    event_year TEXT,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    match_time REAL,
+    subsystem TEXT,
+    assembly TEXT,
+    subassembly TEXT,
+    component TEXT,
+    position REAL,
+    velocity REAL,
+    voltage REAL,
+    current REAL,
+    temperature REAL)''')
+    connection.commit()
+    
+    #creates device_stats table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_stats (
+    event_year REAL,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    subsystem TEXT,
+    assembly TEXT,
+    subassembly TEXT,
+    component TEXT,
+    avg_velocity REAL,
+    min_velocity REAL,
+    max_velocity REAL,
+    stddev_velocity REAL,
+    avg_voltage REAL,  
+    min_voltage REAL,
+    max_voltage REAL,
+    stddev_voltage REAL,
+    avg_current REAL,
+    min_current REAL,
+    max_current REAL,
+    stddev_current REAL,
+    avg_temperature REAL,
+    min_temperature REAL,
+    max_temperature REAL,
+    stddev_temperature REAL,
+    avg_position REAL,
+    min_position REAL,
+    max_position REAL,
+    stddev_position REAL)''')
+    connection.commit()
+    
+    #creates vision_data_raw table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS vision_data_raw (
+        filename TEXT,
+        event_year TEXT, 
+        event TEXT, 
+        match_id REAL, 
+        replay_num REAL, 
+        entry TEXT, 
+        data_type TEXT, 
+        value TEXT, 
+        timestamp REAL, 
+        match_time REAL, 
+        camera TEXT,
+        metric TEXT , 
+        boolean_value TEXT, 
+        numeric_value REAL)''')
+    connection.commit()
+    
+    #creates vision telemetry table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS vision_telemetry (
+    event_year TEXT,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    match_time REAL,
+    camera TEXT,
+    latency REAL,
+    hasTarget TEXT)''')
+    connection.commit()
+    
+    #creates vision stats table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS vision_stats (
+    event_year TEXT,
+    event TEXT,
+    match_id REAL,
+    replay_num REAL,
+    camera TEXT,
+    avg_latency REAL,
+    min_latency REAL,
+    max_latency REAL,
+    stddev_latency REAL)''')
+    connection.commit()
+    
+    #creates raw device data table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS preferences (
+        event_year TEXT, 
+        event TEXT, 
+        match_id REAL, 
+        replay_num REAL, 
+        entry TEXT, 
+        data_type TEXT, 
+        value TEXT)''')
+    connection.commit()
+    
+    
+    
+    #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_match on device_telemetry (event_year, event, match_id)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS telemetry_idx_component on device_telemetry (subsystem, assembly, subassembly, component)')
+    #connection.commit()
+    
+    #cursor.execute('CREATE TABLE IF NOT EXISTS metrics (entry TEXT, data_type TEXT, value TEXT, timestamp REAL, match_time REAL, subsystem TEXT, component TEXT, part TEXT, type TEXT, metric TEXT , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
+
+
+
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event on metrics (event)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_filename on metrics (filename)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_event_match on metrics (event, match_id)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS metrics_idx_component on metrics (component, metric)')
+    #connection.commit()
 
     # cursor.execute('CREATE TABLE IF NOT EXISTS metrics_summary (component TEXT, metric TEXT ,minimum REAL ,maximun REAL ,average REAL ,filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
 
@@ -57,17 +209,16 @@ def setup_db(db_name):
     # cursor.execute('CREATE INDEX IF NOT EXISTS metrics_summary_idx_component on metrics_summary (component)')
     # cursor.execute('CREATE INDEX IF NOT EXISTS metrics_summary_idx_component_metric on metrics_summary (component, metric)')
     # connection.commit()
+    
+    #cursor.execute('CREATE TABLE IF NOT EXISTS preferences ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS preference_idx_filename on preferences (filename)')
+    #connection.commit()
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS preferences ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS preference_idx_filename on preferences (filename)')
-    connection.commit()
-
-    cursor.execute('CREATE TABLE IF NOT EXISTS vision ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS vision_idx_filename on vision (filename)')
-    connection.commit()
+    #cursor.execute('CREATE TABLE IF NOT EXISTS vision ( entry TEXT, data_type TEXT , value TEXT, timestamp REAL , boolean_value TEXT, numeric_value REAL, filename TEXT, event TEXT, match_id REAL, replay_num REAL)')
+    #cursor.execute('CREATE INDEX IF NOT EXISTS vision_idx_filename on vision (filename)')
+    #connection.commit()
 
     return connection
-
 
 def is_file_already_imported(connection, filepath):
     """
@@ -104,7 +255,7 @@ def is_file_already_imported(connection, filepath):
         print(f"Error checking file hash: {e}")
         return False, None
 
-
+#fills the metadata table
 def update_file_metadata(connection, filename, hash, success):
     """Update or insert file metadata"""
     cursor = connection.cursor()
@@ -123,7 +274,7 @@ def update_file_metadata(connection, filename, hash, success):
         print(f"Error updating metadata for {filename}: {e}")
         connection.rollback()
 
-
+#clears data base for new imports
 def flush_tables(connection, filename):
     cursor = connection.cursor()
 
@@ -138,8 +289,7 @@ def flush_tables(connection, filename):
 
         connection.commit()
 
-
-
+#writes data frame to table via connection
 def write_dataframe(df, tablename, connection, filename = None):
 
     df.to_sql(tablename, connection, if_exists='append', index=False)
@@ -147,11 +297,13 @@ def write_dataframe(df, tablename, connection, filename = None):
 
     if filename is not None:
         df.to_csv(filename, index=False)
-
+        
+# safely closes connection
 def close_db(connection):
     connection.commit()
     connection.close()
 
+#converts logfile into a .csv file and reads a dataframe from it
 def read_logfile(filename):
     print(f'Converting {filename}')
     #convert wpilog to a csv file
@@ -168,6 +320,8 @@ def read_logfile(filename):
 
     return (log_filename, df)
 
+#splits output dataframe from log file into dataframes to be utilized individually
+#utlizies prefixes from homemade config
 def split_dataframe(df, cfg):
     meta_df = df.loc[df['entry'].str.startswith(cfg['metadata_prefix'])]
     fms_df = df.loc[df['entry'].str.startswith(cfg['fms_prefix'])]
@@ -177,7 +331,8 @@ def split_dataframe(df, cfg):
 
     return (meta_df, fms_df, metrics_df, vision_df, preferences_df)
 
-
+#creates a new metadata frame from log metadata and fms data
+#also gets the year from the build date
 def parse_metadata(meta_df, fms_df, filename):
     print('Parsing Metadata')
     #get metadata
@@ -187,7 +342,7 @@ def parse_metadata(meta_df, fms_df, filename):
         #split on ': '
         (key, value) = row['value'].split(': ')
         metadata[key] = value
-    
+            
     metadata['filename'] = filename
 
 
@@ -217,23 +372,33 @@ def parse_metadata(meta_df, fms_df, filename):
         'IsRedAlliance': 'is_red_alliance',
         'StationNumber': 'station_num'}, inplace=True)
     
-    return meta_df
+    return (meta_df)
 
-def calculate_match_start(df):
+#essentially find match start
+def calculate_match_period(df):
     print('Finding Match Start')
     # filter dataframe to after the match starts to get rid of unneeded data
     #everything is a string right now.  kinda dumb.
     enabled_df = df.loc[(df['entry'] == 'DS:enabled') & (df['value'] == "True")]
-    enable_ts = enabled_df['timestamp'].min()
+    enable_ts = enabled_df['timestamp'].astype('int64').min()
     print(f'enabled at: {enable_ts}')
-    return enable_ts
+    
+    terminated_ts = -1
+    try:
+        terminated_df = df.loc[(df['entry'] == 'DS:enabled') & (df['value'] == "False") & (df['timestamp'] > enable_ts)]
+        terminated_ts = terminated_df['timestamp'].astype('int64').min()
+        print(f'disabled at: {terminated_ts}')
+    except KeyError as e:
+        print('Failed to find termination timestamp')
+    
+    return (enable_ts, terminated_ts)
 
     
 
 def trim_df_by_timestamp(df, ts):
     print('dropping rows before start')
     # drop rows before the enable timestamp
-    df = df[df['timestamp'] > ts]
+    df = df[df['timestamp'].astype('int64') > ts]
 
     #now calcuate match_time.
     print('adding match time')
@@ -241,10 +406,18 @@ def trim_df_by_timestamp(df, ts):
 
     return df
 
+def trim_tail(df, ts):
+    print('dropping rows after end')
+    #drop rows after disabled timestamp
+    df = df[df['timestamp'].astype('int64') < ts]
+    
+    return df
+    
 #fix datatypes
+#things have been a string up until now
 def fix_datatypes(df):
     df_boolean_log_data = df[df['data_type'] == 'boolean']
-    df_boolean_log_data['boolean_value'] = df_boolean_log_data['value'].astype(bool)
+    df_boolean_log_data['boolean_value'] = df_boolean_log_data['value']
     df_numerical_log_data = df[(df['data_type'] == 'int64') | (df['data_type'] == 'double') | (df['data_type'] == 'float')]
     df_numerical_log_data['numeric_value'] = pd.to_numeric(df_numerical_log_data['value'])
     df_other_log_data = df[(df['data_type'] != 'boolean') & (df['data_type'] != 'int64') & (df['data_type'] != 'double') & (df['data_type'] != 'float')]
@@ -254,43 +427,123 @@ def fix_datatypes(df):
 
     return df_log_data
 
-    
-def parse_metrics(df, logfile, comp_name, match_id, replay_num):
-    print(f'Parsing Metrics')
-    metrics_df['entry'] = metrics_df['entry'].str.replace('/Robot/m_robotContainer/','')
-
-    # metrics_df[['component', 'metric']] = metrics_df['entry'].str.rsplit('/',n=1, expand=True)
-  
-    #fix datatypes
-    df_log_data = fix_datatypes(metrics_df)
-
-    
-    # #calculate metrics stats (min, max, median)
-    # match_metrics = df_numerical_log_data.groupby(['component', 'metric']).agg(
-    #     minimum=pd.NamedAgg(column='numeric_value', aggfunc='min'),
-    #     maximun=pd.NamedAgg(column='numeric_value', aggfunc='max'),
-    #     average=pd.NamedAgg(column='numeric_value', aggfunc=np.mean)
-    # ).reset_index()
-
-
-    return df_log_data
-
-
-def add_keys(df, filename, event, match_id, replay_num):
-    df['filename'] = filename
+def add_keys(df, event_year, event, match_id, replay_num):
+    df['event_year'] = event_year
     df['event'] = event
     df['match_id'] = pd.to_numeric(match_id)
     df['replay_num'] = pd.to_numeric(replay_num)
 
+def read_device_data_raw(df):
+     #creates new telemetry dataframe
+    telemetry_df = metrics_df.copy(True)
+    
+    #drops irrelevant columns
+    telemetry_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
+    
+    #removes data that is not necessary for this dataframe
+    telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'VOLTAGE') 
+                                    |(telemetry_df['metric'] == 'CURRENT')
+                                    |(telemetry_df['metric'] == 'VELOCITY')
+                                    |(telemetry_df['metric'] == 'POSITION')
+                                    |(telemetry_df['metric'] == 'TEMP')]
+    
+    #makes columns representing the individual "metric" values with numeric values from "numeric_value"
+    telemetry_df = pd.concat([telemetry_df, telemetry_df.pivot(columns = 'metric', values = 'numeric_value')], axis = 1)
+    
+    #drops "metric" and "numeric value" columns
+    telemetry_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    
+    #renames columns
+    telemetry_df.rename(columns={
+        'VOLTAGE':'voltage',
+        'CURRENT':'current',
+        'VELOCITY':'velocity',
+        'POSITION':'position',
+        'TEMP': 'temperature'}, inplace = True)
+    
+    #combines columns so that each row contains all the data for a component at a timestamp rather than each row containing one
+    telemetry_df = telemetry_df.groupby(['match_time','subsystem', 'assembly', 'subassembly', 'component'], dropna = False)[[
+        'voltage', 'current', 'velocity', 'position', 'temperature']].sum().reset_index()
+    
+    stats_df = telemetry_df.copy(True)
+    stats_df.drop(columns = 'match_time', inplace = True)
+    stats_df = stats_df.groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False).agg(
+        avg_velocity = ('velocity', lambda x : x.abs().mean()),
+        min_velocity = ('velocity', 'min'),
+        max_velocity = ('velocity', 'max'),
+        stddev_velocity = ('velocity', lambda x: x.abs().std()),
+        
+        avg_voltage = ('voltage', 'mean'),
+        min_voltage = ('voltage', 'min'),
+        max_voltage = ('voltage', 'max'),
+        stddev_voltage = ('voltage', 'std'),
+        
+        avg_current = ('current', 'mean'),
+        min_current = ('current', 'min'),
+        max_current = ('current', 'max'),
+        stddev_current = ('current', 'std'),
+        
+        avg_temperature = ('temperature', 'mean'),
+        min_temperature = ('temperature', 'min'),
+        max_temperature = ('temperature', 'max'),
+        stddev_temperature = ('temperature', 'std'),
+        
+        avg_position = ('position', 'mean'),
+        min_position = ('position', 'min'),
+        max_position = ('position', 'max'),
+        stddev_position = ('position', 'std')).reset_index()
+    
+    return(telemetry_df, stats_df)
 
+def read_vision_data_raw (df):
+    #creates a deep copy of the raw dataframe
+    telemetry_df = df.copy(True)
+    
+    #drops unnecessary columns
+    telemetry_df.drop(columns = ['entry', 'value', 'timestamp', 'data_type'], inplace = True)
+    
+    #removes data that is not necessary for this dataframe
+    #also splits up data temporarily as needed
+    latency_df = telemetry_df.loc[(telemetry_df['metric'] == 'LATENCY')]
+    target_df = telemetry_df.loc[(telemetry_df['metric'] == 'HAS_TARGET')]
+    
+    #drops no longer needed columns
+    latency_df.drop(columns = ['metric', 'boolean_value'], inplace = True)
+    target_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    
+    #renames columns appropriately
+    latency_df.rename(columns = {
+        'numeric_value' : 'latency'
+    }, inplace = True)
+    target_df.rename(columns = {
+        'boolean_value' : 'hasTarget'
+    }, inplace = True)
+    
+    #creates new completed telemetry dataframe
+    telemetry_df = pd.merge(latency_df, target_df, on = ['match_time', 'camera'], how = 'outer')
+    
+    stats_df = telemetry_df.copy(True)
+    stats_df.drop(columns = ['match_time', 'hasTarget'], inplace = True)
+    stats_df = stats_df.groupby(['camera'], dropna = False).agg(
+        avg_latency = ('latency', 'mean'),
+        min_latency = ('latency', 'min'),
+        max_latency = ('latency', 'max'),
+        stddev_latency = ('latency', 'std')).reset_index()
+    
+    return(telemetry_df, stats_df)
 
 if __name__ == "__main__":
 
+    #Debug statement
     print('Starting....')
-    if len(sys.argv) != 2:
+    
+    #checks that the "system arguments" array's length is two
+    #note that argv[0] is always the script name
+    if len(sys.argv) != 3:
         print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
         sys.exit(1)
 
+    #the argument passed in by the user is the filename
     filepath = sys.argv[1]
 
     #only use the filename for the key, but use the path to calculate the hash
@@ -298,13 +551,17 @@ if __name__ == "__main__":
     hash = calculate_file_hash(filepath)
 
     #load config from `config.json`
+    #this config lists "prefixes" from log entries that can be used to organize the data
     config = json.load(open('config.json'))
-
+    
+    #reads in home-made dataframe
     map_df = pd.read_csv('map.csv', header=0)
+    metrics_map_df = pd.read_csv('metrics_map.csv', header=0)
+    vision_map_df = pd.read_csv('vision_map.csv', header=0)
 
     #open the db connection:
-    conn = setup_db("db/metrics.db")
-
+    #"db/robot.db"
+    conn = setup_db(sys.argv[2])
 
     #start the import by checking if the file has already been imported.
     (is_duplicate, existing_filename) = is_file_already_imported(conn, filepath)
@@ -318,45 +575,94 @@ if __name__ == "__main__":
     #create entry, but mark it as False
     update_file_metadata(conn, filename, hash, 0)
 
-    #read the input
+    #reads the input
+    #also creates another variable for the filename for some reason?
     (logfile, df) = read_logfile(filepath)
 
     #flush_tables(conn, logfile)
 
-    
+    #splits the output dataframe from the "read_logfile" function into dataframes to be utilized seperately
+    #meta_df is log metadata, not file metadata
     (meta_df, fms_df, metrics_df, vision_df, preferences_df) = split_dataframe(df, config)
+    
+    #effictively merges the log metadata and fms data into a single clean metadata dataframe
+    #still note this metadata dataframe does not contain file metadata
+    (meta_df) = parse_metadata(meta_df, fms_df, logfile)
+    
+    #finds match time
+    (enabled_ts, disabled_ts) = calculate_match_period(df)
 
-    meta_df = parse_metadata(meta_df, fms_df, logfile)
-    #add match time and filter early data.
-
-    enabled_ts = calculate_match_start(df)
-
+    #trims metrics dataframe to after the match starts
+    #also adds match time to data_frame
     metrics_df = trim_df_by_timestamp(metrics_df, enabled_ts)
-
-    metrics_df = metrics_df.merge(right=map_df, how='left', on='entry')
-
-    metrics_df = parse_metrics(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
+    vision_df = trim_df_by_timestamp(vision_df, enabled_ts)
     
-    preferences_df = fix_datatypes(preferences_df)
+    if(disabled_ts != -1):
+        metrics_df = trim_tail(metrics_df, disabled_ts)
+        vision_df = trim_tail(vision_df, disabled_ts)
+
+    #merges dataframes with maps
+    metrics_df = metrics_df.merge(right=metrics_map_df, how='left', on='entry')
+    vision_df = vision_df.merge(right=vision_map_df, how ='left', on='entry')
+
+    print(f'Parsing')
+    metrics_df['entry'] = metrics_df['entry'].str.replace('/Robot/m_robotContainer/','')
+    metrics_df = fix_datatypes(metrics_df)
+    
+    vision_df['entry'] = vision_df['entry'].str.replace('/photonvision/', '')
     vision_df = fix_datatypes(vision_df)
-
-    add_keys(metrics_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    # add_keys(summary_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    add_keys(preferences_df,logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
-    add_keys(vision_df, logfile, meta_df.at[0,'event'],meta_df.at[0,'match_id'],meta_df.at[0,'replay_num'])
     
+    #creates parsed dataframes
+    (device_telemetry_df, device_stats_df) = read_device_data_raw(metrics_df)
+    (vision_telemetry_df, vision_stats_df) = read_vision_data_raw(vision_df)
+    
+    #adds additional keys
+    add_keys(metrics_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    metrics_df['filename'] = logfile
+    
+    add_keys(device_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
+    add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
+    add_keys(vision_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    vision_df['filename'] = logfile
+    
+    add_keys(vision_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
+    add_keys(vision_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    
+    add_keys(preferences_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    preferences_df.drop(columns = 'timestamp', inplace = True)
+    
+    #add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     #########################  DB LOADING #########################
     print('loading into DB')
 
-    write_dataframe(meta_df, 'log_metadata',conn)
-
+    write_dataframe(meta_df, 'log_metadata', conn)
+    
+    write_dataframe(metrics_df, 'device_data_raw', conn)
+    
+    write_dataframe(device_telemetry_df, 'device_telemetry', conn)
+    
+    write_dataframe(device_stats_df, 'device_stats', conn)
+    
+    write_dataframe(vision_df, 'vision_data_raw', conn)
+    
+    write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
+    
+    write_dataframe(vision_stats_df, 'vision_stats', conn)
+    
+    write_dataframe(preferences_df, 'preferences', conn)
+    
+    #write_dataframe(device_stats_df, 'device_stats', conn)
+    
     # write_dataframe(summary_df, 'metrics_summary',conn)
 
-    write_dataframe(metrics_df, 'metrics',conn)
+    #write_dataframe(metrics_df, 'metrics',conn)
 
-    write_dataframe(preferences_df, 'preferences',conn)
+    #write_dataframe(preferences_df, 'preferences',conn)
 
-    write_dataframe(vision_df, 'vision', conn)
+    #write_dataframe(vision_df, 'vision', conn)
 
     #come back and make it true
     update_file_metadata(conn, filename, hash, 1)
