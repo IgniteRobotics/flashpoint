@@ -554,11 +554,6 @@ if __name__ == "__main__":
     #this config lists "prefixes" from log entries that can be used to organize the data
     config = json.load(open('config.json'))
     
-    #reads in home-made dataframe
-    map_df = pd.read_csv('map.csv', header=0)
-    metrics_map_df = pd.read_csv('metrics_map.csv', header=0)
-    vision_map_df = pd.read_csv('vision_map.csv', header=0)
-
     #open the db connection:
     #"db/robot.db"
     conn = setup_db(sys.argv[2])
@@ -600,6 +595,10 @@ if __name__ == "__main__":
     if(disabled_ts != -1):
         metrics_df = trim_tail(metrics_df, disabled_ts)
         vision_df = trim_tail(vision_df, disabled_ts)
+
+    #reads in home-made dataframes
+    metrics_map_df = pd.read_csv('datamaps/' + meta_df.at[0, 'build_date'].split('-')[0] + '/metrics_map.csv', header=0)
+    vision_map_df = pd.read_csv('datamaps/' + meta_df.at[0, 'build_date'].split('-')[0] + '/vision_map.csv', header=0)
 
     #merges dataframes with maps
     metrics_df = metrics_df.merge(right=metrics_map_df, how='left', on='entry')
