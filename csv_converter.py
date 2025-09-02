@@ -130,7 +130,7 @@ def csv_convert(file_name):
         f_out.writelines(f_in)
         f_out.close()
         f_in.close()
-        os.remove(output_csv)
+        # os.remove(output_csv)
         print("--Complete--")
 
 #script that actually runs when 
@@ -141,3 +141,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     csv_convert(sys.argv[1])
+
