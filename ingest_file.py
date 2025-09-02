@@ -311,23 +311,26 @@ def read_logfile(filename):
     input_file = sys.argv[1]
     pos = input_file.rfind(".")
     output_csv = input_file[:pos] + ".gz" 
-    log_filename = os.path.basename(sys.argv[1])
 
     print(f'Reading into dataframe')
     #read csv into dataframe
     colnames=['entry', 'data_type', 'value', 'timestamp']
     df = pd.read_csv(output_csv, quotechar='|', header=None, names=colnames)
 
-    return (log_filename, df)
+    return (df)
 
 #splits output dataframe from log file into dataframes to be utilized individually
-#utlizies prefixes from homemade config
+#utlizies prefixes from homemade configs
 def split_dataframe(df, cfg):
     meta_df = df.loc[df['entry'].str.startswith(cfg['metadata_prefix'])]
+    preferences_df = df.loc[df['entry'].str.startswith(cfg['preferences_prefix'])]
     fms_df = df.loc[df['entry'].str.startswith(cfg['fms_prefix'])]
     metrics_df = df.loc[df['entry'].str.startswith(cfg['metrics_prefix'])]
     vision_df = df.loc[df['entry'].str.startswith(cfg['photon_prefix'], cfg['camerapub_prefix'])]
-    preferences_df = df.loc[df['entry'].str.startswith(cfg['preferences_prefix'])]
+    
+    #readability
+    metrics_df['entry'] = metrics_df['entry'].str.replace(cfg['metrics_prefix'],'')
+    vision_df['entry'] = vision_df['entry'].str.replace(cfg['photon_prefix'], '').str.replace(cfg['camerapub_prefix'], '')
 
     return (meta_df, fms_df, metrics_df, vision_df, preferences_df)
 
@@ -386,7 +389,7 @@ def calculate_match_period(df):
     terminated_ts = -1
     try:
         terminated_df = df.loc[(df['entry'] == 'DS:enabled') & (df['value'] == "False") & (df['timestamp'] > enable_ts)]
-        terminated_ts = terminated_df['timestamp'].astype('int64').min()
+        terminated_ts = terminated_df['timestamp'].astype('int64').max()
         print(f'disabled at: {terminated_ts}')
     except KeyError as e:
         print('Failed to find termination timestamp')
@@ -396,7 +399,6 @@ def calculate_match_period(df):
     
 
 def trim_df_by_timestamp(df, ts):
-    print('dropping rows before start')
     # drop rows before the enable timestamp
     df = df[df['timestamp'].astype('int64') > ts]
 
@@ -407,7 +409,6 @@ def trim_df_by_timestamp(df, ts):
     return df
 
 def trim_tail(df, ts):
-    print('dropping rows after end')
     #drop rows after disabled timestamp
     df = df[df['timestamp'].astype('int64') < ts]
     
@@ -520,7 +521,7 @@ def read_vision_data_raw (df):
     }, inplace = True)
     
     #creates new completed telemetry dataframe
-    telemetry_df = pd.merge(latency_df, target_df, on = ['match_time', 'camera'], how = 'outer')
+    telemetry_df = pd.mrge(latency_df, target_df, on = ['match_time', 'camera'], how = 'outer')
     
     stats_df = telemetry_df.copy(True)
     stats_df.drop(columns = ['match_time', 'hasTarget'], inplace = True)
@@ -533,7 +534,7 @@ def read_vision_data_raw (df):
     return(telemetry_df, stats_df)
 
 if __name__ == "__main__":
-
+    
     #Debug statement
     print('Starting....')
     
@@ -549,10 +550,6 @@ if __name__ == "__main__":
     #only use the filename for the key, but use the path to calculate the hash
     filename = os.path.basename(filepath)
     hash = calculate_file_hash(filepath)
-
-    #load config from `config.json`
-    #this config lists "prefixes" from log entries that can be used to organize the data
-    config = json.load(open('config.json'))
     
     #open the db connection:
     #"db/robot.db"
@@ -571,28 +568,30 @@ if __name__ == "__main__":
     update_file_metadata(conn, filename, hash, 0)
 
     #reads the input
-    #also creates another variable for the filename for some reason?
-    (logfile, df) = read_logfile(filepath)
+    df = read_logfile(filepath)
 
     #flush_tables(conn, logfile)
 
     #splits the output dataframe from the "read_logfile" function into dataframes to be utilized seperately
     #meta_df is log metadata, not file metadata
-    (meta_df, fms_df, metrics_df, vision_df, preferences_df) = split_dataframe(df, config)
+    cfg = json.load(open('log_configs/config' + filename[4:8] + '.json'))
+    (meta_df, fms_df, metrics_df, vision_df, preferences_df) = split_dataframe(df, cfg)
     
     #effictively merges the log metadata and fms data into a single clean metadata dataframe
     #still note this metadata dataframe does not contain file metadata
-    (meta_df) = parse_metadata(meta_df, fms_df, logfile)
+    (meta_df) = parse_metadata(meta_df, fms_df, filename)
     
     #finds match time
     (enabled_ts, disabled_ts) = calculate_match_period(df)
 
     #trims metrics dataframe to after the match starts
     #also adds match time to data_frame
+    print('dropping rows before start')
     metrics_df = trim_df_by_timestamp(metrics_df, enabled_ts)
     vision_df = trim_df_by_timestamp(vision_df, enabled_ts)
     
     if(disabled_ts != -1):
+        print('dropping rows after end')
         metrics_df = trim_tail(metrics_df, disabled_ts)
         vision_df = trim_tail(vision_df, disabled_ts)
 
@@ -605,10 +604,7 @@ if __name__ == "__main__":
     vision_df = vision_df.merge(right=vision_map_df, how ='left', on='entry')
 
     print(f'Parsing')
-    metrics_df['entry'] = metrics_df['entry'].str.replace('/Robot/m_robotContainer/','')
     metrics_df = fix_datatypes(metrics_df)
-    
-    vision_df['entry'] = vision_df['entry'].str.replace('/photonvision/', '')
     vision_df = fix_datatypes(vision_df)
     
     #creates parsed dataframes
@@ -617,14 +613,14 @@ if __name__ == "__main__":
     
     #adds additional keys
     add_keys(metrics_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
-    metrics_df['filename'] = logfile
+    metrics_df['filename'] = filename
     
     add_keys(device_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     
     add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     
     add_keys(vision_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
-    vision_df['filename'] = logfile
+    vision_df['filename'] = filename
     
     add_keys(vision_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     
