@@ -310,7 +310,7 @@ def read_logfile(filename):
     csv_converter.csv_convert(filename)
     input_file = sys.argv[1]
     pos = input_file.rfind(".")
-    output_csv = input_file[:pos] + ".gz" 
+    output_csv = "./converted_data/" + input_file[:pos].split('/')[-1] + ".gz" 
 
     print(f'Reading into dataframe')
     #read csv into dataframe
