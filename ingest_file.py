@@ -436,101 +436,203 @@ def add_keys(df, event_year, event, match_id, replay_num):
 
 def read_device_data_raw(df):
      #creates new telemetry dataframe
-    telemetry_df = metrics_df.copy(True)
+    intermediate_df = df[df['metric'].notnull()]
     
     #drops irrelevant columns
-    telemetry_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
+    intermediate_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
     
+    has_voltage_data = True
+    has_current_data = True
+    has_velocity_data = True
+    has_position_data = True
+    has_temp_data = True
+    
+    try:
+        voltage_df = intermediate_df.loc[(intermediate_df['metric'] == 'VOLTAGE')]
+    except KeyError:
+        has_voltage_data = False
+    
+    try:
+        current_df = intermediate_df.loc[(intermediate_df['metric'] == 'CURRENT')]
+    except KeyError:
+        has_current_data = False  
+    
+    try:
+        velocity_df = intermediate_df.loc[(intermediate_df['metric'] == 'VELOCITY')]
+    except KeyError:
+        has_velocity_data = False      
+        
+    try:
+        position_df = intermediate_df.loc[(intermediate_df['metric'] == 'POSITION')]
+    except KeyError:
+        has_position_data = False  
+    
+    try:
+        temp_df = intermediate_df.loc[(intermediate_df['metric'] == 'TEMP')]
+    except KeyError:
+        has_temp_data = False
+        
+    
+    if not has_voltage_data and not has_current_data and not has_velocity_data and not has_position_data and not has_temp_data:
+        return(None, None)
+        
     #removes data that is not necessary for this dataframe
-    telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'VOLTAGE') 
-                                    |(telemetry_df['metric'] == 'CURRENT')
-                                    |(telemetry_df['metric'] == 'VELOCITY')
-                                    |(telemetry_df['metric'] == 'POSITION')
-                                    |(telemetry_df['metric'] == 'TEMP')]
+    #telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'VOLTAGE') 
+    #                               |(telemetry_df['metric'] == 'CURRENT')
+    #                               |(telemetry_df['metric'] == 'VELOCITY')
+    #                               |(telemetry_df['metric'] == 'POSITION')
+    #                               |(telemetry_df['metric'] == 'TEMP')]
     
-    #makes columns representing the individual "metric" values with numeric values from "numeric_value"
-    telemetry_df = pd.concat([telemetry_df, telemetry_df.pivot(columns = 'metric', values = 'numeric_value')], axis = 1)
+    intermediate_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    intermediate_df.drop_duplicates(inplace = True)
+    telemetry_df = intermediate_df.copy(True)
     
-    #drops "metric" and "numeric value" columns
-    telemetry_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    intermediate_df.drop(columns = 'match_time', inplace = True)
+    intermediate_df.drop_duplicates(inplace = True)
+    stats_df = intermediate_df
+   
+    if has_voltage_data:
+        voltage_df.drop(columns = 'metric', inplace = True)
+        voltage_df.rename(columns = {'numeric_value':'voltage'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, voltage_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, voltage_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_voltage = ('voltage', 'mean'),
+                                min_voltage = ('voltage', 'min'),
+                                max_voltage = ('voltage', 'max'),
+                                stddev_voltage = ('voltage', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['voltage'] = np.nan
+        stats_df['avg_voltage'] = np.nan
+        stats_df['min_voltage'] = np.nan
+        stats_df['max_voltage'] = np.nan
+        stats_df['stddev_voltage'] = np.nan
     
-    #renames columns
-    telemetry_df.rename(columns={
-        'VOLTAGE':'voltage',
-        'CURRENT':'current',
-        'VELOCITY':'velocity',
-        'POSITION':'position',
-        'TEMP': 'temperature'}, inplace = True)
-    
-    #combines columns so that each row contains all the data for a component at a timestamp rather than each row containing one
-    telemetry_df = telemetry_df.groupby(['match_time','subsystem', 'assembly', 'subassembly', 'component'], dropna = False)[[
-        'voltage', 'current', 'velocity', 'position', 'temperature']].sum().reset_index()
-    
-    stats_df = telemetry_df.copy(True)
-    stats_df.drop(columns = 'match_time', inplace = True)
-    stats_df = stats_df.groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False).agg(
-        avg_velocity = ('velocity', lambda x : x.abs().mean()),
-        min_velocity = ('velocity', 'min'),
-        max_velocity = ('velocity', 'max'),
-        stddev_velocity = ('velocity', lambda x: x.abs().std()),
+    if has_current_data:
+        current_df.drop(columns = 'metric', inplace = True)
+        current_df.rename(columns = {'numeric_value':'current'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, current_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, current_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_current = ('current', 'mean'),
+                                min_current = ('current', 'min'),
+                                max_current = ('current', 'max'),
+                                stddev_current = ('current', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['current'] = np.nan
+        stats_df['avg_current'] = np.nan
+        stats_df['min_current'] = np.nan
+        stats_df['max_current'] = np.nan
+        stats_df['stddev_current'] = np.nan
         
-        avg_voltage = ('voltage', 'mean'),
-        min_voltage = ('voltage', 'min'),
-        max_voltage = ('voltage', 'max'),
-        stddev_voltage = ('voltage', 'std'),
-        
-        avg_current = ('current', 'mean'),
-        min_current = ('current', 'min'),
-        max_current = ('current', 'max'),
-        stddev_current = ('current', 'std'),
-        
-        avg_temperature = ('temperature', 'mean'),
-        min_temperature = ('temperature', 'min'),
-        max_temperature = ('temperature', 'max'),
-        stddev_temperature = ('temperature', 'std'),
-        
-        avg_position = ('position', 'mean'),
-        min_position = ('position', 'min'),
-        max_position = ('position', 'max'),
-        stddev_position = ('position', 'std')).reset_index()
+    if has_velocity_data:
+        velocity_df.drop(columns = 'metric', inplace = True)
+        velocity_df.rename(columns = {'numeric_value':'velocity'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, velocity_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, velocity_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_velocity = ('velocity', lambda x : x.abs().mean()),
+                                min_velocity = ('velocity', 'min'),
+                                max_velocity = ('velocity', 'max'),
+                                stddev_velocity = ('velocity', lambda x: x.abs().std())
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['velocity'] = np.nan
+        stats_df['avg_velocity'] = np.nan
+        stats_df['min_velocity'] = np.nan
+        stats_df['max_velocity'] = np.nan
+        stats_df['stddev_velocity'] = np.nan
     
+    if has_position_data:
+        position_df.drop(columns = 'metric', inplace = True)
+        position_df.rename(columns = {'numeric_value':'position'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, position_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, position_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_position = ('position', 'mean'),
+                                min_position = ('position', 'min'),
+                                max_position = ('position', 'max'),
+                                stddev_position = ('position', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['position'] = np.nan
+        stats_df['avg_position'] = np.nan
+        stats_df['min_position'] = np.nan
+        stats_df['max_position'] = np.nan
+        stats_df['stddev_position'] = np.nan
+    
+    if has_temp_data:
+        temp_df.drop(columns = 'metric', inplace = True)
+        temp_df.rename(columns = {'numeric_value':'temperature'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, temp_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, temp_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_temperature = ('temperature', 'mean'),
+                                min_temperature = ('temperature', 'min'),
+                                max_temperature = ('temperature', 'max'),
+                                stddev_temperature = ('temperature', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    
+    else:
+        telemetry_df['temperature'] = np.nan
+        stats_df['avg_temperature'] = np.nan
+        stats_df['min_temperature'] = np.nan
+        stats_df['max_temperature'] = np.nan
+        stats_df['stddev_temperature'] = np.nan
+            
     return(telemetry_df, stats_df)
 
 def read_vision_data_raw (df):
     #creates a deep copy of the raw dataframe
-    telemetry_df = df.copy(True)
+    telemetry_df = df[df['metric'].notnull()]
     
     #drops unnecessary columns
     telemetry_df.drop(columns = ['entry', 'value', 'timestamp', 'data_type'], inplace = True)
     
     #removes data that is not necessary for this dataframe
     #also splits up data temporarily as needed
-    latency_df = telemetry_df.loc[(telemetry_df['metric'] == 'LATENCY')]
-    target_df = telemetry_df.loc[(telemetry_df['metric'] == 'HAS_TARGET')]
+    has_target_data = True
+    has_latency_data = True
     
-    #drops no longer needed columns
-    latency_df.drop(columns = ['metric', 'boolean_value'], inplace = True)
-    target_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    try:
+        target_df = telemetry_df.loc[(telemetry_df['metric'] == 'HAS_TARGET')]
+    except KeyError:
+        has_target_data = False
     
-    #renames columns appropriately
-    latency_df.rename(columns = {
-        'numeric_value' : 'latency'
-    }, inplace = True)
-    target_df.rename(columns = {
-        'boolean_value' : 'hasTarget'
-    }, inplace = True)
+    try:
+        latency_df = telemetry_df.loc[(telemetry_df['metric'] == 'LATENCY')]
+    except KeyError:
+        has_latency_data = False
     
-    #creates new completed telemetry dataframe
-    telemetry_df = pd.mrge(latency_df, target_df, on = ['match_time', 'camera'], how = 'outer')
-    
-    stats_df = telemetry_df.copy(True)
-    stats_df.drop(columns = ['match_time', 'hasTarget'], inplace = True)
-    stats_df = stats_df.groupby(['camera'], dropna = False).agg(
-        avg_latency = ('latency', 'mean'),
-        min_latency = ('latency', 'min'),
-        max_latency = ('latency', 'max'),
-        stddev_latency = ('latency', 'std')).reset_index()
-    
+    if not has_target_data and not has_latency_data:
+        return (None, None)
+           
+    telemetry_df.drop(columns = ['metric', 'numeric_value', 'boolean_value'], inplace = True)
+    telemetry_df.drop_duplicates(inplace = True)  
+      
+    if has_target_data:
+        target_df.drop(columns = ['metric', 'numeric_value'], inplace = True)    
+        target_df.rename(columns = {'boolean_value' : 'hasTarget'}, inplace = True)   
+        telemetry_df = pd.merge(telemetry_df, target_df, on = ['match_time', 'camera'], how = 'outer')
+    else:
+        telemetry_df['hasTarget'] = np.nan
+        
+    if has_latency_data:
+        latency_df.drop(columns = ['metric', 'boolean_value'], inplace = True)
+        latency_df.rename(columns = {'numeric_value' : 'latency'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, latency_df, on = ['match_time', 'camera'], how = 'outer')
+        stats_df = latency_df.drop(columns = 'match_time').groupby('camera', as_index = False).agg(
+            avg_latency = ('latency', 'mean'),
+            min_latency = ('latency', 'min'),
+            max_latency = ('latency', 'max'),
+            stddev_latency = ('latency', 'std'))
+    else:
+        telemetry_df['latency'] = np.nan
+        stats_df = None
+        
+
     return(telemetry_df, stats_df)
 
 if __name__ == "__main__":
@@ -615,38 +717,34 @@ if __name__ == "__main__":
     add_keys(metrics_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     metrics_df['filename'] = filename
     
-    add_keys(device_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
-    
-    add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
-    
     add_keys(vision_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     vision_df['filename'] = filename
     
-    add_keys(vision_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
-    
-    add_keys(vision_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
-    
     add_keys(preferences_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     preferences_df.drop(columns = 'timestamp', inplace = True)
-    
-    #add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
-    #########################  DB LOADING #########################
-    print('loading into DB')
 
     write_dataframe(meta_df, 'log_metadata', conn)
     
     write_dataframe(metrics_df, 'device_data_raw', conn)
     
-    write_dataframe(device_telemetry_df, 'device_telemetry', conn)
-    
-    write_dataframe(device_stats_df, 'device_stats', conn)
+    if device_telemetry_df is not None:
+        add_keys(device_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        write_dataframe(device_telemetry_df, 'device_telemetry', conn)
+        
+    if device_stats_df is not None:
+        add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        write_dataframe(device_stats_df, 'device_stats', conn)
     
     write_dataframe(vision_df, 'vision_data_raw', conn)
     
-    write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
+    if vision_telemetry_df is not None:
+        add_keys(vision_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
     
-    write_dataframe(vision_stats_df, 'vision_stats', conn)
-    
+    if vision_stats_df is not None:
+        add_keys(vision_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        write_dataframe(vision_stats_df, 'vision_stats', conn)
+        
     write_dataframe(preferences_df, 'preferences', conn)
     
     #write_dataframe(device_stats_df, 'device_stats', conn)
