@@ -126,11 +126,11 @@ def csv_convert(file_name):
 
         #compresses the output .csv file into a .gz file
         f_in = open(output_csv)
-        f_out = gzip.open(output_csv[:-3]+"gz", 'wt')
+        f_out = gzip.open("./converted_data/" + output_csv.split('/')[-1][:-3]+"gz", 'wt')
         f_out.writelines(f_in)
         f_out.close()
         f_in.close()
-        # os.remove(output_csv)
+        os.remove(output_csv)
         print("--Complete--")
 
 #script that actually runs when 
