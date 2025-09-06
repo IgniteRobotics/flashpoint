@@ -1,0 +1,29 @@
+entry,subsystem,assembly,subassembly,component,metric
+corraler/Motor Current,Corraler,,,MOTOR,CURRENT
+corraler/Motor Voltage,Corraler,,,MOTOR,VOLTAGE
+corraler/Motor Temperature,Corraler,,,MOTOR,TEMP
+corraler/m_beambreak_enter/Is Detected,Corraler,,,TOP BEAMBREAK,
+corraler/m_beambreak_prep/Is Detected,Corraler,,,BOTTOM BEAMBREAK,
+climber/getPosition,CLIMBER,,,,POSITION
+climber/Leader Motor Voltage,CLIMBER,,,MOTOR,VOLTAGE
+climber/Leader Motor Current,CLIMBER,,,MOTOR,CURRENT
+climber/Leader Motor Temperature,CLIMBER,,,MOTOR,TEMP
+climber/Right Servo Position,CLIMBER,,,RIGHT SERVO,POSITION
+climber/Left Servo Position,CLIMBER,,,LEFT SERVO,POSITION
+collector/Wrist Motor Position,ALGAE COLLECTOR,WRIST,,MOTOR,POSITION
+collector/Wrist Motor Voltage,ALGAE COLLECTOR,WRIST,,MOTOR,VOLTAGE
+collector/Wrist Motor Temperature,ALGAE COLLECTOR,WRIST,,MOTOR,TEMP
+collector/Algae Motor Voltage,ALGAE COLLECTOR,INTAKE,,MOTOR,VOLTAGE
+collector/Algae Motor Current,ALGAE COLLECTOR,INTAKE,,MOTOR,CURRENT
+collector/Algae Motor Temperature,ALGAE COLLECTOR,INTAKE,,MOTOR,TEMP
+elevator/Leader Motor Voltage,ELEVATOR,,,LEAD MOTOR,VOLTAGE
+elevator/Leader Motor Current,ELEVATOR,,,LEAD MOTOR,CURRENT
+elevator/Leader Motor Temperature,ELEVATOR,,,LEAD MOTOR,TEMP
+elevator/getPosition,ELEVATOR,,,,POSITION
+elevator/Follower Motor Voltage,ELEVATOR,,,FOLLOW MOTOR,VOLTAGE
+elevator/Follower Motor Current,ELEVATOR,,,FOLLOW MOTOR,CURRENT
+elevator/Follower Motor Temperature,ELEVATOR,,,FOLLOW MOTOR,TEMP
+
+
+
+
