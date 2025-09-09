@@ -305,15 +305,18 @@ def close_db(connection):
 
 #converts logfile into a .csv file and reads a dataframe from it
 def read_logfile(filename):
-    print(f'Converting {filename}')
-    #convert wpilog to a csv file
-    csv_converter.csv_convert(filename)
-    input_file = sys.argv[1]
-    pos = input_file.rfind(".")
-    output_csv = "./converted_data/" + input_file[:pos].split('/')[-1] + ".gz" 
-
-    print(f'Reading into dataframe')
+    pos = filename.rfind(".")
+    output_csv = "./converted_data/rio_converted_logs/" + filename[:pos].split("/")[-1] + ".gz"
+    try:
+        #attempts to open the .gz file if it exists
+        open(output_csv)
+        print(".gz file already exists...")
+    except FileNotFoundError:
+        print(f'Converting {filename}')
+        #convert wpilog to a csv file
+        csv_converter.csv_convert(filename, "./converted_data/rio_converted_logs/")
     #read csv into dataframe
+    print(f'Reading into dataframe')
     colnames=['entry', 'data_type', 'value', 'timestamp']
     df = pd.read_csv(output_csv, quotechar='|', header=None, names=colnames)
 
@@ -663,8 +666,6 @@ if __name__ == "__main__":
     if is_duplicate:
         print(f"File {filename} has already been imported as {existing_filename}. Skipping.")
         sys.exit(0)
-    else:
-        print(f'Starting import of {filename} from {filepath}')
 
     #create entry, but mark it as False
     update_file_metadata(conn, filename, hash, 0)
