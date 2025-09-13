@@ -1,0 +1,14 @@
+services:
+  backend:
+    image: flashpoint-ingest
+    build:
+      dockerfile: ./Dockerfile-ingest
+    volumes:
+      - flashpoint-telemetry:/app/telemetry
+
+volumes:
+  flashpoint-telemetry:
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "${FLASHPOINT_DIR}/telemetry"

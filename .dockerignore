@@ -1,0 +1,4 @@
+**/docker/
+**/telemetry/
+Dockerfile-ingest
+docker-compose.yml
