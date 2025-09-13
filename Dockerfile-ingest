@@ -1,0 +1,25 @@
+FROM python:3.12.3-slim-bullseye
+
+RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping sshpass ssh \
+    && rm -rf /var/lib/apt/lists/*
+    
+WORKDIR /app
+
+COPY . .
+#COPY docker-services/ingest/requirements.txt .
+
+#RUN pip install --upgrade pip
+
+RUN pip install --no-cache-dir -r docker-services/ingest/requirements.txt
+
+#COPY docker-services/ingest/src/ .
+
+#COPY . flashpoint/
+#RUN ls -lag  && sleep 15
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN mkdir /app/telemetry/
+
+EXPOSE 22
+
+CMD ["python", "docker-services/ingest/src/main.py"]

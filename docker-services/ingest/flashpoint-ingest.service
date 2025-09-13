@@ -1,0 +1,11 @@
+[Unit]
+Description=A Watchdog Ingest Docker container that will wait for the robot, the unload the files
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/docker start flashpoint-ingest
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
