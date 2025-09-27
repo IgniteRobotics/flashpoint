@@ -645,7 +645,7 @@ if __name__ == "__main__":
     
     #checks that the "system arguments" array's length is two
     #note that argv[0] is always the script name
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
         sys.exit(1)
 
@@ -677,7 +677,7 @@ if __name__ == "__main__":
 
     #splits the output dataframe from the "read_logfile" function into dataframes to be utilized seperately
     #meta_df is log metadata, not file metadata
-    cfg = json.load(open('log_configs/config' + filename[4:8] + '.json'))
+    cfg = json.load(open('log_configs/config' + sys.argv[3] + '.json'))
     (meta_df, fms_df, metrics_df, vision_df, preferences_df) = split_dataframe(df, cfg)
     
     #effictively merges the log metadata and fms data into a single clean metadata dataframe
@@ -699,8 +699,8 @@ if __name__ == "__main__":
         vision_df = trim_tail(vision_df, disabled_ts)
 
     #reads in home-made dataframes
-    metrics_map_df = pd.read_csv('datamaps/' + meta_df.at[0, 'build_date'].split('-')[0] + '/metrics_map.csv', header=0)
-    vision_map_df = pd.read_csv('datamaps/' + meta_df.at[0, 'build_date'].split('-')[0] + '/vision_map.csv', header=0)
+    metrics_map_df = pd.read_csv('datamaps/' + sys.argv[3] + '/metrics_map.csv', header=0)
+    vision_map_df = pd.read_csv('datamaps/' + sys.argv[3] + '/vision_map.csv', header=0)
 
     #merges dataframes with maps
     metrics_df = metrics_df.merge(right=metrics_map_df, how='left', on='entry')
@@ -715,13 +715,13 @@ if __name__ == "__main__":
     (vision_telemetry_df, vision_stats_df) = read_vision_data_raw(vision_df)
     
     #adds additional keys
-    add_keys(metrics_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(metrics_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     metrics_df['filename'] = filename
     
-    add_keys(vision_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(vision_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     vision_df['filename'] = filename
     
-    add_keys(preferences_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(preferences_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
     preferences_df.drop(columns = 'timestamp', inplace = True)
 
     write_dataframe(meta_df, 'log_metadata', conn)
@@ -729,21 +729,21 @@ if __name__ == "__main__":
     write_dataframe(metrics_df, 'device_data_raw', conn)
     
     if device_telemetry_df is not None:
-        add_keys(device_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(device_telemetry_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
         write_dataframe(device_telemetry_df, 'device_telemetry', conn)
         
     if device_stats_df is not None:
-        add_keys(device_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(device_stats_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
         write_dataframe(device_stats_df, 'device_stats', conn)
     
     write_dataframe(vision_df, 'vision_data_raw', conn)
     
     if vision_telemetry_df is not None:
-        add_keys(vision_telemetry_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(vision_telemetry_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
         write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
     
     if vision_stats_df is not None:
-        add_keys(vision_stats_df, meta_df.at[0, 'build_date'].split('-')[0], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(vision_stats_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
         write_dataframe(vision_stats_df, 'vision_stats', conn)
         
     write_dataframe(preferences_df, 'preferences', conn)
