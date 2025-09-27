@@ -10,4 +10,4 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     
     
-    subprocess.run(["./owlet.exe", "-f", "wpilog", "input", "output"], )
+    subprocess.run(["./owlet.exe", "-f", "wpilog", "input", "output"])
