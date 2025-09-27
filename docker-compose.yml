@@ -4,10 +4,11 @@ services:
     build:
       dockerfile: ./Dockerfile-ingest
     volumes:
-      - flashpoint-telemetry:/app/telemetry
+      - telemetry:/app/telemetry
 
+# if it failed to mount _data, make sure FLASHPOINT_DIR is correct
 volumes:
-  flashpoint-telemetry:
+  telemetry:
     driver_opts:
       type: "none"
       o: "bind"

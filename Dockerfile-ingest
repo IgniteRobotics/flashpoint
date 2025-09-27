@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r docker-services/ingest/requirements.txt
 
 #COPY . flashpoint/
 #RUN ls -lag  && sleep 15
-RUN pip install --no-cache-dir -r requirements.txt
+#RUN pip install --no-cache-dir -r requirements.txt
 
 RUN mkdir /app/telemetry/
 
