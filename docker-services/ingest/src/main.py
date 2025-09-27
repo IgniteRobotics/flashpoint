@@ -3,10 +3,10 @@ import time
 from ping3 import ping
 
 botIP = "10.68.29.2"
-botUser = "robot"
-botPass = "password"
-teleDir = "/path/to/logs"
-allDir = teleDir+"/*.wpilog"
+botUser = "lvuser"
+botPass = ""
+teleDir = "/home/lvuser/logs"
+allDir = teleDir+"/*"
 botHostname = botUser+"@"+botIP
 
 def check_ip_alive(ip_address):
@@ -20,14 +20,14 @@ def retrieveLogs():
 	scpSuccessFlag = False
 
 	scpCommand = [
-		"sshpass", "-p", botPass, # password
+		#"sshpass", "-p", botPass, # password
    		"scp",
 		"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
 		"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
 		botHostname+":"+allDir, "/app/telemetry/", # take all user@ip:/path/to/logs/ files and store in /app/telemetry/
 	]
 	removeCommand = [
-		"sshpass", "-p", botPass, # password
+		#"sshpass", "-p", botPass, # password
 		"ssh", botHostname, # login
 		"rm", "-f", f"'{allDir}'", # delete all copied files
 	]
