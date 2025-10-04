@@ -8,7 +8,8 @@ botPass = ""
 teleDir = "/home/lvuser/logs"
 allDir = teleDir+"/*"
 botHostname = botUser+"@"+botIP
-watchdogDelay = 15
+watchdogDelay = 5
+afterFoundDelay = 300
 
 def check_ip_alive(ip_address):
     try:
@@ -20,57 +21,73 @@ def check_ip_alive(ip_address):
 def retrieveLogs():
 	listFiles = [
 		"ssh", botHostname, # login
+		"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
+		"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
 		"ls", # list all files
 		"-1t", # one per line, in time order (newest first)
-		"/app/telemetry", # directory
+		teleDir, # directory
 	]
-	lsRes = subprocess.run(listFiles, capture_output=True).stdout.decode()
 
-	for line in lsRes:
+	fullCommand = ""
+	for str in listFiles:
+		fullCommand = fullCommand + str + " "
+	#print("Lv command: "+fullCommand)
+	lsRes = subprocess.run(listFiles, capture_output=True).stdout.decode()
+	#print(f"Ls logs: {lsRes}")
+	#print("\nEnd of logs")
+	splitLsRes = lsRes.splitlines()
+	for line in splitLsRes:
+		print(line)
 		scpSuccessFlag = False
+
 		scpCommand = [
-			#"sshpass", "-p", botPass, # password
 			"scp",
 			"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
 			"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
-			botHostname+":"+teleDir+line, "/app/telemetry/", # take one user@ip:/path/to/logs/ file and store in /app/telemetry/
+			botHostname+":"+teleDir+"/"+line, "/app/telemetry/", # take one user@ip:/path/to/logs/ file and store in /app/telemetry/
 		]
+
+		fullScpCommand = ""
+		for str in scpCommand:
+			fullScpCommand = fullScpCommand + str + " "
+		#print(fullScpCommand)
+
 		removeCommand = [
-			#"sshpass", "-p", botPass, # password
 			"ssh", botHostname, # login
+			"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
+			"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
 			"rm", "-f", f"'{line}'", # delete copied file
 		]
 
 		res = subprocess.run(scpCommand, capture_output=True).stderr.decode()
 		scpRes = ""
+		print("Downloading file: "+line)
 		if "No such file or directory" in res:
 			scpRes = "Error: " + res + f"\n - {scpCommand}"
 		else:
 			scpRes = res
 			scpSuccessFlag = True
-		print("Retrieving logs:", scpRes)
-
+			print("Retrieving logs:", scpRes)
+		
+		finalRemoveRes = ""
 		if scpSuccessFlag:
 			removeRes = subprocess.run(removeCommand, capture_output=True).stderr.decode()
-			finalRemoveRes = ""
 			if "No such file or directory" in removeRes:
 				finalRemoveRes = "Error: " + removeRes + f"\n - {removeCommand}"
+			elif removeRes is None:
+				finalRemoveRes = "null"
 			else:
 				finalRemoveRes = removeRes
 			print("Removing old logs:", finalRemoveRes)
 
-		with open("scpLog.log", 'a') as scpLogFile:
-			scpLogFile.write(res + "\n" + finalRemoveRes)
-
 def main():
 	print("Starting...")
-	subprocess.run(["touch","scpLog.log"])
 	while True:
 		pingRes = check_ip_alive(botIP)
 		if pingRes:
 			print("Found machine:", botIP)
 			retrieveLogs()
-			time.sleep(300)
+			time.sleep(afterFoundDelay)
 		else:
 			print(f"Unable to ping address: {botIP}")
 			time.sleep(watchdogDelay)
