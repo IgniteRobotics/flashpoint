@@ -220,14 +220,14 @@ def setup_db(db_name):
 
     return connection
 
-def is_file_already_imported(connection, filepath):
+def is_file_already_imported(connection, filehash):
     """
     Check if a file has already been successfully imported by comparing its hash
     against existing entries in file_metadata table.
     
     Args:
         connection: SQLite database connection
-        filepath: Path to the file to check
+        filehash: File hash
         
     Returns:
         tuple: (bool, str) - (is_duplicate, existing_filename)
@@ -236,14 +236,13 @@ def is_file_already_imported(connection, filepath):
     """
     try:
         cursor = connection.cursor()
-        file_hash = calculate_file_hash(filepath)
         
         # Query for successful imports with matching hash
         cursor.execute('''
             SELECT filename 
             FROM file_metadata 
             WHERE file_hash = ? AND success = 1
-        ''', (file_hash,))
+        ''', (filehash,))
         
         result = cursor.fetchone()
         
@@ -304,17 +303,17 @@ def close_db(connection):
     connection.close()
 
 #converts logfile into a .csv file and reads a dataframe from it
-def read_logfile(filename):
-    pos = filename.rfind(".")
-    output_csv = "./converted_data/rio_converted_logs/" + filename[:pos].split("/")[-1] + ".gz"
+def read_logfile(filepath):
+    pos = filepath.rfind(".")
+    output_csv = "./converted_data/rio_converted_logs/" + filepath[:pos].split("/")[-1] + ".gz"
     try:
         #attempts to open the .gz file if it exists
         open(output_csv)
         print(".gz file already exists...")
     except FileNotFoundError:
-        print(f'Converting {filename}')
+        print(f'Converting {filepath}')
         #convert wpilog to a csv file
-        csv_converter.csv_convert(filename, "./converted_data/rio_converted_logs/")
+        csv_converter.csv_convert(filepath, "./converted_data/rio_converted_logs/")
     #read csv into dataframe
     print(f'Reading into dataframe')
     colnames=['entry', 'data_type', 'value', 'timestamp']
@@ -661,7 +660,7 @@ if __name__ == "__main__":
     conn = setup_db(sys.argv[2])
 
     #start the import by checking if the file has already been imported.
-    (is_duplicate, existing_filename) = is_file_already_imported(conn, filepath)
+    (is_duplicate, existing_filename) = is_file_already_imported(conn, hash)
 
     if is_duplicate:
         print(f"File {filename} has already been imported as {existing_filename}. Skipping.")
