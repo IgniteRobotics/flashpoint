@@ -3,7 +3,7 @@ Description=A Watchdog Ingest Docker container that will wait for the robot, the
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/docker start flashpoint-ingest
+ExecStart=export FLASHPOINT_DIR="/home/ignite/workspace/flashpoint/" && /usr/bin/docker compose up $FLASHPOINT_DIR
 Restart=always
 RestartSec=10
 
