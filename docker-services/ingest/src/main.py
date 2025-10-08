@@ -1,6 +1,7 @@
 import subprocess
 import time
-from ping3 import ping
+import sys
+from ping3 import ping # type: ignore
 
 botIP = "10.68.29.2"
 botUser = "lvuser"
@@ -10,6 +11,13 @@ allDir = teleDir+"/*"
 botHostname = botUser+"@"+botIP
 watchdogDelay = 5
 afterFoundDelay = 300
+timeSlot = 1
+
+if len(sys.argv) > 2:
+	if sys.argv[1] == "--time" and int(sys.argv[2]):
+		timeSlot = int(sys.argv[2])
+elif len(sys.argv) == 2:
+	print("Usage: main.py [--time <within_days>]")
 
 def check_ip_alive(ip_address):
     try:
@@ -17,26 +25,47 @@ def check_ip_alive(ip_address):
         return response is not None
     except Exception:
         return False
+	
+sshPrefix = [
+	"ssh", botHostname, # login
+	"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
+	"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
+]
 
 def retrieveLogs():
 	listFiles = [
-		"ssh", botHostname, # login
-		"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
-		"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
 		"ls", # list all files
 		"-1t", # one per line, in time order (newest first)
 		teleDir, # directory
 	]
+	grepFilter = [
+		"find", # find all files
+		teleDir, # directory
+		"-type", "f", # only find files, exclude directories/symlinks
+		"-mtime", timeSlot, # filter time for within one day
+		"-printf", "%T@ %p\n", # print in created time format
+		"|", # and then
+		"sort", "-nr", # sort newest first
+		"|", # and then
+		"cut", "-d' '", "-f2-" # crop text to only filenames
+	]
 
-	fullCommand = ""
-	for str in listFiles:
-		fullCommand = fullCommand + str + " "
-	#print("Lv command: "+fullCommand)
-	lsRes = subprocess.run(listFiles, capture_output=True).stdout.decode()
+	spaceSeparator = " "
+	fullCommand = spaceSeparator.join(listFiles)
+	#print("Ls command: "+fullCommand)
+	lsRes = ""
+	if timeSlot != 0:
+		lsRes = subprocess.run(sshPrefix + grepFilter, capture_output=True).stdout.decode()
+	else:
+		lsRes = subprocess.run(sshPrefix + listFiles, capture_output=True).stdout.decode()
 	#print(f"Ls logs: {lsRes}")
 	#print("\nEnd of logs")
-	splitLsRes = lsRes.splitlines()
-	for line in splitLsRes:
+
+	if len(lsRes.splitlines()) == 0:
+		print("\nFailed to find any logs within 24 hours")
+		return
+
+	for line in lsRes.splitlines():
 		print(line)
 		scpSuccessFlag = False
 
