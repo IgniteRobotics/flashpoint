@@ -13,11 +13,8 @@ watchdogDelay = 5
 afterFoundDelay = 300
 timeSlot = 1
 
-if len(sys.argv) > 2:
-	if sys.argv[1] == "--time" and int(sys.argv[2]):
-		timeSlot = int(sys.argv[2])
-elif len(sys.argv) == 2:
-	print("Usage: main.py [--time <within_days>]")
+SPACESEPARATOR = " "
+
 
 def check_ip_alive(ip_address):
     try:
@@ -26,60 +23,69 @@ def check_ip_alive(ip_address):
     except Exception:
         return False
 	
-sshPrefix = [
+passPrefix = [
+	"sshpass", "-p", botPass,
+]
+
+sshPrefix = passPrefix + [
 	"ssh", botHostname, # login
 	"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
 	"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
 ]
 
+getDate = [
+	"date", # get date
+	"+%Y%m%d" # format into YYYYMMDD
+]
+
 def retrieveLogs():
-	listFiles = [
+	date = int(subprocess.run(getDate, capture_output=True).stdout.decode())
+
+	listFiles = sshPrefix + [
 		"ls", # list all files
 		"-1t", # one per line, in time order (newest first)
 		teleDir, # directory
 	]
-	grepFilter = [
+	grepFilter = listFiles + ["|",
 		"find", # find all files
-		teleDir, # directory
-		"-type", "f", # only find files, exclude directories/symlinks
-		"-mtime", timeSlot, # filter time for within one day
-		"-printf", "%T@ %p\n", # print in created time format
 		"|", # and then
-		"sort", "-nr", # sort newest first
-		"|", # and then
-		"cut", "-d' '", "-f2-" # crop text to only filenames
+		"grep", f"*{date-timeSlot}" # filter to only files within specified days
 	]
 
-	spaceSeparator = " "
-	fullCommand = spaceSeparator.join(listFiles)
-	#print("Ls command: "+fullCommand)
 	lsRes = ""
-	if timeSlot != 0:
-		lsRes = subprocess.run(sshPrefix + grepFilter, capture_output=True).stdout.decode()
+	lsErr = ""
+	if timeSlot == 0:
+		lsCmd = subprocess.run(listFiles, capture_output=True)
+		lsRes = lsCmd.stdout.decode()
+		lsErr = lsCmd.stderr.decode()
 	else:
-		lsRes = subprocess.run(sshPrefix + listFiles, capture_output=True).stdout.decode()
-	#print(f"Ls logs: {lsRes}")
-	#print("\nEnd of logs")
+		lsCmd = subprocess.run(grepFilter, capture_output=True)
+		lsRes = lsCmd.stdout.decode()
+		lsErr = lsCmd.stderr.decode()
 
-	if len(lsRes.splitlines()) == 0:
-		print("\nFailed to find any logs within 24 hours")
+
+	if len(lsErr.splitlines()) > 1:
+		print("Something failed: "+lsErr)
+		print("Logs: "+lsRes)
+		return
+
+	if len(lsRes.splitlines()) == 0 and timeSlot != 0:
+		print(f"\nFailed to find any logs within {timeSlot} days")
+		return
+	elif len(lsRes.splitlines()) == 0 and timeSlot == 0:
+		print(f"There appears to be no logs in this directory on the host: {teleDir}")
 		return
 
 	for line in lsRes.splitlines():
 		print(line)
 		scpSuccessFlag = False
 
-		scpCommand = [
+		scpCommand = passPrefix + [
 			"scp",
 			"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
 			"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
 			botHostname+":"+teleDir+"/"+line, "/app/telemetry/", # take one user@ip:/path/to/logs/ file and store in /app/telemetry/
 		]
-
-		fullScpCommand = ""
-		for str in scpCommand:
-			fullScpCommand = fullScpCommand + str + " "
-		#print(fullScpCommand)
 
 		removeCommand = [
 			"ssh", botHostname, # login
@@ -110,6 +116,19 @@ def retrieveLogs():
 			print("Removing old logs:", finalRemoveRes)
 
 def main():
+	global timeSlot
+	if len(sys.argv) > 1:
+		if "--time" in sys.argv and len(sys.argv) > 2:
+			timeSlot = int(sys.argv[2])
+		if "--force" in sys.argv:
+			retrieveLogs()
+			return
+	elif len(sys.argv) == 2:
+		print("Usage: main.py [OPTIONS]\n")
+		print("Options:\n")
+		print("--time <within_days>     filter to files within X days")
+		print("--force                  force retrieval without pinging, will run only once")
+		return
 	print("Starting...")
 	while True:
 		pingRes = check_ip_alive(botIP)
