@@ -5,6 +5,7 @@ from sqlite3 import connect
 import subprocess
 import sys
 
+import numpy as np
 import pandas as pd
 
 import csv_converter
@@ -56,6 +57,48 @@ def setup_db(db_name):
         metric TEXT, 
         boolean_value TEXT, 
         numeric_value REAL)''')
+    connection.commit()
+    
+    #creates device telemetry table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
+        match_time REAL,
+        subsystem TEXT,
+        assembly TEXT,
+        subassembly TEXT,
+        component TEXT,
+        position REAL,
+        velocity REAL,
+        voltage REAL,
+        current REAL,
+        temperature REAL)''')
+    connection.commit()
+    
+    #creates device_stats table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS device_stats (
+        subsystem TEXT,
+        assembly TEXT,
+        subassembly TEXT,
+        component TEXT,
+        avg_velocity REAL,
+        min_velocity REAL,
+        max_velocity REAL,
+        stddev_velocity REAL,
+        avg_voltage REAL,  
+        min_voltage REAL,
+        max_voltage REAL,
+        stddev_voltage REAL,
+        avg_current REAL,
+        min_current REAL,
+        max_current REAL,
+        stddev_current REAL,
+        avg_temperature REAL,
+        min_temperature REAL,
+        max_temperature REAL,
+        stddev_temperature REAL,
+        avg_position REAL,
+        min_position REAL,
+        max_position REAL,
+        stddev_position REAL)''')
     connection.commit()
     
     return connection
@@ -162,6 +205,164 @@ def write_dataframe(df, tablename, connection, filename = None):
 def close_db(connection):
     connection.commit()
     connection.close()
+    
+def hoot_timestamp_convert(df):
+    
+    #now calcuate match_time.
+    print('adding match time')
+    df['match_time'] = df.timestamp - df['timestamp'].min()
+
+    return df
+    
+def read_device_data_raw(df):
+     #creates new telemetry dataframe
+    intermediate_df = df[df['metric'].notnull()]
+    
+    #drops irrelevant columns
+    intermediate_df.drop(columns = ['entry', 'boolean_value', 'value', 'timestamp', 'data_type'], inplace = True)
+    
+    has_voltage_data = True
+    has_current_data = True
+    has_velocity_data = True
+    has_position_data = True
+    has_temp_data = True
+    
+    try:
+        voltage_df = intermediate_df.loc[(intermediate_df['metric'] == 'VOLTAGE')]
+    except KeyError:
+        has_voltage_data = False
+    
+    try:
+        current_df = intermediate_df.loc[(intermediate_df['metric'] == 'CURRENT')]
+    except KeyError:
+        has_current_data = False  
+    
+    try:
+        velocity_df = intermediate_df.loc[(intermediate_df['metric'] == 'VELOCITY')]
+    except KeyError:
+        has_velocity_data = False      
+        
+    try:
+        position_df = intermediate_df.loc[(intermediate_df['metric'] == 'POSITION')]
+    except KeyError:
+        has_position_data = False  
+    
+    try:
+        temp_df = intermediate_df.loc[(intermediate_df['metric'] == 'TEMP')]
+    except KeyError:
+        has_temp_data = False
+        
+    
+    if not has_voltage_data and not has_current_data and not has_velocity_data and not has_position_data and not has_temp_data:
+        return(None, None)
+        
+    #removes data that is not necessary for this dataframe
+    #telemetry_df = telemetry_df.loc[(telemetry_df['metric'] == 'VOLTAGE') 
+    #                               |(telemetry_df['metric'] == 'CURRENT')
+    #                               |(telemetry_df['metric'] == 'VELOCITY')
+    #                               |(telemetry_df['metric'] == 'POSITION')
+    #                               |(telemetry_df['metric'] == 'TEMP')]
+    
+    intermediate_df.drop(columns = ['metric', 'numeric_value'], inplace = True)
+    intermediate_df.drop_duplicates(inplace = True)
+    telemetry_df = intermediate_df.copy(True)
+    
+    intermediate_df.drop(columns = 'match_time', inplace = True)
+    intermediate_df.drop_duplicates(inplace = True)
+    stats_df = intermediate_df
+   
+    if has_voltage_data:
+        voltage_df.drop(columns = 'metric', inplace = True)
+        voltage_df.rename(columns = {'numeric_value':'voltage'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, voltage_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, voltage_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_voltage = ('voltage', 'mean'),
+                                min_voltage = ('voltage', 'min'),
+                                max_voltage = ('voltage', 'max'),
+                                stddev_voltage = ('voltage', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['voltage'] = np.nan
+        stats_df['avg_voltage'] = np.nan
+        stats_df['min_voltage'] = np.nan
+        stats_df['max_voltage'] = np.nan
+        stats_df['stddev_voltage'] = np.nan
+    
+    if has_current_data:
+        current_df.drop(columns = 'metric', inplace = True)
+        current_df.rename(columns = {'numeric_value':'current'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, current_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, current_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_current = ('current', 'mean'),
+                                min_current = ('current', 'min'),
+                                max_current = ('current', 'max'),
+                                stddev_current = ('current', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['current'] = np.nan
+        stats_df['avg_current'] = np.nan
+        stats_df['min_current'] = np.nan
+        stats_df['max_current'] = np.nan
+        stats_df['stddev_current'] = np.nan
+        
+    if has_velocity_data:
+        velocity_df.drop(columns = 'metric', inplace = True)
+        velocity_df.rename(columns = {'numeric_value':'velocity'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, velocity_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, velocity_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_velocity = ('velocity', lambda x : x.abs().mean()),
+                                min_velocity = ('velocity', 'min'),
+                                max_velocity = ('velocity', 'max'),
+                                stddev_velocity = ('velocity', lambda x: x.abs().std())
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['velocity'] = np.nan
+        stats_df['avg_velocity'] = np.nan
+        stats_df['min_velocity'] = np.nan
+        stats_df['max_velocity'] = np.nan
+        stats_df['stddev_velocity'] = np.nan
+    
+    if has_position_data:
+        position_df.drop(columns = 'metric', inplace = True)
+        position_df.rename(columns = {'numeric_value':'position'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, position_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, position_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_position = ('position', 'mean'),
+                                min_position = ('position', 'min'),
+                                max_position = ('position', 'max'),
+                                stddev_position = ('position', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    else:
+        telemetry_df['position'] = np.nan
+        stats_df['avg_position'] = np.nan
+        stats_df['min_position'] = np.nan
+        stats_df['max_position'] = np.nan
+        stats_df['stddev_position'] = np.nan
+    
+    if has_temp_data:
+        temp_df.drop(columns = 'metric', inplace = True)
+        temp_df.rename(columns = {'numeric_value':'temperature'}, inplace = True)
+        telemetry_df = pd.merge(telemetry_df, temp_df, on = ['match_time', 'subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+        stats_df = pd.merge(stats_df, temp_df.drop(columns = 'match_time')
+                            .groupby(['subsystem', 'assembly', 'subassembly', 'component'], dropna = False, as_index = False).agg(
+                                avg_temperature = ('temperature', 'mean'),
+                                min_temperature = ('temperature', 'min'),
+                                max_temperature = ('temperature', 'max'),
+                                stddev_temperature = ('temperature', 'std')
+                            ), on = ['subsystem', 'assembly', 'subassembly', 'component'], how = 'outer')
+    
+    else:
+        telemetry_df['temperature'] = np.nan
+        stats_df['avg_temperature'] = np.nan
+        stats_df['min_temperature'] = np.nan
+        stats_df['max_temperature'] = np.nan
+        stats_df['stddev_temperature'] = np.nan
+            
+    return(telemetry_df, stats_df)
 
 if __name__ == "__main__":
     print("Starting")
@@ -178,6 +379,7 @@ if __name__ == "__main__":
     
     #open the db/connection
     #db/hoot.db
+    
     conn = setup_db("db/hoot.db")
     
     (is_duplicate, existing_filename) = is_file_already_imported(conn, hash)
@@ -185,23 +387,44 @@ if __name__ == "__main__":
     if is_duplicate:
         print(f"File {filename} has already been imported as {existing_filename}. Skipping.")
         sys.exit(0)
-
+    
+    read_logfile(filepath)
+        
     update_file_metadata(conn, filename, hash, 0)
     
-    #prepares dataframe
-    hoot_df = fix_datatypes(read_logfile(filepath))
     
-    #grabs hoot datamap
-    hoot_map_df = pd.read_csv('datamaps/hoot_map.csv')
+    #prepares dataframe
+    print("Reading logfile")
+    hoot_df = read_logfile(filepath)
+    print("Fixing datatypes")
+    hoot_df = fix_datatypes(hoot_df)
+    
+    hoot_df = hoot_timestamp_convert(hoot_df)
+    
+    #grabs hoot datamap 
+    if "rio" in filename:
+        hoot_map_df = pd.read_csv('datamaps/hoot_rio_map.csv')
+    else:
+        hoot_map_df = pd.read_csv('datamaps/hoot_drivetrain_map.csv')
     
     #merges the dataframe and datamap
     hoot_df = hoot_df.merge(right=hoot_map_df, how='left', on='entry')
     
+    #creates telemetry and statistics dataframes
+    (device_telemetry_df, device_stats_df) = read_device_data_raw(hoot_df)
+    
     #adds additional filename key
     hoot_df['filename'] = filename
-    
-    update_file_metadata(conn, filename, hash, 1)
-    
     write_dataframe(hoot_df, 'device_data_raw', conn)
     
+    if device_telemetry_df is not None:
+        write_dataframe(device_telemetry_df, 'device_telemetry', conn)
+        
+    if device_stats_df is not None:
+        write_dataframe(device_stats_df, 'device_stats', conn)
+    
+    update_file_metadata(conn, filename, hash, 1)
+
     close_db(conn)
+
+    
