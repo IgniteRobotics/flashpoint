@@ -1,0 +1,31 @@
+entry,subsystem,assembly,subassembly,component,metric
+Phoenix6/TalonFX-6/SupplyVoltage,ELEVATOR,,,LEAD MOTOR,VOLTAGE
+Phoenix6/TalonFX-6/SupplyCurrent,ELEVATOR,,,LEAD MOTOR,CURRENT
+Phoenix6/TalonFX-6/Velocity,ELEVATOR,,,LEAD MOTOR,VELOCITY
+Phoenix6/TalonFX-6/Position,ELEVATOR,,,LEAD MOTOR,POSITION
+Phoenix6/TalonFX-6/DeviceTemp,ELEVATOR,,,LEAD MOTOR,TEMP
+Phoenix6/TalonFX-7/SupplyVoltage,ELEVATOR,,,FOLLOW MOTOR,VOLTAGE
+Phoenix6/TalonFX-7/SupplyCurrent,ELEVATOR,,,FOLLOW MOTOR,CURRENT
+Phoenix6/TalonFX-7/Velocity,ELEVATOR,,,FOLLOW MOTOR,VELOCITY
+Phoenix6/TalonFX-7/Position,ELEVATOR,,,FOLLOW MOTOR,POSITION
+Phoenix6/TalonFX-7/DeviceTemp,ELEVATOR,,,FOLLOW MOTOR,TEMP
+Phoenix6/TalonFX-15/SupplyVoltage,CLIMBER,,,MOTOR,VOLTAGE
+Phoenix6/TalonFX-15/SupplyCurrent,CLIMBER,,,MOTOR,CURRENT
+Phoenix6/TalonFX-15/Velocity,CLIMBER,,,MOTOR,VELOCITY
+Pheonix6/TalonFX-15/Position,CLIMBER,,,MOTOR,POSITION
+Pheonix6/TalonFX-15/DeviceTemp,CLIMBER,,,MOTOR,TEMP
+Phoenix6/TalonFX-2/SupplyVoltage,Corraler,,,MOTOR,VOLTAGE
+Phoenix6/TalonFX-2/SupplyCurrent,Corraler,,,MOTOR,CURRENT
+Phoenix6/TalonFX-2/Velocity,Corraler,,,MOTOR,VELOCITY
+Phoenix6/TalonFX-2/Position,Corraler,,,MOTOR,POSITION
+Phoenix6/TalonFX-2/DeviceTemp,Corraler,,,MOTOR,TEMP
+Phoenix6/TalonFX-3/SupplyVoltage,ALGAE COLLECTOR,INTAKE,,MOTOR,VOLTAGE
+Phoenix6/TalonFX-3/SupplyCurrent,ALGAE COLLECTOR,INTAKE,,MOTOR,CURRENT
+Phoenix6/TalonFX-3/Velocity,ALGAE COLLECTOR,INTAKE,,MOTOR,VELOCITY
+Phoenix6/TalonFX-3/Position,ALGAE COLLECTOR,INTAKE,,MOTOR,POSITION
+Phoenix6/TalonFX-3/DeviceTemp,ALGAE COLLECTOR,INTAKE,,MOTOR,TEMP
+Phoenix6/TalonFX-4/SupplyVoltage,ALGAE COLLECTOR,WRIST,,MOTOR,VOLTAGE
+Phoenix6/TalonFX-4/SupplyCurrent,ALGAE COLLECTOR,WRIST,,MOTOR,CURRENT
+Phoenix6/TalonFX-4/Velocity,ALGAE COLLECTOR,WRIST,,MOTOR,VELOCITY
+Phoenix6/TalonFX-4/Position,ALGAE COLLECTOR,WRIST,,MOTOR,POSITION
+Phoenix6/TalonFX-4/DeviceTemp,ALGAE COLLECTOR,WRIST,,MOTOR,TEMP
