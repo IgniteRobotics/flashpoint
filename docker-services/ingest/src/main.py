@@ -115,6 +115,21 @@ def retrieveLogs():
 				finalRemoveRes = removeRes
 			print("Removing old logs:", finalRemoveRes)
 
+	# start ingest
+	print("Starting Ingest on files in ./telemetry")
+	ingestCMD = subprocess.run(["python3", "./ingest_dir.sh"], capture_output=True)
+	ingestRes = ingestCMD.stdout.decode()
+	ingestErr = ingestCMD.stderr.decode()
+	print(ingestRes)
+	print(ingestErr)
+
+	"""for fileName in lsRes.splitlines():
+		rmCMD = subprocess.run(["rm", "./telemetry/"+fileName], capture_output=True)
+		rmRes = rmCMD.stdout.decode()
+		rmErr = rmCMD.stderr.decode()
+		print(rmRes)
+		print(rmErr)"""
+
 def main():
 	global timeSlot
 	if len(sys.argv) > 1:
