@@ -6,7 +6,7 @@ services:
     volumes:
       - telemetry:/app/telemetry
 
-# if it failed to mount _data, make sure FLASHPOINT_DIR is correct
+# if it failed to mount _data, make sure FLASHPOINT_DIR is correct and there is a FLASHPOINT_DIR/telemetry directory
 volumes:
   telemetry:
     driver_opts:
