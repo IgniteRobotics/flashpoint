@@ -22,7 +22,7 @@ def check_ip_alive(ip_address):
         return response is not None
     except Exception:
         return False
-	
+
 passPrefix = [
 	"sshpass", "-p", botPass,
 ]
@@ -91,7 +91,7 @@ def retrieveLogs():
 			"ssh", botHostname, # login
 			"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
 			"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
-			"rm", "-f", f"'{line}'", # delete copied file
+			"rm", "-f", f"{teleDir+"/"+line}", # delete copied file
 		]
 
 		res = subprocess.run(scpCommand, capture_output=True).stderr.decode()
@@ -114,6 +114,7 @@ def retrieveLogs():
 			else:
 				finalRemoveRes = removeRes
 			print("Removing old logs:", finalRemoveRes)
+		print("\n\n") # separate
 
 	# start ingest
 	print("Starting Ingest on files in ./telemetry")
