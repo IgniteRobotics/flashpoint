@@ -1,15 +1,37 @@
 services:
-  backend:
+  ingest:
     image: flashpoint-ingest
     build:
-      dockerfile: ./Dockerfile-ingest
+      dockerfile: ./docker-services/ingest/Dockerfile
     volumes:
       - telemetry:/app/telemetry
+      - database:/app/db
+      - convertedData:/app/converted_data
+  dataviz:
+    image: flashpoint-dataviz
+    ports:
+      - "8501:8501"
+    build:
+      dockerfile: ./docker-services/dataviz/Dockerfile
+    volumes:
+      - database:/app/db/
+      - convertedData:/app/converted_data/
 
-# if it failed to mount _data, make sure FLASHPOINT_DIR is correct and there is a FLASHPOINT_DIR/telemetry directory
+# if it failed to mount _data, make sure FLASHPOINT_DIR is correct and there is a telemetry, db, and converted_data directory
 volumes:
   telemetry:
     driver_opts:
       type: "none"
       o: "bind"
       device: "${FLASHPOINT_DIR}/telemetry"
+  database:
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "${FLASHPOINT_DIR}/db"
+  convertedData:
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "${FLASHPOINT_DIR}/converted_data"
+    
