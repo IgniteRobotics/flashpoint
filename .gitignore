@@ -123,6 +123,7 @@ celerybeat.pid
 .env
 .venv
 .ingest-venv
+.viz-venv
 env/
 venv/
 ENV/
