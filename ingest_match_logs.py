@@ -3,16 +3,8 @@ import os
 from ingest_library import *
 import sys
 
-if __name__ == "__main__":
+def ingest_match_logs(system_log_filepath, drivetrain_devices_filepath, rio_devices_filepath, db_filepath):
     print("Starting")
-    
-    if len(sys.argv) != 5:
-        print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
-        sys.exit(1)
-    
-    system_log_filepath = sys.argv[1]
-    drivetrain_devices_filepath = sys.argv[2]
-    rio_devices_filepath = sys.argv[3]
     
     #only use the filename for the key, but use the path to calculate the hash
     system_log_filename = os.path.basename(system_log_filepath)
@@ -25,14 +17,17 @@ if __name__ == "__main__":
     
     #open the db/connection
     #db/robot.db
-    conn = setup_db(sys.argv[4])
+    conn = setup_db(db_filepath)
     
     update_file_metadata(conn, system_log_filename, system_log_hash, 0)
     update_file_metadata(conn, drivetrain_devices_filename, drivetrain_devices_hash, 0)
     update_file_metadata(conn, rio_devices_filename, rio_devices_hash, 0)
     
+    print("Reading in system log file")
     system_df = read_system_logfile(system_log_filepath)
+    print("Reading in drivetrain log file")
     drive_df = read_device_logfile(drivetrain_devices_filepath)
+    print("reading in rio log file")
     rio_df = read_device_logfile(rio_devices_filepath)
     
     #splits the output dataframe from the "read_logfile" function into dataframes to be utilized seperately
@@ -64,7 +59,8 @@ if __name__ == "__main__":
     if(disabled_ts != -1):
         print('dropping rows after end')
         drive_df = trim_tail(drive_df, disabled_ts)
-        vision_df = trim_tail(rio_df, disabled_ts)
+        rio_df = trim_tail(rio_df, disabled_ts)
+        vision_df = trim_tail(vision_df, disabled_ts)
     
     print('reading maps')
     drive_map_df = pd.read_csv('datamaps/drivetrain_devices_map.csv')
@@ -74,7 +70,7 @@ if __name__ == "__main__":
     print('mapping entries to identifiers')
     drive_df = drive_df.merge(right=drive_map_df, how='left', on='entry')
     rio_df = rio_df.merge(right=rio_map_df,how='left',on='entry')
-    vision_map_df = vision_df.merge(right=vision_map_df,how='left',on='entry')
+    vision_df = vision_df.merge(right=vision_map_df,how='left',on='entry')
     
     print('Fixing datatypes')
     drive_df = fix_datatypes(drive_df)
@@ -134,6 +130,11 @@ if __name__ == "__main__":
     
     close_db(conn)
     print('Done')
-    
+
+if __name__ == "__main__":
+    if len(sys.argv) != 5:
+        print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
+        sys.exit(1)
+    ingest_match_logs(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
     
     

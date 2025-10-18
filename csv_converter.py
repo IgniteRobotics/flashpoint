@@ -6,8 +6,8 @@ import mmap
 import sys
 import os
 
-def csv_convert(file_name, convert_dir):
-     with open(file_name, "r") as f:
+def csv_convert(input_log, convert_dir):
+     with open(input_log, "r") as f:
         #starts up the wpilog reader
         mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
         reader = DataLogReader(mm)
@@ -17,9 +17,6 @@ def csv_convert(file_name, convert_dir):
             
         #hashmap
         entries = {}
-        
-        #argument is the wpilog you want it to convert
-        input_log = sys.argv[1]
         
         #creates and opens a csv file with the same name as your wpilog file (except the suffix)
         pos = input_log.rfind(".")
