@@ -165,4 +165,5 @@ cython_debug/
 data/
 db/
 telemetry/
+faketele/
 converted_data/
