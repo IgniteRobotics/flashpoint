@@ -3,9 +3,9 @@ import sys
 import re
 
 drive_dir = "/home/ignite/GoogleDrive/"
-telemetry_dir = "/home/ignite/Documents/flashpoint/telemetry/"
+telemetry_dir = "/home/ignite/workspace/flashpoint/telemetry/"
 
-compID_regex = r"GA[a-zA-Z0-9]+"
+compID_regex = r"[a-zA-Z]+[0-9]_"
 
 def main():
 	list_files = [
@@ -20,7 +20,7 @@ def main():
 		drive_teledir = ""
 		if compID_match:
 			compID = ""
-			for i in range(compID_match.start(), compID_match.end()):
+			for i in range(compID_match.start(), compID_match.end()-1):
 				compID = compID+fileName[i]
 			drive_teledir = drive_dir+"Programming/Telemetry/LandingZone/"+compID
 			print("Comp id: "+compID)
@@ -36,7 +36,7 @@ def main():
 			print(repr(mkdirRes)) # repr to force printing non-printing chars, such as newlines
 
 		move_file = [
-			"cp", telemetry_dir+fileName, drive_teledir # move file to drive_directory
+			"cp",# telemetry_dir+fileName, drive_teledir # move file to drive_directory
 		]
 		moveCMD = subprocess.run(move_file, capture_output=True)
 		moveRes = moveCMD.stdout.decode()
