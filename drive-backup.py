@@ -5,7 +5,11 @@ import re
 drive_dir = "/home/ignite/GoogleDrive/"
 telemetry_dir = "/home/ignite/workspace/flashpoint/telemetry/"
 
-compID_regex = r"[a-zA-Z]+[0-9]_"
+compID_regex = r"[a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z]?[0-9]?_" # matches for any 4/5 letters, optional number, and underscore after
+
+invalids = [
+	"FRC", "TBD", "FF", "rio"
+]
 
 def main():
 	list_files = [
