@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import time
 import re
 
 drive_dir = "/home/ignite/GoogleDrive/"
@@ -47,6 +48,49 @@ def main():
 		moveErr = moveCMD.stdout.decode()
 		if moveRes != "":
 			print(repr(moveRes)) # repr to force printing non-printing chars, such as newlines
+
+def backupDB():
+	print("Copying robot.db file...")
+	drive_db_dir = drive_dir+"Programming/Telemetry/LandingZone/dbbackups/"
+	
+	LT = time.localtime()
+	strDate = str(LT.tm_year)+str(LT.tm_mon)+str(LT.tm_mday)
+	strTime = str(LT.tm_hour)+str(LT.tm_min)+str(LT.tm_sec)
+	#print(strDate+"_"+strTime)
+
+	fullNewFilePath = drive_db_dir+"backup_"+strDate+"_"+strTime+".db"
+	
+	copy_file = [
+		"cp", flashpoint_dir+"db/robot.db", # copy the robot db file
+		fullNewFilePath
+	]
+	
+	copyCMD = subprocess.run(copy_file, capture_output=True)
+	copyRes = copyCMD.stdout.decode()
+	copyErr = copyCMD.stderr.decode()
+	
+	if copyRes != "":
+		print(copyRes)
+	if copyErr != "":
+		print(copyErr)
+
+def main():
+	print("Starting...")
+	if len(sys.argv) > 1:
+		if "--only-db" in sys.argv:
+			backupDB()
+			return
+		elif "--only-logs" in sys.argv:
+			backupLogs()
+			return
+		else:
+			backupLogs()
+			backupDB()
+	elif len(sys.argv) == 2:
+		print("Usage: drive-backup.py [OPTIONS]\n")
+		print("Options:\n")
+		print("--db                  backup database (robot.db) file")
+		return
 
 if __name__ == "__main__":
 	try:
