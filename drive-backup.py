@@ -12,7 +12,7 @@ invalids = [
 	"FRC", "TBD", "FF", "rio"
 ]
 
-def main():
+def backupLogs():
 	list_files = [
 		"ls", "-1", # list all files one per line
 		telemetry_dir
@@ -32,6 +32,7 @@ def main():
 		else:
 			drive_teledir = drive_dir+"Programming/Telemetry/LandingZone/nocomp"
 			print("Comp id: none")
+		
 		make_folder = [
 			"mkdir", "-p", # make folder, all parent directories, and don't complain if existing
 			drive_teledir,
@@ -41,7 +42,7 @@ def main():
 			print(repr(mkdirRes)) # repr to force printing non-printing chars, such as newlines
 
 		move_file = [
-			"cp",# telemetry_dir+fileName, drive_teledir # move file to drive_directory
+			"cp", telemetry_dir+fileName, drive_teledir # move file to drive_directory
 		]
 		moveCMD = subprocess.run(move_file, capture_output=True)
 		moveRes = moveCMD.stdout.decode()
