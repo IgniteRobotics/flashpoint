@@ -4,7 +4,7 @@ import time
 import re
 
 drive_dir = "/home/ignite/GoogleDrive/"
-telemetry_dir = "/home/ignite/workspace/flashpoint/telemetry/"
+flashpoint_dir = "/home/ignite/workspace/flashpoint/"
 
 compID_regex = r"[a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z]?[0-9]?_" # matches for any 4/5 letters, optional number, and underscore after
 
@@ -15,7 +15,7 @@ invalids = [
 def backupLogs():
 	list_files = [
 		"ls", "-1", # list all files one per line
-		telemetry_dir
+		flashpoint_dir+"telemetry/"
 	]
 	listRes = subprocess.run(list_files, capture_output=True).stdout.decode()
 
