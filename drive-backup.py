@@ -47,7 +47,7 @@ def backupLogs():
 			print(repr(mkdirRes)) # repr to force printing non-printing chars, such as newlines
 
 		move_file = [
-			"cp", telemetry_dir+fileName, drive_teledir # move file to drive_directory
+			"cp", flashpoint_dir+"telemetry/"+fileName, drive_teledir # move file to drive_directory
 		]
 		moveCMD = subprocess.run(move_file, capture_output=True)
 		moveRes = moveCMD.stdout.decode()
