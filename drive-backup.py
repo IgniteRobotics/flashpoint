@@ -21,12 +21,17 @@ def backupLogs():
 
 	for fileName in listRes.splitlines():
 		print("File: "+fileName, end=" ")
-		compID_match = re.search(compID_regex, fileName)
+
+		tmpFileName = fileName
+		for index in range(len(invalids)):
+			tmpFileName.replace(invalids[index], "")
+		
+		compID_match = re.search(compID_regex, tmpFileName)
 		drive_teledir = ""
 		if compID_match:
 			compID = ""
-			for i in range(compID_match.start(), compID_match.end()-1):
-				compID = compID+fileName[i]
+			for i in range(compID_match.start(), compID_match.end()-1): # -1 removes underscore from matching
+				compID = compID+tmpFileName[i]
 			drive_teledir = drive_dir+"Programming/Telemetry/LandingZone/"+compID
 			print("Comp id: "+compID)
 		else:
