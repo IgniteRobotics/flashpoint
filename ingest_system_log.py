@@ -117,13 +117,13 @@ if __name__ == "__main__":
     (vision_telemetry_df, vision_stats_df) = read_vision_data_raw(vision_df)
     
     #adds additional keys
-    add_keys(metrics_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(metrics_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
     metrics_df['filename'] = filename
     
-    add_keys(vision_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(vision_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
     vision_df['filename'] = filename
     
-    add_keys(preferences_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(preferences_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
     preferences_df.drop(columns = 'timestamp', inplace = True)
 
     write_dataframe(meta_df, 'log_metadata', conn)
@@ -131,21 +131,21 @@ if __name__ == "__main__":
     write_dataframe(metrics_df, 'device_data_raw', conn)
     
     if device_telemetry_df is not None:
-        add_keys(device_telemetry_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(device_telemetry_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(device_telemetry_df, 'device_telemetry', conn)
         
     if device_stats_df is not None:
-        add_keys(device_stats_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(device_stats_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(device_stats_df, 'device_stats', conn)
     
     write_dataframe(vision_df, 'vision_data_raw', conn)
     
     if vision_telemetry_df is not None:
-        add_keys(vision_telemetry_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(vision_telemetry_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
     
     if vision_stats_df is not None:
-        add_keys(vision_stats_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(vision_stats_df, sys.argv[3], meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(vision_stats_df, 'vision_stats', conn)
         
     write_dataframe(preferences_df, 'preferences', conn)

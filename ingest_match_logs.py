@@ -83,44 +83,44 @@ def ingest_match_logs(system_log_filepath, drivetrain_devices_filepath, rio_devi
     (vision_telemetry_df,vision_stats_df) = read_vision_data_raw(vision_df)
     
     print('uploading to database')
-    add_keys(drive_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(drive_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
     drive_df['filename'] = drivetrain_devices_filename
     write_dataframe(drive_df, 'device_data_raw', conn)
     
-    add_keys(rio_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(rio_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
     rio_df['filename'] = rio_devices_filename
     write_dataframe(rio_df, 'device_data_raw', conn)
     
-    add_keys(vision_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(vision_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
     vision_df['filename'] = system_log_filename
     write_dataframe(vision_df, 'vision_data_raw', conn)
     
-    add_keys(preferences_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+    add_keys(preferences_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
     preferences_df.drop(columns = 'timestamp', inplace = True)
     write_dataframe(preferences_df, 'preferences', conn)
     
     if drive_telemetry_df is not None:
-        add_keys(drive_telemetry_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(drive_telemetry_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(drive_telemetry_df, 'device_telemetry', conn)
         
     if drive_stats_df is not None:
-        add_keys(drive_stats_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(drive_stats_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(drive_stats_df, 'device_stats', conn)
     
     if rio_telemetry_df is not None:
-        add_keys(rio_telemetry_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(rio_telemetry_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(rio_telemetry_df, 'device_telemetry', conn)
         
     if rio_stats_df is not None:
-        add_keys(rio_stats_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(rio_stats_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(rio_stats_df, 'device_stats', conn)
     
     if vision_telemetry_df is not None:
-        add_keys(vision_telemetry_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(vision_telemetry_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(vision_telemetry_df, 'vision_telemetry', conn)
         
     if vision_stats_df is not None:
-        add_keys(vision_stats_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'replay_num'])
+        add_keys(vision_stats_df, '2025', meta_df.at[0,'event'], meta_df.at[0,'match_id'], meta_df.at[0,'match_type'], meta_df.at[0,'replay_num'])
         write_dataframe(vision_stats_df, 'vision_stats', conn)
     
     print('Updating file metadata')
