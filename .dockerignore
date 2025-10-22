@@ -1,0 +1,6 @@
+**/docker/
+**/telemetry/
+Dockerfile-ingest
+docker-compose.yml
+.venv
+.env
