@@ -122,8 +122,6 @@ celerybeat.pid
 # Environments
 .env
 .venv
-.ingest-venv
-.viz-venv
 env/
 venv/
 ENV/
@@ -165,6 +163,4 @@ cython_debug/
 data/
 converted_data/
 db/
-telemetry/
-faketele/
 old_2024_data/
