@@ -33,8 +33,12 @@ def update_file_metadata(connection, filename, hash, success):
         connection.rollback()
 
 def read_device_logfile(filepath):
+    if 'rio' in os.basename(filepath):
+        convert_folder = 'converted_rio_device_logs'
+    else:
+        convert_folder = 'converted_drive_device_logs'
     pos = filepath.rfind(".")
-    output_csv = "./converted_data/converted_device_logs/" + filepath[:pos].split("/")[-1] + ".gz"
+    output_csv = "./converted_data/"+convert_folder+"/"+ filepath[:pos].split("/")[-1] + ".gz"
     try:
         #attempts to open the .gz file if it exists
         open(output_csv)
@@ -42,10 +46,10 @@ def read_device_logfile(filepath):
     except FileNotFoundError:
         print(f'Converting {filepath}')
         #convert hoot file to wpilog
-        output_wpilog = "./converted_data/converted_device_logs/" + filepath[:pos].split("/")[-1] + ".wpilog"
+        output_wpilog = "./converted_data/"+convert_folder+"/" + filepath[:pos].split("/")[-1] + ".wpilog"
         subprocess.run(["./executables/owlet.exe", "-f", "wpilog", filepath, output_wpilog])
         #convert wpilog file to csv file
-        csv_converter.csv_convert(output_wpilog, "./converted_data/converted_device_logs/")
+        csv_converter.csv_convert(output_wpilog, "./converted_data/"+convert_folder+"/")
         #remove wpilog intermediate
         os.remove(output_wpilog)
     #read csv into dataframe
@@ -193,11 +197,12 @@ def fix_datatypes(df):
 
     return df_log_data
 
-def add_keys(df, event_year, event, match_id, replay_num):
+def add_keys(df, event_year, event, match_id, match_type, replay_num):
     df['event_year'] = event_year
     df['event'] = event
-    df['match_id'] = pd.to_numeric(match_id)
-    df['replay_num'] = pd.to_numeric(replay_num)
+    df['match_id'] = match_id
+    df['match_type'] = match_type
+    df['replay_num'] = replay_num
 
 #sets up database
 #this creates the table and indexes
@@ -245,8 +250,9 @@ def setup_db(db_name):
         filename TEXT,
         event_year TEXT, 
         event TEXT, 
-        match_id REAL, 
-        replay_num REAL, 
+        match_id TEXT, 
+        match_type TEXT,
+        replay_num TEXT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT, 
@@ -265,8 +271,9 @@ def setup_db(db_name):
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
         event_year TEXT,
         event TEXT,
-        match_id REAL,
-        replay_num REAL,
+        match_id TEXT,
+        match_type TEXT,
+        replay_num TEXT,
         match_time REAL,
         subsystem TEXT,
         assembly TEXT,
@@ -283,8 +290,9 @@ def setup_db(db_name):
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_stats (
         event_year REAL,
         event TEXT,
-        match_id REAL,
-        replay_num REAL,
+        match_id TEXT,
+        match_type TEXT,
+        replay_num TEXT,
         subsystem TEXT,
         assembly TEXT,
         subassembly TEXT,
@@ -316,8 +324,9 @@ def setup_db(db_name):
         filename TEXT,
         event_year TEXT, 
         event TEXT, 
-        match_id REAL, 
-        replay_num REAL, 
+        match_id TEXT, 
+        match_type TEXT,
+        replay_num TEXT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT, 
@@ -333,8 +342,9 @@ def setup_db(db_name):
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_telemetry (
         event_year TEXT,
         event TEXT,
-        match_id REAL,
-        replay_num REAL,
+        match_id TEXT,
+        match_type TEXT,
+        replay_num TEXT,
         match_time REAL,
         camera TEXT,
         latency REAL,
@@ -345,8 +355,9 @@ def setup_db(db_name):
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_stats (
         event_year TEXT,
         event TEXT,
-        match_id REAL,
-        replay_num REAL,
+        match_id TEXT,
+        match_type TEXT,
+        replay_num TEXT,
         camera TEXT,
         avg_latency REAL,
         min_latency REAL,
@@ -358,8 +369,9 @@ def setup_db(db_name):
     cursor.execute('''CREATE TABLE IF NOT EXISTS preferences (
         event_year TEXT, 
         event TEXT, 
-        match_id REAL, 
-        replay_num REAL, 
+        match_id TEXT, 
+        match_type TEXT,
+        replay_num TEXT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT)''')

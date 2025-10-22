@@ -127,7 +127,7 @@ def csv_convert(input_log, convert_dir):
         f_out.writelines(f_in)
         f_out.close()
         f_in.close()
-        #os.remove(output_csv)
+        os.remove(output_csv)
         print("--Complete--")
 
 #script that actually runs when 

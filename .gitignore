@@ -163,3 +163,4 @@ cython_debug/
 data/
 converted_data/
 db/
+old_2024_data/
