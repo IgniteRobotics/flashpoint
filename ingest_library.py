@@ -33,7 +33,7 @@ def update_file_metadata(connection, filename, hash, success):
         connection.rollback()
 
 def read_device_logfile(filepath):
-    if 'rio' in os.basename(filepath):
+    if 'rio' in os.path.basename(filepath):
         convert_folder = 'converted_rio_device_logs'
     else:
         convert_folder = 'converted_drive_device_logs'
