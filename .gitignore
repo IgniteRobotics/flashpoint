@@ -163,8 +163,8 @@ cython_debug/
 
 #data and db
 data/
-converted_data/
 db/
 telemetry/
 faketele/
+converted_data/
 old_2024_data/
