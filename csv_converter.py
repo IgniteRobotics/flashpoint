@@ -6,8 +6,8 @@ import mmap
 import sys
 import os
 
-def csv_convert(file_name):
-     with open(file_name, "r") as f:
+def csv_convert(input_log, convert_dir):
+     with open(input_log, "r") as f:
         #starts up the wpilog reader
         mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
         reader = DataLogReader(mm)
@@ -18,12 +18,9 @@ def csv_convert(file_name):
         #hashmap
         entries = {}
         
-        #argument is the wpilog you want it to convert
-        input_log = sys.argv[1]
-        
         #creates and opens a csv file with the same name as your wpilog file (except the suffix)
         pos = input_log.rfind(".")
-        output_csv = input_log[:pos] + ".csv"        
+        output_csv = convert_dir + input_log[:pos].split("/")[-1] + ".csv"        
         with open(output_csv, 'w+', newline='') as csvfile:
             #prepares the writer
             csv_writer = csv.writer(csvfile, delimiter=',',
@@ -126,7 +123,7 @@ def csv_convert(file_name):
 
         #compresses the output .csv file into a .gz file
         f_in = open(output_csv)
-        f_out = gzip.open("./converted_data/" + output_csv.split('/')[-1][:-3]+"gz", 'wt')
+        f_out = gzip.open(output_csv[:-3]+"gz", 'wt')
         f_out.writelines(f_in)
         f_out.close()
         f_in.close()
@@ -136,9 +133,9 @@ def csv_convert(file_name):
 #script that actually runs when 
 if __name__ == "__main__":
 
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3:
         print("Usage: csv_converter.py <file>", file=sys.stderr)
         sys.exit(1)
 
-    csv_convert(sys.argv[1])
+    csv_convert(sys.argv[1], sys.argv[2])
 
