@@ -1,2 +1,0 @@
-- pre-defined data viz app
-- pygwalker app for data browsing
