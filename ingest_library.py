@@ -591,5 +591,4 @@ def read_vision_data_raw (df):
         telemetry_df['latency'] = np.nan
         stats_df = None
         
-
     return(telemetry_df, stats_df)
