@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir -r viz-requirements.txt
 
 RUN mkdir /app/db/
 RUN mkdir /app/converted_data/
+RUN mkdir /app/telemetry/
 
 EXPOSE 8501
-# eventually change to python3 docker-services/dataviz/src/main.py
-CMD ["streamlit", "run", "viz.py"]
+
+CMD ["sh", "docker-services/dataviz/src/main.sh"]
