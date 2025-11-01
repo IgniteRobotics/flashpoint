@@ -166,3 +166,6 @@ data/
 db/
 telemetry/
 converted_data/
+
+#macOS
+.DS_Store
