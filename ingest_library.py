@@ -1,6 +1,7 @@
 from datetime import datetime
 import hashlib
 import os
+import platform
 from sqlite3 import connect
 import subprocess
 import numpy as np
@@ -47,7 +48,20 @@ def read_device_logfile(filepath):
         print(f'Converting {filepath}')
         #convert hoot file to wpilog
         output_wpilog = "./converted_data/"+convert_folder+"/" + filepath[:pos].split("/")[-1] + ".wpilog"
-        subprocess.run(["./executables/owlet.exe", "-f", "wpilog", filepath, output_wpilog])
+
+        executable = "owlet-2025-linux"
+        if platform.system() == "Windows":
+            executable = "owlet-2025-win.exe"
+        elif platform.system() == "Linux":
+            executable = "owlet-2025-linux"
+        elif platform.system() == "Darwin":
+            if "2024" in filepath:
+                executable = "owlet-2024-mac"
+            elif "2025" in filepath:
+                executable = "owlet-2025-mac"
+
+        subprocess.run(["./executables/" + executable, "-f", "wpilog", filepath, output_wpilog])
+
         #convert wpilog file to csv file
         csv_converter.csv_convert(output_wpilog, "./converted_data/"+convert_folder+"/")
         #remove wpilog intermediate
