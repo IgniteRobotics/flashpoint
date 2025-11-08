@@ -10,16 +10,8 @@ from sqlite3 import connect
     # If you want to use feature of saving chart config, set `spec_io_mode="rw"`
 #    return StreamlitRenderer(df, spec="./gw_config.json", spec_io_mode="rw")
 
-def viz_vision_stats(conn):
-    title = 'Vision Statistics Table'
-    st.title(title)
-    df = pd.read_sql_query("SELECT * FROM vision_stats", conn)
-    df.drop(columns=['event_year','event','match_id','match_type','replay_num'], inplace=True)
-    df.set_index('camera',inplace=True)
-    df['avg_latency'].astype(int)
-    df.style.format(precision=0)
-    st.table(df)
-
-if __name__ == '__main__':
-    conn = connect("db/robot.db")
-    viz_vision_stats(conn)
+page1 = st.Page("display_scripts/display_vision_stats.py", title="Table 1")
+page2 = st.Page("display_scripts/display_nothing.py", title="Table 2")
+pg = st.navigation([page1, page2])
+st.set_page_config(page_title = "Data Manager", page_icon = ":material/edit:")
+pg.run()
