@@ -85,3 +85,9 @@ if st.button("Refresh"):
     renderer.explorer()
 
 renderer.explorer()
+
+page1 = st.Page("display_scripts/display_vision_stats.py", title="Table 1")
+page2 = st.Page("display_scripts/display_nothing.py", title="Table 2")
+pg = st.navigation([page1, page2])
+st.set_page_config(page_title = "Data Manager", page_icon = ":material/edit:")
+pg.run()
