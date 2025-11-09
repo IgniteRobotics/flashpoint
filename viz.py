@@ -30,7 +30,8 @@ def filter(df):
     keys = table.keys()
 
     st.sidebar.header("Filters")
-    yearselector, eventselector, match_id_selector = None, None, None
+    global yearselector, eventselector, match_id_selector
+    yearselector, eventselector, match_id_selector= None, None, None
     years, events, matches = df['event_year'], df['event'], df['match_id']
 
     if "event_year" in keys:
@@ -62,8 +63,13 @@ allfiles = os.listdir(".")
 telemetryfiles = {}
 for root, dirs, files in os.walk("."):
     for filename in files:
-            if "wpilog" in filename:
-                telemetryfiles[filename] = root
+            if not eventselector == None:
+                if "wpilog" in filename and eventselector in filename:
+                    telemetryfiles[filename] = root
+            else:
+                if "wpilog" in filename:
+                    telemetryfiles[filename] = root
+
 openfile = st.sidebar.selectbox("File to open", telemetryfiles)
 filepath = os.getcwd()+"/"+telemetryfiles[openfile]+"/"+openfile
 filepath = filepath.replace("!", "\\!").replace("./", "")
@@ -77,7 +83,6 @@ if st.sidebar.button("Open in AdvantageScope", type="primary"):
     elif platform.system() == "Darwin":
         print(filepath)
         if os.path.exists(filepath.replace("\\!", "!")):
-            #print("open \"/Users/$USER/wpilib/2025/advantagescope/AdvantageScope (WPILib).app\" --args "+filepath)
             os.system("open \"/Users/$USER/wpilib/2025/advantagescope/AdvantageScope (WPILib).app\" --args "+filepath)
 
 if st.button("Refresh"):
