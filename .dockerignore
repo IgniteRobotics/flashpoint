@@ -1,6 +1,9 @@
 **/docker/
 **/telemetry/
-Dockerfile-ingest
+**/db/
+**/converted_data/
+
+Dockerfile
 docker-compose.yml
 .venv
 .env

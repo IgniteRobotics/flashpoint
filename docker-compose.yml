@@ -4,9 +4,9 @@ services:
     build:
       dockerfile: ./docker-services/ingest/Dockerfile
     volumes:
-      - telemetry:/app/telemetry
-      - database:/app/db
-      - convertedData:/app/converted_data
+      - telemetry:/app/telemetry/
+      - database:/app/db/
+      - convertedData:/app/converted_data/
   dataviz:
     image: flashpoint-dataviz
     ports:
@@ -16,6 +16,7 @@ services:
     volumes:
       - database:/app/db/
       - convertedData:/app/converted_data/
+      - telemetry:/app/telemetry/
 
 # if it failed to mount _data, make sure FLASHPOINT_DIR is correct and there is a telemetry, db, and converted_data directory
 volumes:
