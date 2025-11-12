@@ -118,7 +118,7 @@ def retrieveLogs():
 
 	# start ingest
 	print("Starting Ingest on files in ./telemetry")
-	ingestCMD = subprocess.run(["python3", "./ingest_dir.sh"], capture_output=True)
+	ingestCMD = subprocess.run(["python3", "./ingest_dir.py"], capture_output=True)
 	ingestRes = ingestCMD.stdout.decode()
 	ingestErr = ingestCMD.stderr.decode()
 	print(ingestRes)
