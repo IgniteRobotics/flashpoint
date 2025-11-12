@@ -9,6 +9,7 @@ from sqlite3 import connect
 TITLE = 'Firematics Robot Telemetry'
 DB_PATH = "db/robot.db"
 GW_CONFIG_PATH = "./gw_config.json"
+selected_table = "device_stats"
 
 # Database connection
 conn = connect(DB_PATH)
@@ -30,7 +31,8 @@ df = None
 def init_dataframe():
     """Initialize and filter the dataframe."""
     global df
-    df = pd.read_sql_query("SELECT * FROM device_stats", conn)
+    df = pd.read_sql_query("SELECT * FROM "+selected_table, conn)
+    df = df.astype({'match_id': int, 'match_type': int, 'replay_num': int})
     df = filter_df(df)
 
 @st.cache_resource
@@ -46,13 +48,14 @@ def filter_df(dataframe):
     if "event" in dataframe and isinstance(eventselector, str):
         table = table[table['event'].isin([eventselector])]
     if "match_id" in dataframe and isinstance(match_id_selector, str):
-        table = table[table['match_id'].isin([match_id_selector])]
+        table = table[table['match_id'].isin([match_id_selector])]        
     return table
 
 def setup_sidebar_filters():
     """Setup sidebar filters for year, event, and match."""
     global yearselector, eventselector, match_id_selector, df
-    table = df.copy()
+    global selected_table
+    table = df
     keys = table.keys()
 
     st.sidebar.header("Filters")
@@ -74,8 +77,6 @@ def setup_sidebar_filters():
         match_id_selector = st.sidebar.segmented_control("**Match**", match_id_list)
         if isinstance(match_id_selector, str):
             table = table[table['match_id'].isin([match_id_selector])]
-
-    df = table
 
 def setup_advantagescope():
     """Setup AdvantageScope file selection and opening."""
@@ -102,6 +103,7 @@ global renderer
 refresh_button = st.button("Refresh")
 
 if refresh_button or 'df' not in st.session_state:
+    init_dataframe()
     st.session_state.df = df
     get_pyg_renderer.clear()
 
