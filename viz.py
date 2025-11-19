@@ -93,7 +93,7 @@ def setup_advantagescope():
 
     if st.sidebar.button("Open in AdvantageScope", type="primary"):
         if platform.system() == "Windows":
-            os.system("open \"~/wpilib/2025/advantagescope/AdvantageScope (WPILib).exe\"")
+            os.system("\"~/wpilib/2025/advantagescope/AdvantageScope (WPILib).exe\" "+filepath)
         elif platform.system() == "Linux":
             os.system("open \"~/wpilib/2025/advantagescope/AdvantageScope (WPILib).AppImage\"")
         elif platform.system() == "Darwin" and os.path.exists(filepath.replace("\\!", "!")):
