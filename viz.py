@@ -97,8 +97,6 @@ def setup_advantagescope():
     
     if st.sidebar.button("Open in AdvantageScope", type="primary"):
         if platform.system() == "Windows":
-            print(windows_exe_filepath)
-            print(filepath)
             os.system(f"start \"\" {windows_exe_filepath} \"{filepath}\"")
         elif platform.system() == "Linux":
             os.system(f"{linux_AppImage_filepath} --{filepath}")#placeholder for linux 
