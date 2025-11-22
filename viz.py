@@ -7,7 +7,7 @@ from sqlite3 import connect
 
 # Constants
 TITLE = 'Firematics Robot Telemetry'
-DB_PATH = "db/robot.db"
+DB_PATH = "db/GRITS.db"
 GW_CONFIG_PATH = "./gw_config.json"
 selected_table = "device_stats"
 
@@ -89,15 +89,21 @@ def setup_advantagescope():
     }
 
     openfile = st.sidebar.selectbox("File to open", telemetryfiles)
-    filepath = os.path.join(os.getcwd(), telemetryfiles[openfile], openfile).replace("!", "\\!").replace("./", "")
-
+    filepath = os.path.join(os.getcwd(), telemetryfiles[openfile], openfile).replace("!", "\\!").replace("./", "").replace(".\\", "")
+    
+    windows_exe_filepath = "\"C:/Users/Public/wpilib/2025/advantagescope/AdvantageScope (WPILib).exe\""
+    linux_AppImage_filepath = "\"~/wpilib/2025/advantagescope/AdvantageScope (WPILib).AppImage\""
+    darwin_app_filepath = "\"/Users/$USER/wpilib/2025/advantagescope/AdvantageScope (WPILib).app\""
+    
     if st.sidebar.button("Open in AdvantageScope", type="primary"):
         if platform.system() == "Windows":
-            os.system("\"~/wpilib/2025/advantagescope/AdvantageScope (WPILib).exe\" "+filepath)
+            print(windows_exe_filepath)
+            print(filepath)
+            os.system(f"start \"\" {windows_exe_filepath} \"{filepath}\"")
         elif platform.system() == "Linux":
-            os.system("open \"~/wpilib/2025/advantagescope/AdvantageScope (WPILib).AppImage\"")
+            os.system(f"{linux_AppImage_filepath} --{filepath}")#placeholder for linux 
         elif platform.system() == "Darwin" and os.path.exists(filepath.replace("\\!", "!")):
-            os.system(f"open \"/Users/$USER/wpilib/2025/advantagescope/AdvantageScope (WPILib).app\" --args {filepath}")
+            os.system(f"open {darwin_app_filepath} --args {filepath}")
 
 global renderer
 refresh_button = st.button("Refresh")
