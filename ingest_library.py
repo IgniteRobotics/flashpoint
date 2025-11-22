@@ -49,6 +49,8 @@ def read_device_logfile(filepath):
         #convert hoot file to wpilog
         output_wpilog = "./converted_data/"+convert_folder+"/" + filepath[:pos].split("/")[-1] + ".wpilog"
 
+        os.system('chmod +x executables/*')
+
         executable = "owlet-2025-linux"
         if platform.system() == "Windows":
             executable = "owlet-2025-win.exe"
