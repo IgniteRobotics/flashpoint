@@ -7,7 +7,7 @@ from sqlite3 import connect
 
 # Constants
 TITLE = 'Firematics Robot Telemetry'
-DB_PATH = "db/GRITS.db"
+DB_PATH = "db/robot.db"
 GW_CONFIG_PATH = "./gw_config.json"
 selected_table = "device_stats"
 
@@ -32,12 +32,15 @@ def init_dataframe():
     """Initialize and filter the dataframe."""
     global df
     df = pd.read_sql_query("SELECT * FROM "+selected_table, conn)
-    df = df.astype({'match_id': int, 'match_type': int, 'replay_num': int})
+    df = df.astype({'match_id': int, 'replay_num': int})
     df = filter_df(df)
 
 @st.cache_resource
 def get_pyg_renderer() -> "StreamlitRenderer":
     """Cache the pygwalker renderer."""
+    if df.empty:
+        st.error("No data to display.")
+        st.stop()
     return StreamlitRenderer(df, spec=GW_CONFIG_PATH, spec_io_mode="rw")
 
 def filter_df(dataframe):
@@ -62,19 +65,19 @@ def setup_sidebar_filters():
 
     if "event_year" in keys:
         yearlist = df['event_year'].unique().tolist()
-        yearselector = st.sidebar.segmented_control("**Year**", yearlist)
+        yearselector = st.sidebar.segmented_control("Year", yearlist)
         if isinstance(yearselector, str):
             table = table[table['event_year'].isin([yearselector])]
 
     if "event" in keys:
         eventlist = table['event'].unique().tolist() if yearselector is None else table[table['event_year'] == yearselector]['event'].unique().tolist()
-        eventselector = st.sidebar.segmented_control("**Event**", eventlist)
+        eventselector = st.sidebar.segmented_control("Event", eventlist, key="sidebar_event_selector")
         if isinstance(eventselector, str):
             table = table[table['event'].isin([eventselector])]
 
     if "match_id" in keys:
         match_id_list = table['match_id'].unique().tolist() if eventselector is None else table[table['event'] == eventselector]['match_id'].unique().tolist()
-        match_id_selector = st.sidebar.segmented_control("**Match**", match_id_list)
+        match_id_selector = st.sidebar.segmented_control("Match", match_id_list, key="sidebar_match_selector")
         if isinstance(match_id_selector, str):
             table = table[table['match_id'].isin([match_id_selector])]
 

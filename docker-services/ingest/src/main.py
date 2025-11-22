@@ -1,6 +1,7 @@
 import subprocess
 import time
 import sys
+import os
 from ping3 import ping # type: ignore
 
 botIP = "10.68.29.2"
@@ -11,7 +12,7 @@ allDir = teleDir+"/*"
 botHostname = botUser+"@"+botIP
 watchdogDelay = 5
 afterFoundDelay = 300
-timeSlot = 1
+timeSlot = 0
 
 SPACESEPARATOR = " "
 
@@ -67,7 +68,7 @@ def retrieveLogs():
 	if len(lsErr.splitlines()) > 1:
 		print("Something failed: "+lsErr)
 		print("Logs: "+lsRes)
-		return
+		#return
 
 	if len(lsRes.splitlines()) == 0 and timeSlot != 0:
 		print(f"\nFailed to find any logs within {timeSlot} days")
@@ -118,18 +119,12 @@ def retrieveLogs():
 
 	# start ingest
 	print("Starting Ingest on files in ./telemetry")
-	ingestCMD = subprocess.run(["python3", "./ingest_dir.py"], capture_output=True)
+	os.system('python3 ./ingest_dir.py')
+	"""ingestCMD = subprocess.run(["python3", "./ingest_dir.py"], capture_output=True)
 	ingestRes = ingestCMD.stdout.decode()
 	ingestErr = ingestCMD.stderr.decode()
 	print(ingestRes)
-	print(ingestErr)
-
-	"""for fileName in lsRes.splitlines():
-		rmCMD = subprocess.run(["rm", "./telemetry/"+fileName], capture_output=True)
-		rmRes = rmCMD.stdout.decode()
-		rmErr = rmCMD.stderr.decode()
-		print(rmRes)
-		print(rmErr)"""
+	print(ingestErr)"""
 
 def main():
 	global timeSlot

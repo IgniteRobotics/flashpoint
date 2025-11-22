@@ -2,9 +2,14 @@ import sys
 import os
 from pathlib import Path
 from ingest_match_logs import *
+from csv_converter import *
 import re
 
 def main():
+    #os.makedirs("./converted-data/converted_drive_device_logs")
+    #os.makedirs("./converted-data/converted_rio_device_logs")
+    #os.makedirs("./converted-data/converted_system_logs")
+
     matchlogs = {}
     matchlog_regex = r"[EQ][0-9][0-9]?"
 
