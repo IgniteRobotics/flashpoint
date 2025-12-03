@@ -264,7 +264,7 @@ def setup_db(db_name):
     #creates raw device data table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
         filename TEXT,
-        event_year TEXT, 
+        event_year REAL, 
         event TEXT, 
         match_id TEXT, 
         match_type TEXT,
@@ -285,7 +285,7 @@ def setup_db(db_name):
     
     #creates device telemetry table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
-        event_year TEXT,
+        event_year REAL,
         event TEXT,
         match_id TEXT,
         match_type TEXT,
@@ -338,7 +338,7 @@ def setup_db(db_name):
     #creates vision_data_raw table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_data_raw (
         filename TEXT,
-        event_year TEXT, 
+        event_year REAL, 
         event TEXT, 
         match_id TEXT, 
         match_type TEXT,
@@ -356,7 +356,7 @@ def setup_db(db_name):
     
     #creates vision telemetry table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_telemetry (
-        event_year TEXT,
+        event_year REAL,
         event TEXT,
         match_id TEXT,
         match_type TEXT,
@@ -369,7 +369,7 @@ def setup_db(db_name):
     
     #creates vision stats table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_stats (
-        event_year TEXT,
+        event_year REAL,
         event TEXT,
         match_id TEXT,
         match_type TEXT,
@@ -383,7 +383,7 @@ def setup_db(db_name):
     
     #creates raw device data table
     cursor.execute('''CREATE TABLE IF NOT EXISTS preferences (
-        event_year TEXT, 
+        event_year REAL, 
         event TEXT, 
         match_id TEXT, 
         match_type TEXT,
