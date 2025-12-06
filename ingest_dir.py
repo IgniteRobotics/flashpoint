@@ -5,7 +5,7 @@ from ingest_match_logs import *
 from csv_converter import *
 import re
 
-def main():
+def ingest_dir_main():
     #os.makedirs("./converted-data/converted_drive_device_logs")
     #os.makedirs("./converted-data/converted_rio_device_logs")
     #os.makedirs("./converted-data/converted_system_logs")
@@ -63,4 +63,4 @@ if __name__ == "__main__":
   if len(sys.argv) > 1:
     print("This script does not use any arguments. Proceeding...")
 
-  main()
+  ingest_dir_main()

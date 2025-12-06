@@ -120,11 +120,7 @@ def retrieveLogs():
 	# start ingest
 	print("Starting Ingest on files in ./telemetry")
 	os.system('python3 ./ingest_dir.py')
-	"""ingestCMD = subprocess.run(["python3", "./ingest_dir.py"], capture_output=True)
-	ingestRes = ingestCMD.stdout.decode()
-	ingestErr = ingestCMD.stderr.decode()
-	print(ingestRes)
-	print(ingestErr)"""
+	print("Done ingesting.")
 
 def main():
 	global timeSlot

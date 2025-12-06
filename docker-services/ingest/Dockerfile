@@ -1,4 +1,5 @@
-FROM python:3.12.3-slim-bullseye
+FROM python:3.14.1-bookworm
+# was python:3.12.3-slim-bullseye
 
 RUN apt-get update && apt-get install -y --no-install-recommends sshpass ssh
 RUN rm -rf /var/lib/apt/lists/*

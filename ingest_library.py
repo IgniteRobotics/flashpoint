@@ -5,7 +5,9 @@ import platform
 from sqlite3 import connect
 import subprocess
 import numpy as np
+import sql_upsert as pdu
 import pandas as pd
+from sqlalchemy import create_engine
 import csv_converter
 
 def calculate_file_hash(filepath):
@@ -398,7 +400,9 @@ def setup_db(db_name):
 #writes data frame to table via connection
 def write_dataframe(df, tablename, connection, filename = None):
 
-    df.to_sql(tablename, connection, if_exists='append', index=False)
+    #df.to_sql(tablename, connection, if_exists='append', index=False)
+    engine = create_engine('sqlite:///robot.db')
+    pdu.to_sql_upsert(df, tablename, engine, unique_columns=['filename'])
     connection.commit()
 
     if filename is not None:
