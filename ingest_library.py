@@ -199,6 +199,8 @@ def parse_metadata_from_system(meta_df, fms_df):
         'IsRedAlliance': 'is_red_alliance',
         'StationNumber': 'station_num'}, inplace=True)
     
+    meta_df = meta_df.astype({'match_id':'int', 'replay_num':'int', 'match_type':'int'})
+    
     return (meta_df)
 
 #fix datatypes
@@ -256,8 +258,8 @@ def setup_db(db_name):
         project_name TEXT, 
         git_dirty TEXT, 
         event TEXT, 
-        match_id TEXT, 
-        replay_num TEXT, 
+        match_id INT, 
+        replay_num INT, 
         match_type TEXT, 
         is_red_alliance TEXT, 
         station_num TEXT)''')
@@ -266,11 +268,11 @@ def setup_db(db_name):
     #creates raw device data table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
         filename TEXT,
-        event_year REAL, 
+        event_year INT, 
         event TEXT, 
-        match_id TEXT, 
-        match_type TEXT,
-        replay_num TEXT, 
+        match_id INT, 
+        match_type INT,
+        replay_num INT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT, 
@@ -287,11 +289,11 @@ def setup_db(db_name):
     
     #creates device telemetry table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
-        event_year REAL,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         match_time REAL,
         subsystem TEXT,
         assembly TEXT,
@@ -306,11 +308,11 @@ def setup_db(db_name):
     
     #creates device_stats table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_stats (
-        event_year REAL,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         subsystem TEXT,
         assembly TEXT,
         subassembly TEXT,
@@ -340,11 +342,11 @@ def setup_db(db_name):
     #creates vision_data_raw table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_data_raw (
         filename TEXT,
-        event_year REAL, 
+        event_year INT, 
         event TEXT, 
-        match_id TEXT, 
-        match_type TEXT,
-        replay_num TEXT, 
+        match_id INT, 
+        match_type INT,
+        replay_num INT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT, 
@@ -358,11 +360,11 @@ def setup_db(db_name):
     
     #creates vision telemetry table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_telemetry (
-        event_year REAL,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         match_time REAL,
         camera TEXT,
         latency REAL,
@@ -371,11 +373,11 @@ def setup_db(db_name):
     
     #creates vision stats table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_stats (
-        event_year REAL,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         camera TEXT,
         avg_latency REAL,
         min_latency REAL,
@@ -385,11 +387,11 @@ def setup_db(db_name):
     
     #creates raw device data table
     cursor.execute('''CREATE TABLE IF NOT EXISTS preferences (
-        event_year REAL, 
+        event_year INT, 
         event TEXT, 
-        match_id TEXT, 
-        match_type TEXT,
-        replay_num TEXT, 
+        match_id INT, 
+        match_type INT,
+        replay_num INT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT)''')
