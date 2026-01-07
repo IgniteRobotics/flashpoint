@@ -13,10 +13,17 @@ services:
       - "8501:8501"
     build:
       dockerfile: ./docker-services/dataviz/Dockerfile
+    security_opt:
+      - apparmor:unconfined #Wierd apparmor fix
+    environment:
+      - DISPLAY=${DISPLAY} #X11 forwarding
     volumes:
       - database:/app/db/
       - convertedData:/app/converted_data/
       - telemetry:/app/telemetry/
+      - /home/${USER}/wpilib/:/app/wpilib/
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw #X11 forwarding
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket # ALSO X11 forwarding
 
 # if it failed to mount _data, make sure FLASHPOINT_DIR is correct and there is a telemetry, db, and converted_data directory
 volumes:

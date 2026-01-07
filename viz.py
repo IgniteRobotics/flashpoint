@@ -82,14 +82,14 @@ def setup_advantagescope():
     filepath = os.path.join(os.getcwd(), telemetryfiles[openfile], openfile).replace("!", "\\!").replace("./", "").replace(".\\", "")
     
     windows_exe_filepath = "\"C:/Users/Public/wpilib/2025/advantagescope/AdvantageScope (WPILib).exe\""
-    linux_AppImage_filepath = "\"~/wpilib/2025/advantagescope/advantagescope-wpilib\""
+    linux_AppImage_filepath = "\"/app/wpilib/2025/advantagescope/advantagescope-wpilib\""
     darwin_app_filepath = "\"/Users/$USER/wpilib/2025/advantagescope/AdvantageScope (WPILib).app\""
     
     if st.sidebar.button("Open in AdvantageScope", type="primary"):
         if platform.system() == "Windows":
             os.system(f"start \"\" {windows_exe_filepath} \"{filepath}\"")
         elif platform.system() == "Linux":
-            os.system(f"exec {linux_AppImage_filepath} {filepath}")#placeholder for linux 
+            os.system(f"exec {linux_AppImage_filepath} --no-sandbox {filepath}") #placeholder for linux 
         elif platform.system() == "Darwin" and os.path.exists(filepath.replace("\\!", "!")):
             os.system(f"open {darwin_app_filepath} --args {filepath}")
 
