@@ -81,9 +81,9 @@ def setup_advantagescope():
     openfile = st.sidebar.selectbox("File to open", telemetryfiles)
     filepath = os.path.join(os.getcwd(), telemetryfiles[openfile], openfile).replace("!", "\\!").replace("./", "").replace(".\\", "")
     
-    windows_exe_filepath = "\"C:/Users/Public/wpilib/2025/advantagescope/AdvantageScope (WPILib).exe\""
-    linux_AppImage_filepath = "\"/app/wpilib/2025/advantagescope/advantagescope-wpilib\""
-    darwin_app_filepath = "\"/Users/$USER/wpilib/2025/advantagescope/AdvantageScope (WPILib).app\""
+    windows_exe_filepath = "\"C:/Users/Public/wpilib/2026/advantagescope/AdvantageScope (WPILib).exe\""
+    linux_AppImage_filepath = "\"/app/wpilib/2026/advantagescope/advantagescope-wpilib\""
+    darwin_app_filepath = "\"/Users/$USER/wpilib/2026/advantagescope/AdvantageScope (WPILib).app\""
     
     if st.sidebar.button("Open in AdvantageScope", type="primary"):
         if platform.system() == "Windows":

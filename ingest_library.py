@@ -53,16 +53,13 @@ def read_device_logfile(filepath):
 
         os.system('chmod +x executables/*')
 
-        executable = "owlet-2025-linux"
+        executable = "owlet-2026-linux"
         if platform.system() == "Windows":
-            executable = "owlet-2025-win.exe"
+            executable = "owlet-2026-win.exe"
         elif platform.system() == "Linux":
-            executable = "owlet-2025-linux"
+            executable = "owlet-2026-linux"
         elif platform.system() == "Darwin":
-            if "2024" in filepath:
-                executable = "owlet-2024-mac"
-            elif "2025" in filepath:
-                executable = "owlet-2025-mac"
+            executable = "owlet-2026-mac"
 
         subprocess.run(["./executables/" + executable, "-f", "wpilog", filepath, output_wpilog])
 
