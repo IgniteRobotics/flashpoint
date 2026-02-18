@@ -47,7 +47,7 @@ if __name__ == "__main__":
     #checks that the "system arguments" array's length is two
     #note that argv[0] is always the script name
     if len(sys.argv) != 4:
-        print(f"Usage: {sys.argv[0]} <file>", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} <file> <database> <year>", file=sys.stderr)
         sys.exit(1)
 
     #the argument passed in by the user is the filename
