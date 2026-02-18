@@ -3,15 +3,19 @@ FROM python:3.14.1-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends sshpass ssh
 RUN rm -rf /var/lib/apt/lists/*
-    
+
 WORKDIR /app
+
+RUN pip install --upgrade pip
+
+COPY ingest-requirements.txt .
+RUN pip install --no-cache-dir -r ingest-requirements.txt
 
 COPY . .
 
 RUN pip install --no-cache-dir -r docker-services/ingest/requirements.txt
 
 #RUN ls -lag  && sleep 15
-RUN pip install --no-cache-dir -r ingest-requirements.txt
 
 RUN mkdir /app/telemetry/
 RUN mkdir /app/converted_data/
