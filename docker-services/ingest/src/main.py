@@ -85,6 +85,7 @@ def retrieveLogs():
 			"scp",
 			"-o StrictHostKeyChecking=no", # no "check fingerprint" message/error
 			"-o UserKnownHostsFile=/dev/null", # don't save fingerprint
+			"-r", # include directories
 			botHostname+":"+teleDir+"/"+line, "/app/telemetry/", # take one user@ip:/path/to/logs/ file and store in /app/telemetry/
 		]
 

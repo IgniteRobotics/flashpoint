@@ -1,0 +1,8 @@
+{
+    "metadata_prefix": "MetaData",
+    "metrics_prefix": "NT:Robot/m_robotContainer/",
+    "preferences_prefix": "NT:/Preferences/",
+    "fms_prefix": "NT:/FMSInfo/",
+    "photon_prefix": "NT:/photonvision/",
+    "camerapub_prefix": "NT:/CameraPublisher/"
+}

@@ -51,7 +51,7 @@ def ingest_dir_main():
         
         ingest_match_logs(matchpath, "./telemetry/"+drivetrain_hoot, "./telemetry/"+rio_hoot, "db/robot.db")
       else:
-        command = ["python3", "ingest_system_logs.py", "./telemetry/"+matchname]
+        command = ["python3", "ingest_system_log.py", "./telemetry/"+matchname, "db/robot.db", "2026"]
 
         ingestCMD = subprocess.run(command, capture_output=True)
         ingestRes = ingestCMD.stdout.decode()

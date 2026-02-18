@@ -195,7 +195,7 @@ def parse_metadata_from_system(meta_df, fms_df):
         'MatchType': 'match_type',
         'IsRedAlliance': 'is_red_alliance',
         'StationNumber': 'station_num'}, inplace=True)
-    
+
     meta_df = meta_df.astype({'match_id':'int', 'replay_num':'int', 'match_type':'int'})
     
     return (meta_df)
