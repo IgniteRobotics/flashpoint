@@ -106,22 +106,22 @@ def retrieveLogs():
 			scpSuccessFlag = True
 			print("Retrieving logs:", scpRes)
 		
-		finalRemoveRes = ""
-		if scpSuccessFlag:
-			removeRes = subprocess.run(removeCommand, capture_output=True).stderr.decode()
-			if "No such file or directory" in removeRes:
-				finalRemoveRes = "Error: " + removeRes + f"\n - {removeCommand}"
-			elif removeRes is None:
-				finalRemoveRes = "null"
-			else:
-				finalRemoveRes = removeRes
-			print("Removing old logs:", finalRemoveRes)
+		# finalRemoveRes = ""
+		# if scpSuccessFlag:
+		# 	removeRes = subprocess.run(removeCommand, capture_output=True).stderr.decode()
+		# 	if "No such file or directory" in removeRes:
+		# 		finalRemoveRes = "Error: " + removeRes + f"\n - {removeCommand}"
+		# 	elif removeRes is None:
+		# 		finalRemoveRes = "null"
+		# 	else:
+		# 		finalRemoveRes = removeRes
+		# 	print("Removing old logs:", finalRemoveRes)
 		print("\n\n") # separate
 
 	# start ingest
-	print("Starting Ingest on files in ./telemetry")
-	os.system('python3 ./ingest_dir.py')
-	print("Done ingesting.")
+	# print("Starting Ingest on files in ./telemetry")
+	# os.system('python3 ./ingest_dir.py')
+	# print("Done ingesting.")
 
 def main():
 	global timeSlot
