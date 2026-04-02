@@ -8,12 +8,10 @@ WORKDIR /app
 
 RUN pip install --upgrade pip
 
-COPY ingest-requirements.txt .
-RUN pip install --no-cache-dir -r ingest-requirements.txt
+COPY puller-requirements.txt .
+RUN pip install --no-cache-dir -r puller-requirements.txt
 
 COPY . .
-
-RUN pip install --no-cache-dir -r docker-services/ingest/requirements.txt
 
 #RUN ls -lag  && sleep 15
 
@@ -25,4 +23,4 @@ EXPOSE 22
 
 RUN python3 setup-db.py
 
-CMD ["python", "docker-services/ingest/src/main.py"]
+CMD ["python", "docker-services/puller/src/main.py"]

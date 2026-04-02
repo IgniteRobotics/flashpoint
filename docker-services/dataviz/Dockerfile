@@ -8,7 +8,6 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install --no-cache-dir -r docker-services/dataviz/requirements.txt
 RUN pip install --no-cache-dir -r viz-requirements.txt
 
 RUN mkdir /app/db/

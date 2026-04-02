@@ -2,7 +2,7 @@ services:
   ingest:
     image: flashpoint-ingest
     build:
-      dockerfile: ./docker-services/ingest/Dockerfile
+      dockerfile: ./docker-services/pull/Dockerfile
     volumes:
       - telemetry:/app/telemetry/
       - database:/app/db/
