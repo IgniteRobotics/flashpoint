@@ -118,11 +118,6 @@ def retrieveLogs():
 		# 	print("Removing old logs:", finalRemoveRes)
 		print("\n\n") # separate
 
-	# start ingest
-	# print("Starting Ingest on files in ./telemetry")
-	# os.system('python3 ./ingest_dir.py')
-	# print("Done ingesting.")
-
 def main():
 	global timeSlot
 	if len(sys.argv) > 1:

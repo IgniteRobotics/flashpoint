@@ -1,8 +1,14 @@
 services:
-  ingest:
-    image: flashpoint-ingest
+  puller:
+    image: flashpoint-puller
     build:
-      dockerfile: ./docker-services/pull/Dockerfile
+      dockerfile: ./docker-services/puller/Dockerfile
+    volumes:
+      - telemetry:/app/telemetry/
+  importer:
+    image: flashpoint-importer
+    build:
+      dockerfile: ./docker-services/importer/Dockerfile
     volumes:
       - telemetry:/app/telemetry/
       - database:/app/db/

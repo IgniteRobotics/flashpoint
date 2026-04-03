@@ -11,7 +11,7 @@ def ingest_dir_main():
     #os.makedirs("./converted-data/converted_system_logs")
 
     matchlogs = {}
-    matchlog_regex = r"[EQ][0-9][0-9]?"
+    matchlog_regex = r"[A-Z][A-Z][A-Z][A-Z][A-Z]?_[EQ][0-9][0-9]?"
 
     telemetry_wpilogs = Path("./telemetry/").glob("**/*.wpilog")
     for file in telemetry_wpilogs:
@@ -23,17 +23,17 @@ def ingest_dir_main():
       else:
         matchlogs[file.name] = None
 
-    for matchname in matchlogs:
-      if matchlogs[matchname]: # logs that have a match assigned
-        print("File has a match: "+str(matchlogs[matchname]))
-        matchpath = "./telemetry/"+matchname
-        
+    for system_wpilog in matchlogs:
+      matchid = matchlogs[system_wpilog]
+      if matchid: # logs that have a match assigned
+        print("File has a match: "+str(matchid))
+        matchpath = "./telemetry/"+matchid
         # get other match logs
         matchid_logs = []
 
         telemetry_hoots = Path("./telemetry/").glob("**/*.hoot") # list all hootlogs
         for file in telemetry_hoots:
-          if matchlogs[matchname] in file.name:
+          if matchid in file.name:
             matchid_logs.append(file.name) # add log to list of logs from specified match
         
         drivetrain_hoot = ""
@@ -46,12 +46,12 @@ def ingest_dir_main():
             drivetrain_hoot = file
         
         if drivetrain_hoot == "" or rio_hoot == "":
-          print("Could not find either RIO hootlog or drivetrain hootlog for file: "+matchname)
+          print("Could not find either RIO hootlog or drivetrain hootlog for file: "+system_wpilog)
           continue
         
-        ingest_match_logs(matchpath, "./telemetry/"+drivetrain_hoot, "./telemetry/"+rio_hoot, "db/robot.db")
+        ingest_match_logs(f"{matchpath}/{system_wpilog}", f"{matchpath}/{drivetrain_hoot}", f"{matchpath}/{rio_hoot}", "db/robot.db")
       else:
-        command = ["python3", "ingest_system_log.py", "./telemetry/"+matchname, "db/robot.db", "2026"]
+        command = ["python3", "ingest_system_log.py", "./telemetry/"+system_wpilog, "db/robot.db", "2026"]
 
         ingestCMD = subprocess.run(command, capture_output=True)
         ingestRes = ingestCMD.stdout.decode()
