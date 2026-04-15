@@ -21,6 +21,11 @@ def test_extract_match_id_fallback_underscore(tmp_path: Path) -> None:
     assert extract_match_id(p) == "GACMP_E5"
 
 
+def test_extract_match_id_with_hex32_device_id(tmp_path: Path) -> None:
+    p = tmp_path / "GACMP_E5_6E9415C3394C485320202050101C18FF_filtered.csv"
+    assert extract_match_id(p) == "GACMP_E5"
+
+
 def test_find_matches_groups_uuid_and_dash_files(tmp_path: Path) -> None:
     rio = tmp_path / "GACMP_E5-rio.csv"
     carnivore = tmp_path / "GACMP_E5_a1b2c3d4-e29b-41d4-a716-446655440000.csv"
