@@ -180,13 +180,61 @@ Entry point: `python -m utils [FILE...] [--output report.pdf] [--per-motor-graph
 
 ---
 
-## Dependencies
+## Project & Environment Setup
+
+**Runtime:** Python 3.11+, managed via `pyenv` + `pyenv virtualenv`.
+
+```bash
+pyenv install 3.11.x
+pyenv virtualenv 3.11.x flashpoint
+pyenv local flashpoint
+```
+
+**Packaging:** Poetry. The `utils/` package is added to the existing `pyproject.toml`.
+
+```bash
+poetry install
+poetry run python -m utils [args]
+```
+
+**Dependencies:**
 
 ```toml
 [tool.poetry.dependencies]
+python = "^3.11"
 pandas = "^2.0"
 numpy = "^1.26"
 matplotlib = "^3.8"
 ```
 
 No additional PDF library required — matplotlib's PDF backend is sufficient.
+
+---
+
+## Testing
+
+**Framework:** pytest with strict markers and quality gates.
+
+```toml
+[tool.pytest.ini_options]
+addopts = "--strict-markers -q"
+```
+
+Test coverage targets:
+- `loader.py` — filename grouping (UUID detection, fallback), CSV merge logic
+- `trimmer.py` — threshold detection, edge cases (all-zero file, immediate activity)
+- `analyzer.py` — normalization correctness, energy calculation (Wh math), totals summation
+- `plotter.py` — smoke tests only (figures return without error; no pixel comparison)
+- `reporter.py` — PDF written to disk, page count matches expected
+
+Tests live in `tests/utils/`. Fixtures use the existing sample CSVs in `data/`.
+
+---
+
+## Code Conventions
+
+- **Type hints:** Required on all function signatures and dataclass fields.
+- **Naming:** `snake_case` for variables and functions, `PascalCase` for classes, `SCREAMING_SNAKE_CASE` for module-level constants.
+- **Filenames:** Python modules use `snake_case` (required for importability). Non-Python files use `kebab-case`.
+- **Import order:** external libraries → internal project modules → local, alphabetical within each group.
+- **No docstrings on unchanged code.** New public functions get a one-line docstring only where the signature isn't self-explanatory.
