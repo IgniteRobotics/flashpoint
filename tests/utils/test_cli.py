@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
-RIO_CSV = DATA_DIR / "GACMP_E5-rio.csv"
-CARNIVORE_CSV = DATA_DIR / "GACMP_E5_CARNIVORE.csv"
+RIO_CSV = DATA_DIR / "GACMP_E5_rio_filtered.csv"
+CARNIVORE_CSV = DATA_DIR / "GACMP_E5_6E9415C3394C485320202050101C18FF_filtered.csv"
 
 
 def test_cli_missing_file_exits_nonzero(tmp_path: Path) -> None:
