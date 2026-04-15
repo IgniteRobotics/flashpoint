@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+from typing import Any
 import pytest
 
 from utils.models import Match, MotorData
@@ -44,7 +45,7 @@ def carnivore_csv(tmp_path: Path) -> Path:
 def _make_motor_data(n: int = 10, with_supply: bool = False) -> MotorData:
     power = np.ones(n) * 100.0
     energy = np.cumsum(power * 0.02) / 3600
-    kwargs: dict = dict(
+    kwargs: dict[str, Any] = dict(
         motor_voltage=np.ones(n) * 5.0,
         stator_current=np.ones(n) * 20.0,
         motor_power=power,

@@ -17,6 +17,9 @@ pytest = "^8.0"
 [tool.pytest.ini_options]
 addopts = "--strict-markers -q"
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests requiring real data files",
+]
 
 [build-system]
 requires = ["poetry-core"]
