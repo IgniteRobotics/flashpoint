@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from .loader import MOTOR_COL_PATTERN, get_motor_ids
+from .models import Match, MotorData
+
+DT: float = 0.02           # seconds per sample
+SECONDS_PER_HOUR: float = 3600.0
+
+
+def normalize(df: pd.DataFrame) -> pd.DataFrame:
+    """Take absolute values of all motor voltage and current columns."""
+    result = df.copy()
+    for col in result.columns:
+        if MOTOR_COL_PATTERN.match(col):
+            result[col] = result[col].abs()
+    return result
+
+
+def _cumulative_energy(power: np.ndarray) -> np.ndarray:
+    return np.cumsum(power * DT) / SECONDS_PER_HOUR
+
+
+def _col(motor_id: str, metric: str) -> str:
+    num = motor_id.split("-")[1]
+    return f"Phoenix6/TalonFX-{num}/{metric}"
+
+
+def compute_motor_data(df: pd.DataFrame) -> dict[str, MotorData]:
+    """Build a MotorData instance for each motor found in the DataFrame."""
+    n = len(df)
+    zeros = np.zeros(n)
+    motors: dict[str, MotorData] = {}
+
+    for motor_id in get_motor_ids(df):
+        mv_col = _col(motor_id, "MotorVoltage")
+        sc_col = _col(motor_id, "StatorCurrent")
+        sv_col = _col(motor_id, "SupplyVoltage")
+        su_col = _col(motor_id, "SupplyCurrent")
+
+        mv = df[mv_col].fillna(0.0).to_numpy() if mv_col in df.columns else zeros.copy()
+        sc = df[sc_col].fillna(0.0).to_numpy() if sc_col in df.columns else zeros.copy()
+        mp = mv * sc
+
+        has_supply = sv_col in df.columns and su_col in df.columns
+        if has_supply:
+            sv = df[sv_col].fillna(0.0).to_numpy()
+            su = df[su_col].fillna(0.0).to_numpy()
+            sp = sv * su
+            motors[motor_id] = MotorData(
+                motor_voltage=mv,
+                stator_current=sc,
+                motor_power=mp,
+                motor_energy=_cumulative_energy(mp),
+                supply_voltage=sv,
+                supply_current=su,
+                supply_power=sp,
+                supply_energy=_cumulative_energy(sp),
+            )
+        else:
+            motors[motor_id] = MotorData(
+                motor_voltage=mv,
+                stator_current=sc,
+                motor_power=mp,
+                motor_energy=_cumulative_energy(mp),
+            )
+
+    return motors
+
+
+def compute_totals(motors: dict[str, MotorData]) -> MotorData:
+    """Sum per-timestep power across all motors to produce robot-wide MotorData."""
+    motor_list = list(motors.values())
+    if not motor_list:
+        raise ValueError("No motors to aggregate")
+
+    total_mp: np.ndarray = sum(m.motor_power for m in motor_list)  # type: ignore[assignment]
+    has_supply = all(m.supply_power is not None for m in motor_list)
+
+    if has_supply:
+        total_sp: np.ndarray = sum(m.supply_power for m in motor_list)  # type: ignore[assignment]
+        n = len(total_mp)
+        return MotorData(
+            motor_voltage=np.zeros(n),
+            stator_current=np.zeros(n),
+            motor_power=total_mp,
+            motor_energy=_cumulative_energy(total_mp),
+            supply_voltage=np.zeros(n),
+            supply_current=np.zeros(n),
+            supply_power=total_sp,
+            supply_energy=_cumulative_energy(total_sp),
+        )
+
+    n = len(total_mp)
+    return MotorData(
+        motor_voltage=np.zeros(n),
+        stator_current=np.zeros(n),
+        motor_power=total_mp,
+        motor_energy=_cumulative_energy(total_mp),
+    )
+
+
+def build_match(match_id: str, df: pd.DataFrame) -> Match:
+    """Construct a Match from a normalized, trimmed DataFrame."""
+    timestamps = df["Timestamp"].to_numpy()
+    motors = compute_motor_data(df)
+    totals = compute_totals(motors)
+    return Match(match_id=match_id, timestamps=timestamps, motors=motors, totals=totals)
