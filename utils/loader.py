@@ -26,6 +26,8 @@ def extract_match_id(path: Path) -> str:
     stem = path.stem
     # Strip known trailing suffixes (e.g. _filtered, _raw)
     stem = re.sub(r"[_-](filtered|raw)$", "", stem, flags=re.IGNORECASE)
+    # Strip trailing date/time stamp (e.g. _2026-03-21_20-40-47)
+    stem = re.sub(r"[_-]\d{4}-\d{2}-\d{2}.*$", "", stem)
     # Try dashed UUID first
     uuid_match = UUID_PATTERN.search(stem)
     if uuid_match:

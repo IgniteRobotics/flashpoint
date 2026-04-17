@@ -48,3 +48,13 @@ def test_plot_instantaneous_supply_skips_none_gracefully(simple_match) -> None:
     # simple_match has no supply data — should not raise
     fig = plotter.plot_instantaneous(simple_match, "supply_power")
     assert isinstance(fig, Figure)
+
+
+def test_plot_total_power_returns_figure(simple_match) -> None:
+    fig = plotter.plot_total_power(simple_match)
+    assert isinstance(fig, Figure)
+
+
+def test_plot_total_power_with_supply_returns_figure(simple_match_with_supply) -> None:
+    fig = plotter.plot_total_power(simple_match_with_supply)
+    assert isinstance(fig, Figure)
