@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pyenv versions *)",
+      "Bash(poetry install *)",
+      "Bash(poetry run *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(python *)",
+      "Bash(tee /tmp/pytest_output.log)",
+      "Bash(open /tmp/report.pdf)"
+    ]
+  }
+}

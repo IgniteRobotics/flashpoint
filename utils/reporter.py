@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 from pathlib import Path
@@ -25,16 +26,16 @@ def _cover_page(match_id: str, n_motors: int, duration: float) -> Figure:
     return fig
 
 
-def _stat_rows_single(match: Match) -> tuple[list[str], list[list[str]]]:
+def _stat_rows_motor(match: Match) -> tuple[list[str], list[list[str]]]:
     headers = [
-        "Motor", "Max V (V)", "Avg V (V)", "Max I (A)", "Avg I (A)",
-        "Peak Pwr (W)", "Total Motor (Wh)", "Total Supply (Wh)",
+        "Motor",
+        "Max Voltage (V)", "Avg Voltage (V)",
+        "Max Stator (A)", "Avg Stator (A)",
+        "Peak Power (W)", "Avg Power (W)", "σ Power (W)", "P95 Power (W)",
+        "Total Energy (Wh)",
     ]
     rows: list[list[str]] = []
-    entries = list(match.motors.items()) + [("TOTAL", match.totals)]
-    for motor_id, data in entries:
-        supply_wh = (f"{data.supply_energy[-1]:.3f}"
-                     if data.supply_energy is not None else "N/A")
+    for motor_id, data in list(match.motors.items()) + [("TOTAL", match.totals)]:
         rows.append([
             motor_id,
             f"{data.motor_voltage.max():.2f}",
@@ -42,9 +43,39 @@ def _stat_rows_single(match: Match) -> tuple[list[str], list[list[str]]]:
             f"{data.stator_current.max():.2f}",
             f"{data.stator_current.mean():.2f}",
             f"{data.motor_power.max():.1f}",
+            f"{data.motor_power.mean():.1f}",
+            f"{data.motor_power.std():.1f}",
+            f"{np.percentile(data.motor_power, 95):.1f}",
             f"{data.motor_energy[-1]:.3f}",
-            supply_wh,
         ])
+    return headers, rows
+
+
+def _stat_rows_supply(match: Match) -> tuple[list[str], list[list[str]]]:
+    headers = [
+        "Motor",
+        "Max Voltage (V)", "Avg Voltage (V)",
+        "Max Current (A)", "Avg Current (A)",
+        "Peak Power (W)", "Avg Power (W)", "σ Power (W)", "P95 Power (W)",
+        "Total Energy (Wh)",
+    ]
+    rows: list[list[str]] = []
+    for motor_id, data in list(match.motors.items()) + [("TOTAL", match.totals)]:
+        if data.supply_power is None:
+            rows.append([motor_id] + ["N/A"] * (len(headers) - 1))
+        else:
+            rows.append([
+                motor_id,
+                f"{data.supply_voltage.max():.2f}",
+                f"{data.supply_voltage.mean():.2f}",
+                f"{data.supply_current.max():.2f}",
+                f"{data.supply_current.mean():.2f}",
+                f"{data.supply_power.max():.1f}",
+                f"{data.supply_power.mean():.1f}",
+                f"{data.supply_power.std():.1f}",
+                f"{np.percentile(data.supply_power, 95):.1f}",
+                f"{data.supply_energy[-1]:.3f}",
+            ])
     return headers, rows
 
 
@@ -86,9 +117,20 @@ def build_report(
         for match in matches:
             duration = float(match.timestamps[-1]) if len(match.timestamps) else 0.0
 
-            for fig in [
+            has_supply = any(m.supply_current is not None for m in match.motors.values())
+
+            summary_figs = [
                 _cover_page(match.match_id, len(match.motors), duration),
-                _render_table(*_stat_rows_single(match), f"{match.match_id} — Summary"),
+                _render_table(*_stat_rows_motor(match),
+                              f"{match.match_id} — Motor Output (Stator)"),
+            ]
+            if has_supply:
+                summary_figs.append(
+                    _render_table(*_stat_rows_supply(match),
+                                  f"{match.match_id} — Supply (Battery Draw)")
+                )
+
+            for fig in summary_figs + [
                 plotter.plot_instantaneous(match, "motor_voltage"),
                 plotter.plot_instantaneous(match, "stator_current"),
                 plotter.plot_instantaneous(match, "motor_power"),
@@ -96,7 +138,6 @@ def build_report(
                 pdf.savefig(fig)
                 plt.close(fig)
 
-            has_supply = any(m.supply_current is not None for m in match.motors.values())
             if has_supply:
                 for fig in [
                     plotter.plot_instantaneous(match, "supply_current"),
@@ -104,6 +145,10 @@ def build_report(
                 ]:
                     pdf.savefig(fig)
                     plt.close(fig)
+
+            fig = plotter.plot_total_power(match)
+            pdf.savefig(fig)
+            plt.close(fig)
 
             fig = plotter.plot_cumulative_energy(match, "motor")
             pdf.savefig(fig)
