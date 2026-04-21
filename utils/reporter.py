@@ -142,6 +142,163 @@ def _render_table(headers: list[str], rows: list[list[str]], title: str) -> Figu
     return fig
 
 
+def _build_single(
+    pdf: "PdfPages",
+    match: Match,
+    per_motor: bool,
+    motor_names: dict[str, str] | None,
+) -> None:
+    has_supply = any(m.supply_current is not None for m in match.motors.values())
+
+    for fig in [
+        _cover_page(match.match_id, len(match.motors), float(match.timestamps[-1])),
+        _render_table(*_stat_rows_motor(match, motor_names),
+                      f"{match.match_id} — Motor Output (Stator)"),
+    ]:
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    if has_supply:
+        fig = _render_table(*_stat_rows_supply(match, motor_names),
+                            f"{match.match_id} — Supply (Battery Draw)")
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    for fig in [
+        plotter.plot_heatmap(match, "motor_voltage", motor_names),
+        plotter.plot_heatmap(match, "stator_current", motor_names),
+        plotter.plot_heatmap(match, "motor_power", motor_names),
+    ]:
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    if has_supply:
+        for fig in [
+            plotter.plot_heatmap(match, "supply_current", motor_names),
+            plotter.plot_heatmap(match, "supply_power", motor_names),
+        ]:
+            pdf.savefig(fig)
+            plt.close(fig)
+
+    fig = plotter.plot_total_power(match)
+    pdf.savefig(fig)
+    plt.close(fig)
+
+    fig = plotter.plot_cumulative_energy(match, "motor", motor_names)
+    pdf.savefig(fig)
+    plt.close(fig)
+
+    if has_supply:
+        fig = plotter.plot_cumulative_energy(match, "supply", motor_names)
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    if per_motor:
+        for motor_id, data in match.motors.items():
+            fig = plotter.plot_per_motor(motor_id, data, match.timestamps, motor_names)
+            pdf.savefig(fig)
+            plt.close(fig)
+
+
+def _build_multi(
+    pdf: "PdfPages",
+    matches: list[Match],
+    per_motor: bool,
+    names_config: dict[str, dict[str, str]] | None,
+) -> None:
+    any_supply = any(
+        any(m.supply_current is not None for m in match.motors.values())
+        for match in matches
+    )
+
+    # shared cover
+    fig = _multi_cover_page(matches)
+    pdf.savefig(fig)
+    plt.close(fig)
+
+    # stat tables — all matches, motor then supply
+    for match in matches:
+        mn = _resolve_names(match.match_id, names_config)
+        fig = _render_table(*_stat_rows_motor(match, mn),
+                            f"{match.match_id} — Motor Output (Stator)")
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    if any_supply:
+        for match in matches:
+            mn = _resolve_names(match.match_id, names_config)
+            fig = _render_table(*_stat_rows_supply(match, mn),
+                                f"{match.match_id} — Supply (Battery Draw)")
+            pdf.savefig(fig)
+            plt.close(fig)
+
+    # motor heatmaps
+    for metric in ["motor_voltage", "stator_current", "motor_power"]:
+        for match in matches:
+            mn = _resolve_names(match.match_id, names_config)
+            fig = plotter.plot_heatmap(match, metric, mn)
+            pdf.savefig(fig)
+            plt.close(fig)
+
+    # supply heatmaps
+    if any_supply:
+        for metric in ["supply_current", "supply_power"]:
+            for match in matches:
+                if any(m.supply_current is not None for m in match.motors.values()):
+                    mn = _resolve_names(match.match_id, names_config)
+                    fig = plotter.plot_heatmap(match, metric, mn)
+                    pdf.savefig(fig)
+                    plt.close(fig)
+
+    # total power
+    for match in matches:
+        fig = plotter.plot_total_power(match)
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    # cumulative energy
+    for match in matches:
+        mn = _resolve_names(match.match_id, names_config)
+        fig = plotter.plot_cumulative_energy(match, "motor", mn)
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    if any_supply:
+        for match in matches:
+            if match.totals.supply_energy is not None:
+                mn = _resolve_names(match.match_id, names_config)
+                fig = plotter.plot_cumulative_energy(match, "supply", mn)
+                pdf.savefig(fig)
+                plt.close(fig)
+
+    # per-motor pages
+    if per_motor:
+        for match in matches:
+            mn = _resolve_names(match.match_id, names_config)
+            for motor_id, data in match.motors.items():
+                fig = plotter.plot_per_motor(motor_id, data, match.timestamps, mn)
+                pdf.savefig(fig)
+                plt.close(fig)
+
+    # comparison section
+    for fig in [
+        plotter.plot_comparison(matches, "motor_energy"),
+        _render_table(*_stat_rows_multi(matches), "Match Comparison — Motor Energy (Wh)"),
+    ]:
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    if any(m.totals.supply_energy is not None for m in matches):
+        fig = plotter.plot_comparison(matches, "supply_energy")
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    if any(m.totals.supply_current is not None for m in matches):
+        fig = plotter.plot_comparison(matches, "supply_current")
+        pdf.savefig(fig)
+        plt.close(fig)
+
+
 def build_report(
     matches: list[Match],
     output: Path,
@@ -150,66 +307,7 @@ def build_report(
 ) -> None:
     """Assemble a multi-page PDF report for one or more matches."""
     with PdfPages(output) as pdf:
-        for match in matches:
-            duration = float(match.timestamps[-1]) if len(match.timestamps) else 0.0
-
-            has_supply = any(m.supply_current is not None for m in match.motors.values())
-
-            summary_figs = [
-                _cover_page(match.match_id, len(match.motors), duration),
-                _render_table(*_stat_rows_motor(match),
-                              f"{match.match_id} — Motor Output (Stator)"),
-            ]
-            if has_supply:
-                summary_figs.append(
-                    _render_table(*_stat_rows_supply(match),
-                                  f"{match.match_id} — Supply (Battery Draw)")
-                )
-
-            for fig in summary_figs + [
-                plotter.plot_heatmap(match, "motor_voltage"),
-                plotter.plot_heatmap(match, "stator_current"),
-                plotter.plot_heatmap(match, "motor_power"),
-            ]:
-                pdf.savefig(fig)
-                plt.close(fig)
-
-            if has_supply:
-                for fig in [
-                    plotter.plot_heatmap(match, "supply_current"),
-                    plotter.plot_heatmap(match, "supply_power"),
-                ]:
-                    pdf.savefig(fig)
-                    plt.close(fig)
-
-            fig = plotter.plot_total_power(match)
-            pdf.savefig(fig)
-            plt.close(fig)
-
-            fig = plotter.plot_cumulative_energy(match, "motor")
-            pdf.savefig(fig)
-            plt.close(fig)
-
-            if has_supply:
-                fig = plotter.plot_cumulative_energy(match, "supply")
-                pdf.savefig(fig)
-                plt.close(fig)
-
-            if per_motor:
-                for motor_id, data in match.motors.items():
-                    fig = plotter.plot_per_motor(motor_id, data, match.timestamps)
-                    pdf.savefig(fig)
-                    plt.close(fig)
-
-        if len(matches) > 1:
-            for fig in [
-                plotter.plot_comparison(matches, "motor_energy"),
-                _render_table(*_stat_rows_multi(matches), "Match Comparison — Motor Energy (Wh)"),
-            ]:
-                pdf.savefig(fig)
-                plt.close(fig)
-
-            if any(m.totals.supply_energy is not None for m in matches):
-                fig = plotter.plot_comparison(matches, "supply_energy")
-                pdf.savefig(fig)
-                plt.close(fig)
+        if len(matches) == 1:
+            _build_single(pdf, matches[0], per_motor, _resolve_names(matches[0].match_id, names_config))
+        else:
+            _build_multi(pdf, matches, per_motor, names_config)
