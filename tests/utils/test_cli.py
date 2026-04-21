@@ -49,3 +49,20 @@ def test_cli_per_motor_flag_accepted(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert output.exists()
+
+
+def test_cli_motor_names_flag_accepted(tmp_path: Path) -> None:
+    if not RIO_CSV.exists():
+        import pytest
+        pytest.skip("real data files not present")
+    config = tmp_path / "names.toml"
+    config.write_text('[default]\n1 = "FL Drive"\n2 = "FR Drive"\n')
+    output = tmp_path / "report_named.pdf"
+    result = subprocess.run(
+        [sys.executable, "-m", "utils", str(RIO_CSV), str(CARNIVORE_CSV),
+         "--output", str(output), "--motor-names", str(config)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert output.exists()

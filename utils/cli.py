@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from . import loader, trimmer, analyzer, reporter
+from . import names as _names
 
 
 def main() -> None:
@@ -28,6 +29,10 @@ def main() -> None:
         "--threshold", type=float, default=0.5,
         help="Voltage threshold (V) for match start/end detection (default: 0.5)",
     )
+    parser.add_argument(
+        "--motor-names", type=Path, default=None, metavar="PATH",
+        help="TOML config mapping TalonFX IDs to display names (optional)",
+    )
     args = parser.parse_args()
 
     missing = [f for f in args.files if not f.exists()]
@@ -48,8 +53,9 @@ def main() -> None:
         matches.append(match)
         print(f"  {len(match.motors)} motors · {match.timestamps[-1]:.1f}s match duration")
 
+    names_config = _names.load(args.motor_names) if args.motor_names else None
     print(f"Building report → {args.output}")
-    reporter.build_report(matches, args.output, per_motor=args.per_motor_graphs)
+    reporter.build_report(matches, args.output, per_motor=args.per_motor_graphs, names_config=names_config)
     print("Done.")
 
 
