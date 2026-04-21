@@ -44,6 +44,10 @@ def _trend_line(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return np.polyval(coeffs, x)
 
 
+def _label(motor_id: str, motor_names: dict[str, str] | None) -> str:
+    return motor_names.get(motor_id, motor_id) if motor_names else motor_id
+
+
 def plot_instantaneous(match: Match, metric: str) -> Figure:
     """Time-series line plot of a metric for all motors."""
     label, unit = METRIC_LABELS[metric]
@@ -62,7 +66,7 @@ def plot_instantaneous(match: Match, metric: str) -> Figure:
     return fig
 
 
-def plot_heatmap(match: Match, metric: str) -> Figure:
+def plot_heatmap(match: Match, metric: str, motor_names: dict[str, str] | None = None) -> Figure:
     """Time × motor heatmap for a metric. Color = global-scaled mean per 1s bin."""
     label, unit = METRIC_LABELS[metric]
     n = len(match.timestamps)
@@ -84,7 +88,7 @@ def plot_heatmap(match: Match, metric: str) -> Figure:
     mesh = ax.pcolormesh(t_bins, np.arange(len(motor_ids) + 1), data,
                          cmap="plasma", vmin=0, vmax=vmax)
     ax.set_yticks(np.arange(len(motor_ids)) + 0.5)
-    ax.set_yticklabels(motor_ids)
+    ax.set_yticklabels([_label(mid, motor_names) for mid in motor_ids])
     ax.set_xlabel("Time (s)")
     ax.set_title(f"{match.match_id} — {label}")
     fig.colorbar(mesh, ax=ax, label=f"{label} ({unit})")
@@ -161,7 +165,8 @@ def plot_total_power(match: Match) -> Figure:
         p95 = float(np.percentile(smoothed, 95))
         mask = smoothed >= p95
         ax.scatter(match.timestamps[mask], smoothed[mask],
-                   color="#e67e22", s=12, zorder=6, label=f"{series_label} peaks")
+                   color=line.get_color(), s=20, marker="x", zorder=6,
+                   label=f"{series_label} peaks")
     ax.set_title(f"{match.match_id} — Total Robot Power")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Power (W)")
