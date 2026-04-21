@@ -70,3 +70,12 @@ def test_plot_total_power_motor_only_has_one_line(simple_match) -> None:
     fig = plotter.plot_total_power(simple_match)
     ax = fig.axes[0]
     assert len(ax.lines) == 1
+
+
+def test_plot_heatmap_uses_motor_names_on_y_axis(simple_match) -> None:
+    motor_names = {"TalonFX-1": "FL Drive", "TalonFX-2": "FR Drive"}
+    fig = plotter.plot_heatmap(simple_match, "motor_power", motor_names=motor_names)
+    ax = fig.axes[0]
+    tick_labels = [t.get_text() for t in ax.get_yticklabels()]
+    assert "FL Drive" in tick_labels
+    assert "FR Drive" in tick_labels
