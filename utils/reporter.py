@@ -131,17 +131,17 @@ def build_report(
                 )
 
             for fig in summary_figs + [
-                plotter.plot_instantaneous(match, "motor_voltage"),
-                plotter.plot_instantaneous(match, "stator_current"),
-                plotter.plot_instantaneous(match, "motor_power"),
+                plotter.plot_heatmap(match, "motor_voltage"),
+                plotter.plot_heatmap(match, "stator_current"),
+                plotter.plot_heatmap(match, "motor_power"),
             ]:
                 pdf.savefig(fig)
                 plt.close(fig)
 
             if has_supply:
                 for fig in [
-                    plotter.plot_instantaneous(match, "supply_current"),
-                    plotter.plot_instantaneous(match, "supply_power"),
+                    plotter.plot_heatmap(match, "supply_current"),
+                    plotter.plot_heatmap(match, "supply_power"),
                 ]:
                     pdf.savefig(fig)
                     plt.close(fig)
