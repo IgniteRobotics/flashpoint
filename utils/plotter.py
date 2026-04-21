@@ -45,6 +45,7 @@ def _trend_line(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 
 def _label(motor_id: str, motor_names: dict[str, str] | None) -> str:
+    """Return display name for motor_id, falling back to raw ID if not mapped."""
     return motor_names.get(motor_id, motor_id) if motor_names else motor_id
 
 
@@ -96,7 +97,7 @@ def plot_heatmap(match: Match, metric: str, motor_names: dict[str, str] | None =
     return fig
 
 
-def plot_cumulative_energy(match: Match, power_type: str) -> Figure:
+def plot_cumulative_energy(match: Match, power_type: str, motor_names: dict[str, str] | None = None) -> Figure:
     """Running cumulative energy curves per motor and robot total."""
     energy_attr = f"{power_type}_energy"
     label = "Motor Energy" if power_type == "motor" else "Supply Energy"
@@ -104,7 +105,7 @@ def plot_cumulative_energy(match: Match, power_type: str) -> Figure:
     for motor_id, data in match.motors.items():
         values = _get(data, energy_attr)
         if values is not None:
-            [line] = ax.plot(match.timestamps, values, label=motor_id, linewidth=0.8)
+            [line] = ax.plot(match.timestamps, values, label=_label(motor_id, motor_names), linewidth=0.8)
             ax.plot(match.timestamps, _trend_line(match.timestamps, values),
                     color=line.get_color(), linewidth=1.5, linestyle="--", alpha=0.9, zorder=5)
     total = _get(match.totals, energy_attr)
@@ -121,7 +122,7 @@ def plot_cumulative_energy(match: Match, power_type: str) -> Figure:
     return fig
 
 
-def plot_per_motor(motor_id: str, data: MotorData, timestamps: np.ndarray) -> Figure:
+def plot_per_motor(motor_id: str, data: MotorData, timestamps: np.ndarray, motor_names: dict[str, str] | None = None) -> Figure:
     """All available metrics for one motor on a single figure."""
     candidates = [
         ("motor_voltage", "Motor Voltage", "V"),
@@ -144,7 +145,7 @@ def plot_per_motor(motor_id: str, data: MotorData, timestamps: np.ndarray) -> Fi
                 color=line.get_color(), linewidth=1.5, linestyle="--", alpha=0.9, zorder=5)
         ax.set_ylabel(f"{lbl} ({unit})")
     axes[-1].set_xlabel("Time (s)")
-    fig.suptitle(motor_id)
+    fig.suptitle(_label(motor_id, motor_names))
     fig.tight_layout()
     return fig
 

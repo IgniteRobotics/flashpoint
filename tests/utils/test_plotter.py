@@ -79,3 +79,19 @@ def test_plot_heatmap_uses_motor_names_on_y_axis(simple_match) -> None:
     tick_labels = [t.get_text() for t in ax.get_yticklabels()]
     assert "FL Drive" in tick_labels
     assert "FR Drive" in tick_labels
+
+
+def test_plot_cumulative_energy_uses_motor_names_in_legend(simple_match) -> None:
+    motor_names = {"TalonFX-1": "FL Drive", "TalonFX-2": "FR Drive"}
+    fig = plotter.plot_cumulative_energy(simple_match, "motor", motor_names=motor_names)
+    ax = fig.axes[0]
+    legend_texts = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert any("FL Drive" in t for t in legend_texts)
+
+
+def test_plot_per_motor_uses_motor_name_in_title(simple_match) -> None:
+    motor_names = {"TalonFX-1": "FL Drive"}
+    motor_id = "TalonFX-1"
+    data = simple_match.motors[motor_id]
+    fig = plotter.plot_per_motor(motor_id, data, simple_match.timestamps, motor_names=motor_names)
+    assert fig._suptitle.get_text() == "FL Drive"
