@@ -174,4 +174,4 @@ imported_data/
 .DS_Store
 
 # add .! to start to manually exclude
-.!*
+.!*.superpowers/

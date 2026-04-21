@@ -9,13 +9,19 @@ from matplotlib.figure import Figure
 from utils import plotter
 
 
-def test_plot_instantaneous_motor_voltage_returns_figure(simple_match) -> None:
-    fig = plotter.plot_instantaneous(simple_match, "motor_voltage")
+def test_plot_heatmap_motor_power_returns_figure(simple_match) -> None:
+    fig = plotter.plot_heatmap(simple_match, "motor_power")
     assert isinstance(fig, Figure)
 
 
-def test_plot_instantaneous_motor_power_returns_figure(simple_match) -> None:
-    fig = plotter.plot_instantaneous(simple_match, "motor_power")
+def test_plot_heatmap_motor_voltage_returns_figure(simple_match) -> None:
+    fig = plotter.plot_heatmap(simple_match, "motor_voltage")
+    assert isinstance(fig, Figure)
+
+
+def test_plot_heatmap_supply_skips_none_gracefully(simple_match) -> None:
+    # simple_match has no supply data — should not raise
+    fig = plotter.plot_heatmap(simple_match, "supply_power")
     assert isinstance(fig, Figure)
 
 
@@ -44,12 +50,6 @@ def test_plot_comparison_two_matches_returns_figure(simple_match) -> None:
     assert isinstance(fig, Figure)
 
 
-def test_plot_instantaneous_supply_skips_none_gracefully(simple_match) -> None:
-    # simple_match has no supply data — should not raise
-    fig = plotter.plot_instantaneous(simple_match, "supply_power")
-    assert isinstance(fig, Figure)
-
-
 def test_plot_total_power_returns_figure(simple_match) -> None:
     fig = plotter.plot_total_power(simple_match)
     assert isinstance(fig, Figure)
@@ -58,3 +58,15 @@ def test_plot_total_power_returns_figure(simple_match) -> None:
 def test_plot_total_power_with_supply_returns_figure(simple_match_with_supply) -> None:
     fig = plotter.plot_total_power(simple_match_with_supply)
     assert isinstance(fig, Figure)
+
+
+def test_plot_total_power_has_peak_scatter(simple_match) -> None:
+    fig = plotter.plot_total_power(simple_match)
+    ax = fig.axes[0]
+    assert len(ax.collections) > 0
+
+
+def test_plot_total_power_motor_only_has_one_line(simple_match) -> None:
+    fig = plotter.plot_total_power(simple_match)
+    ax = fig.axes[0]
+    assert len(ax.lines) == 1
