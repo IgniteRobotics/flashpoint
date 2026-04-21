@@ -211,12 +211,10 @@ def _build_multi(
         for match in matches
     )
 
-    # shared cover
     fig = _multi_cover_page(matches)
     pdf.savefig(fig)
     plt.close(fig)
 
-    # stat tables — all matches, motor then supply
     for match in matches:
         mn = _resolve_names(match.match_id, names_config)
         fig = _render_table(*_stat_rows_motor(match, mn),
@@ -232,7 +230,6 @@ def _build_multi(
             pdf.savefig(fig)
             plt.close(fig)
 
-    # motor heatmaps
     for metric in ["motor_voltage", "stator_current", "motor_power"]:
         for match in matches:
             mn = _resolve_names(match.match_id, names_config)
@@ -240,7 +237,6 @@ def _build_multi(
             pdf.savefig(fig)
             plt.close(fig)
 
-    # supply heatmaps
     if any_supply:
         for metric in ["supply_current", "supply_power"]:
             for match in matches:
@@ -250,13 +246,11 @@ def _build_multi(
                     pdf.savefig(fig)
                     plt.close(fig)
 
-    # total power
     for match in matches:
         fig = plotter.plot_total_power(match)
         pdf.savefig(fig)
         plt.close(fig)
 
-    # cumulative energy
     for match in matches:
         mn = _resolve_names(match.match_id, names_config)
         fig = plotter.plot_cumulative_energy(match, "motor", mn)
@@ -271,7 +265,6 @@ def _build_multi(
                 pdf.savefig(fig)
                 plt.close(fig)
 
-    # per-motor pages
     if per_motor:
         for match in matches:
             mn = _resolve_names(match.match_id, names_config)
@@ -280,7 +273,6 @@ def _build_multi(
                 pdf.savefig(fig)
                 plt.close(fig)
 
-    # comparison section
     for fig in [
         plotter.plot_comparison(matches, "motor_energy"),
         _render_table(*_stat_rows_multi(matches), "Match Comparison — Motor Energy (Wh)"),
