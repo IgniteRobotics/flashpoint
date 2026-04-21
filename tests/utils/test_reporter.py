@@ -39,3 +39,11 @@ def test_build_report_multi_match_includes_comparison(simple_match, tmp_path: Pa
     build_report([simple_match, m2], output)
     assert output.exists()
     assert output.stat().st_size > 0
+
+
+def test_build_report_with_motor_names(simple_match, tmp_path: Path) -> None:
+    names_config = {"default": {"1": "FL Drive", "2": "FR Drive"}}
+    output = tmp_path / "report_named.pdf"
+    build_report([simple_match], output, names_config=names_config)
+    assert output.exists()
+    assert output.stat().st_size > 0

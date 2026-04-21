@@ -9,6 +9,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 from pathlib import Path
 
+from . import names as _names
 from . import plotter
 from .models import Match
 
@@ -26,7 +27,36 @@ def _cover_page(match_id: str, n_motors: int, duration: float) -> Figure:
     return fig
 
 
-def _stat_rows_motor(match: Match) -> tuple[list[str], list[list[str]]]:
+def _resolve_names(
+    match_id: str,
+    names_config: dict[str, dict[str, str]] | None,
+) -> dict[str, str] | None:
+    if names_config is None:
+        return None
+    return _names.resolve(match_id, names_config)
+
+
+def _multi_cover_page(matches: list[Match]) -> Figure:
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.axis("off")
+    ax.text(0.5, 0.80, "Motor Power Analysis", ha="center", va="center",
+            fontsize=20, fontweight="bold", transform=ax.transAxes)
+    ax.text(0.5, 0.65, f"{len(matches)} matches", ha="center", va="center",
+            fontsize=14, transform=ax.transAxes)
+    lines = [
+        f"{m.match_id}  ·  {len(m.motors)} motors  ·  {float(m.timestamps[-1]):.1f}s"
+        for m in matches
+    ]
+    ax.text(0.5, 0.45, "\n".join(lines), ha="center", va="center",
+            fontsize=11, transform=ax.transAxes, linespacing=1.8)
+    fig.tight_layout()
+    return fig
+
+
+def _stat_rows_motor(
+    match: Match,
+    motor_names: dict[str, str] | None = None,
+) -> tuple[list[str], list[list[str]]]:
     headers = [
         "Motor",
         "Max Voltage (V)", "Avg Voltage (V)",
@@ -36,8 +66,9 @@ def _stat_rows_motor(match: Match) -> tuple[list[str], list[list[str]]]:
     ]
     rows: list[list[str]] = []
     for motor_id, data in list(match.motors.items()) + [("TOTAL", match.totals)]:
+        display = motor_id if motor_id == "TOTAL" else (motor_names.get(motor_id, motor_id) if motor_names else motor_id)
         rows.append([
-            motor_id,
+            display,
             f"{data.motor_voltage.max():.2f}",
             f"{data.motor_voltage.mean():.2f}",
             f"{data.stator_current.max():.2f}",
@@ -51,7 +82,10 @@ def _stat_rows_motor(match: Match) -> tuple[list[str], list[list[str]]]:
     return headers, rows
 
 
-def _stat_rows_supply(match: Match) -> tuple[list[str], list[list[str]]]:
+def _stat_rows_supply(
+    match: Match,
+    motor_names: dict[str, str] | None = None,
+) -> tuple[list[str], list[list[str]]]:
     headers = [
         "Motor",
         "Max Voltage (V)", "Avg Voltage (V)",
@@ -61,11 +95,12 @@ def _stat_rows_supply(match: Match) -> tuple[list[str], list[list[str]]]:
     ]
     rows: list[list[str]] = []
     for motor_id, data in list(match.motors.items()) + [("TOTAL", match.totals)]:
+        display = motor_id if motor_id == "TOTAL" else (motor_names.get(motor_id, motor_id) if motor_names else motor_id)
         if data.supply_power is None:
-            rows.append([motor_id] + ["N/A"] * (len(headers) - 1))
+            rows.append([display] + ["N/A"] * (len(headers) - 1))
         else:
             rows.append([
-                motor_id,
+                display,
                 f"{data.supply_voltage.max():.2f}",
                 f"{data.supply_voltage.mean():.2f}",
                 f"{data.supply_current.max():.2f}",
@@ -111,6 +146,7 @@ def build_report(
     matches: list[Match],
     output: Path,
     per_motor: bool = False,
+    names_config: dict[str, dict[str, str]] | None = None,
 ) -> None:
     """Assemble a multi-page PDF report for one or more matches."""
     with PdfPages(output) as pdf:
