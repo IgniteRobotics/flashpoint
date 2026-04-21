@@ -176,15 +176,16 @@ def plot_total_power(match: Match) -> Figure:
     return fig
 
 
-def plot_comparison(matches: list[Match], metric: str) -> Figure:
+def plot_comparison(matches: list[Match], metric: str, smooth: bool = False) -> Figure:
     """Overlay robot-total metric across multiple matches."""
     label, unit = METRIC_LABELS[metric]
     fig, ax = plt.subplots(figsize=(12, 5))
     for match in matches:
         values = _get(match.totals, metric)
         if values is not None:
-            [line] = ax.plot(match.timestamps, values, label=match.match_id, linewidth=1.2)
-            ax.plot(match.timestamps, _trend_line(match.timestamps, values),
+            display = _smooth(values, SMOOTH_WINDOW) if smooth else values
+            [line] = ax.plot(match.timestamps, display, label=match.match_id, linewidth=1.2)
+            ax.plot(match.timestamps, _trend_line(match.timestamps, display),
                     color=line.get_color(), linewidth=1.8, linestyle="--", alpha=0.9, zorder=5)
     ax.set_title(f"Match Comparison — {label} (Robot Total)")
     ax.set_xlabel("Time (s)")
