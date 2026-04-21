@@ -12,8 +12,10 @@ def load(path: Path) -> dict[str, dict[str, str]]:
 
 def resolve(match_id: str, config: dict[str, dict[str, str]]) -> dict[str, str]:
     result = {f"TalonFX-{k}": v for k, v in config.get("default", {}).items()}
+    competition_code = match_id.split("_")[0]
     match_key = max(
-        (key for key in config if key != "default" and match_id.startswith(key)),
+        (key for key in config if key != "default"
+         and (match_id.startswith(key) or competition_code.endswith(key))),
         key=len,
         default=None,
     )
