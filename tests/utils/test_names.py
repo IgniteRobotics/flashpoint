@@ -76,3 +76,13 @@ def test_resolve_unknown_motor_not_in_result(config_file: Path) -> None:
 def test_resolve_empty_config() -> None:
     result = names.resolve("GACMP_Q1", {})
     assert result == {}
+
+
+def test_resolve_uses_longest_matching_prefix() -> None:
+    config = {
+        "default": {"1": "Default"},
+        "GA": {"1": "GA Override"},
+        "GACMP": {"1": "GACMP Override"},
+    }
+    result = names.resolve("GACMP_E5", config)
+    assert result["TalonFX-1"] == "GACMP Override"
