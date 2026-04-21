@@ -81,6 +81,7 @@ def compute_totals(motors: dict[str, MotorData]) -> MotorData:
 
     if has_supply:
         total_sp: np.ndarray = sum(m.supply_power for m in motor_list)  # type: ignore[assignment]
+        total_su: np.ndarray = sum(m.supply_current for m in motor_list)  # type: ignore[assignment]
         n = len(total_mp)
         return MotorData(
             motor_voltage=np.zeros(n),
@@ -88,7 +89,7 @@ def compute_totals(motors: dict[str, MotorData]) -> MotorData:
             motor_power=total_mp,
             motor_energy=_cumulative_energy(total_mp),
             supply_voltage=np.zeros(n),
-            supply_current=np.zeros(n),
+            supply_current=total_su,
             supply_power=total_sp,
             supply_energy=_cumulative_energy(total_sp),
         )
