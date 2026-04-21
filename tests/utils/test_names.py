@@ -86,3 +86,22 @@ def test_resolve_uses_longest_matching_prefix() -> None:
     }
     result = names.resolve("GACMP_E5", config)
     assert result["TalonFX-1"] == "GACMP Override"
+
+
+def test_resolve_matches_competition_code_suffix() -> None:
+    config = {
+        "default": {"1": "Default"},
+        "COL": {"1": "COL Override"},
+    }
+    result = names.resolve("GACOL_E8", config)
+    assert result["TalonFX-1"] == "COL Override"
+
+
+def test_resolve_full_prefix_beats_suffix() -> None:
+    config = {
+        "default": {"1": "Default"},
+        "COL": {"1": "Short"},
+        "GACOL": {"1": "Full"},
+    }
+    result = names.resolve("GACOL_E8", config)
+    assert result["TalonFX-1"] == "Full"
