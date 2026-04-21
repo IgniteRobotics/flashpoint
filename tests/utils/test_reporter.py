@@ -47,3 +47,23 @@ def test_build_report_with_motor_names(simple_match, tmp_path: Path) -> None:
     build_report([simple_match], output, names_config=names_config)
     assert output.exists()
     assert output.stat().st_size > 0
+
+
+def test_build_report_two_matches_interleaved(simple_match, tmp_path: Path) -> None:
+    import copy
+    m2 = copy.deepcopy(simple_match)
+    m2.match_id = "TEST_Q2"
+    output = tmp_path / "report_interleaved.pdf"
+    build_report([simple_match, m2], output)
+    assert output.exists()
+    assert output.stat().st_size > 0
+
+
+def test_build_report_supply_current_comparison_emitted(simple_match_with_supply, tmp_path: Path) -> None:
+    import copy
+    m2 = copy.deepcopy(simple_match_with_supply)
+    m2.match_id = "TEST_Q2_SUPPLY"
+    output = tmp_path / "report_supply_comparison.pdf"
+    build_report([simple_match_with_supply, m2], output)
+    assert output.exists()
+    assert output.stat().st_size > 0
