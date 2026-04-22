@@ -88,8 +88,8 @@ def _wpilog_to_df(path: Path) -> pd.DataFrame:
     from datalog import DataLogReader  # repo-root module, importable from project root
 
     with open(path, "rb") as f:
-        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-        return _pivot_records(DataLogReader(mm))
+        with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            return _pivot_records(DataLogReader(mm))
 
 
 def convert_hoot(path: Path, cache_dir: Path) -> Path | None:
