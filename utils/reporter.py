@@ -35,7 +35,7 @@ def _sorted_motor_items(
     if motor_names is None:
         return items
     items = [(mid, data) for mid, data in items if mid in motor_names]
-    return sorted(items, key=lambda x: " ".join(reversed(motor_names[x[0]].split())))
+    return sorted(items, key=lambda x: _names.func_sort_key(motor_names[x[0]]))
 
 
 def _resolve_names(
@@ -141,7 +141,7 @@ def _stat_rows_multi(
                     canonical[mid] = mn[mid]
                     break
         all_ids = [mid for mid in all_ids_raw if mid in canonical]
-        all_ids = sorted(all_ids, key=lambda mid: " ".join(reversed(canonical[mid].split())))
+        all_ids = sorted(all_ids, key=lambda mid: _names.func_sort_key(canonical[mid]))
     else:
         canonical = {}
         all_ids = sorted(all_ids_raw, key=lambda x: int(x.split("-")[1]))
