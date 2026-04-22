@@ -1,0 +1,129 @@
+<h2>How should we handle the noise?</h2>
+<p class="subtitle">Three directions for making 50 Hz motor telemetry readable. Pick what resonates — or mix and match.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Rolling Average Smoothing</h3>
+      <p>Apply a 1–2 second sliding window mean before plotting. Raw data shown faintly in background. Keeps the familiar line-chart structure but removes the high-frequency noise.</p>
+      <div style="margin-top:12px;background:#1a1a2e;border-radius:6px;padding:12px;font-family:monospace;font-size:11px;">
+        <svg width="100%" height="80" viewBox="0 0 400 80">
+          <!-- faint raw data zigzag -->
+          <polyline points="0,40 8,20 16,55 24,30 32,60 40,25 48,50 56,35 64,55 72,20 80,45 88,30 96,60 104,25 112,50 120,35 128,55 136,22 144,48 152,32 160,58 168,28 176,52 184,38 192,54 200,24 208,46 216,34 224,56 232,26 240,50 248,36 256,52 264,28 272,46 280,38 288,54 296,30 304,48 312,35 320,52 328,28 336,50 344,36 352,54 360,30 368,48 376,35 384,52 392,32 400,46"
+            fill="none" stroke="#4a90d9" stroke-width="0.8" opacity="0.25"/>
+          <!-- smooth rolling average -->
+          <polyline points="0,42 40,38 80,36 120,38 160,40 200,37 240,39 280,40 320,38 360,37 400,39"
+            fill="none" stroke="#4a90d9" stroke-width="2.5"/>
+          <!-- trend line -->
+          <line x1="0" y1="43" x2="400" y2="37" stroke="#4a90d9" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.7"/>
+          <text x="8" y="70" fill="#888" font-size="9">Raw (faint)</text>
+          <text x="100" y="70" fill="#4a90d9" font-size="9">1s rolling avg</text>
+          <text x="240" y="70" fill="#4a90d9" font-size="9" opacity="0.7">── trend</text>
+        </svg>
+      </div>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Minimal code change</li><li>Familiar format</li><li>Window is tunable</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Still cluttered with many motors</li><li>Misses peak spikes</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Heatmap (Time × Motor)</h3>
+      <p>Replace per-motor line charts with a 2D color grid. X = time, Y = motor ID, color intensity = power level. Instantly shows which motors were hot and when, without any line clutter.</p>
+      <div style="margin-top:12px;background:#1a1a2e;border-radius:6px;padding:12px;">
+        <svg width="100%" height="90" viewBox="0 0 400 90">
+          <!-- heatmap grid -->
+          <!-- Motor rows with color blocks representing power intensity -->
+          <text x="2" y="18" fill="#888" font-size="8">TFX-1</text>
+          <rect x="50" y="5" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="82" y="5" width="30" height="14" fill="#c0392b" rx="1"/>
+          <rect x="114" y="5" width="30" height="14" fill="#e74c3c" rx="1"/>
+          <rect x="146" y="5" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="178" y="5" width="30" height="14" fill="#c0392b" rx="1"/>
+          <rect x="210" y="5" width="30" height="14" fill="#922b21" rx="1"/>
+          <rect x="242" y="5" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="274" y="5" width="30" height="14" fill="#e74c3c" rx="1"/>
+          <rect x="306" y="5" width="30" height="14" fill="#c0392b" rx="1"/>
+          <rect x="338" y="5" width="30" height="14" fill="#1a3a6b" rx="1"/>
+
+          <text x="2" y="35" fill="#888" font-size="8">TFX-2</text>
+          <rect x="50" y="22" width="30" height="14" fill="#922b21" rx="1"/>
+          <rect x="82" y="22" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="114" y="22" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="146" y="22" width="30" height="14" fill="#e74c3c" rx="1"/>
+          <rect x="178" y="22" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="210" y="22" width="30" height="14" fill="#e74c3c" rx="1"/>
+          <rect x="242" y="22" width="30" height="14" fill="#922b21" rx="1"/>
+          <rect x="274" y="22" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="306" y="22" width="30" height="14" fill="#e74c3c" rx="1"/>
+          <rect x="338" y="22" width="30" height="14" fill="#922b21" rx="1"/>
+
+          <text x="2" y="52" fill="#888" font-size="8">TFX-3</text>
+          <rect x="50" y="39" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="82" y="39" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="114" y="39" width="30" height="14" fill="#922b21" rx="1"/>
+          <rect x="146" y="39" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="178" y="39" width="30" height="14" fill="#c0392b" rx="1"/>
+          <rect x="210" y="39" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="242" y="39" width="30" height="14" fill="#e74c3c" rx="1"/>
+          <rect x="274" y="39" width="30" height="14" fill="#922b21" rx="1"/>
+          <rect x="306" y="39" width="30" height="14" fill="#1a3a6b" rx="1"/>
+          <rect x="338" y="39" width="30" height="14" fill="#e74c3c" rx="1"/>
+
+          <!-- colorbar -->
+          <defs>
+            <linearGradient id="heat" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stop-color="#1a3a6b"/>
+              <stop offset="50%" stop-color="#c0392b"/>
+              <stop offset="100%" stop-color="#e74c3c"/>
+            </linearGradient>
+          </defs>
+          <rect x="50" y="70" width="200" height="10" fill="url(#heat)" rx="2"/>
+          <text x="50" y="88" fill="#888" font-size="8">0W</text>
+          <text x="230" y="88" fill="#888" font-size="8">Peak W</text>
+        </svg>
+      </div>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Scales to many motors</li><li>Pattern recognition at a glance</li><li>Zero line clutter</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Loses absolute values</li><li>seaborn dependency</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Percentile Band (Median ± IQR)</h3>
+      <p>For each time window, plot the median as a line and shade the 25th–75th percentile range as a band. Peaks marked separately. Ideal for cross-match comparison — overlay bands per match instead of noisy traces.</p>
+      <div style="margin-top:12px;background:#1a1a2e;border-radius:6px;padding:12px;font-family:monospace;font-size:11px;">
+        <svg width="100%" height="80" viewBox="0 0 400 80">
+          <!-- Match 1 band -->
+          <polygon points="0,50 60,40 120,35 180,38 240,32 300,35 360,38 400,36 400,52 360,55 300,50 240,46 180,52 120,50 60,54 0,62"
+            fill="#4a90d9" opacity="0.2"/>
+          <polyline points="0,56 60,47 120,42 180,45 240,39 300,42 360,46 400,44"
+            fill="none" stroke="#4a90d9" stroke-width="2"/>
+          <text x="340" y="36" fill="#4a90d9" font-size="9">Match 1</text>
+
+          <!-- Match 2 band -->
+          <polygon points="0,38 60,30 120,25 180,28 240,22 300,26 360,29 400,27 400,42 360,44 300,40 240,36 180,42 120,40 60,44 0,52"
+            fill="#e67e22" opacity="0.2"/>
+          <polyline points="0,45 60,37 120,32 180,35 240,29 300,33 360,36 400,34"
+            fill="none" stroke="#e67e22" stroke-width="2"/>
+          <text x="340" y="22" fill="#e67e22" font-size="9">Match 2</text>
+
+          <!-- peak markers -->
+          <line x1="82" y1="10" x2="82" y2="30" stroke="#4a90d9" stroke-width="1" stroke-dasharray="3,2" opacity="0.6"/>
+          <text x="86" y="14" fill="#4a90d9" font-size="8">peak</text>
+        </svg>
+      </div>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Best for cross-match comparison</li><li>Shows variability, not just mean</li><li>Clean even with many motors</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>More complex to compute</li><li>Requires binning time axis</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
