@@ -49,6 +49,15 @@ def _label(motor_id: str, motor_names: dict[str, str] | None) -> str:
     return motor_names.get(motor_id, motor_id) if motor_names else motor_id
 
 
+def _sorted_motor_ids(match: Match, motor_names: dict[str, str] | None) -> list[str]:
+    """Return motor IDs filtered to named motors (when names provided) and sorted by function."""
+    ids = list(match.motors.keys())
+    if motor_names is None:
+        return ids
+    ids = [mid for mid in ids if mid in motor_names]
+    return sorted(ids, key=lambda mid: " ".join(reversed(motor_names[mid].split())))
+
+
 def plot_instantaneous(match: Match, metric: str) -> Figure:
     """Time-series line plot of a metric for all motors."""
     label, unit = METRIC_LABELS[metric]
@@ -75,7 +84,7 @@ def plot_heatmap(match: Match, metric: str, motor_names: dict[str, str] | None =
     bin_size = max(1, int(round(BIN_SECONDS / dt)))
     n_bins = max(1, n // bin_size)
 
-    motor_ids = list(match.motors.keys())
+    motor_ids = _sorted_motor_ids(match, motor_names)
     rows = []
     for motor_id in motor_ids:
         values = _get(match.motors[motor_id], metric)
@@ -102,8 +111,8 @@ def plot_cumulative_energy(match: Match, power_type: str, motor_names: dict[str,
     energy_attr = f"{power_type}_energy"
     label = "Motor Energy" if power_type == "motor" else "Supply Energy"
     fig, ax = plt.subplots(figsize=(12, 5))
-    for motor_id, data in match.motors.items():
-        values = _get(data, energy_attr)
+    for motor_id in _sorted_motor_ids(match, motor_names):
+        values = _get(match.motors[motor_id], energy_attr)
         if values is not None:
             [line] = ax.plot(match.timestamps, values, label=_label(motor_id, motor_names), linewidth=0.8)
             ax.plot(match.timestamps, _trend_line(match.timestamps, values),
