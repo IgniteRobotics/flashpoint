@@ -27,6 +27,17 @@ def _cover_page(match_id: str, n_motors: int, duration: float) -> Figure:
     return fig
 
 
+def _sorted_motor_items(
+    match: Match,
+    motor_names: dict[str, str] | None,
+) -> list[tuple[str, object]]:
+    items = list(match.motors.items())
+    if motor_names is None:
+        return items
+    items = [(mid, data) for mid, data in items if mid in motor_names]
+    return sorted(items, key=lambda x: " ".join(reversed(motor_names[x[0]].split())))
+
+
 def _resolve_names(
     match_id: str,
     names_config: dict[str, dict[str, str]] | None,
@@ -64,8 +75,9 @@ def _stat_rows_motor(
         "Peak Power (W)", "Avg Power (W)", "σ Power (W)", "P95 Power (W)",
         "Total Energy (Wh)",
     ]
+    motor_items = _sorted_motor_items(match, motor_names)
     rows: list[list[str]] = []
-    for motor_id, data in list(match.motors.items()) + [("TOTAL", match.totals)]:
+    for motor_id, data in motor_items + [("TOTAL", match.totals)]:
         display = motor_id if motor_id == "TOTAL" else (motor_names.get(motor_id, motor_id) if motor_names else motor_id)
         rows.append([
             display,
@@ -93,8 +105,9 @@ def _stat_rows_supply(
         "Peak Power (W)", "Avg Power (W)", "σ Power (W)", "P95 Power (W)",
         "Total Energy (Wh)",
     ]
+    motor_items = _sorted_motor_items(match, motor_names)
     rows: list[list[str]] = []
-    for motor_id, data in list(match.motors.items()) + [("TOTAL", match.totals)]:
+    for motor_id, data in motor_items + [("TOTAL", match.totals)]:
         display = motor_id if motor_id == "TOTAL" else (motor_names.get(motor_id, motor_id) if motor_names else motor_id)
         if data.supply_power is None:
             rows.append([display] + ["N/A"] * (len(headers) - 1))
@@ -114,15 +127,29 @@ def _stat_rows_supply(
     return headers, rows
 
 
-def _stat_rows_multi(matches: list[Match]) -> tuple[list[str], list[list[str]]]:
-    all_ids = sorted(
-        {mid for m in matches for mid in m.motors},
-        key=lambda x: int(x.split("-")[1]),
-    )
+def _stat_rows_multi(
+    matches: list[Match],
+    names_config: dict[str, dict[str, str]] | None = None,
+) -> tuple[list[str], list[list[str]]]:
+    all_ids_raw = {mid for m in matches for mid in m.motors}
+    if names_config is not None:
+        canonical: dict[str, str] = {}
+        for mid in all_ids_raw:
+            for m in matches:
+                mn = _resolve_names(m.match_id, names_config)
+                if mn and mid in mn:
+                    canonical[mid] = mn[mid]
+                    break
+        all_ids = [mid for mid in all_ids_raw if mid in canonical]
+        all_ids = sorted(all_ids, key=lambda mid: " ".join(reversed(canonical[mid].split())))
+    else:
+        canonical = {}
+        all_ids = sorted(all_ids_raw, key=lambda x: int(x.split("-")[1]))
     headers = ["Motor"] + [m.match_id for m in matches]
     rows: list[list[str]] = []
     for motor_id in all_ids + ["TOTAL"]:
-        row: list[str] = [motor_id]
+        display = "TOTAL" if motor_id == "TOTAL" else canonical.get(motor_id, motor_id)
+        row: list[str] = [display]
         for match in matches:
             data = match.totals if motor_id == "TOTAL" else match.motors.get(motor_id)
             row.append(f"{data.motor_energy[-1]:.3f} Wh" if data else "N/A")
@@ -275,7 +302,7 @@ def _build_multi(
 
     for fig in [
         plotter.plot_comparison(matches, "motor_energy"),
-        _render_table(*_stat_rows_multi(matches), "Match Comparison — Motor Energy (Wh)"),
+        _render_table(*_stat_rows_multi(matches, names_config), "Match Comparison — Motor Energy (Wh)"),
     ]:
         pdf.savefig(fig)
         plt.close(fig)
