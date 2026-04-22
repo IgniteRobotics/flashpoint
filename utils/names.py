@@ -1,7 +1,18 @@
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
+
+_POS_PREFIX = re.compile(r"^(FL|FR|BL|BR)\s+", re.IGNORECASE)
+_TRAILING_NUM = re.compile(r"\s+\d+$")
+
+
+def func_sort_key(name: str) -> tuple[str, str]:
+    """Sort key grouping motors by function: strip leading position prefix and trailing numbers."""
+    stem = _POS_PREFIX.sub("", name)
+    stem = _TRAILING_NUM.sub("", stem)
+    return (stem, name)
 
 
 def load(path: Path) -> dict[str, dict[str, str]]:

@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
 
+from . import names as _names
 from .models import Match, MotorData
 
 SMOOTH_WINDOW: int = 50   # samples — 1s at 50 Hz
@@ -55,7 +56,7 @@ def _sorted_motor_ids(match: Match, motor_names: dict[str, str] | None) -> list[
     if motor_names is None:
         return ids
     ids = [mid for mid in ids if mid in motor_names]
-    return sorted(ids, key=lambda mid: " ".join(reversed(motor_names[mid].split())))
+    return sorted(ids, key=lambda mid: _names.func_sort_key(motor_names[mid]))
 
 
 def plot_instantaneous(match: Match, metric: str) -> Figure:
