@@ -142,7 +142,7 @@ def test_pivot_records_sorts_by_timestamp() -> None:
     assert df["Timestamp"].is_monotonic_increasing
 
 
-def test_pivot_records_handles_interleaved_start_records() -> None:
+def test_pivot_records_handles_late_start_for_different_entry() -> None:
     # Start for entry 2 arrives after data for entry 1 — real log files do this
     records = [
         _FakeRecord(is_start=True, start_data=_FakeStartData(1, "Phoenix6/TalonFX-1/MotorVoltage", "double")),
@@ -156,6 +156,18 @@ def test_pivot_records_handles_interleaved_start_records() -> None:
     assert "Phoenix6/TalonFX-2/MotorVoltage" in df.columns
     assert df["Phoenix6/TalonFX-1/MotorVoltage"].notna().sum() == 2
     assert df["Phoenix6/TalonFX-2/MotorVoltage"].notna().sum() == 1
+
+
+def test_pivot_records_silently_drops_data_before_start_record() -> None:
+    # Data records that arrive before their Start record are silently dropped
+    records = [
+        _FakeRecord(entry=1, timestamp=500_000, value=9.9),  # no Start yet — dropped
+        _FakeRecord(is_start=True, start_data=_FakeStartData(1, "Phoenix6/TalonFX-1/MotorVoltage", "double")),
+        _FakeRecord(entry=1, timestamp=1_000_000, value=5.0),
+    ]
+    df = _pivot_records(records)
+    assert len(df) == 1
+    assert df["Phoenix6/TalonFX-1/MotorVoltage"].iloc[0] == 5.0
 
 
 def test_convert_hoot_converts_on_cache_miss(tmp_path: Path) -> None:
@@ -192,6 +204,16 @@ def test_run_owlet_exits_on_owlet_failure(tmp_path: Path) -> None:
         patch("utils.hoot_loader._owlet_path", return_value=fake_exe),
         patch("utils.hoot_loader.subprocess.run", return_value=mock_result),
     ):
+        with pytest.raises(SystemExit) as exc_info:
+            _run_owlet(tmp_path / "test.hoot", tmp_path / "test.wpilog")
+    assert exc_info.value.code == 1
+
+
+def test_run_owlet_exits_when_executable_not_found(tmp_path: Path) -> None:
+    missing_exe = tmp_path / "owlet_does_not_exist"
+    # do NOT create the file
+
+    with patch("utils.hoot_loader._owlet_path", return_value=missing_exe):
         with pytest.raises(SystemExit) as exc_info:
             _run_owlet(tmp_path / "test.hoot", tmp_path / "test.wpilog")
     assert exc_info.value.code == 1
