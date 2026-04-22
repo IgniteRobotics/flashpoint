@@ -1,0 +1,43 @@
+[default]
+# Drivetrain — unchanged across both events
+11 = "FL Drive"
+12 = "FL Steer"
+21 = "FR Drive"
+22 = "FR Steer"
+31 = "BL Drive"
+32 = "BL Steer"
+41 = "BR Drive"
+42 = "BR Steer"
+
+# Intake leaders — unchang
+1 = "Intake Extension 1"
+2 = "Intake Roller 1"
+
+
+[GADAL]
+3 = "Indexer 1"
+4 = "Hood"
+5 = "Flywheel 1"
+6 = "Flywheel 2"
+8 = "Accelerator"
+9 = "Indexer 2"
+10 = "Climber"
+
+[GACOL]
+3 = "Indexer 1"
+4 = "Hood"
+5 = "Flywheel 1"
+6 = "Flywheel 2"
+8 = "Accelerator"
+9 = "Indexer 2"
+10 = "Intake Roller 2"
+
+[GACMP]
+3 = "Accelerator"  
+4 = "Indexer"              # moved from 8
+5 = "Flywheel 1"       # split into left/right
+6 = "Flywheel 2"
+7 = "Flywheel 3"     # added third flywheel motor
+8 = "Hood"                       # moved from 4
+10 = "Intake Roller 2"
+14 = "Intake Extension 2" # new
