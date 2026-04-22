@@ -192,8 +192,9 @@ def test_run_owlet_exits_on_owlet_failure(tmp_path: Path) -> None:
         patch("utils.hoot_loader._owlet_path", return_value=fake_exe),
         patch("utils.hoot_loader.subprocess.run", return_value=mock_result),
     ):
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc_info:
             _run_owlet(tmp_path / "test.hoot", tmp_path / "test.wpilog")
+    assert exc_info.value.code == 1
 
 
 def test_convert_hoot_returns_none_when_no_talon_entries(
@@ -222,8 +223,8 @@ def test_convert_hoot_reconverts_corrupt_cache(tmp_path: Path) -> None:
     cache_dir.mkdir()
     h = hashlib.sha256(b"fake hoot content").hexdigest()
     cache_csv = cache_dir / f"{h}.csv"
-    # Write an invalid gzip file that will cause pandas to raise an exception
-    cache_csv.write_bytes(b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x00invalid")
+    # Write invalid UTF-8 bytes that trigger a UnicodeDecodeError on read
+    cache_csv.write_bytes(b"\xff\xfe\x00\x00invalid")
 
     sample_df = pd.DataFrame({
         "Timestamp": [0.0],
