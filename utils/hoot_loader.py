@@ -49,6 +49,7 @@ def _pivot_records(records) -> pd.DataFrame:  # type: ignore[type-arg]
                 continue
             try:
                 ts_s = record.timestamp * 1e-6
+                # Later value for the same (timestamp, channel) pair wins; log collisions are rare.
                 data.setdefault(ts_s, {})[col] = record.getDouble()
             except TypeError:
                 pass

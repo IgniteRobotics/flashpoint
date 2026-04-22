@@ -137,3 +137,19 @@ def test_pivot_records_sorts_by_timestamp() -> None:
     )
     df = _pivot_records(records)
     assert df["Timestamp"].is_monotonic_increasing
+
+
+def test_pivot_records_handles_interleaved_start_records() -> None:
+    # Start for entry 2 arrives after data for entry 1 — real log files do this
+    records = [
+        _FakeRecord(is_start=True, start_data=_FakeStartData(1, "Phoenix6/TalonFX-1/MotorVoltage", "double")),
+        _FakeRecord(entry=1, timestamp=1_000_000, value=5.0),
+        _FakeRecord(is_start=True, start_data=_FakeStartData(2, "Phoenix6/TalonFX-2/MotorVoltage", "double")),
+        _FakeRecord(entry=2, timestamp=1_000_000, value=3.0),
+        _FakeRecord(entry=1, timestamp=2_000_000, value=6.0),
+    ]
+    df = _pivot_records(records)
+    assert "Phoenix6/TalonFX-1/MotorVoltage" in df.columns
+    assert "Phoenix6/TalonFX-2/MotorVoltage" in df.columns
+    assert df["Phoenix6/TalonFX-1/MotorVoltage"].notna().sum() == 2
+    assert df["Phoenix6/TalonFX-2/MotorVoltage"].notna().sum() == 1
