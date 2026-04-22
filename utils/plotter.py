@@ -186,7 +186,7 @@ def plot_total_power(match: Match) -> Figure:
     return fig
 
 
-def plot_comparison(matches: list[Match], metric: str, smooth: bool = False) -> Figure:
+def plot_comparison(matches: list[Match], metric: str, smooth: bool = False, show_peaks: bool = False) -> Figure:
     """Overlay robot-total metric across multiple matches."""
     label, unit = METRIC_LABELS[metric]
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -197,6 +197,11 @@ def plot_comparison(matches: list[Match], metric: str, smooth: bool = False) -> 
             [line] = ax.plot(match.timestamps, display, label=match.match_id, linewidth=1.2)
             ax.plot(match.timestamps, _trend_line(match.timestamps, display),
                     color=line.get_color(), linewidth=1.8, linestyle="--", alpha=0.9, zorder=5)
+            if show_peaks:
+                p95 = float(np.percentile(display, 95))
+                mask = display >= p95
+                ax.scatter(match.timestamps[mask], display[mask],
+                           color=line.get_color(), s=20, marker="x", zorder=6)
     ax.set_title(f"Match Comparison — {label} (Robot Total)")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel(f"{label} ({unit})")
