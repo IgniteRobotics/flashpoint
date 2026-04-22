@@ -2,10 +2,6 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from unittest.mock import patch
-
-import pandas as pd
-import pytest
 
 from utils.hoot_loader import convert_hoot
 

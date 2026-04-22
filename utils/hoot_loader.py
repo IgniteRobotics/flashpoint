@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import platform
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
 
 import pandas as pd
 
-from .loader import MOTOR_COL_PATTERN
+
+_REPO_ROOT = Path(__file__).parent.parent
 
 
 def _file_hash(path: Path) -> str:
@@ -25,7 +23,7 @@ def _owlet_path() -> Path:
         "Darwin": "owlet-2026-mac",
         "Windows": "owlet-2026-win.exe",
     }.get(platform.system(), "owlet-2026-linux")
-    return Path("executables") / name
+    return _REPO_ROOT / "executables" / name
 
 
 def convert_hoot(path: Path, cache_dir: Path) -> Path | None:
