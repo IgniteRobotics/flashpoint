@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
-from utils.hoot_loader import _pivot_records, convert_hoot
+from utils.hoot_loader import _pivot_records, _run_owlet, convert_hoot
 
 
 def test_convert_hoot_returns_cache_path_on_hit(tmp_path: Path) -> None:
@@ -178,3 +179,64 @@ def test_convert_hoot_converts_on_cache_miss(tmp_path: Path) -> None:
     df = pd.read_csv(result)
     assert "Phoenix6/TalonFX-1/MotorVoltage" in df.columns
     assert list(df["Timestamp"]) == pytest.approx([0.0, 0.02])
+
+
+def test_run_owlet_exits_on_owlet_failure(tmp_path: Path) -> None:
+    fake_exe = tmp_path / "fake_owlet"
+    fake_exe.touch()
+
+    mock_result = subprocess.CompletedProcess(
+        args=[], returncode=1, stdout="", stderr="owlet error message"
+    )
+    with (
+        patch("utils.hoot_loader._owlet_path", return_value=fake_exe),
+        patch("utils.hoot_loader.subprocess.run", return_value=mock_result),
+    ):
+        with pytest.raises(SystemExit):
+            _run_owlet(tmp_path / "test.hoot", tmp_path / "test.wpilog")
+
+
+def test_convert_hoot_returns_none_when_no_talon_entries(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    hoot = tmp_path / "GACMP_Q1_rio_2025-01-01_00-00-00.hoot"
+    hoot.write_bytes(b"fake hoot content")
+    cache_dir = tmp_path / "cache"
+
+    with (
+        patch("utils.hoot_loader._run_owlet"),
+        patch("utils.hoot_loader._wpilog_to_df", return_value=pd.DataFrame()),
+    ):
+        result = convert_hoot(hoot, cache_dir)
+
+    assert result is None
+    captured = capsys.readouterr()
+    assert "warning" in captured.err.lower()
+
+
+def test_convert_hoot_reconverts_corrupt_cache(tmp_path: Path) -> None:
+    hoot = tmp_path / "GACMP_Q1_rio_2025-01-01_00-00-00.hoot"
+    hoot.write_bytes(b"fake hoot content")
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    h = hashlib.sha256(b"fake hoot content").hexdigest()
+    cache_csv = cache_dir / f"{h}.csv"
+    # Write an invalid gzip file that will cause pandas to raise an exception
+    cache_csv.write_bytes(b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x00invalid")
+
+    sample_df = pd.DataFrame({
+        "Timestamp": [0.0],
+        "Phoenix6/TalonFX-1/MotorVoltage": [5.0],
+    })
+
+    with (
+        patch("utils.hoot_loader._run_owlet"),
+        patch("utils.hoot_loader._wpilog_to_df", return_value=sample_df),
+    ):
+        result = convert_hoot(hoot, cache_dir)
+
+    assert result == cache_csv
+    assert result.exists()
+    df = pd.read_csv(result)
+    assert "Phoenix6/TalonFX-1/MotorVoltage" in df.columns
