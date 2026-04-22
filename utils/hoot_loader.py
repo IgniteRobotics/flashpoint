@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from .loader import MOTOR_COL_PATTERN
+
 
 _REPO_ROOT = Path(__file__).parent.parent
 
@@ -24,6 +26,39 @@ def _owlet_path() -> Path:
         "Windows": "owlet-2026-win.exe",
     }.get(platform.system(), "owlet-2026-linux")
     return _REPO_ROOT / "executables" / name
+
+
+def _pivot_records(records) -> pd.DataFrame:  # type: ignore[type-arg]
+    """Walk a DataLogReader iterable, keep only TalonFX double entries, pivot to wide format."""
+    entries: dict[int, str] = {}
+    data: dict[float, dict[str, float]] = {}
+
+    for record in records:
+        if record.isStart():
+            try:
+                sd = record.getStartData()
+                if MOTOR_COL_PATTERN.match(sd.name) and sd.type == "double":
+                    entries[sd.entry] = sd.name
+            except TypeError:
+                pass
+        elif record.isFinish() or record.isSetMetadata() or record.isControl():
+            continue
+        else:
+            col = entries.get(record.entry)
+            if col is None:
+                continue
+            try:
+                ts_s = record.timestamp * 1e-6
+                data.setdefault(ts_s, {})[col] = record.getDouble()
+            except TypeError:
+                pass
+
+    if not data:
+        return pd.DataFrame()
+
+    df = pd.DataFrame.from_dict(data, orient="index")
+    df.index.name = "Timestamp"
+    return df.sort_index().reset_index()
 
 
 def convert_hoot(path: Path, cache_dir: Path) -> Path | None:

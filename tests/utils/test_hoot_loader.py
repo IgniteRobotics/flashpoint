@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from utils.hoot_loader import convert_hoot
+import pytest
+
+from utils.hoot_loader import _pivot_records, convert_hoot
 
 
 def test_convert_hoot_returns_cache_path_on_hit(tmp_path: Path) -> None:
@@ -21,3 +23,117 @@ def test_convert_hoot_returns_cache_path_on_hit(tmp_path: Path) -> None:
     result = convert_hoot(hoot, cache_dir)
 
     assert result == cache_csv
+
+
+class _FakeStartData:
+    def __init__(self, entry_id: int, name: str, type_: str) -> None:
+        self.entry = entry_id
+        self.name = name
+        self.type = type_
+
+
+class _FakeRecord:
+    def __init__(
+        self,
+        *,
+        is_start: bool = False,
+        is_finish: bool = False,
+        entry: int = 0,
+        timestamp: int = 0,
+        value: float | None = None,
+        start_data: _FakeStartData | None = None,
+    ) -> None:
+        self._is_start = is_start
+        self._is_finish = is_finish
+        self.entry = entry
+        self.timestamp = timestamp
+        self._value = value
+        self._start_data = start_data
+
+    def isStart(self) -> bool:
+        return self._is_start
+
+    def isFinish(self) -> bool:
+        return self._is_finish
+
+    def isSetMetadata(self) -> bool:
+        return False
+
+    def isControl(self) -> bool:
+        return False
+
+    def getStartData(self) -> _FakeStartData:
+        return self._start_data  # type: ignore[return-value]
+
+    def getDouble(self) -> float:
+        return self._value  # type: ignore[return-value]
+
+
+def _make_records(
+    entries: list[tuple[int, str, str]],
+    data: list[tuple[int, int, float]],
+) -> list[_FakeRecord]:
+    """entries=(entry_id, name, type_), data=(entry_id, timestamp_us, value)"""
+    records: list[_FakeRecord] = [
+        _FakeRecord(is_start=True, start_data=_FakeStartData(eid, name, t))
+        for eid, name, t in entries
+    ]
+    records += [
+        _FakeRecord(entry=eid, timestamp=ts, value=val)
+        for eid, ts, val in data
+    ]
+    return records
+
+
+def test_pivot_records_produces_wide_dataframe() -> None:
+    records = _make_records(
+        entries=[(1, "Phoenix6/TalonFX-11/MotorVoltage", "double")],
+        data=[(1, 1_000_000, 5.0), (1, 2_000_000, 6.0)],
+    )
+    df = _pivot_records(records)
+    assert "Timestamp" in df.columns
+    assert "Phoenix6/TalonFX-11/MotorVoltage" in df.columns
+    assert list(df["Phoenix6/TalonFX-11/MotorVoltage"]) == [5.0, 6.0]
+    assert df["Timestamp"].iloc[0] == pytest.approx(1.0)
+    assert df["Timestamp"].iloc[1] == pytest.approx(2.0)
+
+
+def test_pivot_records_filters_non_talon_entries() -> None:
+    records = _make_records(
+        entries=[
+            (1, "Phoenix6/TalonFX-11/MotorVoltage", "double"),
+            (2, "DS:enabled", "boolean"),
+            (3, "elevator/Leader Motor Voltage", "double"),
+        ],
+        data=[
+            (1, 1_000_000, 5.0),
+            (2, 1_000_000, 1.0),
+            (3, 1_000_000, 12.0),
+        ],
+    )
+    df = _pivot_records(records)
+    assert "DS:enabled" not in df.columns
+    assert "elevator/Leader Motor Voltage" not in df.columns
+    assert "Phoenix6/TalonFX-11/MotorVoltage" in df.columns
+
+
+def test_pivot_records_returns_empty_dataframe_when_no_talon_entries() -> None:
+    records = _make_records(
+        entries=[(1, "DS:enabled", "boolean")],
+        data=[(1, 1_000_000, 1.0)],
+    )
+    df = _pivot_records(records)
+    assert df.empty
+
+
+def test_pivot_records_sorts_by_timestamp() -> None:
+    records = _make_records(
+        entries=[(1, "Phoenix6/TalonFX-11/MotorVoltage", "double")],
+        data=[
+            (1, 3_000_000, 3.0),
+            (1, 1_000_000, 1.0),
+            (1, 2_000_000, 2.0),
+        ],
+    )
+    df = _pivot_records(records)
+    assert df["Timestamp"].is_monotonic_increasing
