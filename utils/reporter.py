@@ -313,7 +313,7 @@ def _build_multi(
         plt.close(fig)
 
     if any(m.totals.supply_current is not None for m in matches):
-        fig = plotter.plot_comparison(matches, "supply_current", smooth=True)
+        fig = plotter.plot_comparison(matches, "supply_current", smooth=True, show_peaks=True)
         pdf.savefig(fig)
         plt.close(fig)
 
