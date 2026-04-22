@@ -58,6 +58,8 @@ def main() -> None:
                 cached = hoot_loader.convert_hoot(f, args.cache_dir)
                 if cached:
                     resolved.append(cached)
+                else:
+                    print(f"  warning: skipping {f.name} (conversion produced no usable data)", file=sys.stderr)
             else:
                 resolved.append(f)
 
