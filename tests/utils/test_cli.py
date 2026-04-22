@@ -66,3 +66,20 @@ def test_cli_motor_names_flag_accepted(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert output.exists()
+
+
+def test_cli_cache_dir_arg_is_recognized(tmp_path: Path) -> None:
+    """--cache-dir is accepted; a missing .hoot file still produces the file-not-found error."""
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "utils",
+            str(tmp_path / "nonexistent.hoot"),
+            "--cache-dir", str(tmp_path / "cache"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    # Should be "file not found", NOT "unrecognized argument"
+    assert "not found" in result.stderr
+    assert "unrecognized" not in result.stderr

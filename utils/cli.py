@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import loader, trimmer, analyzer, reporter
+from . import loader, trimmer, analyzer, reporter, hoot_loader
 from . import names as _names
 
 
@@ -15,7 +15,7 @@ def main() -> None:
     )
     parser.add_argument(
         "files", nargs="+", type=Path, metavar="FILE",
-        help="CSV telemetry files (one or more; multiple matches are supported)",
+        help="Telemetry files (.csv or .hoot; one or more; multiple matches are supported)",
     )
     parser.add_argument(
         "--output", "-o", type=Path, default=Path("report.pdf"),
@@ -33,6 +33,11 @@ def main() -> None:
         "--motor-names", type=Path, default=None, metavar="PATH",
         help="TOML config mapping TalonFX IDs to display names (optional)",
     )
+    parser.add_argument(
+        "--cache-dir", type=Path, default=Path("converted_data/power_cache"),
+        metavar="DIR",
+        help="Directory for cached hoot conversions (default: converted_data/power_cache/)",
+    )
     args = parser.parse_args()
 
     missing = [f for f in args.files if not f.exists()]
@@ -46,12 +51,30 @@ def main() -> None:
 
     for match_id, files in sorted(match_groups.items()):
         print(f"Loading {match_id} ({len(files)} file(s))...")
-        df = loader.load_match(files)
+
+        resolved: list[Path] = []
+        for f in files:
+            if f.suffix == ".hoot":
+                cached = hoot_loader.convert_hoot(f, args.cache_dir)
+                if cached:
+                    resolved.append(cached)
+            else:
+                resolved.append(f)
+
+        if not resolved:
+            print(f"  No usable files for {match_id}, skipping.", file=sys.stderr)
+            continue
+
+        df = loader.load_match(resolved)
         df = trimmer.trim_to_match(df, voltage_threshold=args.threshold)
         df = analyzer.normalize(df)
         match = analyzer.build_match(match_id, df)
         matches.append(match)
         print(f"  {len(match.motors)} motors · {match.timestamps[-1]:.1f}s match duration")
+
+    if not matches:
+        print("error: no usable matches found in provided files", file=sys.stderr)
+        sys.exit(1)
 
     names_config = _names.load(args.motor_names) if args.motor_names else None
     print(f"Building report → {args.output}")
