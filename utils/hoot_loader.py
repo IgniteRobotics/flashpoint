@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import platform
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -62,6 +65,33 @@ def _pivot_records(records) -> pd.DataFrame:  # type: ignore[type-arg]
     return df.sort_index().reset_index()
 
 
+def _run_owlet(hoot_path: Path, wpilog_path: Path) -> None:
+    exe = _owlet_path()
+    if not exe.exists():
+        print(f"error: owlet executable not found: {exe}", file=sys.stderr)
+        sys.exit(1)
+    result = subprocess.run(
+        [str(exe), "-f", "wpilog", str(hoot_path), str(wpilog_path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(
+            f"error: owlet failed on {hoot_path.name}:\n{result.stderr}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _wpilog_to_df(path: Path) -> pd.DataFrame:
+    import mmap
+    from datalog import DataLogReader  # repo-root module, importable from project root
+
+    with open(path, "rb") as f:
+        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        return _pivot_records(DataLogReader(mm))
+
+
 def convert_hoot(path: Path, cache_dir: Path) -> Path | None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_csv = cache_dir / f"{_file_hash(path)}.csv"
@@ -73,4 +103,21 @@ def convert_hoot(path: Path, cache_dir: Path) -> Path | None:
         except Exception:
             pass  # corrupt — fall through to re-convert
 
-    return None  # conversion not yet implemented
+    with tempfile.NamedTemporaryFile(suffix=".wpilog", delete=False) as tmp:
+        wpilog_path = Path(tmp.name)
+
+    try:
+        _run_owlet(path, wpilog_path)
+        df = _wpilog_to_df(wpilog_path)
+    finally:
+        wpilog_path.unlink(missing_ok=True)
+
+    if df.empty:
+        print(
+            f"warning: no TalonFX entries found in {path.name}, skipping",
+            file=sys.stderr,
+        )
+        return None
+
+    df.to_csv(cache_csv, index=False)
+    return cache_csv
