@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from utils.loader import extract_match_id, find_matches, load_match, get_motor_ids
+from utils.loader import MOTOR_COL_PATTERN, extract_match_id, find_matches, load_match, get_motor_ids
 
 
 def test_extract_match_id_with_uuid(tmp_path: Path) -> None:
@@ -74,3 +74,17 @@ def test_get_motor_ids_returns_sorted_list(rio_csv: Path, carnivore_csv: Path) -
     assert nums == sorted(nums)
     assert "TalonFX-1" in ids
     assert "TalonFX-11" in ids
+
+
+def test_motor_col_pattern_matches_velocity() -> None:
+    assert MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-1/Velocity")
+
+
+def test_motor_col_pattern_velocity_captures_motor_id() -> None:
+    m = MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-42/Velocity")
+    assert m is not None
+    assert m.group(1) == "42"
+
+
+def test_motor_col_pattern_does_not_match_unknown_signal() -> None:
+    assert MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-1/Temperature") is None

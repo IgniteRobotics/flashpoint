@@ -11,7 +11,7 @@ UUID_PATTERN = re.compile(
 )
 HEX32_PATTERN = re.compile(r"[0-9A-Fa-f]{32}")
 MOTOR_COL_PATTERN = re.compile(
-    r"Phoenix6/TalonFX-(\d+)/(MotorVoltage|StatorCurrent|SupplyVoltage|SupplyCurrent)"
+    r"Phoenix6/TalonFX-(\d+)/(MotorVoltage|StatorCurrent|SupplyVoltage|SupplyCurrent|Velocity)"
 )
 
 
