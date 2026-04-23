@@ -99,7 +99,7 @@ def simple_match_with_supply() -> Match:
 
 @pytest.fixture
 def simple_match_with_velocity() -> Match:
-    n = 50  # enough samples that 3s smoothing window has data to work with
+    n = 150  # 3s of data at 50Hz — matches WATTS_PER_RPS_SMOOTH_S window
     t = np.arange(n) * 0.02
     data = _make_motor_data(n, with_supply=True, with_velocity=True)
     motors = {"TalonFX-1": data, "TalonFX-2": data}
