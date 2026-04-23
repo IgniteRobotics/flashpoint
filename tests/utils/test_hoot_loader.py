@@ -263,3 +263,116 @@ def test_convert_hoot_reconverts_corrupt_cache(tmp_path: Path) -> None:
     assert result.exists()
     df = pd.read_csv(result)
     assert "Phoenix6/TalonFX-1/MotorVoltage" in df.columns
+
+
+from utils.hoot_loader import (
+    MOTOR_COL_PATTERN,
+    extract_match_id,
+    find_matches,
+    get_motor_ids,
+    merge_dataframes,
+)
+
+
+# --- MOTOR_COL_PATTERN ---
+
+def test_motor_col_pattern_matches_device_temp() -> None:
+    assert MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-1/DeviceTemp")
+
+
+def test_motor_col_pattern_device_temp_captures_motor_id() -> None:
+    m = MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-42/DeviceTemp")
+    assert m is not None
+    assert m.group(1) == "42"
+
+
+def test_motor_col_pattern_matches_velocity() -> None:
+    assert MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-1/Velocity")
+
+
+def test_motor_col_pattern_does_not_match_unknown_signal() -> None:
+    assert MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-1/Temperature") is None
+
+
+# --- extract_match_id ---
+
+def test_extract_match_id_strips_timestamp_suffix(tmp_path: Path) -> None:
+    p = tmp_path / "GACMP_Q1_rio_2026-04-23_14-30-00.hoot"
+    assert extract_match_id(p) == "GACMP_Q1_rio"
+
+
+def test_extract_match_id_strips_uuid(tmp_path: Path) -> None:
+    p = tmp_path / "GACMP_E5_a1b2c3d4-e29b-41d4-a716-446655440000.hoot"
+    assert extract_match_id(p) == "GACMP_E5"
+
+
+def test_extract_match_id_strips_hex32(tmp_path: Path) -> None:
+    p = tmp_path / "GACMP_E5_6E9415C3394C485320202050101C18FF_filtered.hoot"
+    assert extract_match_id(p) == "GACMP_E5"
+
+
+def test_extract_match_id_fallback_dash(tmp_path: Path) -> None:
+    p = tmp_path / "GACMP_E5-rio.hoot"
+    assert extract_match_id(p) == "GACMP_E5"
+
+
+# --- find_matches ---
+
+def test_find_matches_groups_by_match_id(tmp_path: Path) -> None:
+    f1 = tmp_path / "GACMP_E5-rio.hoot"
+    f2 = tmp_path / "GACMP_E5_6E9415C3394C485320202050101C18FF.hoot"
+    f1.touch()
+    f2.touch()
+    groups = find_matches([f1, f2])
+    assert list(groups.keys()) == ["GACMP_E5"]
+    assert len(groups["GACMP_E5"]) == 2
+
+
+def test_find_matches_separates_different_matches(tmp_path: Path) -> None:
+    f1 = tmp_path / "GACMP_Q1-rio.hoot"
+    f2 = tmp_path / "GACMP_Q2-rio.hoot"
+    f1.touch()
+    f2.touch()
+    groups = find_matches([f1, f2])
+    assert len(groups) == 2
+
+
+# --- get_motor_ids ---
+
+def test_get_motor_ids_returns_sorted_list() -> None:
+    df = pd.DataFrame(columns=[
+        "Timestamp",
+        "Phoenix6/TalonFX-11/MotorVoltage",
+        "Phoenix6/TalonFX-1/MotorVoltage",
+    ])
+    ids = get_motor_ids(df)
+    nums = [int(mid.split("-")[1]) for mid in ids]
+    assert nums == sorted(nums)
+    assert "TalonFX-1" in ids
+    assert "TalonFX-11" in ids
+
+
+# --- merge_dataframes ---
+
+def test_merge_dataframes_single_df_sorted() -> None:
+    df = pd.DataFrame({
+        "Timestamp": [0.04, 0.02, 0.0],
+        "Phoenix6/TalonFX-1/MotorVoltage": [3.0, 2.0, 1.0],
+    })
+    result = merge_dataframes([df])
+    assert result["Timestamp"].is_monotonic_increasing
+
+
+def test_merge_dataframes_outer_joins_two_dfs() -> None:
+    df1 = pd.DataFrame({
+        "Timestamp": [0.0, 0.02],
+        "Phoenix6/TalonFX-1/MotorVoltage": [5.0, 6.0],
+    })
+    df2 = pd.DataFrame({
+        "Timestamp": [0.0, 0.02],
+        "Phoenix6/TalonFX-11/MotorVoltage": [3.0, 4.0],
+    })
+    result = merge_dataframes([df1, df2])
+    assert "Phoenix6/TalonFX-1/MotorVoltage" in result.columns
+    assert "Phoenix6/TalonFX-11/MotorVoltage" in result.columns
+    assert result["Timestamp"].is_monotonic_increasing

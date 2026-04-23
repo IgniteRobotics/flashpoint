@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .loader import MOTOR_COL_PATTERN, get_motor_ids
+from .hoot_loader import MOTOR_COL_PATTERN, get_motor_ids
 from .models import Match, MotorData
 
 SECONDS_PER_HOUR: float = 3600.0

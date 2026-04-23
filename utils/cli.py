@@ -4,18 +4,20 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import loader, trimmer, analyzer, reporter, hoot_loader
+import pandas as pd
+
+from . import trimmer, analyzer, reporter, hoot_loader
 from . import names as _names
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="python -m utils",
-        description="Generate FRC motor power analysis PDF from telemetry CSVs.",
+        description="Generate FRC motor power analysis PDF from hoot telemetry logs.",
     )
     parser.add_argument(
         "files", nargs="+", type=Path, metavar="FILE",
-        help="Telemetry files (.csv or .hoot; one or more; multiple matches are supported)",
+        help="Telemetry files (.hoot; one or more; multiple matches are supported)",
     )
     parser.add_argument(
         "--output", "-o", type=Path, default=Path("report.pdf"),
@@ -46,28 +48,31 @@ def main() -> None:
             print(f"error: file not found: {f}", file=sys.stderr)
         sys.exit(1)
 
-    match_groups = loader.find_matches(args.files)
+    non_hoot = [f for f in args.files if f.suffix != ".hoot"]
+    if non_hoot:
+        for f in non_hoot:
+            print(f"error: expected .hoot file, got: {f.name}", file=sys.stderr)
+        sys.exit(1)
+
+    match_groups = hoot_loader.find_matches(args.files)
     matches = []
 
     for match_id, files in sorted(match_groups.items()):
         print(f"Loading {match_id} ({len(files)} file(s))...")
 
-        resolved: list[Path] = []
+        dfs: list[pd.DataFrame] = []
         for f in files:
-            if f.suffix == ".hoot":
-                cached = hoot_loader.convert_hoot(f, args.cache_dir)
-                if cached:
-                    resolved.append(cached)
-                else:
-                    print(f"  warning: skipping {f.name} (conversion produced no usable data)", file=sys.stderr)
+            cached = hoot_loader.convert_hoot(f, args.cache_dir)
+            if cached:
+                dfs.append(pd.read_csv(cached, na_values=["null"]))
             else:
-                resolved.append(f)
+                print(f"  warning: skipping {f.name} (conversion produced no usable data)", file=sys.stderr)
 
-        if not resolved:
+        if not dfs:
             print(f"  No usable files for {match_id}, skipping.", file=sys.stderr)
             continue
 
-        df = loader.load_match(resolved)
+        df = hoot_loader.merge_dataframes(dfs)
         df = trimmer.trim_to_match(df, voltage_threshold=args.threshold)
         df = analyzer.normalize(df)
         match = analyzer.build_match(match_id, df)
