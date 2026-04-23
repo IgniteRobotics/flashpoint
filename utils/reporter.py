@@ -222,9 +222,14 @@ def _build_single(
 
     has_velocity = any(m.rotor_velocity is not None for m in match.motors.values())
     if has_supply and has_velocity:
-        fig = plotter.plot_watts_per_rps(match, motor_names)
-        pdf.savefig(fig)
-        plt.close(fig)
+        qualifying = [
+            mid for mid, data in _sorted_motor_items(match, motor_names)
+            if data.supply_power is not None and data.rotor_velocity is not None
+        ]
+        for chunk in [qualifying[i:i + 6] for i in range(0, len(qualifying), 6)]:
+            fig = plotter.plot_watts_per_rps(match, motor_names, motor_subset=chunk)
+            pdf.savefig(fig)
+            plt.close(fig)
 
     if per_motor:
         for motor_id, data in match.motors.items():
@@ -328,9 +333,14 @@ def _build_multi(
         has_velocity = any(m.rotor_velocity is not None for m in match.motors.values())
         has_supply = any(m.supply_current is not None for m in match.motors.values())
         if has_supply and has_velocity:
-            fig = plotter.plot_watts_per_rps(match, mn)
-            pdf.savefig(fig)
-            plt.close(fig)
+            qualifying = [
+                mid for mid, data in _sorted_motor_items(match, mn)
+                if data.supply_power is not None and data.rotor_velocity is not None
+            ]
+            for chunk in [qualifying[i:i + 6] for i in range(0, len(qualifying), 6)]:
+                fig = plotter.plot_watts_per_rps(match, mn, motor_subset=chunk)
+                pdf.savefig(fig)
+                plt.close(fig)
 
 
 def build_report(
