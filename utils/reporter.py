@@ -64,21 +64,55 @@ def _multi_cover_page(matches: list[Match]) -> Figure:
     return fig
 
 
-def _stat_rows_motor(
+def _stat_rows_combined(
     match: Match,
     motor_names: dict[str, str] | None = None,
-) -> tuple[list[str], list[list[str]]]:
+) -> tuple[list[str], list[list[str]], dict[tuple[int, int], str]]:
     headers = [
         "Motor",
-        "Max Voltage (V)", "Avg Voltage (V)",
-        "Max Stator (A)", "Avg Stator (A)",
-        "Peak Power (W)", "Avg Power (W)", "σ Power (W)", "P95 Power (W)",
-        "Total Energy (Wh)",
+        "Max Motor V", "Avg Motor V",
+        "Max Stator A", "Avg Stator A",
+        "Peak Motor W", "P95 Motor W",
+        "Max Supply V", "Avg Supply V",
+        "Max Supply A", "Avg Supply A",
+        "Peak Supply W", "P95 Supply W",
+        "Avg Temp °C", "Max Temp °C",
     ]
+    AVG_TEMP_IDX = 13
+    MAX_TEMP_IDX = 14
+
     motor_items = _sorted_motor_items(match, motor_names)
     rows: list[list[str]] = []
+    cell_colors: dict[tuple[int, int], str] = {}
+
     for motor_id, data in motor_items + [("TOTAL", match.totals)]:
         display = motor_id if motor_id == "TOTAL" else (motor_names.get(motor_id, motor_id) if motor_names else motor_id)
+        row_idx = len(rows) + 1  # row 0 is the header
+
+        if data.supply_power is None:
+            supply_cols = ["—"] * 6
+        else:
+            supply_cols = [
+                f"{data.supply_voltage.max():.2f}",
+                f"{data.supply_voltage.mean():.2f}",
+                f"{data.supply_current.max():.2f}",
+                f"{data.supply_current.mean():.2f}",
+                f"{data.supply_power.max():.1f}",
+                f"{np.percentile(data.supply_power, 95):.1f}",
+            ]
+
+        is_total = motor_id == "TOTAL"
+        if data.device_temp is None or is_total:
+            temp_cols = ["—", "—"]
+        else:
+            avg_temp = float(data.device_temp.mean())
+            max_temp = float(data.device_temp.max())
+            temp_cols = [f"{avg_temp:.1f}", f"{max_temp:.1f}"]
+            if avg_temp > 55.0:
+                cell_colors[(row_idx, AVG_TEMP_IDX)] = "#FFCCCC"
+            if max_temp > 65.0:
+                cell_colors[(row_idx, MAX_TEMP_IDX)] = "#FFCCCC"
+
         rows.append([
             display,
             f"{data.motor_voltage.max():.2f}",
@@ -86,45 +120,12 @@ def _stat_rows_motor(
             f"{data.stator_current.max():.2f}",
             f"{data.stator_current.mean():.2f}",
             f"{data.motor_power.max():.1f}",
-            f"{data.motor_power.mean():.1f}",
-            f"{data.motor_power.std():.1f}",
             f"{np.percentile(data.motor_power, 95):.1f}",
-            f"{data.motor_energy[-1]:.3f}",
+            *supply_cols,
+            *temp_cols,
         ])
-    return headers, rows
 
-
-def _stat_rows_supply(
-    match: Match,
-    motor_names: dict[str, str] | None = None,
-) -> tuple[list[str], list[list[str]]]:
-    headers = [
-        "Motor",
-        "Max Voltage (V)", "Avg Voltage (V)",
-        "Max Current (A)", "Avg Current (A)",
-        "Peak Power (W)", "Avg Power (W)", "σ Power (W)", "P95 Power (W)",
-        "Total Energy (Wh)",
-    ]
-    motor_items = _sorted_motor_items(match, motor_names)
-    rows: list[list[str]] = []
-    for motor_id, data in motor_items + [("TOTAL", match.totals)]:
-        display = motor_id if motor_id == "TOTAL" else (motor_names.get(motor_id, motor_id) if motor_names else motor_id)
-        if data.supply_power is None:
-            rows.append([display] + ["N/A"] * (len(headers) - 1))
-        else:
-            rows.append([
-                display,
-                f"{data.supply_voltage.max():.2f}",
-                f"{data.supply_voltage.mean():.2f}",
-                f"{data.supply_current.max():.2f}",
-                f"{data.supply_current.mean():.2f}",
-                f"{data.supply_power.max():.1f}",
-                f"{data.supply_power.mean():.1f}",
-                f"{data.supply_power.std():.1f}",
-                f"{np.percentile(data.supply_power, 95):.1f}",
-                f"{data.supply_energy[-1]:.3f}",
-            ])
-    return headers, rows
+    return headers, rows, cell_colors
 
 
 def _stat_rows_multi(
@@ -157,13 +158,21 @@ def _stat_rows_multi(
     return headers, rows
 
 
-def _render_table(headers: list[str], rows: list[list[str]], title: str) -> Figure:
-    fig, ax = plt.subplots(figsize=(12, max(4.0, len(rows) * 0.4 + 1.5)))
+def _render_table(
+    headers: list[str],
+    rows: list[list[str]],
+    title: str,
+    cell_colors: dict[tuple[int, int], str] | None = None,
+) -> Figure:
+    fig, ax = plt.subplots(figsize=(16, max(4.0, len(rows) * 0.4 + 1.5)))
     ax.axis("off")
     tbl = ax.table(cellText=rows, colLabels=headers, loc="center", cellLoc="center")
     tbl.auto_set_font_size(False)
     tbl.set_fontsize(8)
     tbl.auto_set_column_width(col=list(range(len(headers))))
+    if cell_colors:
+        for (row_idx, col_idx), color in cell_colors.items():
+            tbl[row_idx, col_idx].set_facecolor(color)
     ax.set_title(title, fontsize=11, pad=12)
     fig.tight_layout()
     return fig
@@ -177,17 +186,11 @@ def _build_single(
 ) -> None:
     has_supply = any(m.supply_current is not None for m in match.motors.values())
 
+    headers, rows, cell_colors = _stat_rows_combined(match, motor_names)
     for fig in [
         _cover_page(match.match_id, len(match.motors), float(match.timestamps[-1])),
-        _render_table(*_stat_rows_motor(match, motor_names),
-                      f"{match.match_id} — Motor Output (Stator)"),
+        _render_table(headers, rows, f"{match.match_id} — Motor Stats", cell_colors),
     ]:
-        pdf.savefig(fig)
-        plt.close(fig)
-
-    if has_supply:
-        fig = _render_table(*_stat_rows_supply(match, motor_names),
-                            f"{match.match_id} — Supply (Battery Draw)")
         pdf.savefig(fig)
         plt.close(fig)
 
@@ -255,18 +258,10 @@ def _build_multi(
 
     for match in matches:
         mn = _resolve_names(match.match_id, names_config)
-        fig = _render_table(*_stat_rows_motor(match, mn),
-                            f"{match.match_id} — Motor Output (Stator)")
+        headers, rows, cell_colors = _stat_rows_combined(match, mn)
+        fig = _render_table(headers, rows, f"{match.match_id} — Motor Stats", cell_colors)
         pdf.savefig(fig)
         plt.close(fig)
-
-    if any_supply:
-        for match in matches:
-            mn = _resolve_names(match.match_id, names_config)
-            fig = _render_table(*_stat_rows_supply(match, mn),
-                                f"{match.match_id} — Supply (Battery Draw)")
-            pdf.savefig(fig)
-            plt.close(fig)
 
     for metric in ["motor_voltage", "stator_current", "motor_power"]:
         for match in matches:
