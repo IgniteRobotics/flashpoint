@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 
 from utils.analyzer import (
-    DT,
     SECONDS_PER_HOUR,
     build_match,
     compute_motor_data,
@@ -63,15 +62,15 @@ def test_motor_energy_is_monotonically_non_decreasing() -> None:
 
 
 def test_motor_energy_units_are_watt_hours() -> None:
-    # 1000 W for one 20ms sample → 1000 * 0.02 / 3600 Wh
+    # 1000 W for one 20ms interval → 1000 * 0.02 / 3600 Wh accumulated at index 1
     df = pd.DataFrame({
         "Timestamp": [0.0, 0.02],
         "Phoenix6/TalonFX-1/MotorVoltage": [100.0, 100.0],
         "Phoenix6/TalonFX-1/StatorCurrent": [10.0, 10.0],
     })
     motors = compute_motor_data(df)
-    expected_first = 1000.0 * DT / SECONDS_PER_HOUR
-    assert motors["TalonFX-1"].motor_energy[0] == pytest.approx(expected_first)
+    expected = 1000.0 * 0.02 / SECONDS_PER_HOUR
+    assert motors["TalonFX-1"].motor_energy[1] == pytest.approx(expected)
 
 
 def test_supply_fields_none_when_columns_absent() -> None:
@@ -92,20 +91,23 @@ def test_supply_power_computed_when_columns_present() -> None:
 
 def test_compute_totals_sums_motor_power() -> None:
     motors = compute_motor_data(normalize(_make_df()))
-    totals = compute_totals(motors)
+    timestamps = np.array([0.0, 0.02, 0.04])
+    totals = compute_totals(motors, timestamps)
     expected = motors["TalonFX-1"].motor_power + motors["TalonFX-2"].motor_power
     np.testing.assert_array_almost_equal(totals.motor_power, expected)
 
 
 def test_compute_totals_supply_none_when_any_motor_missing_supply() -> None:
     motors = compute_motor_data(normalize(_make_df()))  # no supply cols
-    totals = compute_totals(motors)
+    timestamps = np.array([0.0, 0.02, 0.04])
+    totals = compute_totals(motors, timestamps)
     assert totals.supply_power is None
 
 
 def test_compute_totals_supply_computed_when_all_motors_have_supply() -> None:
     motors = compute_motor_data(normalize(_make_df(with_supply=True)))
-    totals = compute_totals(motors)
+    timestamps = np.array([0.0, 0.02, 0.04])
+    totals = compute_totals(motors, timestamps)
     assert totals.supply_power is not None
 
 
@@ -119,3 +121,41 @@ def test_build_match_timestamps_start_at_zero() -> None:
     df = normalize(_make_df())
     match = build_match("GACMP_E5", df)
     assert match.timestamps[0] == pytest.approx(0.0)
+
+
+def _make_df_with_velocity() -> pd.DataFrame:
+    data: dict = {
+        "Timestamp": [0.0, 0.02, 0.04],
+        "Phoenix6/TalonFX-1/MotorVoltage": [5.0, 6.0, 3.0],
+        "Phoenix6/TalonFX-1/StatorCurrent": [2.0, 3.0, 1.0],
+        "Phoenix6/TalonFX-1/SupplyVoltage": [12.0, 12.0, 12.0],
+        "Phoenix6/TalonFX-1/SupplyCurrent": [3.0, 4.0, 2.0],
+        "Phoenix6/TalonFX-1/Velocity": [5.0, 10.0, 7.5],
+        "Phoenix6/TalonFX-2/MotorVoltage": [4.0, 5.0, 2.0],
+        "Phoenix6/TalonFX-2/StatorCurrent": [1.5, 2.0, 0.5],
+        "Phoenix6/TalonFX-2/SupplyVoltage": [12.0, 12.0, 12.0],
+        "Phoenix6/TalonFX-2/SupplyCurrent": [2.0, 3.0, 1.0],
+        "Phoenix6/TalonFX-2/Velocity": [3.0, 6.0, 4.5],
+    }
+    return pd.DataFrame(data)
+
+
+def test_rotor_velocity_populated_when_column_present() -> None:
+    motors = compute_motor_data(_make_df_with_velocity())
+    assert motors["TalonFX-1"].rotor_velocity is not None
+    np.testing.assert_array_almost_equal(
+        motors["TalonFX-1"].rotor_velocity,
+        [5.0, 10.0, 7.5],
+    )
+
+
+def test_rotor_velocity_none_when_column_absent() -> None:
+    motors = compute_motor_data(normalize(_make_df()))
+    assert motors["TalonFX-1"].rotor_velocity is None
+
+
+def test_compute_totals_leaves_rotor_velocity_none() -> None:
+    motors = compute_motor_data(_make_df_with_velocity())
+    timestamps = np.array([0.0, 0.02, 0.04])
+    totals = compute_totals(motors, timestamps)
+    assert totals.rotor_velocity is None
