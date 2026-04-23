@@ -201,7 +201,7 @@ def plot_watts_per_rps(
     motor_names: dict[str, str] | None = None,
     motor_subset: list[str] | None = None,
 ) -> Figure:
-    """Per-motor scatter of supply watts vs velocity (RPS) with trend line."""
+    """Per-motor time series of supply W/RPS ratio. Near-zero velocity suppressed as NaN."""
     motor_ids = [
         mid for mid in _sorted_motor_ids(match, motor_names)
         if match.motors[mid].supply_power is not None
@@ -212,9 +212,9 @@ def plot_watts_per_rps(
 
     if not motor_ids:
         fig, ax = plt.subplots(figsize=(12, 3))
-        ax.set_title(f"{match.match_id} — Supply Watts vs RPS (no data)")
-        ax.set_xlabel("Velocity (RPS)")
-        ax.set_ylabel("Supply Power (W)")
+        ax.set_title(f"{match.match_id} — W/RPS (no data)")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Supply W / RPS")
         fig.tight_layout()
         return fig
 
@@ -227,20 +227,21 @@ def plot_watts_per_rps(
         data = match.motors[motor_id]
         vel = _smooth_seconds(data.rotor_velocity, match.timestamps, WATTS_PER_RPS_SMOOTH_S)  # type: ignore[arg-type]
         sp = _smooth_seconds(data.supply_power, match.timestamps, WATTS_PER_RPS_SMOOTH_S)  # type: ignore[arg-type]
-        mask = vel >= VEL_MIN_RPS
-        vel_f, sp_f = vel[mask], sp[mask]
-        step = max(1, len(vel_f) // 400)
-        ax.scatter(vel_f[::step], sp_f[::step], s=10, alpha=0.5, linewidths=0)
-        if len(vel_f) >= 2:
-            ax.plot(vel_f, _trend_line(vel_f, sp_f), color="tab:orange", linewidth=1.5)
-        ax.set_xlabel("Velocity (RPS)")
-        ax.set_ylabel("Supply Power (W)")
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = np.where(vel >= VEL_MIN_RPS, sp / vel, np.nan)
+        [line] = ax.plot(match.timestamps, ratio, linewidth=0.8)
+        valid = ~np.isnan(ratio)
+        if valid.sum() >= 2:
+            ax.plot(match.timestamps[valid], _trend_line(match.timestamps[valid], ratio[valid]),
+                    color=line.get_color(), linewidth=1.5, linestyle="--", alpha=0.9, zorder=5)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Supply W / RPS")
         ax.set_title(_label(motor_id, motor_names))
 
     for ax in axes_flat[len(motor_ids):]:
         ax.set_visible(False)
 
-    fig.suptitle(f"{match.match_id} — Supply Watts vs RPS (per motor)")
+    fig.suptitle(f"{match.match_id} — Supply W/RPS (per motor)")
     fig.tight_layout()
     return fig
 
