@@ -220,6 +220,12 @@ def _build_single(
         pdf.savefig(fig)
         plt.close(fig)
 
+    has_velocity = any(m.rotor_velocity is not None for m in match.motors.values())
+    if has_supply and has_velocity:
+        fig = plotter.plot_watts_per_rps(match, motor_names)
+        pdf.savefig(fig)
+        plt.close(fig)
+
     if per_motor:
         for motor_id, data in match.motors.items():
             fig = plotter.plot_per_motor(motor_id, data, match.timestamps, motor_names)
@@ -316,6 +322,15 @@ def _build_multi(
         fig = plotter.plot_comparison(matches, "supply_current", smooth=True, show_peaks=True)
         pdf.savefig(fig)
         plt.close(fig)
+
+    for match in matches:
+        mn = _resolve_names(match.match_id, names_config)
+        has_velocity = any(m.rotor_velocity is not None for m in match.motors.values())
+        has_supply = any(m.supply_current is not None for m in match.motors.values())
+        if has_supply and has_velocity:
+            fig = plotter.plot_watts_per_rps(match, mn)
+            pdf.savefig(fig)
+            plt.close(fig)
 
 
 def build_report(
