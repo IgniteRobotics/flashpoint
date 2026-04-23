@@ -22,6 +22,8 @@ class MotorData:
     supply_power: np.ndarray | None = None
     supply_energy: np.ndarray | None = None  # cumulative Wh
 
+    rotor_velocity: np.ndarray | None = None  # RPS
+
 
 @dataclass
 class Match:
