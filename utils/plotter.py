@@ -12,8 +12,8 @@ from .models import Match, MotorData
 
 SMOOTH_WINDOW_S: float = 1.0  # smoothing window in seconds
 BIN_SECONDS: float = 1.0      # heatmap time bin width in seconds
-WATTS_PER_RPS_SMOOTH_S: float = 3.0
-VEL_MIN_RPS: float = 1.0
+WATTS_PER_RPS_SMOOTH_S: float = 3.0  # smoothing window for W/RPS ratio in seconds
+VEL_MIN_RPS: float = 1.0             # minimum velocity (RPS) below which ratio is suppressed as NaN
 
 METRIC_LABELS: dict[str, tuple[str, str]] = {
     "motor_voltage": ("Motor Voltage", "V"),
