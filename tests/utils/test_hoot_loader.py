@@ -8,7 +8,16 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from utils.hoot_loader import _pivot_records, _run_owlet, convert_hoot
+from utils.hoot_loader import (
+    MOTOR_COL_PATTERN,
+    _pivot_records,
+    _run_owlet,
+    convert_hoot,
+    extract_match_id,
+    find_matches,
+    get_motor_ids,
+    merge_dataframes,
+)
 
 
 def test_convert_hoot_returns_cache_path_on_hit(tmp_path: Path) -> None:
@@ -263,15 +272,6 @@ def test_convert_hoot_reconverts_corrupt_cache(tmp_path: Path) -> None:
     assert result.exists()
     df = pd.read_csv(result)
     assert "Phoenix6/TalonFX-1/MotorVoltage" in df.columns
-
-
-from utils.hoot_loader import (
-    MOTOR_COL_PATTERN,
-    extract_match_id,
-    find_matches,
-    get_motor_ids,
-    merge_dataframes,
-)
 
 
 # --- MOTOR_COL_PATTERN ---
