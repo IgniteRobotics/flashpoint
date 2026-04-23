@@ -76,11 +76,20 @@ def _run_owlet(hoot_path: Path, wpilog_path: Path) -> None:
         text=True,
     )
     if result.returncode != 0:
-        print(
-            f"error: owlet failed on {hoot_path.name}:\n{result.stderr}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        # Owlet often exits non-zero when a hoot file is truncated at the end (robot power-off
+        # mid-recording). If the output file was still written, treat it as a warning and proceed.
+        if wpilog_path.exists() and wpilog_path.stat().st_size > 0:
+            print(
+                f"  warning: owlet reported an error on {hoot_path.name} (truncated log?), "
+                f"proceeding with partial output",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"error: owlet failed on {hoot_path.name}:\n{result.stderr}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
 
 def _wpilog_to_df(path: Path) -> pd.DataFrame:
