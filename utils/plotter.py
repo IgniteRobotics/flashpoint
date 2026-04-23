@@ -10,8 +10,8 @@ from matplotlib.figure import Figure
 from . import names as _names
 from .models import Match, MotorData
 
-SMOOTH_WINDOW: int = 50   # samples — 1s at 50 Hz
-BIN_SECONDS: float = 1.0  # heatmap time bin width in seconds
+SMOOTH_WINDOW_S: float = 1.0  # smoothing window in seconds
+BIN_SECONDS: float = 1.0      # heatmap time bin width in seconds
 
 METRIC_LABELS: dict[str, tuple[str, str]] = {
     "motor_voltage": ("Motor Voltage", "V"),
@@ -32,6 +32,14 @@ def _get(data: MotorData, metric: str) -> np.ndarray | None:
 def _smooth(values: np.ndarray, window: int) -> np.ndarray:
     w = min(window, len(values))
     return np.convolve(values, np.ones(w) / w, mode="same")
+
+
+def _smooth_seconds(values: np.ndarray, timestamps: np.ndarray, window_s: float = SMOOTH_WINDOW_S) -> np.ndarray:
+    if len(timestamps) < 2:
+        return values
+    mean_dt = float(np.mean(np.diff(timestamps)))
+    window = max(1, int(round(window_s / mean_dt)))
+    return _smooth(values, window)
 
 
 def _bin_data(values: np.ndarray, n_bins: int) -> np.ndarray:
@@ -81,7 +89,7 @@ def plot_heatmap(match: Match, metric: str, motor_names: dict[str, str] | None =
     """Time × motor heatmap for a metric. Color = global-scaled mean per 1s bin."""
     label, unit = METRIC_LABELS[metric]
     n = len(match.timestamps)
-    dt = float(match.timestamps[1] - match.timestamps[0]) if n > 1 else 0.02
+    dt = float(np.mean(np.diff(match.timestamps))) if n > 1 else 0.02
     bin_size = max(1, int(round(BIN_SECONDS / dt)))
     n_bins = max(1, n // bin_size)
 
@@ -171,7 +179,7 @@ def plot_total_power(match: Match) -> Figure:
     ]:
         if values is None:
             continue
-        smoothed = _smooth(values, SMOOTH_WINDOW)
+        smoothed = _smooth_seconds(values, match.timestamps)
         [line] = ax.plot(match.timestamps, smoothed, label=series_label, linewidth=1.5)
         p95 = float(np.percentile(smoothed, 95))
         mask = smoothed >= p95
@@ -193,7 +201,7 @@ def plot_comparison(matches: list[Match], metric: str, smooth: bool = False, sho
     for match in matches:
         values = _get(match.totals, metric)
         if values is not None:
-            display = _smooth(values, SMOOTH_WINDOW) if smooth else values
+            display = _smooth_seconds(values, match.timestamps) if smooth else values
             [line] = ax.plot(match.timestamps, display, label=match.match_id, linewidth=1.2)
             ax.plot(match.timestamps, _trend_line(match.timestamps, display),
                     color=line.get_color(), linewidth=1.8, linestyle="--", alpha=0.9, zorder=5)
