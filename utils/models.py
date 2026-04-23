@@ -23,6 +23,7 @@ class MotorData:
     supply_energy: np.ndarray | None = None  # cumulative Wh
 
     rotor_velocity: np.ndarray | None = None  # RPS
+    device_temp: np.ndarray | None = None     # °C
 
 
 @dataclass

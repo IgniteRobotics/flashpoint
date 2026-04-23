@@ -43,6 +43,7 @@ def compute_motor_data(df: pd.DataFrame) -> dict[str, MotorData]:
         sv_col = _col(motor_id, "SupplyVoltage")
         su_col = _col(motor_id, "SupplyCurrent")
         vel_col = _col(motor_id, "Velocity")
+        temp_col = _col(motor_id, "DeviceTemp")
 
         mv = df[mv_col].ffill().fillna(0.0).to_numpy() if mv_col in df.columns else zeros.copy()
         sc = df[sc_col].ffill().fillna(0.0).to_numpy() if sc_col in df.columns else zeros.copy()
@@ -50,11 +51,13 @@ def compute_motor_data(df: pd.DataFrame) -> dict[str, MotorData]:
 
         has_supply = sv_col in df.columns and su_col in df.columns
         has_velocity = vel_col in df.columns
+        has_temp = temp_col in df.columns
 
         sv = df[sv_col].ffill().fillna(0.0).to_numpy() if has_supply else None
         su = df[su_col].ffill().fillna(0.0).to_numpy() if has_supply else None
         sp = sv * su if has_supply else None
         vel = df[vel_col].ffill().fillna(0.0).to_numpy() if has_velocity else None
+        temp = df[temp_col].ffill().fillna(0.0).to_numpy() if has_temp else None
 
         motors[motor_id] = MotorData(
             motor_voltage=mv,
@@ -66,6 +69,7 @@ def compute_motor_data(df: pd.DataFrame) -> dict[str, MotorData]:
             supply_power=sp,
             supply_energy=_cumulative_energy(sp, timestamps) if has_supply else None,
             rotor_velocity=vel,
+            device_temp=temp,
         )
 
     return motors

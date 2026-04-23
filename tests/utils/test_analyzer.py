@@ -159,3 +159,35 @@ def test_compute_totals_leaves_rotor_velocity_none() -> None:
     timestamps = np.array([0.0, 0.02, 0.04])
     totals = compute_totals(motors, timestamps)
     assert totals.rotor_velocity is None
+
+
+def _make_df_with_temp() -> pd.DataFrame:
+    return pd.DataFrame({
+        "Timestamp": [0.0, 0.02, 0.04],
+        "Phoenix6/TalonFX-1/MotorVoltage": [5.0, 6.0, 3.0],
+        "Phoenix6/TalonFX-1/StatorCurrent": [2.0, 3.0, 1.0],
+        "Phoenix6/TalonFX-1/DeviceTemp": [40.0, 42.0, 41.0],
+        "Phoenix6/TalonFX-2/MotorVoltage": [4.0, 5.0, 2.0],
+        "Phoenix6/TalonFX-2/StatorCurrent": [1.5, 2.0, 0.5],
+    })
+
+
+def test_device_temp_populated_when_column_present() -> None:
+    motors = compute_motor_data(_make_df_with_temp())
+    assert motors["TalonFX-1"].device_temp is not None
+    np.testing.assert_array_almost_equal(
+        motors["TalonFX-1"].device_temp,
+        [40.0, 42.0, 41.0],
+    )
+
+
+def test_device_temp_none_when_column_absent() -> None:
+    motors = compute_motor_data(normalize(_make_df()))
+    assert motors["TalonFX-1"].device_temp is None
+
+
+def test_compute_totals_leaves_device_temp_none() -> None:
+    motors = compute_motor_data(_make_df_with_temp())
+    timestamps = np.array([0.0, 0.02, 0.04])
+    totals = compute_totals(motors, timestamps)
+    assert totals.device_temp is None
