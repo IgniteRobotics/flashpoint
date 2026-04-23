@@ -88,3 +88,13 @@ def test_motor_col_pattern_velocity_captures_motor_id() -> None:
 
 def test_motor_col_pattern_does_not_match_unknown_signal() -> None:
     assert MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-1/Temperature") is None
+
+
+def test_motor_col_pattern_matches_device_temp() -> None:
+    assert MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-1/DeviceTemp")
+
+
+def test_motor_col_pattern_device_temp_captures_motor_id() -> None:
+    m = MOTOR_COL_PATTERN.match("Phoenix6/TalonFX-42/DeviceTemp")
+    assert m is not None
+    assert m.group(1) == "42"
