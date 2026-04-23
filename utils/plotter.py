@@ -12,6 +12,8 @@ from .models import Match, MotorData
 
 SMOOTH_WINDOW_S: float = 1.0  # smoothing window in seconds
 BIN_SECONDS: float = 1.0      # heatmap time bin width in seconds
+WATTS_PER_RPS_SMOOTH_S: float = 3.0
+VEL_MIN_RPS: float = 1.0
 
 METRIC_LABELS: dict[str, tuple[str, str]] = {
     "motor_voltage": ("Motor Voltage", "V"),
@@ -190,6 +192,42 @@ def plot_total_power(match: Match) -> Figure:
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Power (W)")
     ax.legend()
+    fig.tight_layout()
+    return fig
+
+
+def plot_watts_per_rps(match: Match, motor_names: dict[str, str] | None = None) -> Figure:
+    """Per-motor supply watts per RPS over time. Torque proxy; NaN gaps where velocity < VEL_MIN_RPS."""
+    motor_ids = [
+        mid for mid in _sorted_motor_ids(match, motor_names)
+        if match.motors[mid].supply_power is not None
+        and match.motors[mid].rotor_velocity is not None
+    ]
+
+    if not motor_ids:
+        fig, ax = plt.subplots(figsize=(12, 3))
+        ax.set_title(f"{match.match_id} — Supply Watts per RPS (no data)")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("W / RPS")
+        fig.tight_layout()
+        return fig
+
+    fig, axes = plt.subplots(len(motor_ids), 1, figsize=(12, 3 * len(motor_ids)), sharex=True)
+    if len(motor_ids) == 1:
+        axes = [axes]
+
+    for ax, motor_id in zip(axes, motor_ids):
+        data = match.motors[motor_id]
+        sp = _smooth_seconds(data.supply_power, match.timestamps, WATTS_PER_RPS_SMOOTH_S)  # type: ignore[arg-type]
+        vel = _smooth_seconds(data.rotor_velocity, match.timestamps, WATTS_PER_RPS_SMOOTH_S)  # type: ignore[arg-type]
+        vel_clamped = np.where(np.abs(vel) < VEL_MIN_RPS, np.nan, vel)
+        ratio = sp / vel_clamped
+        ax.plot(match.timestamps, ratio, linewidth=0.8)
+        ax.set_ylabel("W / RPS")
+        ax.set_title(_label(motor_id, motor_names))
+
+    axes[-1].set_xlabel("Time (s)")
+    fig.suptitle(f"{match.match_id} — Supply Watts per RPS (per motor)")
     fig.tight_layout()
     return fig
 
