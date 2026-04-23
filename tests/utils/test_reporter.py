@@ -140,9 +140,23 @@ def test_stat_rows_combined_total_row_temp_always_dash() -> None:
 
 
 def test_render_table_applies_cell_color() -> None:
-    fig = _render_table(["A", "B"], [["x", "y"]], "Test", {(1, 1): "#FFCCCC"})
+    import matplotlib
+    import matplotlib.colors
     import matplotlib.pyplot as plt
+    fig = _render_table(["A", "B"], [["x", "y"]], "Test", {(1, 1): "#FFCCCC"})
+    ax = fig.get_axes()[0]
+    tables = [obj for obj in ax.get_children() if isinstance(obj, matplotlib.table.Table)]
+    assert tables, "no Table found in axes"
+    cell = tables[0][1, 1]
+    assert matplotlib.colors.to_hex(cell.get_facecolor()) == "#ffcccc"
     plt.close(fig)
+
+
+def test_stat_rows_combined_does_not_flag_max_temp_at_65() -> None:
+    # max == 65 exactly — strictly greater than 65 is required to flag
+    match = _make_hot_match(avg_temp=40.0, max_temp_spike=65.0)
+    _, _, cell_colors = _stat_rows_combined(match)
+    assert (1, 14) not in cell_colors
 
 
 def test_build_report_with_temp_data(tmp_path: Path) -> None:
