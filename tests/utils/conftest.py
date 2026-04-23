@@ -7,40 +7,6 @@ import pytest
 
 from utils.models import Match, MotorData
 
-MINIMAL_RIO_CSV = """\
-Timestamp,Phoenix6/TalonFX-1/MotorVoltage,Phoenix6/TalonFX-2/MotorVoltage,Phoenix6/TalonFX-1/StatorCurrent,Phoenix6/TalonFX-2/StatorCurrent
-0.0,0.0,0.0,0.0,0.0
-0.02,0.0,0.0,0.0,0.0
-0.04,5.0,3.0,-2.0,1.5
-0.06,6.0,4.0,-3.0,2.0
-0.08,0.0,0.0,0.0,0.0
-"""
-
-MINIMAL_CARNIVORE_UUID = "a1b2c3d4-e29b-41d4-a716-446655440000"
-
-MINIMAL_CARNIVORE_CSV = """\
-Timestamp,Phoenix6/TalonFX-11/MotorVoltage,Phoenix6/TalonFX-11/StatorCurrent
-0.0,0.0,0.0
-0.02,0.0,0.0
-0.04,4.0,-1.0
-0.06,5.0,-2.0
-0.08,0.0,0.0
-"""
-
-
-@pytest.fixture
-def rio_csv(tmp_path: Path) -> Path:
-    f = tmp_path / "GACMP_Q1-rio.csv"
-    f.write_text(MINIMAL_RIO_CSV)
-    return f
-
-
-@pytest.fixture
-def carnivore_csv(tmp_path: Path) -> Path:
-    f = tmp_path / f"GACMP_Q1_{MINIMAL_CARNIVORE_UUID}.csv"
-    f.write_text(MINIMAL_CARNIVORE_CSV)
-    return f
-
 
 def _make_motor_data(n: int = 10, with_supply: bool = False, with_velocity: bool = False) -> MotorData:
     power = np.ones(n) * 100.0

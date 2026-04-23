@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .loader import MOTOR_COL_PATTERN
+from .hoot_loader import MOTOR_COL_PATTERN
 
 
 def _voltage_cols(df: pd.DataFrame) -> list[str]:

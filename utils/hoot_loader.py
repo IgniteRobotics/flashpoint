@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import platform
+import re
 import subprocess
 import sys
 import tempfile
@@ -9,10 +10,65 @@ from pathlib import Path
 
 import pandas as pd
 
-from .loader import MOTOR_COL_PATTERN
 
+MOTOR_COL_PATTERN = re.compile(
+    r"Phoenix6/TalonFX-(\d+)/(MotorVoltage|StatorCurrent|SupplyVoltage|SupplyCurrent|Velocity|DeviceTemp)"
+)
+
+_UUID_PATTERN = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
+_HEX32_PATTERN = re.compile(r"[0-9A-Fa-f]{32}")
 
 _REPO_ROOT = Path(__file__).parent.parent
+
+
+def get_motor_ids(df: pd.DataFrame) -> list[str]:
+    """Return sorted list of unique TalonFX motor IDs found in DataFrame columns."""
+    ids: set[str] = set()
+    for col in df.columns:
+        m = MOTOR_COL_PATTERN.match(col)
+        if m:
+            ids.add(f"TalonFX-{m.group(1)}")
+    return sorted(ids, key=lambda x: int(x.split("-")[1]))
+
+
+def extract_match_id(path: Path) -> str:
+    """Extract match ID from a hoot filename."""
+    stem = path.stem
+    stem = re.sub(r"[_-](filtered|raw)$", "", stem, flags=re.IGNORECASE)
+    # Strip trailing date/time stamp (e.g. _rio_2026-03-21_20-40-47 → _rio is part of match id)
+    stripped, n_subs = re.subn(r"[_-]\d{4}-\d{2}-\d{2}.*$", "", stem)
+    if n_subs:
+        return stripped
+    uuid_match = _UUID_PATTERN.search(stem)
+    if uuid_match:
+        return stem[: uuid_match.start()].rstrip("-_")
+    hex_match = _HEX32_PATTERN.search(stem)
+    if hex_match:
+        return stem[: hex_match.start()].rstrip("-_")
+    parts = re.split(r"[-_]", stem)
+    return "_".join(parts[:-1]) if len(parts) > 1 else stem
+
+
+def find_matches(paths: list[Path]) -> dict[str, list[Path]]:
+    """Group hoot files by match ID."""
+    groups: dict[str, list[Path]] = {}
+    for path in paths:
+        match_id = extract_match_id(path)
+        groups.setdefault(match_id, []).append(path)
+    return groups
+
+
+def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
+    """Outer-join a list of DataFrames on Timestamp and sort."""
+    if len(dfs) == 1:
+        return dfs[0].sort_values("Timestamp").reset_index(drop=True)
+    merged = dfs[0]
+    for df in dfs[1:]:
+        merged = pd.merge(merged, df, on="Timestamp", how="outer")
+    return merged.sort_values("Timestamp").reset_index(drop=True)
 
 
 def _file_hash(path: Path) -> str:
@@ -52,7 +108,6 @@ def _pivot_records(records) -> pd.DataFrame:  # type: ignore[type-arg]
                 continue
             try:
                 ts_s = record.timestamp * 1e-6
-                # Later value for the same (timestamp, channel) pair wins; log collisions are rare.
                 data.setdefault(ts_s, {})[col] = record.getDouble()
             except TypeError:
                 pass
@@ -76,8 +131,6 @@ def _run_owlet(hoot_path: Path, wpilog_path: Path) -> None:
         text=True,
     )
     if result.returncode != 0:
-        # Owlet often exits non-zero when a hoot file is truncated at the end (robot power-off
-        # mid-recording). If the output file was still written, treat it as a warning and proceed.
         if wpilog_path.exists() and wpilog_path.stat().st_size > 0:
             print(
                 f"  warning: owlet reported an error on {hoot_path.name} (truncated log?), "
@@ -110,7 +163,7 @@ def convert_hoot(path: Path, cache_dir: Path) -> Path | None:
             pd.read_csv(cache_csv, nrows=1)
             return cache_csv
         except Exception:
-            pass  # corrupt — fall through to re-convert
+            pass
 
     with tempfile.NamedTemporaryFile(suffix=".wpilog", delete=False) as tmp:
         wpilog_path = Path(tmp.name)
