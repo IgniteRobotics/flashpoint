@@ -42,7 +42,7 @@ def carnivore_csv(tmp_path: Path) -> Path:
     return f
 
 
-def _make_motor_data(n: int = 10, with_supply: bool = False) -> MotorData:
+def _make_motor_data(n: int = 10, with_supply: bool = False, with_velocity: bool = False) -> MotorData:
     power = np.ones(n) * 100.0
     energy = np.cumsum(power * 0.02) / 3600
     kwargs: dict[str, Any] = dict(
@@ -58,6 +58,8 @@ def _make_motor_data(n: int = 10, with_supply: bool = False) -> MotorData:
             supply_power=np.ones(n) * 102.0,
             supply_energy=np.cumsum(np.ones(n) * 102.0 * 0.02) / 3600,
         )
+    if with_velocity:
+        kwargs["rotor_velocity"] = np.linspace(5.0, 15.0, n)
     return MotorData(**kwargs)
 
 
@@ -93,3 +95,22 @@ def simple_match_with_supply() -> Match:
         supply_energy=data.supply_energy,
     )
     return Match(match_id="TEST_Q1_SUPPLY", timestamps=t, motors=motors, totals=totals)
+
+
+@pytest.fixture
+def simple_match_with_velocity() -> Match:
+    n = 50  # enough samples that 3s smoothing window has data to work with
+    t = np.arange(n) * 0.02
+    data = _make_motor_data(n, with_supply=True, with_velocity=True)
+    motors = {"TalonFX-1": data, "TalonFX-2": data}
+    totals = MotorData(
+        motor_voltage=np.zeros(n),
+        stator_current=np.zeros(n),
+        motor_power=data.motor_power * 2,
+        motor_energy=data.motor_energy * 2,
+        supply_voltage=np.zeros(n),
+        supply_current=np.zeros(n),
+        supply_power=data.supply_power * 2,  # type: ignore[operator]
+        supply_energy=data.supply_energy * 2,  # type: ignore[operator]
+    )
+    return Match(match_id="TEST_VEL", timestamps=t, motors=motors, totals=totals)

@@ -95,3 +95,34 @@ def test_plot_per_motor_uses_motor_name_in_title(simple_match) -> None:
     data = simple_match.motors[motor_id]
     fig = plotter.plot_per_motor(motor_id, data, simple_match.timestamps, motor_names=motor_names)
     assert fig._suptitle.get_text() == "FL Drive"
+
+
+def test_plot_watts_per_rps_returns_figure(simple_match_with_velocity) -> None:
+    fig = plotter.plot_watts_per_rps(simple_match_with_velocity)
+    assert isinstance(fig, Figure)
+
+
+def test_plot_watts_per_rps_one_subplot_per_qualifying_motor(simple_match_with_velocity) -> None:
+    # simple_match_with_velocity has 2 motors, both with supply + velocity
+    fig = plotter.plot_watts_per_rps(simple_match_with_velocity)
+    assert len(fig.axes) == 2
+
+
+def test_plot_watts_per_rps_excludes_motors_without_supply(simple_match) -> None:
+    # simple_match has no supply data — no motors qualify, returns empty figure
+    fig = plotter.plot_watts_per_rps(simple_match)
+    assert isinstance(fig, Figure)
+    assert len(fig.axes) == 1  # empty placeholder axes
+
+
+def test_plot_watts_per_rps_title_contains_match_id(simple_match_with_velocity) -> None:
+    fig = plotter.plot_watts_per_rps(simple_match_with_velocity)
+    assert "TEST_VEL" in fig.texts[0].get_text()
+
+
+def test_plot_watts_per_rps_uses_motor_names(simple_match_with_velocity) -> None:
+    motor_names = {"TalonFX-1": "FL Drive", "TalonFX-2": "FR Drive"}
+    fig = plotter.plot_watts_per_rps(simple_match_with_velocity, motor_names=motor_names)
+    titles = [ax.get_title() for ax in fig.axes]
+    assert "FL Drive" in titles
+    assert "FR Drive" in titles
