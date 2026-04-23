@@ -16,7 +16,7 @@ class MotorData:
     motor_energy: np.ndarray  # cumulative Wh
 
     # Supply power path: SupplyVoltage × SupplyCurrent (actual battery draw)
-    # None when source CSV does not contain these columns.
+    # None when source does not contain these signals.
     supply_voltage: np.ndarray | None = None
     supply_current: np.ndarray | None = None
     supply_power: np.ndarray | None = None
