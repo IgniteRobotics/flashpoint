@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashpoint — Match Reports</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #000000;
+    --bg2:       #0d0d0d;
+    --bg3:       #141414;
+    --border:    #252525;
+    --text:      #e0e0e0;
+    --muted:     #666;
+    --a-color:   #7986cb;
+    --a-bg:      #1a237e;
+    --a-border:  #3949ab;
+    --b-color:   #80cbc4;
+    --b-bg:      #00332d;
+    --b-border:  #00695c;
+    --hot-bg:    #3a0a0a;
+    --hot-text:  #ff8a80;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Topbar ── */
+  #topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  #logo { height: 32px; object-fit: contain; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px 4px 12px;
+    border-radius: 20px; font-size: 12px; font-weight: 500;
+    cursor: default; user-select: none;
+  }
+  .chip.match-a { background: var(--a-bg); color: var(--a-color); border: 1px solid var(--a-border); }
+  .chip.match-b { background: var(--b-bg); color: var(--b-color); border: 1px solid var(--b-border); }
+  .chip-x { cursor: pointer; opacity: 0.7; font-size: 15px; line-height: 1; }
+  .chip-x:hover { opacity: 1; }
+
+  #add-btn {
+    background: transparent;
+    border: 1px dashed #333;
+    color: var(--muted);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    position: relative;
+  }
+  #add-btn:hover { border-color: #555; color: #999; }
+
+  #match-picker {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    min-width: 220px;
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  #match-picker.open { display: block; }
+  .picker-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+  }
+  .picker-item:last-child { border-bottom: none; }
+  .picker-item:hover { background: var(--bg2); }
+  .picker-item.loaded { opacity: 0.4; pointer-events: none; }
+  .picker-meta { color: var(--muted); font-size: 11px; }
+
+  /* ── Tabs ── */
+  #tabbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    display: flex;
+  }
+  .tab-btn {
+    padding: 10px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--a-color); border-bottom-color: var(--a-color); }
+
+  /* ── Content ── */
+  #content { padding: 20px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Empty state ── */
+  #empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 60vh; gap: 12px; color: var(--muted);
+  }
+  #empty-state p { font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <img id="logo" src="logo.png" alt="Flashpoint" onerror="this.style.display='none'">
+  <div id="chips"></div>
+  <div style="position:relative">
+    <button id="add-btn">+ Add match</button>
+    <div id="match-picker"></div>
+  </div>
+</div>
+
+<div id="tabbar">
+  <button class="tab-btn active" data-tab="stats">Stats &amp; Tables</button>
+  <button class="tab-btn" data-tab="charts">Motor &amp; Supply Charts</button>
+  <button class="tab-btn" data-tab="power">Total Power</button>
+  <button class="tab-btn" data-tab="wrps">Supply W/RPS</button>
+</div>
+
+<div id="content">
+  <div id="empty-state">
+    <p>No match loaded</p>
+    <p style="font-size:12px">Use "+ Add match" to load a match</p>
+  </div>
+  <div id="tab-stats"  class="tab-panel"></div>
+  <div id="tab-charts" class="tab-panel"></div>
+  <div id="tab-power"  class="tab-panel"></div>
+  <div id="tab-wrps"   class="tab-panel"></div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  matches: [],      // [{id, data}] max 2
+  manifest: [],     // [{id, duration, n_motors}]
+  activeTab: 'stats',
+};
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+async function boot() {
+  try {
+    const r = await fetch('manifest.json');
+    state.manifest = await r.json();
+  } catch {
+    state.manifest = [];
+  }
+  buildPicker();
+}
+
+// ── Picker ─────────────────────────────────────────────────────────────────
+function buildPicker() {
+  const el = document.getElementById('match-picker');
+  el.innerHTML = state.manifest.length === 0
+    ? '<div class="picker-item" style="pointer-events:none;color:#555">No matches found</div>'
+    : state.manifest.map(m => {
+        const loaded = state.matches.some(x => x.id === m.id);
+        return `<div class="picker-item${loaded ? ' loaded' : ''}" onclick="addMatch('${m.id}')">
+          <span>${m.id}</span>
+          <span class="picker-meta">${m.n_motors} motors · ${m.duration.toFixed(0)}s</span>
+        </div>`;
+      }).join('');
+}
+
+document.getElementById('add-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('match-picker').classList.toggle('open');
+});
+document.addEventListener('click', () => {
+  document.getElementById('match-picker').classList.remove('open');
+});
+
+// ── Match management ───────────────────────────────────────────────────────
+async function addMatch(id) {
+  document.getElementById('match-picker').classList.remove('open');
+  if (state.matches.some(m => m.id === id)) return;
+  if (state.matches.length >= 2) state.matches.shift();
+  const r = await fetch(`data/${id}.json`);
+  const data = await r.json();
+  state.matches.push({ id, data });
+  render();
+}
+
+function removeMatch(idx) {
+  state.matches.splice(idx, 1);
+  render();
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.activeTab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderActiveTab();
+  });
+});
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  renderChips();
+  buildPicker();
+  const hasMatch = state.matches.length > 0;
+  document.getElementById('empty-state').style.display = hasMatch ? 'none' : 'flex';
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (hasMatch) {
+    document.getElementById(`tab-${state.activeTab}`).classList.add('active');
+    renderActiveTab();
+  }
+}
+
+function renderChips() {
+  const el = document.getElementById('chips');
+  const labels = ['match-a', 'match-b'];
+  el.innerHTML = state.matches.map((m, i) =>
+    `<span class="chip ${labels[i]}">${m.id}
+       <span class="chip-x" onclick="removeMatch(${i})">✕</span>
+     </span>`
+  ).join('');
+}
+
+function renderActiveTab() {
+  if (state.matches.length === 0) return;
+  const renderers = {
+    stats:  renderStatsTab,
+    charts: renderChartsTab,
+    power:  renderPowerTab,
+    wrps:   renderWrpsTab,
+  };
+  renderers[state.activeTab]?.();
+}
+
+// ── Tab renderers (stubs — filled in subsequent tasks) ─────────────────────
+function renderStatsTab()  { document.getElementById('tab-stats').innerHTML  = '<p style="color:#555;padding:20px">Stats coming soon</p>'; }
+function renderChartsTab() { document.getElementById('tab-charts').innerHTML = '<p style="color:#555;padding:20px">Charts coming soon</p>'; }
+function renderPowerTab()  { document.getElementById('tab-power').innerHTML  = '<p style="color:#555;padding:20px">Power coming soon</p>'; }
+function renderWrpsTab()   { document.getElementById('tab-wrps').innerHTML   = '<p style="color:#555;padding:20px">W/RPS coming soon</p>'; }
+
+boot();
+</script>
+</body>
+</html>
