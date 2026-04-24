@@ -91,6 +91,8 @@ def update_manifest(site_dir: Path) -> None:
     entries = []
     for f in sorted(data_dir.glob("*.json")):
         d = json.loads(f.read_text())
+        if "match_id" not in d:
+            continue
         entries.append({
             "id":       d["match_id"],
             "duration": d.get("duration", 0.0),
