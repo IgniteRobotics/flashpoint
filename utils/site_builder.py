@@ -73,3 +73,38 @@ def serialize_match(
         "motors":     motors,
         "totals":     totals,
     }
+
+
+_TEMPLATE_PATH: Path | None = Path(__file__).parent / "templates" / "index.html"
+_LOGO_PATH: Path | None = Path(__file__).parent.parent / "media" / "logo.png"
+
+
+def write_match(match_dict: dict, site_dir: Path) -> None:
+    data_dir = site_dir / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    out = data_dir / f"{match_dict['match_id']}.json"
+    out.write_text(json.dumps(match_dict))
+
+
+def update_manifest(site_dir: Path) -> None:
+    data_dir = site_dir / "data"
+    entries = []
+    for f in sorted(data_dir.glob("*.json")):
+        d = json.loads(f.read_text())
+        entries.append({
+            "id":       d["match_id"],
+            "duration": d.get("duration", 0.0),
+            "n_motors": len(d.get("motors", {})),
+        })
+    (site_dir / "manifest.json").write_text(json.dumps(entries))
+
+
+def ensure_index(site_dir: Path) -> None:
+    site_dir.mkdir(parents=True, exist_ok=True)
+    index = site_dir / "index.html"
+    if index.exists():
+        return
+    if _TEMPLATE_PATH and _TEMPLATE_PATH.exists():
+        shutil.copy(_TEMPLATE_PATH, index)
+    if _LOGO_PATH and _LOGO_PATH.exists():
+        shutil.copy(_LOGO_PATH, site_dir / "logo.png")
