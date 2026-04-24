@@ -149,6 +149,10 @@
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
     color: var(--muted); margin: 20px 0 10px;
   }
+
+  /* ── Charts tab ── */
+  .heatmap-row { display: grid; gap: 16px; margin-bottom: 8px; }
+  .heatmap-row:has(> div:nth-child(2)) { grid-template-columns: 1fr 1fr; }
 </style>
 </head>
 <body>
@@ -363,13 +367,13 @@ function _totalStats(matchData) {
   const t = matchData.totals;
   const hasSup = t.supply_power !== undefined;
   return {
-    peak_motor_w:  Math.max(...t.motor_power),
+    peak_motor_w:  t.motor_power.reduce((a, b) => a > b ? a : b),
     p95_motor_w:   _p95(t.motor_power),
     avg_motor_v:   null, max_motor_v:   null,
     max_stator_a:  null, avg_stator_a:  null,
     max_supply_v:  null, avg_supply_v:  null,
     max_supply_a:  null, avg_supply_a:  null,
-    peak_supply_w: hasSup ? Math.max(...t.supply_power) : null,
+    peak_supply_w: hasSup ? t.supply_power.reduce((a, b) => a > b ? a : b) : null,
     p95_supply_w:  hasSup ? _p95(t.supply_power)        : null,
     avg_temp: null, max_temp: null,
   };
@@ -392,7 +396,7 @@ function _energyTable() {
       const e = m.data.motors[mid]?.motor_energy;
       return `<td>${e ? e[e.length - 1].toFixed(3) + ' Wh' : '—'}</td>`;
     }).join('');
-    const name = state.matches[0].data.motors[mid].name;
+    const name = state.matches.find(m => m.data.motors[mid])?.data.motors[mid].name ?? mid;
     return `<tr><td>${name}</td>${cells}</tr>`;
   }).join('');
 
@@ -408,7 +412,61 @@ function _energyTable() {
       <tbody>${rows}<tr class="total-row"><td>TOTAL</td>${totalCells}</tr></tbody></table>
     </div>`;
 }
-function renderChartsTab() { document.getElementById('tab-charts').innerHTML = '<p style="color:#555;padding:20px">Charts coming soon</p>'; }
+function renderChartsTab() {
+  const panel = document.getElementById('tab-charts');
+  const HEATMAP_METRICS = [
+    { key: 'motor_power',    label: 'Motor Power',    unit: 'W',  required: true  },
+    { key: 'supply_power',   label: 'Supply Power',   unit: 'W',  required: false },
+    { key: 'stator_current', label: 'Stator Current', unit: 'A',  required: true  },
+    { key: 'supply_current', label: 'Supply Current', unit: 'A',  required: false },
+  ];
+
+  let html = '';
+  const divIds = [];
+
+  HEATMAP_METRICS.forEach(metric => {
+    const applicable = state.matches.filter(m =>
+      metric.required || Object.values(m.data.motors).some(md => md[metric.key] !== undefined)
+    );
+    if (applicable.length === 0) return;
+
+    html += `<div class="section-label">${metric.label}</div><div class="heatmap-row">`;
+    applicable.forEach((m, i) => {
+      const divId = `hm-${metric.key}-${i}-${Date.now()}`;
+      divIds.push({ divId, match: m, metric });
+      html += `<div>
+        <div class="match-heading ${i === 0 ? 'color-a' : 'color-b'}">${m.id}</div>
+        <div id="${divId}" style="height:${Math.max(160, Object.keys(m.data.motors).length * 28)}px"></div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  panel.innerHTML = html;
+
+  const plotLayout = {
+    paper_bgcolor: '#000', plot_bgcolor: '#111',
+    font: { color: '#ccc', size: 10 },
+    margin: { t: 10, b: 40, l: 90, r: 60 },
+    xaxis: { title: 'Time (s)', color: '#888', gridcolor: '#222' },
+    yaxis: { color: '#888' },
+  };
+
+  divIds.forEach(({ divId, match, metric }) => {
+    const motorIds = Object.keys(match.data.motors);
+    const z = motorIds.map(mid => match.data.motors[mid][metric.key] || new Array(match.data.timestamps.length).fill(0));
+    const yLabels = motorIds.map(mid => match.data.motors[mid].name);
+    Plotly.newPlot(divId, [{
+      type:        'heatmap',
+      z:           z,
+      x:           match.data.timestamps,
+      y:           yLabels,
+      colorscale:  'Plasma',
+      showscale:   true,
+      colorbar:    { title: { text: metric.unit, font: { color: '#888' } }, tickfont: { color: '#888' } },
+    }], { ...plotLayout }, { responsive: true, displayModeBar: false });
+  });
+}
 function renderPowerTab()  { document.getElementById('tab-power').innerHTML  = '<p style="color:#555;padding:20px">Power coming soon</p>'; }
 function renderWrpsTab()   { document.getElementById('tab-wrps').innerHTML   = '<p style="color:#555;padding:20px">W/RPS coming soon</p>'; }
 
