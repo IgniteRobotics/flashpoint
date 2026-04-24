@@ -298,7 +298,7 @@ def test_motor_col_pattern_does_not_match_unknown_signal() -> None:
 
 def test_extract_match_id_strips_timestamp_suffix(tmp_path: Path) -> None:
     p = tmp_path / "GACMP_Q1_rio_2026-04-23_14-30-00.hoot"
-    assert extract_match_id(p) == "GACMP_Q1_rio"
+    assert extract_match_id(p) == "GACMP_Q1"
 
 
 def test_extract_match_id_strips_uuid(tmp_path: Path) -> None:
@@ -313,6 +313,16 @@ def test_extract_match_id_strips_hex32(tmp_path: Path) -> None:
 
 def test_extract_match_id_fallback_dash(tmp_path: Path) -> None:
     p = tmp_path / "GACMP_E5-rio.hoot"
+    assert extract_match_id(p) == "GACMP_E5"
+
+
+def test_extract_match_id_hex32_with_timestamp(tmp_path: Path) -> None:
+    p = tmp_path / "GACMP_E5_6E9415C3394C485320202050101C18FF_2026-04-11_18-32-18.hoot"
+    assert extract_match_id(p) == "GACMP_E5"
+
+
+def test_extract_match_id_rio_with_timestamp(tmp_path: Path) -> None:
+    p = tmp_path / "GACMP_E5_rio_2026-04-11_18-32-18.hoot"
     assert extract_match_id(p) == "GACMP_E5"
 
 
