@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import trimmer, analyzer, reporter, hoot_loader
+from . import trimmer, analyzer, reporter, hoot_loader, site_builder
 from . import names as _names
 
 
@@ -22,6 +22,10 @@ def main() -> None:
     parser.add_argument(
         "--output", "-o", type=Path, default=Path("report.pdf"),
         help="Output PDF path (default: report.pdf)",
+    )
+    parser.add_argument(
+        "--site", type=Path, default=None, metavar="DIR",
+        help="Output site directory (accumulates matches; creates dir if needed)",
     )
     parser.add_argument(
         "--per-motor-graphs", action="store_true",
@@ -84,9 +88,21 @@ def main() -> None:
         sys.exit(1)
 
     names_config = _names.load(args.motor_names) if args.motor_names else None
-    print(f"Building report → {args.output}")
-    reporter.build_report(matches, args.output, per_motor=args.per_motor_graphs, names_config=names_config)
-    print("Done.")
+
+    build_pdf = args.site is None or args.output != Path("report.pdf")
+    if build_pdf:
+        print(f"Building report → {args.output}")
+        reporter.build_report(matches, args.output, per_motor=args.per_motor_graphs, names_config=names_config)
+        print("Done.")
+
+    if args.site is not None:
+        for match in matches:
+            mn = _names.resolve(match.match_id, names_config) if names_config else None
+            match_dict = site_builder.serialize_match(match, mn)
+            site_builder.write_match(match_dict, args.site)
+        site_builder.update_manifest(args.site)
+        site_builder.ensure_index(args.site)
+        print(f"Site updated → {args.site / 'index.html'}")
 
 
 if __name__ == "__main__":
