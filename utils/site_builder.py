@@ -9,13 +9,9 @@ import numpy as np
 from .models import Match, MotorData
 
 
-def _arr(a: np.ndarray | None) -> list[float] | None:
-    return a.tolist() if a is not None else None
-
-
-def _motor_stats(data: MotorData, is_total: bool = False) -> dict:
+def _motor_stats(data: MotorData) -> dict:
     has_supply = data.supply_power is not None
-    has_temp = data.device_temp is not None and not is_total
+    has_temp = data.device_temp is not None
     return {
         "peak_motor_w":  float(data.motor_power.max()),
         "p95_motor_w":   float(np.percentile(data.motor_power, 95)),
@@ -34,7 +30,7 @@ def _motor_stats(data: MotorData, is_total: bool = False) -> dict:
     }
 
 
-def _serialize_motor(motor_id: str, data: MotorData, name: str) -> dict:
+def _serialize_motor(data: MotorData, name: str) -> dict:
     d: dict = {
         "name": name,
         "motor_voltage":  data.motor_voltage.tolist(),
@@ -57,7 +53,7 @@ def serialize_match(
 ) -> dict:
     """Convert a Match to a plain JSON-serializable dict."""
     motors = {
-        mid: _serialize_motor(mid, data, (motor_names or {}).get(mid, mid))
+        mid: _serialize_motor(data, (motor_names or {}).get(mid, mid))
         for mid, data in match.motors.items()
     }
 
