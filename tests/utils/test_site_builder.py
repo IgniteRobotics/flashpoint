@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from utils.models import Match, MotorData
-from utils.site_builder import serialize_match
+from utils.site_builder import ensure_index, serialize_match, update_manifest, write_match
 
 
 def _make_motor(n: int = 10, has_supply: bool = True, has_temp: bool = True) -> MotorData:
@@ -117,3 +117,67 @@ def test_serialize_match_is_json_serializable():
     result = serialize_match(match, motor_names=None)
     # Must not raise
     json.dumps(result)
+
+
+def test_write_match_creates_json_file(tmp_path: Path):
+    match = _make_match()
+    data = serialize_match(match, motor_names=None)
+    write_match(data, tmp_path)
+    expected = tmp_path / "data" / "2024-FIN-Q1.json"
+    assert expected.exists()
+    loaded = json.loads(expected.read_text())
+    assert loaded["match_id"] == "2024-FIN-Q1"
+
+
+def test_write_match_overwrites_existing(tmp_path: Path):
+    match = _make_match()
+    data = serialize_match(match, motor_names=None)
+    write_match(data, tmp_path)
+    write_match(data, tmp_path)  # second write — must not raise
+    assert (tmp_path / "data" / "2024-FIN-Q1.json").exists()
+
+
+def test_update_manifest_lists_all_data_files(tmp_path: Path):
+    (tmp_path / "data").mkdir()
+    for name in ("2024-FIN-Q1", "2024-FIN-Q2"):
+        (tmp_path / "data" / f"{name}.json").write_text(
+            json.dumps({"match_id": name, "duration": 148.0, "n_motors": 8})
+        )
+    update_manifest(tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    ids = {m["id"] for m in manifest}
+    assert ids == {"2024-FIN-Q1", "2024-FIN-Q2"}
+
+
+def test_update_manifest_entry_fields(tmp_path: Path):
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "2024-FIN-Q1.json").write_text(
+        json.dumps({"match_id": "2024-FIN-Q1", "duration": 148.2, "motors": {"a": {}, "b": {}}})
+    )
+    update_manifest(tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    entry = manifest[0]
+    assert entry["id"] == "2024-FIN-Q1"
+    assert abs(entry["duration"] - 148.2) < 0.01
+    assert entry["n_motors"] == 2
+
+
+def test_ensure_index_writes_html(tmp_path: Path, monkeypatch):
+    # Patch the template path to a minimal HTML string
+    template_path = tmp_path / "tpl.html"
+    template_path.write_text("<html>TEMPLATE</html>")
+    monkeypatch.setattr("utils.site_builder._TEMPLATE_PATH", template_path)
+    monkeypatch.setattr("utils.site_builder._LOGO_PATH", None)
+    ensure_index(tmp_path)
+    assert (tmp_path / "index.html").exists()
+    assert "TEMPLATE" in (tmp_path / "index.html").read_text()
+
+
+def test_ensure_index_does_not_overwrite(tmp_path: Path, monkeypatch):
+    template_path = tmp_path / "tpl.html"
+    template_path.write_text("<html>TEMPLATE</html>")
+    monkeypatch.setattr("utils.site_builder._TEMPLATE_PATH", template_path)
+    monkeypatch.setattr("utils.site_builder._LOGO_PATH", None)
+    (tmp_path / "index.html").write_text("EXISTING")
+    ensure_index(tmp_path)
+    assert (tmp_path / "index.html").read_text() == "EXISTING"
