@@ -63,7 +63,6 @@
     border-radius: 20px;
     font-size: 12px;
     cursor: pointer;
-    position: relative;
   }
   #add-btn:hover { border-color: #555; color: #999; }
 
@@ -201,11 +200,16 @@ document.addEventListener('click', () => {
 async function addMatch(id) {
   document.getElementById('match-picker').classList.remove('open');
   if (state.matches.some(m => m.id === id)) return;
-  if (state.matches.length >= 2) state.matches.shift();
-  const r = await fetch(`data/${id}.json`);
-  const data = await r.json();
-  state.matches.push({ id, data });
-  render();
+  try {
+    const r = await fetch(`data/${id}.json`);
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    if (state.matches.length >= 2) state.matches.shift();
+    state.matches.push({ id, data });
+    render();
+  } catch (err) {
+    console.error('Failed to load match:', id, err);
+  }
 }
 
 function removeMatch(idx) {
