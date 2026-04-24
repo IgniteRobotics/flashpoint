@@ -25,7 +25,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--site", type=Path, default=None, metavar="DIR",
-        help="Output site directory (accumulates matches; creates dir if needed)",
+        help="Output site directory (accumulates matches; creates dir if needed). Suppresses PDF output.",
     )
     parser.add_argument(
         "--per-motor-graphs", action="store_true",
@@ -89,7 +89,7 @@ def main() -> None:
 
     names_config = _names.load(args.motor_names) if args.motor_names else None
 
-    build_pdf = args.site is None or args.output != Path("report.pdf")
+    build_pdf = args.site is None
     if build_pdf:
         print(f"Building report → {args.output}")
         reporter.build_report(matches, args.output, per_motor=args.per_motor_graphs, names_config=names_config)
