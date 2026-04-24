@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from utils.models import Match, MotorData
+from utils.site_builder import serialize_match
+
+
+def _make_motor(n: int = 10, has_supply: bool = True, has_temp: bool = True) -> MotorData:
+    t = np.linspace(0, 2, n)
+    return MotorData(
+        motor_voltage=np.full(n, 12.0),
+        stator_current=np.full(n, 10.0),
+        motor_power=np.full(n, 120.0),
+        motor_energy=np.linspace(0, 0.1, n),
+        supply_voltage=np.full(n, 12.5) if has_supply else None,
+        supply_current=np.full(n, 8.0) if has_supply else None,
+        supply_power=np.full(n, 100.0) if has_supply else None,
+        supply_energy=np.linspace(0, 0.08, n) if has_supply else None,
+        rotor_velocity=np.full(n, 5.0) if has_supply else None,
+        device_temp=np.full(n, 50.0) if has_temp else None,
+    )
+
+
+def _make_match() -> Match:
+    motors = {
+        "TalonFX-1": _make_motor(),
+        "TalonFX-2": _make_motor(has_supply=False, has_temp=False),
+    }
+    totals = _make_motor()
+    return Match(
+        match_id="2024-FIN-Q1",
+        timestamps=np.linspace(0, 2, 10),
+        motors=motors,
+        totals=totals,
+    )
+
+
+def test_serialize_match_top_level_fields():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    assert result["match_id"] == "2024-FIN-Q1"
+    assert abs(result["duration"] - 2.0) < 0.01
+    assert len(result["timestamps"]) == 10
+    assert isinstance(result["timestamps"][0], float)
+
+
+def test_serialize_match_motor_arrays_present():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    m1 = result["motors"]["TalonFX-1"]
+    assert len(m1["motor_power"]) == 10
+    assert len(m1["supply_current"]) == 10
+    assert len(m1["device_temp"]) == 10
+
+
+def test_serialize_match_optional_arrays_omitted_when_none():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    m2 = result["motors"]["TalonFX-2"]
+    assert "supply_current" not in m2
+    assert "supply_power" not in m2
+    assert "device_temp" not in m2
+
+
+def test_serialize_match_motor_name_used_when_provided():
+    match = _make_match()
+    names = {"TalonFX-1": "FR Drive", "TalonFX-2": "FL Drive"}
+    result = serialize_match(match, motor_names=names)
+    assert result["motors"]["TalonFX-1"]["name"] == "FR Drive"
+
+
+def test_serialize_match_motor_id_used_as_name_when_no_map():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    assert result["motors"]["TalonFX-1"]["name"] == "TalonFX-1"
+
+
+def test_serialize_match_stats_computed():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    stats = result["motors"]["TalonFX-1"]["stats"]
+    assert abs(stats["peak_motor_w"] - 120.0) < 0.01
+    assert abs(stats["avg_motor_v"] - 12.0) < 0.01
+    assert abs(stats["avg_temp"] - 50.0) < 0.01
+
+
+def test_serialize_match_stats_temp_none_when_no_temp():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    stats = result["motors"]["TalonFX-2"]["stats"]
+    assert stats["avg_temp"] is None
+    assert stats["max_temp"] is None
+
+
+def test_serialize_match_stats_supply_none_when_no_supply():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    stats = result["motors"]["TalonFX-2"]["stats"]
+    assert stats["peak_supply_w"] is None
+    assert stats["max_supply_a"] is None
+
+
+def test_serialize_match_totals_present():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    assert len(result["totals"]["motor_power"]) == 10
+    assert len(result["totals"]["supply_power"]) == 10
+
+
+def test_serialize_match_is_json_serializable():
+    match = _make_match()
+    result = serialize_match(match, motor_names=None)
+    # Must not raise
+    json.dumps(result)
