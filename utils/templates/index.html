@@ -124,6 +124,31 @@
     min-height: 60vh; gap: 12px; color: var(--muted);
   }
   #empty-state p { font-size: 15px; }
+
+  /* ── Stats tab ── */
+  .stats-grid { display: grid; gap: 20px; }
+  .grid-cols-2 { grid-template-columns: 1fr 1fr; }
+  .grid-cols-1 { grid-template-columns: 1fr; }
+
+  .match-heading { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .color-a    { color: var(--a-color); }
+  .color-b    { color: var(--b-color); }
+  .color-base { color: var(--a-color); }
+
+  .table-wrap { overflow-x: auto; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: var(--bg3); color: #888; padding: 5px 8px; text-align: left;
+       border-bottom: 1px solid var(--border); font-weight: 500; white-space: nowrap; }
+  td { padding: 4px 8px; border-bottom: 1px solid var(--bg3); white-space: nowrap; }
+  tr:hover td { background: var(--bg3); }
+  tr.total-row td { color: var(--a-color); font-weight: 600; border-top: 1px solid #2a2a4a; }
+  td.hot { background: var(--hot-bg) !important; color: var(--hot-text); }
+
+  /* ── Section heading ── */
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted); margin: 20px 0 10px;
+  }
 </style>
 </head>
 <body>
@@ -262,7 +287,127 @@ function renderActiveTab() {
 }
 
 // ── Tab renderers (stubs — filled in subsequent tasks) ─────────────────────
-function renderStatsTab()  { document.getElementById('tab-stats').innerHTML  = '<p style="color:#555;padding:20px">Stats coming soon</p>'; }
+function renderStatsTab() {
+  const panel = document.getElementById('tab-stats');
+  const STAT_COLS = [
+    ['Motor',         null,            null],
+    ['Max Motor V',   'max_motor_v',   2],
+    ['Avg Motor V',   'avg_motor_v',   2],
+    ['Max Stator A',  'max_stator_a',  2],
+    ['Avg Stator A',  'avg_stator_a',  2],
+    ['Peak Motor W',  'peak_motor_w',  1],
+    ['P95 Motor W',   'p95_motor_w',   1],
+    ['Max Supply V',  'max_supply_v',  2],
+    ['Avg Supply V',  'avg_supply_v',  2],
+    ['Max Supply A',  'max_supply_a',  2],
+    ['Avg Supply A',  'avg_supply_a',  2],
+    ['Peak Supply W', 'peak_supply_w', 1],
+    ['P95 Supply W',  'p95_supply_w',  1],
+    ['Avg Temp °C',   'avg_temp',      1],
+    ['Max Temp °C',   'max_temp',      1],
+  ];
+
+  function statsTable(matchData, colorClass) {
+    const motorOrder = Object.keys(matchData.motors);
+    const thead = `<tr>${STAT_COLS.map(([h]) => `<th>${h}</th>`).join('')}</tr>`;
+
+    function statCell(stats, key, decimals) {
+      if (key === null) return '';
+      const val = stats[key];
+      if (val === null || val === undefined) return '—';
+      return val.toFixed(decimals);
+    }
+
+    function rowHot(stats, key) {
+      if (key === 'avg_temp' && stats.avg_temp !== null && stats.avg_temp > 55) return ' class="hot"';
+      if (key === 'max_temp' && stats.max_temp !== null && stats.max_temp > 65) return ' class="hot"';
+      return '';
+    }
+
+    const motorRows = motorOrder.map(mid => {
+      const motor = matchData.motors[mid];
+      const cells = STAT_COLS.map(([h, key, dec]) => {
+        if (h === 'Motor') return `<td>${motor.name}</td>`;
+        return `<td${rowHot(motor.stats, key)}>${statCell(motor.stats, key, dec)}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    });
+
+    const totalStats = _totalStats(matchData);
+    const totalRow = `<tr class="total-row">${STAT_COLS.map(([h, key, dec]) => {
+      if (h === 'Motor') return `<td>TOTAL</td>`;
+      if (['avg_temp','max_temp'].includes(key)) return `<td>—</td>`;
+      return `<td>${statCell(totalStats, key, dec)}</td>`;
+    }).join('')}</tr>`;
+
+    return `
+      <h4 class="match-heading ${colorClass}">${matchData.match_id} — Motor Stats</h4>
+      <div class="table-wrap">
+        <table><thead>${thead}</thead><tbody>${motorRows.join('')}${totalRow}</tbody></table>
+      </div>`;
+  }
+
+  const cols = state.matches.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
+  const tables = state.matches.map((m, i) =>
+    `<div>${statsTable(m.data, i === 0 ? 'color-a' : 'color-b')}</div>`
+  ).join('');
+
+  const energyTable = _energyTable();
+
+  panel.innerHTML = `
+    <div class="stats-grid ${cols}">${tables}</div>
+    ${energyTable}`;
+}
+
+function _totalStats(matchData) {
+  const t = matchData.totals;
+  const hasSup = t.supply_power !== undefined;
+  return {
+    peak_motor_w:  Math.max(...t.motor_power),
+    p95_motor_w:   _p95(t.motor_power),
+    avg_motor_v:   null, max_motor_v:   null,
+    max_stator_a:  null, avg_stator_a:  null,
+    max_supply_v:  null, avg_supply_v:  null,
+    max_supply_a:  null, avg_supply_a:  null,
+    peak_supply_w: hasSup ? Math.max(...t.supply_power) : null,
+    p95_supply_w:  hasSup ? _p95(t.supply_power)        : null,
+    avg_temp: null, max_temp: null,
+  };
+}
+
+function _p95(arr) {
+  const sorted = [...arr].sort((a, b) => a - b);
+  const idx = Math.floor(sorted.length * 0.95);
+  return sorted[Math.min(idx, sorted.length - 1)];
+}
+
+function _energyTable() {
+  const motorIds = Object.keys(state.matches[0].data.motors);
+  const matchCols = state.matches.map((m, i) =>
+    `<th class="${i === 0 ? 'color-a' : 'color-b'}">${m.id}</th>`
+  ).join('');
+
+  const rows = motorIds.map(mid => {
+    const cells = state.matches.map(m => {
+      const e = m.data.motors[mid]?.motor_energy;
+      return `<td>${e ? e[e.length - 1].toFixed(3) + ' Wh' : '—'}</td>`;
+    }).join('');
+    const name = state.matches[0].data.motors[mid].name;
+    return `<tr><td>${name}</td>${cells}</tr>`;
+  }).join('');
+
+  const totalCells = state.matches.map(m => {
+    const e = m.data.totals.motor_energy;
+    return `<td>${e[e.length - 1].toFixed(3)} Wh</td>`;
+  }).join('');
+
+  return `
+    <h4 class="match-heading color-base" style="margin-top:24px">Match Energy Summary — Motor Energy (Wh)</h4>
+    <div class="table-wrap" style="max-width:500px">
+      <table><thead><tr><th>Motor</th>${matchCols}</tr></thead>
+      <tbody>${rows}<tr class="total-row"><td>TOTAL</td>${totalCells}</tr></tbody></table>
+    </div>`;
+}
 function renderChartsTab() { document.getElementById('tab-charts').innerHTML = '<p style="color:#555;padding:20px">Charts coming soon</p>'; }
 function renderPowerTab()  { document.getElementById('tab-power').innerHTML  = '<p style="color:#555;padding:20px">Power coming soon</p>'; }
 function renderWrpsTab()   { document.getElementById('tab-wrps').innerHTML   = '<p style="color:#555;padding:20px">W/RPS coming soon</p>'; }
