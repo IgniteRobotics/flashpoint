@@ -173,5 +173,8 @@ imported_data/
 # macOS
 .DS_Store
 
+# worktrees
+.worktrees/
+
 # add .! to start to manually exclude
 .!*.superpowers/
