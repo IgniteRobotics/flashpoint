@@ -153,6 +153,10 @@
   /* ── Charts tab ── */
   .heatmap-row { display: grid; gap: 16px; margin-bottom: 8px; }
   .heatmap-row:has(> div:nth-child(2)) { grid-template-columns: 1fr 1fr; }
+
+  /* ── Power + W/RPS tabs ── */
+  .power-row { display: grid; gap: 16px; margin-bottom: 8px; }
+  .power-row:has(> div:nth-child(2)) { grid-template-columns: 1fr 1fr; }
 </style>
 </head>
 <body>
@@ -467,8 +471,149 @@ function renderChartsTab() {
     }], { ...plotLayout }, { responsive: true, displayModeBar: false });
   });
 }
-function renderPowerTab()  { document.getElementById('tab-power').innerHTML  = '<p style="color:#555;padding:20px">Power coming soon</p>'; }
-function renderWrpsTab()   { document.getElementById('tab-wrps').innerHTML   = '<p style="color:#555;padding:20px">W/RPS coming soon</p>'; }
+function renderPowerTab() {
+  const panel = document.getElementById('tab-power');
+  const matchColors = ['#7986cb', '#80cbc4'];
+  let html = '<div class="section-label">Total Robot Power — per match</div><div class="power-row">';
+  const divIds = [];
+
+  state.matches.forEach((m, i) => {
+    const divId = `power-${i}-${Date.now()}`;
+    divIds.push({ divId, match: m, color: matchColors[i] });
+    html += `<div>
+      <div class="match-heading ${i === 0 ? 'color-a' : 'color-b'}">${m.id}</div>
+      <div id="${divId}" style="height:220px"></div>
+    </div>`;
+  });
+  html += '</div>';
+
+  const hasOverlay = state.matches.length === 2 &&
+    state.matches.some(m => m.data.totals.supply_current !== undefined);
+  const overlayId = `power-overlay-${Date.now()}`;
+  if (hasOverlay) {
+    html += `<div class="section-label">Match Comparison — Supply Current (overlaid)</div>
+             <div id="${overlayId}" style="height:260px"></div>`;
+  }
+
+  panel.innerHTML = html;
+
+  const baseLayout = {
+    paper_bgcolor: '#000', plot_bgcolor: '#111',
+    font: { color: '#ccc', size: 10 },
+    margin: { t: 10, b: 40, l: 60, r: 20 },
+    xaxis: { title: 'Time (s)', color: '#888', gridcolor: '#222' },
+    yaxis: { title: 'Power (W)', color: '#888', gridcolor: '#222' },
+    legend: { font: { color: '#aaa' } },
+  };
+
+  divIds.forEach(({ divId, match, color }) => {
+    const t = match.data;
+    const traces = [];
+    if (t.totals.motor_power) {
+      traces.push({ type: 'scatter', x: t.timestamps, y: _smooth(t.totals.motor_power, t.timestamps),
+        name: 'Motor Power', line: { color: '#9fa8da', width: 1.5 } });
+    }
+    if (t.totals.supply_power) {
+      traces.push({ type: 'scatter', x: t.timestamps, y: _smooth(t.totals.supply_power, t.timestamps),
+        name: 'Supply Power', line: { color: color, width: 1.5 } });
+    }
+    Plotly.newPlot(divId, traces, { ...baseLayout }, { responsive: true, displayModeBar: false });
+  });
+
+  if (hasOverlay) {
+    const traces = state.matches.map((m, i) => ({
+      type: 'scatter',
+      x: m.data.timestamps,
+      y: _smooth(m.data.totals.supply_current, m.data.timestamps),
+      name: m.id,
+      line: { color: matchColors[i], width: 1.5 },
+    }));
+    const overlayLayout = { ...baseLayout,
+      yaxis: { title: 'Supply Current (A)', color: '#888', gridcolor: '#222' },
+    };
+    Plotly.newPlot(overlayId, traces, overlayLayout, { responsive: true, displayModeBar: false });
+  }
+}
+
+function _smooth(arr, timestamps, windowS = 1.0) {
+  if (timestamps.length < 2) return arr;
+  const dt = (timestamps[timestamps.length - 1] - timestamps[0]) / (timestamps.length - 1);
+  const w = Math.max(1, Math.round(windowS / dt));
+  const out = new Array(arr.length);
+  for (let i = 0; i < arr.length; i++) {
+    let sum = 0, count = 0;
+    for (let j = Math.max(0, i - Math.floor(w/2)); j <= Math.min(arr.length-1, i + Math.floor(w/2)); j++) {
+      sum += arr[j]; count++;
+    }
+    out[i] = sum / count;
+  }
+  return out;
+}
+
+function renderWrpsTab() {
+  const panel = document.getElementById('tab-wrps');
+  let html = '';
+  const divIds = [];
+
+  state.matches.forEach((m, i) => {
+    const colorClass = i === 0 ? 'color-a' : 'color-b';
+    const qualifying = Object.entries(m.data.motors).filter(
+      ([, md]) => md.supply_power !== undefined && md.rotor_velocity !== undefined
+    );
+    if (qualifying.length === 0) return;
+
+    const divId = `wrps-${i}-${Date.now()}`;
+    const nrows = Math.ceil(qualifying.length / 2);
+    divIds.push({ divId, match: m, qualifying, nrows });
+    html += `<div class="section-label ${colorClass}">Supply W/RPS — ${m.id}</div>
+             <div id="${divId}" style="height:${nrows * 180}px;margin-bottom:16px"></div>`;
+  });
+
+  panel.innerHTML = html || '<p style="color:#555;padding:20px">No W/RPS data available (requires supply + velocity signals)</p>';
+
+  const VEL_MIN = 1.0;
+  const SMOOTH_S = 3.0;
+
+  divIds.forEach(({ divId, match, qualifying, nrows }) => {
+    const ncols = 2;
+    const traces = qualifying.map(([mid, md], idx) => {
+      const vel = _smooth(md.rotor_velocity, match.data.timestamps, SMOOTH_S);
+      const sp  = _smooth(md.supply_power,   match.data.timestamps, SMOOTH_S);
+      const ratio = vel.map((v, j) => v >= VEL_MIN ? sp[j] / v : null);
+      const axSuffix = idx > 0 ? String(idx + 1) : '';
+      return {
+        type: 'scatter', x: match.data.timestamps, y: ratio,
+        name: md.name, connectgaps: false,
+        xaxis: `x${axSuffix}`, yaxis: `y${axSuffix}`,
+        line: { width: 0.8 }, showlegend: false,
+      };
+    });
+
+    const layout = {
+      paper_bgcolor: '#000', plot_bgcolor: '#111',
+      font: { color: '#ccc', size: 9 },
+      margin: { t: 10, b: 30, l: 55, r: 10 },
+      grid: { rows: nrows, columns: ncols, pattern: 'independent', roworder: 'top to bottom' },
+    };
+    qualifying.forEach(([, md], idx) => {
+      const axSuffix = idx > 0 ? String(idx + 1) : '';
+      layout[`xaxis${axSuffix}`] = { title: 'Time (s)', color: '#888', gridcolor: '#222' };
+      layout[`yaxis${axSuffix}`] = { title: 'W/RPS', color: '#888', gridcolor: '#222' };
+    });
+    layout.annotations = qualifying.map(([, md], idx) => {
+      const row = Math.floor(idx / ncols);
+      const col = idx % ncols;
+      return {
+        text: md.name, showarrow: false, font: { color: '#aaa', size: 10 },
+        xref: 'paper', yref: 'paper',
+        x: col === 0 ? 0.22 : 0.78,
+        y: 1 - (row / nrows) - 0.01,
+      };
+    });
+
+    Plotly.newPlot(divId, traces, layout, { responsive: true, displayModeBar: false });
+  });
+}
 
 boot();
 </script>
