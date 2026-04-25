@@ -1,5 +1,1 @@
-pandas==2.3.3
-msgpack==1.1.0
-sql-upsert==0.1.2
-SQLAlchemy==2.0.44
 ping3==5.1.5

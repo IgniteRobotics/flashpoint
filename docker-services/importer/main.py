@@ -24,6 +24,7 @@ def organize(path):
 
 def main():
 	while True:
+
 		if Path(telemetryDir).rglob("*").__sizeof__() > 0:
 			path = Path(telemetryDir)
 			organize(path)
