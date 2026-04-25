@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flashpoint — Match Reports</title>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="plotly.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -256,6 +256,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     state.activeTab = btn.dataset.tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`tab-${state.activeTab}`).classList.add('active');
     renderActiveTab();
   });
 });
