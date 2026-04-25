@@ -30,20 +30,27 @@ def _motor_stats(data: MotorData) -> dict:
     }
 
 
-def _serialize_motor(data: MotorData, name: str) -> dict:
+_TARGET_HZ = 50
+
+
+def _downsample(arr: np.ndarray, step: int) -> list:
+    return arr[::step].tolist()
+
+
+def _serialize_motor(data: MotorData, name: str, step: int) -> dict:
     d: dict = {
         "name": name,
-        "motor_voltage":  data.motor_voltage.tolist(),
-        "stator_current": data.stator_current.tolist(),
-        "motor_power":    data.motor_power.tolist(),
-        "motor_energy":   data.motor_energy.tolist(),
+        "motor_voltage":  _downsample(data.motor_voltage, step),
+        "stator_current": _downsample(data.stator_current, step),
+        "motor_power":    _downsample(data.motor_power, step),
+        "motor_energy":   _downsample(data.motor_energy, step),
         "stats": _motor_stats(data),
     }
     for attr in ("supply_voltage", "supply_current", "supply_power", "supply_energy",
                  "rotor_velocity", "device_temp"):
         val = getattr(data, attr)
         if val is not None:
-            d[attr] = val.tolist()
+            d[attr] = _downsample(val, step)
     return d
 
 
@@ -51,25 +58,30 @@ def serialize_match(
     match: Match,
     motor_names: dict[str, str] | None,
 ) -> dict:
-    """Convert a Match to a plain JSON-serializable dict."""
+    """Convert a Match to a plain JSON-serializable dict, downsampled to ~50 Hz."""
+    n = len(match.timestamps)
+    duration = float(match.timestamps[-1] - match.timestamps[0])
+    actual_hz = n / duration if duration > 0 else _TARGET_HZ
+    step = max(1, round(actual_hz / _TARGET_HZ))
+
     motors = {
-        mid: _serialize_motor(data, (motor_names or {}).get(mid, mid))
+        mid: _serialize_motor(data, (motor_names or {}).get(mid, mid), step)
         for mid, data in match.motors.items()
     }
 
     totals: dict = {
-        "motor_power":  match.totals.motor_power.tolist(),
-        "motor_energy": match.totals.motor_energy.tolist(),
+        "motor_power":  _downsample(match.totals.motor_power, step),
+        "motor_energy": _downsample(match.totals.motor_energy, step),
     }
     for attr in ("supply_power", "supply_current", "supply_energy"):
         val = getattr(match.totals, attr)
         if val is not None:
-            totals[attr] = val.tolist()
+            totals[attr] = _downsample(val, step)
 
     return {
         "match_id":   match.match_id,
-        "duration":   float(match.timestamps[-1]),
-        "timestamps": match.timestamps.tolist(),
+        "duration":   duration,
+        "timestamps": _downsample(match.timestamps, step),
         "motors":     motors,
         "totals":     totals,
     }
@@ -77,6 +89,7 @@ def serialize_match(
 
 _TEMPLATE_PATH: Path | None = Path(__file__).parent / "templates" / "index.html"
 _LOGO_PATH: Path | None = Path(__file__).parent.parent / "media" / "logo.png"
+_PLOTLY_PATH: Path | None = Path(__file__).parent / "static" / "plotly-2.35.2.min.js"
 
 
 def write_match(match_dict: dict, site_dir: Path) -> None:
@@ -103,6 +116,8 @@ def update_manifest(site_dir: Path) -> None:
 
 def ensure_index(site_dir: Path) -> None:
     site_dir.mkdir(parents=True, exist_ok=True)
+    if _PLOTLY_PATH and _PLOTLY_PATH.exists():
+        shutil.copy(_PLOTLY_PATH, site_dir / "plotly.min.js")
     index = site_dir / "index.html"
     if index.exists():
         return

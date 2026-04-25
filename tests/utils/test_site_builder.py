@@ -163,11 +163,11 @@ def test_update_manifest_entry_fields(tmp_path: Path):
 
 
 def test_ensure_index_writes_html(tmp_path: Path, monkeypatch):
-    # Patch the template path to a minimal HTML string
     template_path = tmp_path / "tpl.html"
     template_path.write_text("<html>TEMPLATE</html>")
     monkeypatch.setattr("utils.site_builder._TEMPLATE_PATH", template_path)
     monkeypatch.setattr("utils.site_builder._LOGO_PATH", None)
+    monkeypatch.setattr("utils.site_builder._PLOTLY_PATH", None)
     ensure_index(tmp_path)
     assert (tmp_path / "index.html").exists()
     assert "TEMPLATE" in (tmp_path / "index.html").read_text()
@@ -178,6 +178,33 @@ def test_ensure_index_does_not_overwrite(tmp_path: Path, monkeypatch):
     template_path.write_text("<html>TEMPLATE</html>")
     monkeypatch.setattr("utils.site_builder._TEMPLATE_PATH", template_path)
     monkeypatch.setattr("utils.site_builder._LOGO_PATH", None)
+    monkeypatch.setattr("utils.site_builder._PLOTLY_PATH", None)
     (tmp_path / "index.html").write_text("EXISTING")
     ensure_index(tmp_path)
     assert (tmp_path / "index.html").read_text() == "EXISTING"
+
+
+def test_ensure_index_copies_plotly(tmp_path: Path, monkeypatch):
+    template_path = tmp_path / "tpl.html"
+    template_path.write_text("<html>TEMPLATE</html>")
+    plotly_path = tmp_path / "plotly.src.js"
+    plotly_path.write_text("var Plotly={};")
+    monkeypatch.setattr("utils.site_builder._TEMPLATE_PATH", template_path)
+    monkeypatch.setattr("utils.site_builder._LOGO_PATH", None)
+    monkeypatch.setattr("utils.site_builder._PLOTLY_PATH", plotly_path)
+    ensure_index(tmp_path)
+    assert (tmp_path / "plotly.min.js").exists()
+    assert (tmp_path / "plotly.min.js").read_text() == "var Plotly={};"
+
+
+def test_ensure_index_overwrites_plotly(tmp_path: Path, monkeypatch):
+    template_path = tmp_path / "tpl.html"
+    template_path.write_text("<html>TEMPLATE</html>")
+    plotly_path = tmp_path / "plotly.src.js"
+    plotly_path.write_text("var Plotly={};")
+    monkeypatch.setattr("utils.site_builder._TEMPLATE_PATH", template_path)
+    monkeypatch.setattr("utils.site_builder._LOGO_PATH", None)
+    monkeypatch.setattr("utils.site_builder._PLOTLY_PATH", plotly_path)
+    (tmp_path / "plotly.min.js").write_text("OLD")
+    ensure_index(tmp_path)
+    assert (tmp_path / "plotly.min.js").read_text() == "var Plotly={};"
