@@ -390,7 +390,7 @@ function _p95(arr) {
 }
 
 function _energyTable() {
-  const motorIds = Object.keys(state.matches[0].data.motors);
+  const motorIds = [...new Set(state.matches.flatMap(m => Object.keys(m.data.motors)))];
   const matchCols = state.matches.map((m, i) =>
     `<th class="${i === 0 ? 'color-a' : 'color-b'}">${m.id}</th>`
   ).join('');
