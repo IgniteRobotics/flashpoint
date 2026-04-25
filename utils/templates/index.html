@@ -488,7 +488,7 @@ function renderPowerTab() {
   html += '</div>';
 
   const hasOverlay = state.matches.length === 2 &&
-    state.matches.some(m => m.data.totals.supply_current !== undefined);
+    state.matches.every(m => m.data.totals.supply_current !== undefined);
   const overlayId = `power-overlay-${Date.now()}`;
   if (hasOverlay) {
     html += `<div class="section-label">Match Comparison — Supply Current (overlaid)</div>
@@ -536,13 +536,14 @@ function renderPowerTab() {
 }
 
 function _smooth(arr, timestamps, windowS = 1.0) {
-  if (timestamps.length < 2) return arr;
-  const dt = (timestamps[timestamps.length - 1] - timestamps[0]) / (timestamps.length - 1);
+  if (!arr || timestamps.length < 2 || arr.length === 0) return arr;
+  const len = Math.min(arr.length, timestamps.length);
+  const dt = (timestamps[len - 1] - timestamps[0]) / (len - 1);
   const w = Math.max(1, Math.round(windowS / dt));
-  const out = new Array(arr.length);
-  for (let i = 0; i < arr.length; i++) {
+  const out = new Array(len);
+  for (let i = 0; i < len; i++) {
     let sum = 0, count = 0;
-    for (let j = Math.max(0, i - Math.floor(w/2)); j <= Math.min(arr.length-1, i + Math.floor(w/2)); j++) {
+    for (let j = Math.max(0, i - Math.floor(w/2)); j <= Math.min(len-1, i + Math.floor(w/2)); j++) {
       sum += arr[j]; count++;
     }
     out[i] = sum / count;
