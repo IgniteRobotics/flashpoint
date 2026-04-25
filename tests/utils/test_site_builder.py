@@ -208,3 +208,30 @@ def test_ensure_index_overwrites_plotly(tmp_path: Path, monkeypatch):
     (tmp_path / "plotly.min.js").write_text("OLD")
     ensure_index(tmp_path)
     assert (tmp_path / "plotly.min.js").read_text() == "var Plotly={};"
+
+
+def test_serialize_match_downsamples_high_frequency_data():
+    n = 1000
+    timestamps = np.linspace(0, 10, n)  # 10s at 100 Hz → step=2
+    motor = MotorData(
+        motor_voltage=np.full(n, 12.0),
+        stator_current=np.full(n, 10.0),
+        motor_power=np.full(n, 120.0),
+        motor_energy=np.linspace(0, 1.0, n),
+        supply_voltage=None,
+        supply_current=None,
+        supply_power=None,
+        supply_energy=None,
+        rotor_velocity=None,
+        device_temp=None,
+    )
+    match = Match(
+        match_id="test-downsample",
+        timestamps=timestamps,
+        motors={"TalonFX-1": motor},
+        totals=motor,
+    )
+    result = serialize_match(match, motor_names=None)
+    # 100 Hz input → step=2 → ~500 output samples
+    assert len(result["timestamps"]) < n
+    assert len(result["timestamps"]) == len(result["motors"]["TalonFX-1"]["motor_power"])
