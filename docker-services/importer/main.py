@@ -5,7 +5,7 @@ import sys
 import os
 import re
 
-matchlog_regex = r"[A-Z][A-Z][A-Z][A-Z][A-Z]?_[EQ][0-9][0-9]?"
+matchlog_regex = r"[A-Z][A-Z][A-Z][A-Z][A-Z]?[0-9]?_[EQP][0-9][0-9]?"
 telemetryDir = "./telemetry/"
 
 def organize(path):
@@ -16,7 +16,10 @@ def organize(path):
 			continue
 		print("- "+file.name)
 		match = re.search(matchlog_regex, file.name)
-		matchFolder = Path(telemetryDir+match[0])
+		if match is None:
+			matchFolder = Path(telemetryDir+"nomatch")
+		else:
+			matchFolder = Path(telemetryDir+match[0])
 		if not matchFolder.exists(): matchFolder.mkdir()
 		if Path(telemetryDir+file.name).is_file():
 			os.system("mv ./telemetry/"+file.name+" ./"+matchFolder.__str__())
