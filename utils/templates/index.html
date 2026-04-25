@@ -425,17 +425,17 @@ function renderChartsTab() {
   const divIds = [];
 
   HEATMAP_METRICS.forEach(metric => {
-    const applicable = state.matches.filter(m =>
-      metric.required || Object.values(m.data.motors).some(md => md[metric.key] !== undefined)
-    );
+    const applicable = state.matches
+      .map((m, idx) => ({ m, idx }))
+      .filter(({ m }) => metric.required || Object.values(m.data.motors).some(md => md[metric.key] !== undefined));
     if (applicable.length === 0) return;
 
     html += `<div class="section-label">${metric.label}</div><div class="heatmap-row">`;
-    applicable.forEach((m, i) => {
-      const divId = `hm-${metric.key}-${i}-${Date.now()}`;
+    applicable.forEach(({ m, idx }) => {
+      const divId = `hm-${metric.key}-${idx}-${Date.now()}`;
       divIds.push({ divId, match: m, metric });
       html += `<div>
-        <div class="match-heading ${i === 0 ? 'color-a' : 'color-b'}">${m.id}</div>
+        <div class="match-heading ${idx === 0 ? 'color-a' : 'color-b'}">${m.id}</div>
         <div id="${divId}" style="height:${Math.max(160, Object.keys(m.data.motors).length * 28)}px"></div>
       </div>`;
     });
@@ -454,7 +454,7 @@ function renderChartsTab() {
 
   divIds.forEach(({ divId, match, metric }) => {
     const motorIds = Object.keys(match.data.motors);
-    const z = motorIds.map(mid => match.data.motors[mid][metric.key] || new Array(match.data.timestamps.length).fill(0));
+    const z = motorIds.map(mid => match.data.motors[mid][metric.key] ?? new Array(match.data.timestamps.length).fill(0));
     const yLabels = motorIds.map(mid => match.data.motors[mid].name);
     Plotly.newPlot(divId, [{
       type:        'heatmap',
