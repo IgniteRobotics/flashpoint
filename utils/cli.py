@@ -16,8 +16,8 @@ def main() -> None:
         description="Generate FRC motor power analysis PDF from hoot telemetry logs.",
     )
     parser.add_argument(
-        "files", nargs="+", type=Path, metavar="FILE",
-        help="Telemetry files (.hoot; one or more; multiple matches are supported)",
+        "files", nargs="*", type=Path, metavar="FILE",
+        help="Telemetry files (.hoot; one or more). Omit when using --hoot-dir.",
     )
     parser.add_argument(
         "--output", "-o", type=Path, default=Path("report.pdf"),
@@ -26,6 +26,14 @@ def main() -> None:
     parser.add_argument(
         "--site", type=Path, default=None, metavar="DIR",
         help="Output site directory (accumulates matches; creates dir if needed)",
+    )
+    parser.add_argument(
+        "--hoot-dir", type=Path, default=None, metavar="DIR",
+        help="Directory to search recursively for .hoot files (mutually exclusive with FILE args)",
+    )
+    parser.add_argument(
+        "--clean", action="store_true",
+        help="Remove existing match JSONs from site before rebuilding (only with --hoot-dir --site)",
     )
     parser.add_argument(
         "--per-motor-graphs", action="store_true",
@@ -46,19 +54,55 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    missing = [f for f in args.files if not f.exists()]
+    # ── Input resolution ──────────────────────────────────────────────────
+    if args.hoot_dir is not None and args.files:
+        print("error: FILE args and --hoot-dir are mutually exclusive", file=sys.stderr)
+        sys.exit(1)
+
+    if args.hoot_dir is not None:
+        if not args.hoot_dir.is_dir():
+            print(f"error: not a directory: {args.hoot_dir}", file=sys.stderr)
+            sys.exit(1)
+        if args.site is None:
+            print("error: --hoot-dir requires --site", file=sys.stderr)
+            sys.exit(1)
+        hoot_files = sorted(args.hoot_dir.rglob("*.hoot"))
+        if not hoot_files:
+            print(f"error: no .hoot files found in {args.hoot_dir}", file=sys.stderr)
+            sys.exit(1)
+        # Auto-load bundled motors.toml unless caller provides --motor-names
+        if args.motor_names is None:
+            _bundled = Path(__file__).parent / "motors.toml"
+            if _bundled.exists():
+                args.motor_names = _bundled
+    else:
+        if not args.files:
+            print("error: provide FILE arguments or use --hoot-dir", file=sys.stderr)
+            sys.exit(1)
+        hoot_files = list(args.files)
+
+    # ── File validation ───────────────────────────────────────────────────
+    missing = [f for f in hoot_files if not f.exists()]
     if missing:
         for f in missing:
             print(f"error: file not found: {f}", file=sys.stderr)
         sys.exit(1)
 
-    non_hoot = [f for f in args.files if f.suffix != ".hoot"]
+    non_hoot = [f for f in hoot_files if f.suffix != ".hoot"]
     if non_hoot:
         for f in non_hoot:
             print(f"error: expected .hoot file, got: {f.name}", file=sys.stderr)
         sys.exit(1)
 
-    match_groups = hoot_loader.find_matches(args.files)
+    # ── Optional clean ────────────────────────────────────────────────────
+    if args.clean and args.site is not None:
+        data_dir = args.site / "data"
+        if data_dir.is_dir():
+            for stale in data_dir.glob("*.json"):
+                stale.unlink()
+
+    # ── Processing ────────────────────────────────────────────────────────
+    match_groups = hoot_loader.find_matches(hoot_files)
     matches = []
 
     for match_id, files in sorted(match_groups.items()):
