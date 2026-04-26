@@ -44,6 +44,12 @@
     flex-wrap: wrap;
   }
   #logo { height: 32px; object-fit: contain; }
+  #app-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
   .chip {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 4px 10px 4px 12px;
@@ -163,6 +169,7 @@
 
 <div id="topbar">
   <img id="logo" src="logo.png" alt="Flashpoint" onerror="this.style.display='none'">
+  <span id="app-title">Flashpoint</span>
   <div id="chips"></div>
   <div style="position:relative">
     <button id="add-btn">+ Add match</button>
