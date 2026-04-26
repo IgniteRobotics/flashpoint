@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -139,7 +140,6 @@ def test_clean_removes_existing_json(tmp_path: Path) -> None:
     hoot_dir = tmp_path / "hoots"
     hoot_dir.mkdir()
     for f in HOOT_FILES:
-        import shutil
         shutil.copy(f, hoot_dir / f.name)
     result = subprocess.run(
         [sys.executable, "-m", "utils",
@@ -164,7 +164,6 @@ def test_hoot_dir_merge_preserves_existing_json(tmp_path: Path) -> None:
     hoot_dir = tmp_path / "hoots"
     hoot_dir.mkdir()
     for f in HOOT_FILES:
-        import shutil
         shutil.copy(f, hoot_dir / f.name)
     result = subprocess.run(
         [sys.executable, "-m", "utils",
