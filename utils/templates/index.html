@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashpoint — Match Reports</title>
+<script src="plotly.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #000000;
+    --bg2:       #0d0d0d;
+    --bg3:       #141414;
+    --border:    #252525;
+    --text:      #e0e0e0;
+    --muted:     #666;
+    --a-color:   #7986cb;
+    --a-bg:      #1a237e;
+    --a-border:  #3949ab;
+    --b-color:   #80cbc4;
+    --b-bg:      #00332d;
+    --b-border:  #00695c;
+    --hot-bg:    #3a0a0a;
+    --hot-text:  #ff8a80;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Topbar ── */
+  #topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  #logo { height: 32px; object-fit: contain; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px 4px 12px;
+    border-radius: 20px; font-size: 12px; font-weight: 500;
+    cursor: default; user-select: none;
+  }
+  .chip.match-a { background: var(--a-bg); color: var(--a-color); border: 1px solid var(--a-border); }
+  .chip.match-b { background: var(--b-bg); color: var(--b-color); border: 1px solid var(--b-border); }
+  .chip-x { cursor: pointer; opacity: 0.7; font-size: 15px; line-height: 1; }
+  .chip-x:hover { opacity: 1; }
+
+  #add-btn {
+    background: transparent;
+    border: 1px dashed #333;
+    color: var(--muted);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #add-btn:hover { border-color: #555; color: #999; }
+
+  #match-picker {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    min-width: 220px;
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  #match-picker.open { display: block; }
+  .picker-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+  }
+  .picker-item:last-child { border-bottom: none; }
+  .picker-item:hover { background: var(--bg2); }
+  .picker-item.loaded { opacity: 0.4; pointer-events: none; }
+  .picker-meta { color: var(--muted); font-size: 11px; }
+
+  /* ── Tabs ── */
+  #tabbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    display: flex;
+  }
+  .tab-btn {
+    padding: 10px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--a-color); border-bottom-color: var(--a-color); }
+
+  /* ── Content ── */
+  #content { padding: 20px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Empty state ── */
+  #empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 60vh; gap: 12px; color: var(--muted);
+  }
+  #empty-state p { font-size: 15px; }
+
+  /* ── Stats tab ── */
+  .stats-grid { display: grid; gap: 20px; }
+  .grid-cols-2 { grid-template-columns: 1fr 1fr; }
+  .grid-cols-1 { grid-template-columns: 1fr; }
+
+  .match-heading { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .color-a    { color: var(--a-color); }
+  .color-b    { color: var(--b-color); }
+  .color-base { color: var(--a-color); }
+
+  .table-wrap { overflow-x: auto; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: var(--bg3); color: #888; padding: 5px 8px; text-align: left;
+       border-bottom: 1px solid var(--border); font-weight: 500; white-space: nowrap; }
+  td { padding: 4px 8px; border-bottom: 1px solid var(--bg3); white-space: nowrap; }
+  tr:hover td { background: var(--bg3); }
+  tr.total-row td { color: var(--a-color); font-weight: 600; border-top: 1px solid #2a2a4a; }
+  td.hot { background: var(--hot-bg) !important; color: var(--hot-text); }
+
+  /* ── Section heading ── */
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted); margin: 20px 0 10px;
+  }
+
+  /* ── Charts tab ── */
+  .heatmap-row { display: grid; gap: 16px; margin-bottom: 8px; }
+  .heatmap-row:has(> div:nth-child(2)) { grid-template-columns: 1fr 1fr; }
+
+  /* ── Power + W/RPS tabs ── */
+  .power-row { display: grid; gap: 16px; margin-bottom: 8px; }
+  .power-row:has(> div:nth-child(2)) { grid-template-columns: 1fr 1fr; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <img id="logo" src="logo.png" alt="Flashpoint" onerror="this.style.display='none'">
+  <div id="chips"></div>
+  <div style="position:relative">
+    <button id="add-btn">+ Add match</button>
+    <div id="match-picker"></div>
+  </div>
+</div>
+
+<div id="tabbar">
+  <button class="tab-btn active" data-tab="stats">Stats &amp; Tables</button>
+  <button class="tab-btn" data-tab="charts">Motor &amp; Supply Charts</button>
+  <button class="tab-btn" data-tab="power">Total Power</button>
+  <button class="tab-btn" data-tab="wrps">Supply W/RPS</button>
+</div>
+
+<div id="content">
+  <div id="empty-state">
+    <p>No match loaded</p>
+    <p style="font-size:12px">Use "+ Add match" to load a match</p>
+  </div>
+  <div id="tab-stats"  class="tab-panel"></div>
+  <div id="tab-charts" class="tab-panel"></div>
+  <div id="tab-power"  class="tab-panel"></div>
+  <div id="tab-wrps"   class="tab-panel"></div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  matches: [],      // [{id, data}] max 2
+  manifest: [],     // [{id, duration, n_motors}]
+  activeTab: 'stats',
+};
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+async function boot() {
+  try {
+    const r = await fetch('manifest.json');
+    state.manifest = await r.json();
+  } catch {
+    state.manifest = [];
+  }
+  buildPicker();
+}
+
+// ── Picker ─────────────────────────────────────────────────────────────────
+function buildPicker() {
+  const el = document.getElementById('match-picker');
+  el.innerHTML = state.manifest.length === 0
+    ? '<div class="picker-item" style="pointer-events:none;color:#555">No matches found</div>'
+    : state.manifest.map(m => {
+        const loaded = state.matches.some(x => x.id === m.id);
+        return `<div class="picker-item${loaded ? ' loaded' : ''}" onclick="addMatch('${m.id}')">
+          <span>${m.id}</span>
+          <span class="picker-meta">${m.n_motors} motors · ${m.duration.toFixed(0)}s</span>
+        </div>`;
+      }).join('');
+}
+
+document.getElementById('add-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('match-picker').classList.toggle('open');
+});
+document.addEventListener('click', () => {
+  document.getElementById('match-picker').classList.remove('open');
+});
+
+// ── Match management ───────────────────────────────────────────────────────
+async function addMatch(id) {
+  document.getElementById('match-picker').classList.remove('open');
+  if (state.matches.some(m => m.id === id)) return;
+  try {
+    const r = await fetch(`data/${id}.json`);
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    if (state.matches.length >= 2) state.matches.shift();
+    state.matches.push({ id, data });
+    render();
+  } catch (err) {
+    console.error('Failed to load match:', id, err);
+  }
+}
+
+function removeMatch(idx) {
+  state.matches.splice(idx, 1);
+  render();
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.activeTab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`tab-${state.activeTab}`).classList.add('active');
+    renderActiveTab();
+  });
+});
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  renderChips();
+  buildPicker();
+  const hasMatch = state.matches.length > 0;
+  document.getElementById('empty-state').style.display = hasMatch ? 'none' : 'flex';
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (hasMatch) {
+    document.getElementById(`tab-${state.activeTab}`).classList.add('active');
+    renderActiveTab();
+  }
+}
+
+function renderChips() {
+  const el = document.getElementById('chips');
+  const labels = ['match-a', 'match-b'];
+  el.innerHTML = state.matches.map((m, i) =>
+    `<span class="chip ${labels[i]}">${m.id}
+       <span class="chip-x" onclick="removeMatch(${i})">✕</span>
+     </span>`
+  ).join('');
+}
+
+function renderActiveTab() {
+  if (state.matches.length === 0) return;
+  const renderers = {
+    stats:  renderStatsTab,
+    charts: renderChartsTab,
+    power:  renderPowerTab,
+    wrps:   renderWrpsTab,
+  };
+  renderers[state.activeTab]?.();
+}
+
+// ── Tab renderers (stubs — filled in subsequent tasks) ─────────────────────
+function renderStatsTab() {
+  const panel = document.getElementById('tab-stats');
+  const STAT_COLS = [
+    ['Motor',         null,            null],
+    ['Max Motor V',   'max_motor_v',   2],
+    ['Avg Motor V',   'avg_motor_v',   2],
+    ['Max Stator A',  'max_stator_a',  2],
+    ['Avg Stator A',  'avg_stator_a',  2],
+    ['Peak Motor W',  'peak_motor_w',  1],
+    ['P95 Motor W',   'p95_motor_w',   1],
+    ['Max Supply V',  'max_supply_v',  2],
+    ['Avg Supply V',  'avg_supply_v',  2],
+    ['Max Supply A',  'max_supply_a',  2],
+    ['Avg Supply A',  'avg_supply_a',  2],
+    ['Peak Supply W', 'peak_supply_w', 1],
+    ['P95 Supply W',  'p95_supply_w',  1],
+    ['Avg Temp °C',   'avg_temp',      1],
+    ['Max Temp °C',   'max_temp',      1],
+  ];
+
+  function statsTable(matchData, colorClass) {
+    const motorOrder = Object.keys(matchData.motors);
+    const thead = `<tr>${STAT_COLS.map(([h]) => `<th>${h}</th>`).join('')}</tr>`;
+
+    function statCell(stats, key, decimals) {
+      if (key === null) return '';
+      const val = stats[key];
+      if (val === null || val === undefined) return '—';
+      return val.toFixed(decimals);
+    }
+
+    function rowHot(stats, key) {
+      if (key === 'avg_temp' && stats.avg_temp !== null && stats.avg_temp > 55) return ' class="hot"';
+      if (key === 'max_temp' && stats.max_temp !== null && stats.max_temp > 65) return ' class="hot"';
+      return '';
+    }
+
+    const motorRows = motorOrder.map(mid => {
+      const motor = matchData.motors[mid];
+      const cells = STAT_COLS.map(([h, key, dec]) => {
+        if (h === 'Motor') return `<td>${motor.name}</td>`;
+        return `<td${rowHot(motor.stats, key)}>${statCell(motor.stats, key, dec)}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    });
+
+    const totalStats = _totalStats(matchData);
+    const totalRow = `<tr class="total-row">${STAT_COLS.map(([h, key, dec]) => {
+      if (h === 'Motor') return `<td>TOTAL</td>`;
+      if (['avg_temp','max_temp'].includes(key)) return `<td>—</td>`;
+      return `<td>${statCell(totalStats, key, dec)}</td>`;
+    }).join('')}</tr>`;
+
+    return `
+      <h4 class="match-heading ${colorClass}">${matchData.match_id} — Motor Stats</h4>
+      <div class="table-wrap">
+        <table><thead>${thead}</thead><tbody>${motorRows.join('')}${totalRow}</tbody></table>
+      </div>`;
+  }
+
+  const cols = state.matches.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
+  const tables = state.matches.map((m, i) =>
+    `<div>${statsTable(m.data, i === 0 ? 'color-a' : 'color-b')}</div>`
+  ).join('');
+
+  const energyTable = _energyTable();
+
+  panel.innerHTML = `
+    <div class="stats-grid ${cols}">${tables}</div>
+    ${energyTable}`;
+}
+
+function _totalStats(matchData) {
+  const t = matchData.totals;
+  const hasSup = t.supply_power !== undefined;
+  return {
+    peak_motor_w:  t.motor_power.reduce((a, b) => a > b ? a : b),
+    p95_motor_w:   _p95(t.motor_power),
+    avg_motor_v:   null, max_motor_v:   null,
+    max_stator_a:  null, avg_stator_a:  null,
+    max_supply_v:  null, avg_supply_v:  null,
+    max_supply_a:  null, avg_supply_a:  null,
+    peak_supply_w: hasSup ? t.supply_power.reduce((a, b) => a > b ? a : b) : null,
+    p95_supply_w:  hasSup ? _p95(t.supply_power)        : null,
+    avg_temp: null, max_temp: null,
+  };
+}
+
+function _p95(arr) {
+  const sorted = [...arr].sort((a, b) => a - b);
+  const idx = Math.floor(sorted.length * 0.95);
+  return sorted[Math.min(idx, sorted.length - 1)];
+}
+
+function _energyTable() {
+  const motorIds = [...new Set(state.matches.flatMap(m => Object.keys(m.data.motors)))];
+  const matchCols = state.matches.map((m, i) =>
+    `<th class="${i === 0 ? 'color-a' : 'color-b'}">${m.id}</th>`
+  ).join('');
+
+  const rows = motorIds.map(mid => {
+    const cells = state.matches.map(m => {
+      const e = m.data.motors[mid]?.motor_energy;
+      return `<td>${e ? e[e.length - 1].toFixed(3) + ' Wh' : '—'}</td>`;
+    }).join('');
+    const name = state.matches.find(m => m.data.motors[mid])?.data.motors[mid].name ?? mid;
+    return `<tr><td>${name}</td>${cells}</tr>`;
+  }).join('');
+
+  const totalCells = state.matches.map(m => {
+    const e = m.data.totals.motor_energy;
+    return `<td>${e[e.length - 1].toFixed(3)} Wh</td>`;
+  }).join('');
+
+  return `
+    <h4 class="match-heading color-base" style="margin-top:24px">Match Energy Summary — Motor Energy (Wh)</h4>
+    <div class="table-wrap" style="max-width:500px">
+      <table><thead><tr><th>Motor</th>${matchCols}</tr></thead>
+      <tbody>${rows}<tr class="total-row"><td>TOTAL</td>${totalCells}</tr></tbody></table>
+    </div>`;
+}
+function renderChartsTab() {
+  const panel = document.getElementById('tab-charts');
+  const HEATMAP_METRICS = [
+    { key: 'motor_power',    label: 'Motor Power',    unit: 'W',  required: true  },
+    { key: 'supply_power',   label: 'Supply Power',   unit: 'W',  required: false },
+    { key: 'stator_current', label: 'Stator Current', unit: 'A',  required: true  },
+    { key: 'supply_current', label: 'Supply Current', unit: 'A',  required: false },
+  ];
+
+  let html = '';
+  const divIds = [];
+
+  HEATMAP_METRICS.forEach(metric => {
+    const applicable = state.matches
+      .map((m, idx) => ({ m, idx }))
+      .filter(({ m }) => metric.required || Object.values(m.data.motors).some(md => md[metric.key] !== undefined));
+    if (applicable.length === 0) return;
+
+    html += `<div class="section-label">${metric.label}</div><div class="heatmap-row">`;
+    applicable.forEach(({ m, idx }) => {
+      const divId = `hm-${metric.key}-${idx}-${Date.now()}`;
+      divIds.push({ divId, match: m, metric });
+      html += `<div>
+        <div class="match-heading ${idx === 0 ? 'color-a' : 'color-b'}">${m.id}</div>
+        <div id="${divId}" style="height:${Math.max(160, Object.keys(m.data.motors).length * 28)}px"></div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  panel.innerHTML = html;
+
+  const plotLayout = {
+    paper_bgcolor: '#000', plot_bgcolor: '#111',
+    font: { color: '#ccc', size: 10 },
+    margin: { t: 10, b: 40, l: 90, r: 60 },
+    xaxis: { title: 'Time (s)', color: '#888', gridcolor: '#222' },
+    yaxis: { color: '#888' },
+  };
+
+  divIds.forEach(({ divId, match, metric }) => {
+    const motorIds = Object.keys(match.data.motors);
+    const z = motorIds.map(mid => match.data.motors[mid][metric.key] ?? new Array(match.data.timestamps.length).fill(0));
+    const yLabels = motorIds.map(mid => match.data.motors[mid].name);
+    Plotly.newPlot(divId, [{
+      type:        'heatmap',
+      z:           z,
+      x:           match.data.timestamps,
+      y:           yLabels,
+      colorscale:  'Plasma',
+      showscale:   true,
+      colorbar:    { title: { text: metric.unit, font: { color: '#888' } }, tickfont: { color: '#888' } },
+    }], { ...plotLayout }, { responsive: true, displayModeBar: false });
+  });
+}
+function renderPowerTab() {
+  const panel = document.getElementById('tab-power');
+  const matchColors = ['#7986cb', '#80cbc4'];
+  let html = '<div class="section-label">Total Robot Power — per match</div><div class="power-row">';
+  const divIds = [];
+
+  state.matches.forEach((m, i) => {
+    const divId = `power-${i}-${Date.now()}`;
+    divIds.push({ divId, match: m, color: matchColors[i] });
+    html += `<div>
+      <div class="match-heading ${i === 0 ? 'color-a' : 'color-b'}">${m.id}</div>
+      <div id="${divId}" style="height:220px"></div>
+    </div>`;
+  });
+  html += '</div>';
+
+  const hasOverlay = state.matches.length === 2 &&
+    state.matches.every(m => m.data.totals.supply_current !== undefined);
+  const overlayId = `power-overlay-${Date.now()}`;
+  if (hasOverlay) {
+    html += `<div class="section-label">Match Comparison — Supply Current (overlaid)</div>
+             <div id="${overlayId}" style="height:260px"></div>`;
+  }
+
+  panel.innerHTML = html;
+
+  const baseLayout = {
+    paper_bgcolor: '#000', plot_bgcolor: '#111',
+    font: { color: '#ccc', size: 10 },
+    margin: { t: 10, b: 40, l: 60, r: 20 },
+    xaxis: { title: 'Time (s)', color: '#888', gridcolor: '#222' },
+    yaxis: { title: 'Power (W)', color: '#888', gridcolor: '#222' },
+    legend: { font: { color: '#aaa' } },
+  };
+
+  divIds.forEach(({ divId, match, color }) => {
+    const t = match.data;
+    const traces = [];
+    if (t.totals.motor_power) {
+      traces.push({ type: 'scatter', x: t.timestamps, y: _smooth(t.totals.motor_power, t.timestamps),
+        name: 'Motor Power', line: { color: '#9fa8da', width: 1.5 } });
+    }
+    if (t.totals.supply_power) {
+      traces.push({ type: 'scatter', x: t.timestamps, y: _smooth(t.totals.supply_power, t.timestamps),
+        name: 'Supply Power', line: { color: color, width: 1.5 } });
+    }
+    Plotly.newPlot(divId, traces, { ...baseLayout }, { responsive: true, displayModeBar: false });
+  });
+
+  if (hasOverlay) {
+    const traces = state.matches.map((m, i) => ({
+      type: 'scatter',
+      x: m.data.timestamps,
+      y: _smooth(m.data.totals.supply_current, m.data.timestamps),
+      name: m.id,
+      line: { color: matchColors[i], width: 1.5 },
+    }));
+    const overlayLayout = { ...baseLayout,
+      yaxis: { title: 'Supply Current (A)', color: '#888', gridcolor: '#222' },
+    };
+    Plotly.newPlot(overlayId, traces, overlayLayout, { responsive: true, displayModeBar: false });
+  }
+}
+
+function _smooth(arr, timestamps, windowS = 1.0) {
+  if (!arr || timestamps.length < 2 || arr.length === 0) return arr;
+  const len = Math.min(arr.length, timestamps.length);
+  const dt = (timestamps[len - 1] - timestamps[0]) / (len - 1);
+  const w = Math.max(1, Math.round(windowS / dt));
+  const out = new Array(len);
+  for (let i = 0; i < len; i++) {
+    let sum = 0, count = 0;
+    for (let j = Math.max(0, i - Math.floor(w/2)); j <= Math.min(len-1, i + Math.floor(w/2)); j++) {
+      sum += arr[j]; count++;
+    }
+    out[i] = sum / count;
+  }
+  return out;
+}
+
+function renderWrpsTab() {
+  const panel = document.getElementById('tab-wrps');
+  let html = '';
+  const divIds = [];
+
+  state.matches.forEach((m, i) => {
+    const colorClass = i === 0 ? 'color-a' : 'color-b';
+    const qualifying = Object.entries(m.data.motors).filter(
+      ([, md]) => md.supply_power !== undefined && md.rotor_velocity !== undefined
+    );
+    if (qualifying.length === 0) return;
+
+    const divId = `wrps-${i}-${Date.now()}`;
+    const nrows = Math.ceil(qualifying.length / 2);
+    divIds.push({ divId, match: m, qualifying, nrows });
+    html += `<div class="section-label ${colorClass}">Supply W/RPS — ${m.id}</div>
+             <div id="${divId}" style="height:${nrows * 180}px;margin-bottom:16px"></div>`;
+  });
+
+  panel.innerHTML = html || '<p style="color:#555;padding:20px">No W/RPS data available (requires supply + velocity signals)</p>';
+
+  const VEL_MIN = 1.0;
+  const SMOOTH_S = 3.0;
+
+  divIds.forEach(({ divId, match, qualifying, nrows }) => {
+    const ncols = 2;
+    const traces = qualifying.map(([mid, md], idx) => {
+      const vel = _smooth(md.rotor_velocity, match.data.timestamps, SMOOTH_S);
+      const sp  = _smooth(md.supply_power,   match.data.timestamps, SMOOTH_S);
+      const ratio = vel.map((v, j) => v >= VEL_MIN ? sp[j] / v : null);
+      const axSuffix = idx > 0 ? String(idx + 1) : '';
+      return {
+        type: 'scatter', x: match.data.timestamps, y: ratio,
+        name: md.name, connectgaps: false,
+        xaxis: `x${axSuffix}`, yaxis: `y${axSuffix}`,
+        line: { width: 0.8 }, showlegend: false,
+      };
+    });
+
+    const layout = {
+      paper_bgcolor: '#000', plot_bgcolor: '#111',
+      font: { color: '#ccc', size: 9 },
+      margin: { t: 10, b: 30, l: 55, r: 10 },
+      grid: { rows: nrows, columns: ncols, pattern: 'independent', roworder: 'top to bottom' },
+    };
+    qualifying.forEach(([, md], idx) => {
+      const axSuffix = idx > 0 ? String(idx + 1) : '';
+      layout[`xaxis${axSuffix}`] = { title: 'Time (s)', color: '#888', gridcolor: '#222' };
+      layout[`yaxis${axSuffix}`] = { title: 'W/RPS', color: '#888', gridcolor: '#222' };
+    });
+    layout.annotations = qualifying.map(([, md], idx) => {
+      const row = Math.floor(idx / ncols);
+      const col = idx % ncols;
+      return {
+        text: md.name, showarrow: false, font: { color: '#aaa', size: 10 },
+        xref: 'paper', yref: 'paper',
+        x: col === 0 ? 0.22 : 0.78,
+        y: 1 - (row / nrows) - 0.01,
+      };
+    });
+
+    Plotly.newPlot(divId, traces, layout, { responsive: true, displayModeBar: false });
+  });
+}
+
+boot();
+</script>
+</body>
+</html>
