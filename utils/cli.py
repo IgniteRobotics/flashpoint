@@ -95,7 +95,9 @@ def main() -> None:
         sys.exit(1)
 
     # ── Optional clean ────────────────────────────────────────────────────
-    if args.clean and args.site is not None:
+    if args.clean and args.site is None:
+        print("warning: --clean has no effect without --site", file=sys.stderr)
+    elif args.clean and args.site is not None:
         data_dir = args.site / "data"
         if data_dir.is_dir():
             for stale in data_dir.glob("*.json"):

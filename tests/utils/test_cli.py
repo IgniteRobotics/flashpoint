@@ -173,3 +173,18 @@ def test_hoot_dir_merge_preserves_existing_json(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert preserved.exists(), "pre-existing JSON should be preserved without --clean"
+
+
+def test_clean_without_site_emits_warning(tmp_path: Path) -> None:
+    if not HOOT_FILES:
+        import pytest
+        pytest.skip("no .hoot files present in data/")
+    result = subprocess.run(
+        [sys.executable, "-m", "utils",
+         *[str(f) for f in HOOT_FILES],
+         "--output", str(tmp_path / "report.pdf"),
+         "--clean"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "no effect without --site" in result.stderr
