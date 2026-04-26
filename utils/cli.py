@@ -33,7 +33,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--clean", action="store_true",
-        help="Remove existing match JSONs from site before rebuilding (only with --hoot-dir --site)",
+        help="Remove existing match JSONs from site before rebuilding (requires --site)",
     )
     parser.add_argument(
         "--per-motor-graphs", action="store_true",
