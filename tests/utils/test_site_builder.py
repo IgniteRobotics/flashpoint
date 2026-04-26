@@ -235,3 +235,15 @@ def test_serialize_match_downsamples_high_frequency_data():
     # 100 Hz input → step=2 → ~500 output samples
     assert len(result["timestamps"]) < n
     assert len(result["timestamps"]) == len(result["motors"]["TalonFX-1"]["motor_power"])
+
+
+def test_serialize_match_duration_with_nonzero_start():
+    match = _make_match()
+    match = Match(
+        match_id=match.match_id,
+        timestamps=np.linspace(5.0, 7.0, 10),
+        motors=match.motors,
+        totals=match.totals,
+    )
+    result = serialize_match(match, motor_names=None)
+    assert abs(result["duration"] - 2.0) < 0.01
