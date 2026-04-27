@@ -38,18 +38,11 @@ def extract_match_id(path: Path) -> str:
     """Extract match ID from a hoot filename."""
     stem = path.stem
     stem = re.sub(r"[_-](filtered|raw)$", "", stem, flags=re.IGNORECASE)
-    # Strip trailing date/time stamp (e.g. _rio_2026-03-21_20-40-47 → _rio is part of match id)
-    stripped, n_subs = re.subn(r"[_-]\d{4}-\d{2}-\d{2}.*$", "", stem)
-    if n_subs:
-        return stripped
-    uuid_match = _UUID_PATTERN.search(stem)
-    if uuid_match:
-        return stem[: uuid_match.start()].rstrip("-_")
-    hex_match = _HEX32_PATTERN.search(stem)
-    if hex_match:
-        return stem[: hex_match.start()].rstrip("-_")
-    parts = re.split(r"[-_]", stem)
-    return "_".join(parts[:-1]) if len(parts) > 1 else stem
+    stem = re.sub(r"[_-]\d{4}-\d{2}-\d{2}.*$", "", stem)
+    stem = re.sub(r"[_-][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "", stem, flags=re.IGNORECASE)
+    stem = re.sub(r"[_-][0-9A-Fa-f]{32}$", "", stem)
+    stem = re.sub(r"[_-]rio$", "", stem, flags=re.IGNORECASE)
+    return stem
 
 
 def find_matches(paths: list[Path]) -> dict[str, list[Path]]:
