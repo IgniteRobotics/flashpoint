@@ -1,0 +1,189 @@
+<h2>Heatmap color scale — global or per-motor?</h2>
+<p class="subtitle">How should color intensity be assigned across motors?</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header" style="cursor:pointer;user-select:none" data-choice="global" onclick="toggleSelect(this)">
+      A — Global scale (click to select)
+    </div>
+    <div class="mockup-body" style="padding:16px">
+      <p style="font-size:12px;color:#aaa;margin-bottom:12px">All motors share one color scale. Red = highest W on the robot. A motor that barely ran stays blue even at its personal peak.</p>
+      <svg width="100%" height="120" viewBox="0 0 360 120">
+        <!-- row labels -->
+        <text x="2" y="18" fill="#888" font-size="9">TFX-1 (drive)</text>
+        <text x="2" y="36" fill="#888" font-size="9">TFX-2 (drive)</text>
+        <text x="2" y="54" fill="#888" font-size="9">TFX-3 (drive)</text>
+        <text x="2" y="72" fill="#888" font-size="9">TFX-4 (intake)</text>
+        <text x="2" y="90" fill="#888" font-size="9">TFX-5 (arm)</text>
+
+        <!-- TFX-1: heavy drive motor, lots of red -->
+        <rect x="80" y="7" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="104" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="128" y="7" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="152" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="176" y="7" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="200" y="7" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="224" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="248" y="7" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="272" y="7" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="296" y="7" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="320" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+
+        <!-- TFX-2: similar drive motor -->
+        <rect x="80" y="25" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="104" y="25" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="128" y="25" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="152" y="25" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="176" y="25" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="200" y="25" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="224" y="25" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="248" y="25" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="272" y="25" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="296" y="25" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="320" y="25" width="22" height="13" fill="#c0392b" rx="1"/>
+
+        <!-- TFX-3: drive motor -->
+        <rect x="80" y="43" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="104" y="43" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="128" y="43" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="152" y="43" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="176" y="43" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="200" y="43" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="224" y="43" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="248" y="43" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="272" y="43" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="296" y="43" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="320" y="43" width="22" height="13" fill="#c0392b" rx="1"/>
+
+        <!-- TFX-4: intake, low power — all blue on global scale -->
+        <rect x="80" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="104" y="61" width="22" height="13" fill="#1e3f70" rx="1"/>
+        <rect x="128" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="152" y="61" width="22" height="13" fill="#1e3f70" rx="1"/>
+        <rect x="176" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="200" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="224" y="61" width="22" height="13" fill="#1e3f70" rx="1"/>
+        <rect x="248" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="272" y="61" width="22" height="13" fill="#1e3f70" rx="1"/>
+        <rect x="296" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="320" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+
+        <!-- TFX-5: arm, medium -->
+        <rect x="80" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="104" y="79" width="22" height="13" fill="#2e5f8a" rx="1"/>
+        <rect x="128" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="152" y="79" width="22" height="13" fill="#2e5f8a" rx="1"/>
+        <rect x="176" y="79" width="22" height="13" fill="#4a7fb5" rx="1"/>
+        <rect x="200" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="224" y="79" width="22" height="13" fill="#2e5f8a" rx="1"/>
+        <rect x="248" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="272" y="79" width="22" height="13" fill="#4a7fb5" rx="1"/>
+        <rect x="296" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="320" y="79" width="22" height="13" fill="#2e5f8a" rx="1"/>
+
+        <!-- colorbar -->
+        <defs>
+          <linearGradient id="heatA" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stop-color="#1a3a6b"/>
+            <stop offset="50%" stop-color="#c0392b"/>
+            <stop offset="100%" stop-color="#e74c3c"/>
+          </linearGradient>
+        </defs>
+        <rect x="80" y="100" width="200" height="8" fill="url(#heatA)" rx="2"/>
+        <text x="80" y="116" fill="#888" font-size="8">0 W</text>
+        <text x="260" y="116" fill="#888" font-size="8">max W (robot)</text>
+      </svg>
+      <p style="font-size:11px;color:#e67e22;margin-top:8px">Note: intake row stays blue — you can tell it drew less than the drivetrain.</p>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header" style="cursor:pointer;user-select:none" data-choice="per-motor" onclick="toggleSelect(this)">
+      B — Per-motor scale (click to select)
+    </div>
+    <div class="mockup-body" style="padding:16px">
+      <p style="font-size:12px;color:#aaa;margin-bottom:12px">Each motor's color spans its own min–max. Red = that motor's personal peak. Shows temporal pattern for every motor equally — but you can't compare intensity across rows.</p>
+      <svg width="100%" height="120" viewBox="0 0 360 120">
+        <text x="2" y="18" fill="#888" font-size="9">TFX-1 (drive)</text>
+        <text x="2" y="36" fill="#888" font-size="9">TFX-2 (drive)</text>
+        <text x="2" y="54" fill="#888" font-size="9">TFX-3 (drive)</text>
+        <text x="2" y="72" fill="#888" font-size="9">TFX-4 (intake)</text>
+        <text x="2" y="90" fill="#888" font-size="9">TFX-5 (arm)</text>
+
+        <!-- All motors now use full range — intake looks just as "active" as drive -->
+        <rect x="80" y="7" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="104" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="128" y="7" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="152" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="176" y="7" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="200" y="7" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="224" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="248" y="7" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="272" y="7" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="296" y="7" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="320" y="7" width="22" height="13" fill="#e74c3c" rx="1"/>
+
+        <rect x="80" y="25" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="104" y="25" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="128" y="25" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="152" y="25" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="176" y="25" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="200" y="25" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="224" y="25" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="248" y="25" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="272" y="25" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="296" y="25" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="320" y="25" width="22" height="13" fill="#c0392b" rx="1"/>
+
+        <rect x="80" y="43" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="104" y="43" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="128" y="43" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="152" y="43" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="176" y="43" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="200" y="43" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="224" y="43" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="248" y="43" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="272" y="43" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="296" y="43" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="320" y="43" width="22" height="13" fill="#c0392b" rx="1"/>
+
+        <!-- TFX-4 intake: per-motor scale so it ALSO looks red even though absolute W is low -->
+        <rect x="80" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="104" y="61" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="128" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="152" y="61" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="176" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="200" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="224" y="61" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="248" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="272" y="61" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="296" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="320" y="61" width="22" height="13" fill="#1a3a6b" rx="1"/>
+
+        <rect x="80" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="104" y="79" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="128" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="152" y="79" width="22" height="13" fill="#922b21" rx="1"/>
+        <rect x="176" y="79" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="200" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="224" y="79" width="22" height="13" fill="#e74c3c" rx="1"/>
+        <rect x="248" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="272" y="79" width="22" height="13" fill="#c0392b" rx="1"/>
+        <rect x="296" y="79" width="22" height="13" fill="#1a3a6b" rx="1"/>
+        <rect x="320" y="79" width="22" height="13" fill="#922b21" rx="1"/>
+
+        <defs>
+          <linearGradient id="heatB" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stop-color="#1a3a6b"/>
+            <stop offset="50%" stop-color="#c0392b"/>
+            <stop offset="100%" stop-color="#e74c3c"/>
+          </linearGradient>
+        </defs>
+        <rect x="80" y="100" width="200" height="8" fill="url(#heatB)" rx="2"/>
+        <text x="80" y="116" fill="#888" font-size="8">motor min</text>
+        <text x="248" y="116" fill="#888" font-size="8">motor max</text>
+      </svg>
+      <p style="font-size:11px;color:#e67e22;margin-top:8px">Note: intake row is equally vivid — you can see its duty cycle but not that it barely draws power.</p>
+    </div>
+  </div>
+</div>

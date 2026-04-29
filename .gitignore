@@ -170,3 +170,11 @@ faketele/
 old_2024_data/
 imported_data/
 
+# macOS
+.DS_Store
+
+# worktrees
+.worktrees/
+
+# add .! to start to manually exclude
+.!*.superpowers/

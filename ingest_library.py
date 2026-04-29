@@ -1,10 +1,13 @@
 from datetime import datetime
 import hashlib
 import os
+import platform
 from sqlite3 import connect
 import subprocess
 import numpy as np
+import sql_upsert as pdu
 import pandas as pd
+from sqlalchemy import create_engine
 import csv_converter
 
 def calculate_file_hash(filepath):
@@ -47,7 +50,19 @@ def read_device_logfile(filepath):
         print(f'Converting {filepath}')
         #convert hoot file to wpilog
         output_wpilog = "./converted_data/"+convert_folder+"/" + filepath[:pos].split("/")[-1] + ".wpilog"
-        subprocess.run(["./executables/owlet.exe", "-f", "wpilog", filepath, output_wpilog])
+
+        os.system('chmod +x executables/*')
+
+        executable = "owlet-2026-linux"
+        if platform.system() == "Windows":
+            executable = "owlet-2026-win.exe"
+        elif platform.system() == "Linux":
+            executable = "owlet-2026-linux"
+        elif platform.system() == "Darwin":
+            executable = "owlet-2026-mac"
+
+        subprocess.run(["./executables/" + executable, "-f", "wpilog", filepath, output_wpilog])
+
         #convert wpilog file to csv file
         csv_converter.csv_convert(output_wpilog, "./converted_data/"+convert_folder+"/")
         #remove wpilog intermediate
@@ -180,6 +195,8 @@ def parse_metadata_from_system(meta_df, fms_df):
         'MatchType': 'match_type',
         'IsRedAlliance': 'is_red_alliance',
         'StationNumber': 'station_num'}, inplace=True)
+
+    meta_df = meta_df.astype({'match_id':'int', 'replay_num':'int', 'match_type':'int'})
     
     return (meta_df)
 
@@ -238,8 +255,8 @@ def setup_db(db_name):
         project_name TEXT, 
         git_dirty TEXT, 
         event TEXT, 
-        match_id TEXT, 
-        replay_num TEXT, 
+        match_id INT, 
+        replay_num INT, 
         match_type TEXT, 
         is_red_alliance TEXT, 
         station_num TEXT)''')
@@ -248,11 +265,11 @@ def setup_db(db_name):
     #creates raw device data table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_data_raw (
         filename TEXT,
-        event_year TEXT, 
+        event_year INT, 
         event TEXT, 
-        match_id TEXT, 
-        match_type TEXT,
-        replay_num TEXT, 
+        match_id INT, 
+        match_type INT,
+        replay_num INT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT, 
@@ -269,11 +286,11 @@ def setup_db(db_name):
     
     #creates device telemetry table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_telemetry (
-        event_year TEXT,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         match_time REAL,
         subsystem TEXT,
         assembly TEXT,
@@ -288,11 +305,11 @@ def setup_db(db_name):
     
     #creates device_stats table
     cursor.execute('''CREATE TABLE IF NOT EXISTS device_stats (
-        event_year REAL,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         subsystem TEXT,
         assembly TEXT,
         subassembly TEXT,
@@ -322,11 +339,11 @@ def setup_db(db_name):
     #creates vision_data_raw table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_data_raw (
         filename TEXT,
-        event_year TEXT, 
+        event_year INT, 
         event TEXT, 
-        match_id TEXT, 
-        match_type TEXT,
-        replay_num TEXT, 
+        match_id INT, 
+        match_type INT,
+        replay_num INT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT, 
@@ -340,11 +357,11 @@ def setup_db(db_name):
     
     #creates vision telemetry table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_telemetry (
-        event_year TEXT,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         match_time REAL,
         camera TEXT,
         latency REAL,
@@ -353,11 +370,11 @@ def setup_db(db_name):
     
     #creates vision stats table
     cursor.execute('''CREATE TABLE IF NOT EXISTS vision_stats (
-        event_year TEXT,
+        event_year INT,
         event TEXT,
-        match_id TEXT,
-        match_type TEXT,
-        replay_num TEXT,
+        match_id INT,
+        match_type INT,
+        replay_num INT,
         camera TEXT,
         avg_latency REAL,
         min_latency REAL,
@@ -367,11 +384,11 @@ def setup_db(db_name):
     
     #creates raw device data table
     cursor.execute('''CREATE TABLE IF NOT EXISTS preferences (
-        event_year TEXT, 
+        event_year INT, 
         event TEXT, 
-        match_id TEXT, 
-        match_type TEXT,
-        replay_num TEXT, 
+        match_id INT, 
+        match_type INT,
+        replay_num INT, 
         entry TEXT, 
         data_type TEXT, 
         value TEXT)''')
@@ -382,7 +399,9 @@ def setup_db(db_name):
 #writes data frame to table via connection
 def write_dataframe(df, tablename, connection, filename = None):
 
-    df.to_sql(tablename, connection, if_exists='append', index=False)
+    #df.to_sql(tablename, connection, if_exists='append', index=False)
+    engine = create_engine('sqlite:///robot.db')
+    pdu.to_sql_upsert(df, tablename, engine, unique_columns=['filename'])
     connection.commit()
 
     if filename is not None:
@@ -591,5 +610,4 @@ def read_vision_data_raw (df):
         telemetry_df['latency'] = np.nan
         stats_df = None
         
-
     return(telemetry_df, stats_df)
