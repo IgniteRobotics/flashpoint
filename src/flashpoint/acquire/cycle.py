@@ -1,13 +1,18 @@
-"""One acquisition cycle: robot -> removable volumes -> ingest subprocess -> clear the inbox.
+"""One acquisition cycle: robot -> volumes -> ingest -> clear the inbox -> derive -> backup.
 
 A failure in one source never stops the others; every outcome lands in the `CycleResult`,
-which the watch loop writes as the status. Ingest (and the derive it starts) runs in a
-subprocess, so the watch process stays small. The backup step is a hook called last.
+which the watch loop writes as the status. Ingest (`--no-derive`) and derive run as separate
+subprocesses, each in its own process group, so the watch process stays small and a stop ends
+everything they started. Derive is retried on later cycles until it succeeds
+(`derive_pending`), so an inbox file can be cleared once ingested: raw storage holds it. The
+backup step is a hook called last.
 """
 
+import contextlib
 import dataclasses
 import logging
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -99,7 +104,13 @@ class IngestOutcome:
     crashed: bool  # non-zero exit with no ledger change: everything kept
     stopped: bool
     ledger_changed: bool
-    output: str  # the tail of ingest's (and derive's) output
+    output: str  # the tail of ingest's output
+
+
+@dataclass
+class DeriveOutcome:
+    returncode: int | None  # None when it could not start or was stopped
+    output: str  # the tail of derive's output
 
 
 @dataclass
@@ -113,6 +124,8 @@ class CycleResult:
     size_verified_hosts: list[str] = field(default_factory=list)
     inbox: list[InboxFile] = field(default_factory=list)
     ingest: IngestOutcome | None = None  # None: nothing to ingest, stopped, or dry run
+    derive: DeriveOutcome | None = None  # None: no derive owed, stopped, or dry run
+    derive_pending: bool = False  # derive still owed: pass it to the next run_cycle
     failed_pulls: list[dict[str, Any]] = field(default_factory=list)
     raw_changed: bool = False  # new files reached raw storage (for backup)
     ledger_changed: bool = False  # pulls, files or warnings changed (for backup)
@@ -148,10 +161,16 @@ def _describe(exc: BaseException) -> str:
 def ingest_command(paths: Sequence[Path], lake: LakePaths) -> list[str]:
     return [
         sys.executable, "-m", "flashpoint", "ingest", *map(str, paths), "--lake", str(lake.root),
+        "--no-derive",
     ]  # fmt: skip
 
 
+def derive_command(lake: LakePaths) -> list[str]:
+    return [sys.executable, "-m", "flashpoint", "derive", "--lake", str(lake.root)]
+
+
 IngestCommand = Callable[[Sequence[Path], LakePaths], list[str]]
+DeriveCommand = Callable[[LakePaths], list[str]]
 Connect = Callable[[AcquireConfig], RobotClient | None]
 
 
@@ -171,15 +190,19 @@ def run_cycle(
     sleep: Callable[[float], None] = time.sleep,
     connect: Connect = _connect,
     ingest_command: IngestCommand = ingest_command,
+    derive_command: DeriveCommand = derive_command,
+    derive_pending: bool = False,
     backup: Callable[["CycleResult"], None] | None = None,
 ) -> CycleResult:
     """Run one cycle. A set `stop` skips every remaining step.
 
     `dry_run` connects and lists, then reports `planned` files per source; it transfers,
-    ingests, clears and backs up nothing. `backup` is called last with the result (not on a
-    dry run or a stop); g7 wires the rclone backup in here.
+    ingests, clears, derives and backs up nothing. `derive_pending` is the previous cycle's
+    `result.derive_pending`: derive runs when it is set or when ingest changed the ledger, and
+    stays pending until it exits 0. `backup` is called last with the result (not on a dry run
+    or a stop); g7 wires the rclone backup in here.
     """
-    result = CycleResult(started=_now(), dry_run=dry_run)
+    result = CycleResult(started=_now(), dry_run=dry_run, derive_pending=derive_pending)
     result.sources.append(
         _robot_step(config, pulls, lake, result, stop, include_active, dry_run, sleep, connect)
     )
@@ -191,6 +214,12 @@ def run_cycle(
         except Exception as exc:  # noqa: BLE001 - the cycle must still report
             log.exception("inbox ingest failed")
             result.errors.append(f"inbox: {_describe(exc)}")
+    if not dry_run and result.derive_pending and not stop.is_set():
+        try:
+            _derive_step(lake, result, stop, derive_command)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("derive step failed")
+            result.errors.append(f"derive: {_describe(exc)}")
     if not dry_run:
         result.failed_pulls = pulls.failed()
         result.ledger_changed = result.ledger_changed or any(
@@ -353,13 +382,22 @@ def _inbox_step(
     ledger = Ledger(lake.ledger)
     try:
         ready = [_ready(path, sha, pulls, ledger) for path, sha in hashes.items()]
-        targets = [lake.inbox] if not unstable else [r.path for r in ready]
-        result.ingest = _run_ingest(targets, lake, ledger, stop, ingest_command)
-        if result.ingest.stopped:
-            return
-        result.ledger_changed |= result.ingest.ledger_changed
+        # Only the settled paths, never the inbox directory: ingest would re-walk it and pick
+        # up a drop that appeared after the settle wait. Files already done skip ingest.
+        targets = [r.path for r in ready if not r.was_done]
+        crashed = False
+        if targets:
+            result.ingest = _run_ingest(targets, lake, ledger, stop, ingest_command)
+            changed = result.ingest.ledger_changed
+            result.ledger_changed |= changed
+            result.raw_changed |= changed and result.ingest.stopped  # stored before the stop
+            result.derive_pending |= changed
+            if result.ingest.stopped:
+                return
+            crashed = result.ingest.crashed
         for item in ready:
-            result.inbox.append(_settle_file(item, lake.inbox, ledger, result))
+            kept = crashed and not item.was_done
+            result.inbox.append(_settle_file(item, lake.inbox, ledger, result, kept))
     finally:
         ledger.close()
     result.inbox += _unstable_entries(unstable)
@@ -383,11 +421,15 @@ def _ready(path: Path, sha: str, pulls: PullLedger, ledger: Ledger) -> _Ready:
     )
 
 
-def _settle_file(item: _Ready, inbox: Path, ledger: Ledger, result: CycleResult) -> InboxFile:
-    """Clear one inbox file once the ledger has it as success or quarantined."""
-    assert result.ingest is not None
+def _settle_file(
+    item: _Ready, inbox: Path, ledger: Ledger, result: CycleResult, kept: bool
+) -> InboxFile:
+    """Clear one inbox file once the ledger has it as success or quarantined.
+
+    Derive may still be pending; that is retried on its own, from the lake.
+    """
     stage = ledger.stage(item.sha256)
-    if result.ingest.crashed or stage not in _DONE_STAGES:
+    if kept or stage not in _DONE_STAGES:
         return InboxFile(item.path, item.sha256, item.origin, InboxOutcome.KEPT)
     if item.include_active:
         ledger.add_warning(item.sha256, INCOMPLETE_READ)
@@ -433,7 +475,8 @@ def _run_ingest(
     output: list[str] = []
     stopped = False
     for start in range(0, len(targets), INGEST_BATCH):
-        code, text = _run_one(ingest_command(targets[start : start + INGEST_BATCH], lake), stop)
+        argv = ingest_command(targets[start : start + INGEST_BATCH], lake)
+        code, text = _run_subprocess(argv, stop)
         output.append(text)
         if code is None:
             stopped = stop.is_set()
@@ -449,8 +492,52 @@ def _run_ingest(
     return IngestOutcome(returncode, crashed, stopped, changed, tail)
 
 
-def _run_one(argv: list[str], stop: threading.Event) -> tuple[int | None, str]:
-    """Run one ingest; (exit code, output). None: it could not start, or the stop flag ended it."""
+def _derive_step(
+    lake: LakePaths, result: CycleResult, stop: threading.Event, derive_command: DeriveCommand
+) -> None:
+    code, text = _run_subprocess(derive_command(lake), stop)
+    tail = text[-OUTPUT_TAIL_CHARS:]
+    result.derive = DeriveOutcome(code, tail)
+    if code is not None:
+        result.ledger_changed = True  # derive rewrites the derived tables
+    if code == 0:
+        result.derive_pending = False
+    elif not stop.is_set():
+        log.warning("derive exited with %s; retrying next cycle\n%s", code, tail)
+        result.errors.append(f"derive: exit {code}")
+
+
+def _new_process_group() -> dict[str, Any]:
+    if sys.platform == "win32":
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
+
+def _end_process_group(proc: "subprocess.Popen[str]") -> None:
+    """Ask the whole group to stop, then kill whatever is left after the grace period."""
+    if sys.platform == "win32":
+        proc.send_signal(signal.CTRL_BREAK_EVENT)  # delivered to the whole process group
+        try:
+            proc.wait(TERMINATE_GRACE_S)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        return
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(proc.pid, signal.SIGTERM)
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        proc.wait(TERMINATE_GRACE_S)
+    # The group id outlives the leader while any member is alive; kill stragglers too.
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(proc.pid, signal.SIGKILL)
+    proc.wait()
+
+
+def _run_subprocess(argv: list[str], stop: threading.Event) -> tuple[int | None, str]:
+    """Run ingest or derive in its own process group; (exit code, output).
+
+    None: it could not start, or the stop flag ended it (with everything it started).
+    """
     try:
         proc = subprocess.Popen(  # noqa: S603 - argv is our own interpreter and paths
             argv,
@@ -459,9 +546,10 @@ def _run_one(argv: list[str], stop: threading.Event) -> tuple[int | None, str]:
             stderr=subprocess.STDOUT,
             text=True,
             errors="replace",
+            **_new_process_group(),
         )
     except OSError as exc:
-        log.error("cannot start ingest: %s", exc)
+        log.error("cannot start %s: %s", argv[:4], exc)
         return None, _describe(exc)
     while True:
         try:
@@ -470,12 +558,7 @@ def _run_one(argv: list[str], stop: threading.Event) -> tuple[int | None, str]:
         except subprocess.TimeoutExpired:
             if stop.is_set():
                 break
-    proc.terminate()
-    try:
-        proc.wait(TERMINATE_GRACE_S)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
+    _end_process_group(proc)
     if proc.stdout is not None:
         proc.stdout.close()
     return None, ""
