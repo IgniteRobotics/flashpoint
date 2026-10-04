@@ -48,6 +48,10 @@ The system SHALL record, per hoot, whether it contains a Pro-licensed device. Em
 - **WHEN** corpus `2026-gadal-q11-empty` is ingested
 - **THEN** it is quarantined with reason `empty-file`, and no converter is run
 
+#### Scenario: Incomplete read kept and flagged
+- **WHEN** corpus `2026-gacmp-e10`'s `19-29-15` hoots are ingested (truncated by a real power loss; the converter reports it could not read to the end)
+- **THEN** the samples it could read are ingested, the hoot's read status is `incomplete`, and the file carries warning `incomplete-read`
+
 #### Scenario: Truncated hoot flagged
 - **WHEN** corpus `2026-gacmp-e10-truncated` is ingested alongside the rest of the E10 group
 - **THEN** the hoot is ingested, but marked with integrity warning `short-coverage`

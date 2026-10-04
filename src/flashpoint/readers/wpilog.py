@@ -9,7 +9,7 @@ Spec: https://github.com/wpilibsuite/allwpilib/blob/main/datalog/doc/datalog.ado
 """
 
 import struct
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -45,6 +45,7 @@ _TYPE_KIND = {
 }
 _KIND_SIZE = {KIND_F64: 8, KIND_F32: 4, KIND_I64: 8, KIND_BOOL: 1}
 _SCHEMA_PREFIX = "/.schema/"
+DEFAULT_WINDOW_BYTES = 32 << 20
 
 U8Array = npt.NDArray[np.uint8]
 I32Array = npt.NDArray[np.int32]
@@ -123,17 +124,17 @@ def _assign_compact(
     ctrl_kind: I32Array,
     ctrl_entry: I64Array,
     ctrl_cat: I32Array,
-    map_size: int,
-) -> tuple[I32Array, I64Array, I64Array, U32Array, int, int]:
-    """Map data records to catalog entries and compact them, in file order.
+    active: I32Array,
+) -> tuple[int, int]:
+    """Map data records to catalog entries and compact them in place, in file order.
 
-    Returns (catalog index, timestamp, offset, size, kept count, orphan count).
+    Catalog indices overwrite `ent` (viewed as int32); `ts`, `off`, and `sz` are compacted
+    alongside. Safe because the write slot never passes the read slot.
+    `active` (entry id -> catalog index) persists across streamed windows.
+    Returns (kept count, orphan count).
     """
-    active = np.full(map_size, -1, np.int32)
-    cat_out = np.empty(n, np.int32)
-    ts_out = np.empty(n, np.int64)
-    off_out = np.empty(n, np.int64)
-    sz_out = np.empty(n, np.uint32)
+    cat_out = ent.view(np.int32)
+    map_size = len(active)
     j = 0
     kept = 0
     orphans = 0
@@ -154,11 +155,11 @@ def _assign_compact(
             orphans += 1
             continue
         cat_out[kept] = c
-        ts_out[kept] = ts[i]
-        off_out[kept] = off[i]
-        sz_out[kept] = sz[i]
+        ts[kept] = ts[i]
+        off[kept] = off[i]
+        sz[kept] = sz[i]
         kept += 1
-    return cat_out, ts_out, off_out, sz_out, kept, orphans
+    return kept, orphans
 
 
 @njit(cache=True)
@@ -258,6 +259,8 @@ def _primitive(
 
 
 def _var_array(buf: U8Array, off: I64Array, sz: U32Array, mask: BoolArray) -> pa.Array:
+    if not mask.any():
+        return pa.nulls(len(off), pa.large_binary())
     data, offsets = _gather_var(buf, off, sz, mask)
     return pa.Array.from_buffers(
         pa.large_binary(),
@@ -314,6 +317,22 @@ class WpilogLog:
             _ts=self._ts[mask],
             _off=self._off[mask],
             _sz=self._sz[mask],
+        )
+
+    def sorted(self) -> "WpilogLog":
+        """A copy of this chunk ordered by (signal name, ts_us), as bronze row groups store it."""
+        if not len(self._cat):
+            return self
+        names = np.array([e.name for e in self.catalog], dtype=object)
+        rank = np.empty(len(names), np.int32)
+        rank[np.argsort(names, kind="stable")] = np.arange(len(names), dtype=np.int32)
+        order = np.lexsort((self._ts, rank[self._cat]))
+        return replace(
+            self,
+            _cat=self._cat[order],
+            _ts=self._ts[order],
+            _off=self._off[order],
+            _sz=self._sz[order],
         )
 
     def to_arrow(self) -> pa.Table:
@@ -376,89 +395,133 @@ def _inner_string(payload: bytes, pos: int) -> tuple[str, int]:
     return payload[pos + 4 : end].decode(errors="replace"), end
 
 
-def _decode_controls(
-    buf: U8Array, ent: U32Array, ts: I64Array, off: I64Array, sz: U32Array
-) -> tuple[list[CatalogEntry], I64Array, I32Array, I64Array, I32Array]:
-    positions = np.flatnonzero(ent == 0).astype(np.int64)
-    kinds = np.full(len(positions), -1, np.int32)
-    entries = np.full(len(positions), -1, np.int64)
-    cats = np.full(len(positions), -1, np.int32)
-    catalog: list[CatalogEntry] = []
-    latest: dict[int, int] = {}
-    for j, i in enumerate(positions):
-        start = int(off[i])
-        payload = bytes(buf[start : start + int(sz[i])])
-        if len(payload) < 5:
-            continue
-        kind = payload[0]
-        (entry_id,) = struct.unpack_from("<I", payload, 1)
-        try:
-            if kind == CONTROL_START and len(payload) >= 17:
-                name, p = _inner_string(payload, 5)
-                type_, p = _inner_string(payload, p)
-                metadata, _ = _inner_string(payload, p)
-                cats[j] = len(catalog)
-                latest[entry_id] = len(catalog)
-                catalog.append(
-                    CatalogEntry(len(catalog), entry_id, name, type_, metadata, int(ts[i]))
+class WpilogReader:
+    """Streaming reader: iterating yields `WpilogLog` chunks of complete records in file order.
+
+    The file is read in windows of `window_bytes` (the whole file if None), so memory is
+    bounded by the window, not the log. Totals (`records`, `orphan_records`,
+    `truncated_bytes`) and the shared `catalog` are complete once iteration finishes.
+    Raises WpilogError for an invalid header or an unsupported version.
+    """
+
+    def __init__(self, path: Path, window_bytes: int | None = DEFAULT_WINDOW_BYTES) -> None:
+        self.path = path
+        self.size = path.stat().st_size
+        if self.size < HEADER_FIXED_SIZE:
+            raise WpilogError("invalid-header", "file shorter than header")
+        with path.open("rb") as f:
+            head = f.read(HEADER_FIXED_SIZE)
+            if head[:6] != HEADER_MAGIC:
+                raise WpilogError("invalid-header", "missing WPILOG magic")
+            self.version = int.from_bytes(head[6:8], "little")
+            if self.version >> 8 != SUPPORTED_MAJOR:
+                raise WpilogError("unsupported-version", f"0x{self.version:04x}")
+            extra_len = int.from_bytes(head[8:12], "little")
+            self.data_start = HEADER_FIXED_SIZE + extra_len
+            if self.data_start > self.size:
+                raise WpilogError("invalid-header", "extra header overruns file")
+            self.extra_header = f.read(extra_len).decode(errors="replace")
+        self.window_bytes = window_bytes
+        self.catalog: list[CatalogEntry] = []
+        self.records = 0
+        self.orphan_records = 0
+        self.truncated_bytes = 0
+        self._latest: dict[int, int] = {}
+        self._active = np.full(256, -1, np.int32)
+
+    def __iter__(self) -> Iterator["WpilogLog"]:
+        pos = self.data_start
+        window = self.window_bytes or max(self.size - self.data_start, 1)
+        with self.path.open("rb") as f:
+            while pos < self.size:
+                f.seek(pos)
+                buf = np.frombuffer(f.read(window), dtype=np.uint8)
+                capacity = len(buf) // 4 + 1  # min record is 4 bytes; pages are touched lazily
+                ent = np.empty(capacity, np.uint32)
+                ts = np.empty(capacity, np.int64)
+                off = np.empty(capacity, np.int64)
+                sz = np.empty(capacity, np.uint32)
+                count, end = _scan(buf, 0, ent, ts, off, sz)
+                if count == 0:
+                    if pos + len(buf) >= self.size:
+                        break  # an incomplete record at the end of the file
+                    window *= 2  # a single record larger than the window
+                    continue
+                ctrl = self._decode_controls(buf, ent[:count], ts[:count], off[:count], sz[:count])
+                kept, orphans = _assign_compact(ent, ts, off, sz, count, *ctrl, self._active)
+                self.records += kept
+                self.orphan_records += orphans
+                pos += end
+                yield WpilogLog(
+                    path=self.path,
+                    version=self.version,
+                    extra_header=self.extra_header,
+                    catalog=self.catalog,
+                    truncated_bytes=0,
+                    orphan_records=orphans,
+                    _buf=buf,
+                    _cat=ent.view(np.int32)[:kept],
+                    _ts=ts[:kept],
+                    _off=off[:kept],
+                    _sz=sz[:kept],
                 )
-            elif kind == CONTROL_SET_METADATA and len(payload) >= 9:
-                metadata, _ = _inner_string(payload, 5)
-                if entry_id in latest:
-                    catalog[latest[entry_id]].metadata = metadata
-            elif kind != CONTROL_FINISH or len(payload) != 5:
+        self.truncated_bytes = self.size - pos
+
+    def _decode_controls(
+        self, buf: U8Array, ent: U32Array, ts: I64Array, off: I64Array, sz: U32Array
+    ) -> tuple[I64Array, I32Array, I64Array, I32Array]:
+        positions = np.flatnonzero(ent == 0).astype(np.int64)
+        kinds = np.full(len(positions), -1, np.int32)
+        entries = np.full(len(positions), -1, np.int64)
+        cats = np.full(len(positions), -1, np.int32)
+        for j, i in enumerate(positions):
+            start = int(off[i])
+            payload = bytes(buf[start : start + int(sz[i])])
+            if len(payload) < 5:
                 continue
-        except (ValueError, struct.error):
-            continue
-        kinds[j] = kind
-        entries[j] = entry_id
-    return catalog, positions, kinds, entries, cats
+            kind = payload[0]
+            (entry_id,) = struct.unpack_from("<I", payload, 1)
+            try:
+                if kind == CONTROL_START and len(payload) >= 17:
+                    name, p = _inner_string(payload, 5)
+                    type_, p = _inner_string(payload, p)
+                    metadata, _ = _inner_string(payload, p)
+                    index = len(self.catalog)
+                    cats[j] = index
+                    self._latest[entry_id] = index
+                    self.catalog.append(
+                        CatalogEntry(index, entry_id, name, type_, metadata, int(ts[i]))
+                    )
+                elif kind == CONTROL_SET_METADATA and len(payload) >= 9:
+                    metadata, _ = _inner_string(payload, 5)
+                    if entry_id in self._latest:
+                        self.catalog[self._latest[entry_id]].metadata = metadata
+                elif kind != CONTROL_FINISH or len(payload) != 5:
+                    continue
+            except (ValueError, struct.error):
+                continue
+            kinds[j] = kind
+            entries[j] = entry_id
+        if len(entries) and entries.max() >= len(self._active):
+            grown = np.full(int(entries.max()) * 2 + 1, -1, np.int32)
+            grown[: len(self._active)] = self._active
+            self._active = grown
+        return positions, kinds, entries, cats
 
 
 def read_wpilog(path: Path) -> WpilogLog:
-    """Decode a .wpilog file. Raises WpilogError for an invalid header or unsupported version."""
-    size = path.stat().st_size
-    if size < HEADER_FIXED_SIZE:
-        raise WpilogError("invalid-header", "file shorter than header")
-    buf: U8Array = np.memmap(path, dtype=np.uint8, mode="r")
-    if bytes(buf[:6]) != HEADER_MAGIC:
-        raise WpilogError("invalid-header", "missing WPILOG magic")
-    version = int(buf[6]) | (int(buf[7]) << 8)
-    if version >> 8 != SUPPORTED_MAJOR:
-        raise WpilogError("unsupported-version", f"0x{version:04x}")
-    extra_len = int.from_bytes(bytes(buf[8:12]), "little")
-    data_start = HEADER_FIXED_SIZE + extra_len
-    if data_start > size:
-        raise WpilogError("invalid-header", "extra header overruns file")
-    extra_header = bytes(buf[HEADER_FIXED_SIZE:data_start]).decode(errors="replace")
-
-    # Upper bound on record count (min record = 4 header bytes). np.empty is lazily paged,
-    # so only the slots actually written consume memory.
-    capacity = (size - data_start) // 4 + 1
-    ent = np.empty(capacity, np.uint32)
-    ts = np.empty(capacity, np.int64)
-    off = np.empty(capacity, np.int64)
-    sz = np.empty(capacity, np.uint32)
-    count, end = _scan(buf, data_start, ent, ts, off, sz)
-
-    catalog, ctrl_pos, ctrl_kind, ctrl_entry, ctrl_cat = _decode_controls(
-        buf, ent[:count], ts[:count], off[:count], sz[:count]
-    )
-    map_size = int(ctrl_entry.max()) + 1 if len(ctrl_entry) and ctrl_entry.max() >= 0 else 1
-    cat, ts_k, off_k, sz_k, kept, orphans = _assign_compact(
-        ent, ts, off, sz, count, ctrl_pos, ctrl_kind, ctrl_entry, ctrl_cat, map_size
-    )
-    del ent, ts, off, sz
-    return WpilogLog(
-        path=path,
-        version=version,
-        extra_header=extra_header,
-        catalog=catalog,
-        truncated_bytes=size - end,
-        orphan_records=orphans,
-        _buf=buf,
-        _cat=cat[:kept].copy(),
-        _ts=ts_k[:kept].copy(),
-        _off=off_k[:kept].copy(),
-        _sz=sz_k[:kept].copy(),
-    )
+    """Decode a whole .wpilog file into one in-memory log (use WpilogReader to stream)."""
+    reader = WpilogReader(path, window_bytes=None)
+    chunks = list(reader)
+    if chunks:
+        (log,) = chunks
+    else:
+        empty_i64 = np.empty(0, np.int64)
+        log = WpilogLog(
+            path, reader.version, reader.extra_header, reader.catalog, 0, 0,
+            np.empty(0, np.uint8), np.empty(0, np.int32), empty_i64, empty_i64,
+            np.empty(0, np.uint32),
+        )  # fmt: skip
+    log.truncated_bytes = reader.truncated_bytes
+    log.orphan_records = reader.orphan_records
+    return log

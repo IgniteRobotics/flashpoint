@@ -108,6 +108,17 @@ def parse_hoot_filename(name: str) -> HootName:
     return HootName(m["bus"], m["stamp"], m["event"], m["match"])
 
 
+def is_metadata_entry(entry: CatalogEntry) -> bool:
+    """Catalog entries metadata extraction reads (a tiny fraction of any log)."""
+    name = entry.name
+    return (
+        (name.rsplit("/", 2)[-2:-1] == ["FMSInfo"] and name.endswith(_FMS_FIELDS))
+        or (name.startswith("MetaData") and entry.type == "string")
+        or (name == "systemTime" and entry.type == "int64")
+        or name == INVENTORY_ENTRY
+    )
+
+
 def _last_non_empty(frame: pl.DataFrame, column: str) -> Any:
     values = frame.get_column(column).drop_nulls()
     if values.dtype == pl.String:
@@ -115,19 +126,20 @@ def _last_non_empty(frame: pl.DataFrame, column: str) -> Any:
     return values[-1] if len(values) else None
 
 
-def _fms(log: WpilogLog, meta: WpilogMetadata) -> None:
-    def is_fms(entry: CatalogEntry) -> bool:
-        return entry.name.rsplit("/", 2)[-2:-1] == ["FMSInfo"] and entry.name.endswith(_FMS_FIELDS)
+def _signals(frame: pl.DataFrame, predicate: pl.Expr) -> pl.DataFrame:
+    return frame.filter(predicate).sort("ts_us")
 
-    frame = log.subset(is_fms).samples()
-    if frame.is_empty():
+
+def _fms(frame: pl.DataFrame, meta: WpilogMetadata) -> None:
+    fms = _signals(frame, pl.col("name").str.contains(r"FMSInfo/[A-Za-z]+$"))
+    if fms.is_empty():
         return
-    frame = frame.with_columns(pl.col("signal").cast(pl.Utf8).str.split("/").list.last())
-    by_field = {key: group for (key,), group in frame.group_by("signal", maintain_order=True)}
+    fms = fms.with_columns(pl.col("name").str.split("/").list.last().alias("field"))
+    by_field = {key: group for (key,), group in fms.group_by("field", maintain_order=True)}
 
     def value(name: str, column: str) -> Any:
         group = by_field.get(name)
-        return None if group is None else _last_non_empty(group.sort("ts_us"), column)
+        return None if group is None else _last_non_empty(group, column)
 
     meta.fms_event = value("EventName", "v_str")
     meta.fms_red_alliance = value("IsRedAlliance", "v_bool")
@@ -142,21 +154,20 @@ def _fms(log: WpilogLog, meta: WpilogMetadata) -> None:
         setattr(meta, attr, int(number) if number else None)
 
 
-def _build_info(log: WpilogLog, meta: WpilogMetadata) -> None:
-    frame = log.subset(lambda e: e.name.startswith("MetaData") and e.type == "string").samples()
-    for text in frame.sort("ts_us").get_column("v_str").drop_nulls().to_list():
+def _build_info(frame: pl.DataFrame, meta: WpilogMetadata) -> None:
+    rows = _signals(frame, pl.col("name").str.starts_with("MetaData"))
+    for text in rows.get_column("v_str").drop_nulls().to_list():
         key, sep, val = text.partition(": ")  # split on the first ": " only
         if sep:
             meta.build[key.strip()] = val.strip()
 
 
-def _anchor(log: WpilogLog, meta: WpilogMetadata) -> None:
-    span = log.ts_range()
-    frame = log.subset(lambda e: e.name == "systemTime" and e.type == "int64").samples()
-    if not frame.is_empty():
-        frame = frame.filter(pl.col("v_i64") > _MIN_PLAUSIBLE_UTC_US)
-    if not frame.is_empty():
-        offsets = (frame.get_column("v_i64") - frame.get_column("ts_us")).to_numpy()
+def _anchor(frame: pl.DataFrame, span: tuple[int, int] | None, meta: WpilogMetadata) -> None:
+    sync = _signals(frame, pl.col("name") == "systemTime").filter(
+        pl.col("v_i64") > _MIN_PLAUSIBLE_UTC_US
+    )
+    if not sync.is_empty():
+        offsets = (sync.get_column("v_i64") - sync.get_column("ts_us")).to_numpy()
         meta.utc_offset_us = int(np.median(offsets))
         meta.anchor_source = "systemTime"
     elif meta.file.utc is not None:
@@ -187,19 +198,27 @@ def validate_inventory(payload: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def _inventory(log: WpilogLog, meta: WpilogMetadata) -> None:
-    frame = log.subset(lambda e: e.name == INVENTORY_ENTRY).samples().sort("ts_us")
-    for ts_us, payload in frame.select("ts_us", "v_str").iter_rows():
+def _inventory(frame: pl.DataFrame, meta: WpilogMetadata) -> None:
+    rows = _signals(frame, pl.col("name") == INVENTORY_ENTRY)
+    for ts_us, payload in rows.select("ts_us", "v_str").iter_rows():
         if payload is None:
             continue
         valid, error = validate_inventory(payload)
         meta.inventory.append(InventoryRecord(int(ts_us), payload, valid, error))
 
 
-def wpilog_metadata(log: WpilogLog, filename: str) -> WpilogMetadata:
+def metadata_from_frame(
+    frame: pl.DataFrame, span: tuple[int, int] | None, filename: str
+) -> WpilogMetadata:
+    """Build metadata from samples of `is_metadata_entry` signals (any order) and the log's span."""
+    frame = frame.with_columns(pl.col("signal").cast(pl.String).alias("name"))
     meta = WpilogMetadata(file=parse_wpilog_filename(filename))
-    _fms(log, meta)
-    _build_info(log, meta)
-    _anchor(log, meta)
-    _inventory(log, meta)
+    _fms(frame, meta)
+    _build_info(frame, meta)
+    _anchor(frame, span, meta)
+    _inventory(frame, meta)
     return meta
+
+
+def wpilog_metadata(log: WpilogLog, filename: str) -> WpilogMetadata:
+    return metadata_from_frame(log.subset(is_metadata_entry).samples(), log.ts_range(), filename)

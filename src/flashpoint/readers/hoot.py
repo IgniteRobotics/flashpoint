@@ -26,6 +26,9 @@ HEADER_SIZE = 72
 COMPLIANCY_OFFSET = 70
 MIN_COMPLIANCY = 6  # Phoenix 2024; older hoots cannot be decoded
 OWLET_TIMEOUT_S = 600
+# owlet prints this when a hoot ends mid-record (e.g. the robot lost power). It still
+# writes everything it could read, so the partial data is kept and flagged.
+INCOMPLETE_READ_MARKER = "Could not read to end of input file"
 
 PROFILES = ("health", "all")
 # Per-device health signals plus robot-level state. Raw hoots are kept, so this list
@@ -62,6 +65,7 @@ class HootConversion:
     profile: str
     signal_count: int
     bus_description: str
+    warnings: tuple[str, ...] = ()
 
 
 def read_header(path: Path) -> HootHeader:
@@ -157,21 +161,28 @@ def default_registry(cache_root: Path) -> OwletRegistry:
     return OwletRegistry(MANIFEST_PATH, cache_root / "owlet")
 
 
-def _run(args: list[str]) -> str:
+@dataclass(frozen=True)
+class _OwletOutput:
+    stdout: str
+    incomplete: bool
+
+
+def _run(args: list[str]) -> _OwletOutput:
     try:
         done = subprocess.run(args, capture_output=True, text=True, timeout=OWLET_TIMEOUT_S)
     except subprocess.TimeoutExpired as exc:
         raise HootError("owlet-timeout", " ".join(args[:2])) from exc
-    if done.returncode != 0:
+    incomplete = INCOMPLETE_READ_MARKER in done.stderr or INCOMPLETE_READ_MARKER in done.stdout
+    if done.returncode != 0 and not incomplete:
         detail = (done.stderr or done.stdout).strip().splitlines()[-1:] or [""]
         raise HootError("owlet-failed", detail[0])
-    return done.stdout
+    return _OwletOutput(done.stdout, incomplete)
 
 
 def scan_signals(owlet: Path, hoot_path: Path) -> dict[str, str]:
     """Map signal name -> owlet signal id (from `owlet --scan`)."""
     signals: dict[str, str] = {}
-    for line in _run([str(owlet), str(hoot_path), "--scan"]).splitlines():
+    for line in _run([str(owlet), str(hoot_path), "--scan"]).stdout.splitlines():
         name, sep, signal_id = line.rpartition(":")
         if sep and name.strip() and signal_id.strip():
             signals[name.strip()] = signal_id.strip()
@@ -188,7 +199,7 @@ def select_signals(signals: dict[str, str], profile: str) -> list[str] | None:
 
 
 def check_pro(owlet: Path, hoot_path: Path) -> bool:
-    return "is pro-licensed" in _run([str(owlet), str(hoot_path), "--check-pro"]).lower()
+    return "is pro-licensed" in _run([str(owlet), str(hoot_path), "--check-pro"]).stdout.lower()
 
 
 def convert(
@@ -209,7 +220,9 @@ def convert(
         if not selected:
             raise HootError("no-signals-for-profile", profile)
         args += ["-s", ",".join(selected)]
-    _run(args)
+    output = _run(args)
+    if not wpilog.is_file() or wpilog.stat().st_size == 0:
+        raise HootError("owlet-failed", "no output written")
     return HootConversion(
         wpilog=wpilog,
         compliancy=header.compliancy,
@@ -218,4 +231,5 @@ def convert(
         profile=profile,
         signal_count=len(signals) if selected is None else len(selected),
         bus_description=header.bus_description,
+        warnings=("incomplete-read",) if output.incomplete else (),
     )

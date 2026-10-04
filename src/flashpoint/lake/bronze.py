@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,18 @@ import pyarrow.parquet as pq
 from flashpoint.lake.paths import LakePaths
 
 ROW_GROUP_SIZE = 1_000_000
+EMPTY_SCHEMA = pa.schema(
+    [
+        ("signal", pa.dictionary(pa.int32(), pa.string())),
+        ("type", pa.dictionary(pa.int32(), pa.string())),
+        ("ts_us", pa.int64()),
+        ("v_f64", pa.float64()),
+        ("v_i64", pa.int64()),
+        ("v_bool", pa.bool_()),
+        ("v_str", pa.large_string()),
+        ("v_bytes", pa.large_binary()),
+    ]
+)
 
 
 def _sorted(table: pa.Table) -> pa.Table:
@@ -25,22 +38,44 @@ def _sorted(table: pa.Table) -> pa.Table:
     return table.take(pc.sort_indices(keys, [("r", "ascending"), ("t", "ascending")]))
 
 
-def write(lake: LakePaths, table: pa.Table, season: str, log_id: str, run_id: str) -> Path:
-    """Write a log's samples to staging, then move them into place in one rename."""
+def write(
+    lake: LakePaths,
+    tables: pa.Table | Iterable[pa.Table],
+    season: str | Callable[[], str],
+    log_id: str,
+    run_id: str,
+    presorted: bool = False,
+) -> Path:
+    """Write a log's samples to staging, then move them into place in one rename.
+
+    Accepts one table, or an iterable of tables streamed into a single file as row groups
+    (bounded memory). Samples are stored sorted by (signal, ts_us); pass presorted=True when
+    the caller already ordered them. `season` may be a callable, resolved after every
+    table is written (it can depend on metadata gathered while streaming).
+    """
     stage_dir = lake.staging / run_id / f"log_id={log_id}"
     stage_dir.mkdir(parents=True, exist_ok=True)
     part = stage_dir / "part-0.parquet"
-    pq.write_table(
-        _sorted(table) if table.num_rows else table,
-        part,
-        compression="zstd",
-        compression_level=3,
-        row_group_size=ROW_GROUP_SIZE,
-    )
+    chunks = [tables] if isinstance(tables, pa.Table) else tables
+    writer: pq.ParquetWriter | None = None
+    try:
+        for table in chunks:
+            ordered = table if presorted or not table.num_rows else _sorted(table)
+            if writer is None:
+                writer = pq.ParquetWriter(
+                    part, ordered.schema, compression="zstd", compression_level=3
+                )
+            writer.write_table(ordered, row_group_size=ROW_GROUP_SIZE)
+    finally:
+        if writer is not None:
+            writer.close()
+    if writer is None:
+        pq.write_table(EMPTY_SCHEMA.empty_table(), part)
     with part.open("rb") as f:
         os.fsync(f.fileno())
 
-    target = lake.bronze / f"season={season}" / f"log_id={log_id}"
+    resolved = season() if callable(season) else season
+    target = lake.bronze / f"season={resolved}" / f"log_id={log_id}"
     target.parent.mkdir(parents=True, exist_ok=True)
     trash = lake.staging / run_id / f"replaced-{log_id}"
     for existing in lake.bronze.glob(f"season=*/log_id={log_id}"):
