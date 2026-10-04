@@ -32,11 +32,19 @@ Converter binaries SHALL be obtained from a pinned manifest of version, platform
 - **THEN** it is not executed, and the user is told to re-fetch it
 
 ### Requirement: Signal profiles
-Conversion SHALL support named signal profiles. `health` is the default: per-device voltages, currents, temperatures, velocity, position, duty cycle, enable state, faults, and firmware version, plus robot enable and mode. `all` exports every signal. The profile used SHALL be recorded per log.
+Conversion SHALL support named signal profiles.
+- `health` is the default. It covers per-device voltages, currents, temperatures, velocity, position, duty cycle, enable state, faults, and firmware version, plus robot enable and mode. It also includes rotor (motor-shaft) velocity, the device-reported motor constants (torque constant, velocity constant, stall current), and the drivetrain pose used for clock alignment.
+- `all` exports every signal.
+
+The profile used SHALL be recorded per log.
 
 #### Scenario: Default profile
 - **WHEN** a hoot is ingested without specifying a profile
 - **THEN** only `health`-profile signals appear in the output, and the log's metadata records `profile = health`
+
+#### Scenario: Alignment and physics signals present
+- **WHEN** corpus `2026-gacmp-q7`'s CANivore hoot is ingested with the default profile
+- **THEN** its output includes the drivetrain pose and each TalonFX's motor constants
 
 ### Requirement: Licensing and integrity reporting
 The system SHALL record, per hoot, whether it contains a Pro-licensed device. Empty or unreadable hoots SHALL be quarantined. Because the converter does not reject truncated hoots, the system SHALL flag a hoot whose signal coverage ends well before its sibling logs.
