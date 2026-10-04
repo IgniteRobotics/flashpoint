@@ -24,6 +24,7 @@ from flashpoint.semantics.alignment import (
     align_by_payload,
     hoot_bus_agreement_us,
 )
+from flashpoint.semantics.framing import Framing, frame, modes_from_ds
 from flashpoint.semantics.identity import DeviceSighting, InventoryEvent, resolve_identity
 from flashpoint.semantics.match_identity import identify
 from flashpoint.semantics.robot_config import RobotConfig, load_robots, select_robot
@@ -297,6 +298,64 @@ class Deriver:
         self.ledger.replace_rows("slot_observations", observations)
         self.ledger.replace_rows("unit_swaps", swaps)
         self.ledger.replace_rows("unmapped_devices", unmapped)
+
+    # --- match framing -------------------------------------------------------------------
+
+    def framing_for(self, session_id: str) -> Framing:
+        hoots = self.ledger.query(
+            "SELECT log_id, offset_us FROM session_hoots"
+            " WHERE session_id = ? AND offset_us IS NOT NULL",
+            (session_id,),
+        )
+        transitions: list[tuple[int, str]] = []
+        for hoot in hoots:
+            modes = self.con.sql(
+                "SELECT ts_us, v_str FROM samples"
+                " WHERE log_id = ? AND signal = 'RobotMode' ORDER BY ts_us",
+                params=[hoot["log_id"]],
+            ).fetchall()
+            transitions += [(ts + hoot["offset_us"], mode) for ts, mode in modes if mode]
+        if transitions:
+            return frame(transitions, "hoot-robot-mode")
+        session = self.ledger.query(
+            "SELECT wpilog_id FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        wpilog_id = session[0]["wpilog_id"] if session else None
+        if wpilog_id is None:
+            return frame([], "none")
+        ds = self._samples(wpilog_id, "signal IN ('DS:enabled', 'DS:autonomous')")
+        enabled = (
+            ds.filter(pl.col("signal") == "DS:enabled")
+            .sort("ts_us")
+            .select("ts_us", "v_bool")
+            .rows()
+        )
+        auto = (
+            ds.filter(pl.col("signal") == "DS:autonomous")
+            .sort("ts_us")
+            .select("ts_us", "v_bool")
+            .rows()
+        )
+        return frame(modes_from_ds(enabled, auto), "ds")
+
+    def derive_framing(self) -> dict[str, Framing]:
+        framings: dict[str, Framing] = {}
+        rows = []
+        for session in self.ledger.query("SELECT session_id FROM sessions"):
+            framing = self.framing_for(session["session_id"])
+            framings[session["session_id"]] = framing
+            rows += [
+                {
+                    "session_id": session["session_id"],
+                    "phase": p.name,
+                    "start_us": p.start_us,
+                    "end_us": p.end_us,
+                    "source": framing.source,
+                }
+                for p in framing.phases
+            ]
+        self.ledger.replace_rows("match_phases", rows)
+        return framings
 
 
 _DEVICE = re.compile(r"^Phoenix6/(?P<model>[A-Za-z0-9]+)-(?P<id>\d+)/")
