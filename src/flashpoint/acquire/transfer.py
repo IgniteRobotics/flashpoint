@@ -31,6 +31,7 @@ PART_SUFFIX = ".part"
 CHUNK_BYTES = 1024 * 1024  # the stop flag is checked between chunks
 ROBOT_ERRORS: tuple[type[BaseException], ...] = (OSError, EOFError, paramiko.SSHException)
 _UNSAFE_DIR_CHARS = re.compile(r'[<>:"/\\|?*]')  # not allowed in a Windows directory name
+_UNSAFE_PART_CHARS = ("\\", ":")  # a Windows separator; an NTFS alternate data stream
 
 F = TypeVar("F", bound=Hashable)
 
@@ -158,7 +159,8 @@ class CopyJob:
 
     `open_source` opens the source for reading. `expected_sha256` is called after the copy:
     the robot's `sha256sum`, or a re-hash of a volume file; None means size-verified.
-    `source_errors` are the exceptions that mean the read failed (anything else propagates).
+    `source_errors` are the exceptions that mean the read failed (anything else propagates);
+    FileNotFoundError means the file vanished, which fails the attempt but not the source.
     """
 
     key: PullKey
@@ -184,7 +186,9 @@ class _AttemptFailedError(Exception):
 def inbox_path(inbox: Path, source: str, relpath: str) -> Path:
     """`inbox/<source>/<relpath>`; `relpath` is POSIX and must stay inside the source folder."""
     parts = relpath.split("/")
-    if relpath.startswith("/") or any(p in ("", ".", "..") for p in parts):
+    if relpath.startswith("/") or any(
+        p in ("", ".", "..") or any(c in p for c in _UNSAFE_PART_CHARS) for p in parts
+    ):
         raise ValueError(f"unsafe relative path: {relpath!r}")
     return inbox.joinpath(_UNSAFE_DIR_CHARS.sub("_", source), *parts)
 
@@ -225,6 +229,8 @@ def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> Tr
             raise _AttemptFailedError("size-mismatch", source_lost=False)
         try:
             expected = job.expected_sha256()
+        except FileNotFoundError as exc:  # rotated away after the copy; the source is fine
+            raise _AttemptFailedError("vanished", source_lost=False) from exc
         except job.source_errors as exc:
             raise _AttemptFailedError(f"hash-error: {exc}", source_lost=True) from exc
         if expected is not None and expected.lower() != digest:
@@ -293,7 +299,11 @@ class _RobotHash:
             return None
         if self._missing:
             return None
-        digest = self._client.remote_sha256(f.remote_path)
+        try:
+            digest = self._client.remote_sha256(f.remote_path)
+        except OSError:
+            self._client.stat(f.remote_path)  # FileNotFoundError if the file is gone
+            raise
         if digest is None:
             self._missing = True
             log.warning(
