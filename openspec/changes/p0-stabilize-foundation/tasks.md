@@ -48,4 +48,4 @@
 - [x] 8.1 Do `retire-legacy-code` stage 1 on this branch (tracked in that change's tasks)
 - [ ] 8.2 Open the PR, and confirm CI is green
 - [ ] 8.3 Turn on branch protection for `main`: require a PR, 1 review, and the CI checks; `enforce_admins` off
-- [ ] 8.4 Mark P0 as in progress in `docs/rewrite/06-roadmap.md`. List the open [HUMAN] tasks in the PR body
+- [x] 8.4 Mark P0 as in progress in `docs/rewrite/06-roadmap.md`. List the open [HUMAN] tasks in the PR body
