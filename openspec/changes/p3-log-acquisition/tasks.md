@@ -7,8 +7,8 @@
 
 ## 2. Fake robot server (test infrastructure)
 
-- [ ] 2.1 An in-process paramiko SFTP/exec server fixture on a random localhost port, serving a temp directory; exec handles `sha256sum` and `df -Pk`
-- [ ] 2.2 Fault switches: drop after N bytes, wrong hash, no `sha256sum` (exit 127), low `df`, auth reject, rotated host key; a self-test proves each switch works
+- [x] 2.1 An in-process paramiko SFTP/exec server fixture on a random localhost port, serving a temp directory; exec handles `sha256sum` and `df -Pk`
+- [x] 2.2 Fault switches: drop after N bytes, wrong hash, no `sha256sum` (exit 127), low `df`, auth reject, rotated host key; a self-test proves each switch works
 
 ## 3. Robot client (spec: log-acquisition)
 
