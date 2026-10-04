@@ -149,3 +149,47 @@ def test_q7_silver(corpus_lake: Any) -> None:
         t_max > 290_000_000
     )  # hoot data runs past the wpilog's end (213 s) to teleop end (291.6 s)
     assert teleop_rows > 10_000
+
+
+def test_full_derive_gold_and_noop_rerun(corpus_lake: Any) -> None:
+    import time
+
+    import duckdb
+
+    deriver = Deriver(corpus_lake, config.config_root())
+    try:
+        first = deriver.run(force=True)
+        second = deriver.run()
+    finally:
+        deriver.close()
+    assert first["rebuilt"] == first["sessions"]
+    assert second["rebuilt"] == 0
+
+    gold = corpus_lake.root / "gold" / "match_features" / "*" / "*" / "*.parquet"
+    q7 = duckdb.sql(
+        f"SELECT phase, count(*), count(DISTINCT slot_id), min(alignment), max(alignment)"
+        f" FROM read_parquet('{gold}', hive_partitioning = true)"
+        " WHERE match_key = '2026gacmp_qm7' GROUP BY phase ORDER BY phase"
+    ).fetchall()
+    assert q7 == [
+        ("auto", 17, 17, "high", "high"),
+        ("match", 17, 17, "high", "high"),
+        ("teleop", 17, 17, "high", "high"),
+    ]
+
+    drive = duckdb.sql(
+        f"SELECT stator_current_p95, supply_energy_wh, temp_max_c, residual_p95_a, flags"
+        f" FROM read_parquet('{gold}', hive_partitioning = true)"
+        " WHERE match_key = '2026gacmp_qm7' AND phase = 'match' AND slot_id = 'drive-fl'"
+    ).fetchone()
+    assert drive is not None
+    p95, energy, temp_max, residual, flags = drive
+    assert 10 < p95 < 200 and 0 < energy < 20 and 20 < temp_max < 80
+    assert residual is not None and flags == ""
+
+    started = time.perf_counter()
+    duckdb.sql(
+        f"SELECT slot_id, max(temp_max_c) FROM read_parquet('{gold}', hive_partitioning = true)"
+        " WHERE season = '2026' AND subsystem = 'drivetrain' GROUP BY slot_id"
+    ).fetchall()
+    assert time.perf_counter() - started < 1.0

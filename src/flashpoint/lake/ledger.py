@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS match_phases (
     session_id TEXT NOT NULL, phase TEXT NOT NULL, start_us INTEGER, end_us INTEGER,
     source TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS derived_state (
+    session_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, silver_rows INTEGER, gold_rows INTEGER
+);
 CREATE TABLE IF NOT EXISTS unmapped_devices (
     session_id TEXT NOT NULL, bus TEXT, model TEXT, can_id INTEGER, source TEXT
 );
@@ -80,6 +83,7 @@ DERIVED_TABLES = (
     "unit_swaps",
     "unmapped_devices",
     "match_phases",
+    "derived_state",
 )
 
 

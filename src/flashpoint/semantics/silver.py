@@ -132,7 +132,6 @@ def write_session(
             LEFT JOIN phase_ranges p ON (p.start_us IS NULL OR d.t_us >= p.start_us)
                 AND (p.end_us IS NULL OR d.t_us < p.end_us)
             WHERE d.value IS NOT NULL
-            ORDER BY s.slot_id, m.metric, d.t_us
         """  # noqa: S608 - ids and offsets are internal hex/int values
         con.execute(f"COPY ({query}) TO '{target}' (FORMAT parquet, COMPRESSION zstd)")
         total += con.sql(f"SELECT count(*) FROM read_parquet('{target}')").fetchone()[0]  # type: ignore[index]

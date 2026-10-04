@@ -18,7 +18,8 @@ BUDGET_RSS_BYTES = 1 << 30
 # Runs the CLI in a fresh process and reports its own peak RSS.
 # Linux keeps ru_maxrss across exec (a child inherits the parent's high-water mark), so there
 # the process's own peak comes from VmHWM, which exec resets. For the same reason, children's
-# ru_maxrss on Linux is inflated by the forking parent, so the owlet peak is asserted on macOS only.
+# ru_maxrss on Linux is inflated by the forking parent, so the children's peak (owlet conversions
+# and the derive subprocess) is asserted on macOS only.
 _MEASURE = """
 import json, resource, sys
 from flashpoint.cli import main
@@ -35,7 +36,7 @@ code = main(sys.argv[1:])
 scale = 1 if sys.platform == "darwin" else 1024  # Linux reports KiB
 print(json.dumps({
     "flashpoint_peak_bytes": own_peak(),
-    "owlet_peak_bytes": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * scale,
+    "children_peak_bytes": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * scale,
 }))
 sys.exit(code)
 """
@@ -74,13 +75,14 @@ def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_p
     elapsed = time.perf_counter() - started
     peaks = json.loads(done.stdout.strip().splitlines()[-1])
     flashpoint_mb = peaks["flashpoint_peak_bytes"] / 2**20
-    owlet_mb = peaks["owlet_peak_bytes"] / 2**20
+    children_mb = peaks["children_peak_bytes"] / 2**20
 
     print(json.dumps({"elapsed_s": round(elapsed, 2), "flashpoint_peak_mb": round(flashpoint_mb),
-                      "owlet_peak_mb": round(owlet_mb)}))  # fmt: skip
+                      "children_peak_mb": round(children_mb)}))  # fmt: skip
     assert done.returncode == 0, done.stdout + done.stderr
     assert "3 ingested" in done.stdout
+    assert "derived 1 of 1 session(s)" in done.stdout  # ingest + derive (P2)
     assert elapsed < BUDGET_S
     assert peaks["flashpoint_peak_bytes"] < BUDGET_RSS_BYTES
     if sys.platform == "darwin":
-        assert peaks["owlet_peak_bytes"] < BUDGET_RSS_BYTES
+        assert peaks["children_peak_bytes"] < BUDGET_RSS_BYTES

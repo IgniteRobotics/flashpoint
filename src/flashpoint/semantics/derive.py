@@ -3,7 +3,11 @@
 Everything here is rebuildable without raw logs or network access.
 """
 
+import hashlib
+import json
 import re
+import shutil
+import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -12,10 +16,12 @@ from typing import Any
 import duckdb
 import polars as pl
 
+from flashpoint import config as fp_config
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.query import connect
 from flashpoint.meta.extract import parse_hoot_filename
+from flashpoint.semantics import gold
 from flashpoint.semantics.alignment import (
     HOOT_ENABLE,
     WPILOG_ENABLE,
@@ -36,6 +42,7 @@ from flashpoint.semantics.robot_config import RobotConfig, load_robots, select_r
 from flashpoint.semantics.sessions import HootGroup, HootLog, Session, WpilogLog, group_sessions
 from flashpoint.semantics.silver import HootInSession, write_session
 
+DUCKDB_MEMORY_LIMIT = "512MB"
 _SAMPLE_COLUMNS = "signal::VARCHAR AS signal, type::VARCHAR AS type, ts_us, v_f64, v_bytes, v_bool"
 
 
@@ -64,6 +71,12 @@ class Deriver:
     def con(self) -> duckdb.DuckDBPyConnection:
         if self._con is None:
             self._con = connect(self.lake)
+            # Bounded memory: DuckDB defaults to 80% of RAM; spill large sorts/joins to the lake.
+            spill = self.lake.root / "tmp" / "duckdb"
+            spill.mkdir(parents=True, exist_ok=True)
+            self._con.execute(f"SET memory_limit = '{DUCKDB_MEMORY_LIMIT}'")
+            self._con.execute(f"SET temp_directory = '{spill}'")
+            self._con.execute("SET preserve_insertion_order = false")
         return self._con
 
     def close(self) -> None:
@@ -365,10 +378,14 @@ class Deriver:
 
     # --- silver ---------------------------------------------------------------------------
 
-    def derive_silver(self, framings: dict[str, Framing], run_id: str) -> dict[str, int]:
+    def derive_silver(
+        self, framings: dict[str, Framing], run_id: str, only: set[str] | None = None
+    ) -> dict[str, int]:
         robots = {r.robot: r for r in self.robots}
         counts: dict[str, int] = {}
         for session in self.ledger.query("SELECT * FROM sessions WHERE robot != 'unknown'"):
+            if only is not None and session["session_id"] not in only:
+                continue
             robot = robots.get(session["robot"])
             hoot_rows = self.ledger.query(
                 "SELECT log_id, bus, offset_us FROM session_hoots"
@@ -400,6 +417,89 @@ class Deriver:
                 observations, framings[session["session_id"]], run_id,
             )  # fmt: skip
         return counts
+
+    # --- full run ------------------------------------------------------------------------
+
+    def _fingerprint(self, session_id: str, framing: Framing) -> str:
+        parts = {
+            "pipeline": fp_config.PIPELINE_VERSION,
+            "session": self.ledger.query(
+                "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+            ),
+            "hoots": self.ledger.query(
+                "SELECT * FROM session_hoots WHERE session_id = ? ORDER BY log_id", (session_id,)
+            ),
+            "units": self.ledger.query(
+                "SELECT * FROM slot_observations WHERE session_id = ? ORDER BY slot_id, from_ts_us",
+                (session_id,),
+            ),
+            "phases": [p.__dict__ for p in framing.phases],
+            "robots": [r.model_dump(mode="json") for r in self.robots],
+        }
+        return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()
+
+    def run(self, force: bool = False) -> dict[str, int]:
+        """Sessions, identity, framing, then silver and gold for sessions whose inputs changed."""
+        run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-derive"
+        self.derive_sessions()
+        self.derive_identity()
+        framings = self.derive_framing()
+        previous = {
+            r["session_id"]: r["fingerprint"]
+            for r in self.ledger.query("SELECT * FROM derived_state")
+        }
+        current = {sid: self._fingerprint(sid, f) for sid, f in framings.items()}
+        stale = {sid for sid, fp in current.items() if force or previous.get(sid) != fp}
+        silver_counts = self.derive_silver(
+            {sid: framings[sid] for sid in stale}, run_id, only=stale
+        )
+        robots = {r.robot: r for r in self.robots}
+        state = {
+            sid: r
+            for sid, r in (
+                (r["session_id"], r) for r in self.ledger.query("SELECT * FROM derived_state")
+            )
+        }
+        for session in self.ledger.query("SELECT * FROM sessions"):
+            sid = session["session_id"]
+            if sid not in stale:
+                continue
+            robot = robots.get(session["robot"])
+            hoots = self.ledger.query(
+                "SELECT log_id, confidence FROM session_hoots WHERE session_id = ?", (sid,)
+            )
+            rank = {"high": 0, "low": 1, "very-low": 2, None: 3}
+            alignment = max(
+                (h["confidence"] for h in hoots), key=lambda c: rank.get(c, 3), default=None
+            )
+            sources = ",".join(
+                sorted(
+                    [h["log_id"] for h in hoots]
+                    + ([session["wpilog_id"]] if session["wpilog_id"] else [])
+                )
+            )
+            rows = (
+                gold.session_features(
+                    self.con, self.lake, session, framings[sid], robot, alignment or "none", sources
+                )
+                if robot is not None and session["match_key"]
+                else []
+            )
+            gold.write_session(self.lake, session["season"], sid, rows, run_id)
+            state[sid] = {
+                "session_id": sid,
+                "fingerprint": current[sid],
+                "silver_rows": silver_counts.get(sid, 0),
+                "gold_rows": len(rows),
+            }
+        state = {sid: row for sid, row in state.items() if sid in current}
+        self.ledger.replace_rows("derived_state", list(state.values()))
+        for staging in (
+            self.lake.root / "silver" / "_staging",
+            self.lake.root / "gold" / "_staging",
+        ):
+            shutil.rmtree(staging, ignore_errors=True)
+        return {"sessions": len(current), "rebuilt": len(stale)}
 
 
 _DEVICE = re.compile(r"^Phoenix6/(?P<model>[A-Za-z0-9]+)-(?P<id>\d+)/")
