@@ -83,7 +83,10 @@ class PullLedger:
         return row is None or row["status"] == PullStatus.PENDING
 
     def record_failure(self, key: PullKey, reason: str) -> PullStatus:
-        """Count a failed attempt. The third one makes the pull `failed`."""
+        """Count a failed attempt. The third one makes the pull `failed`.
+
+        A `verified` or `size-verified` row is left as it is; its status is returned.
+        """
         now = _now()
         with self._db:
             self._db.execute(
@@ -95,8 +98,16 @@ class PullLedger:
             self._db.execute(
                 "UPDATE pulls SET attempts = attempts + 1, reason = ?,"
                 " status = CASE WHEN attempts + 1 >= ? THEN ? ELSE ? END"
-                " WHERE source_id = ? AND remote_path = ? AND size = ? AND mtime_ns = ?",
-                (reason, MAX_ATTEMPTS, PullStatus.FAILED, PullStatus.PENDING, *key._identity),
+                " WHERE source_id = ? AND remote_path = ? AND size = ? AND mtime_ns = ?"
+                " AND status NOT IN (?, ?)",  # never demote a finished pull
+                (
+                    reason,
+                    MAX_ATTEMPTS,
+                    PullStatus.FAILED,
+                    PullStatus.PENDING,
+                    *key._identity,
+                    *_DONE,
+                ),
             )
         row = self.get(key)
         assert row is not None
