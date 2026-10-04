@@ -12,10 +12,10 @@
 
 ## 3. Robot client (spec: log-acquisition)
 
-- [ ] 3.1 Tests first: candidate order and tether fallback, no robot is not an error, `auth_none` then password, host-key record/change warning, auth error logged once per hour
-- [ ] 3.2 Implement `RobotClient.connect` with timeouts and the known-robots store
-- [ ] 3.3 Tests first: recursive listing under both roots, a missing root skipped silently, relpaths kept, `remote_sha256`, `free_bytes` with the `statvfs` fallback
-- [ ] 3.4 Implement listing, hashing, and free space; the low-space warning sets and clears
+- [x] 3.1 Tests first: candidate order and tether fallback, no robot is not an error, `auth_none` then password, host-key record/change warning, auth error logged once per hour
+- [x] 3.2 Implement `RobotClient.connect` with timeouts and the known-robots store
+- [x] 3.3 Tests first: recursive listing under both roots, a missing root skipped silently, relpaths kept, `remote_sha256`, `free_bytes` with the `statvfs` fallback
+- [x] 3.4 Implement listing, hashing, and free space; the low-space warning sets and clears
 
 ## 4. Selection and verified transfer (spec: log-acquisition)
 
