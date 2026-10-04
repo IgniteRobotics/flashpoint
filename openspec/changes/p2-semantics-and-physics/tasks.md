@@ -41,9 +41,9 @@
 
 ## 8. Physics (spec: motor-physics)
 
-- [ ] 8.1 Port the power-tracking analyzer tests (time-weighted, no zero-fill, signed velocity), plus the spec scenarios (19 A mean, 2.0 Wh, 2 s stall)
-- [ ] 8.2 Time-weighted stats, power and energy, thermal rise rate, stall time
-- [ ] 8.3 Residual from device constants. First confirm the units of `MotorKV` and `MotorStallCurrent` against the Q7 values and WPILib's Kraken X60 model; near-zero-residual test on a free-spin segment; `no-motor-constants` path
+- [x] 8.1 Port the power-tracking analyzer tests (time-weighted, no zero-fill, signed velocity), plus the spec scenarios (19 A mean, 2.0 Wh, 2 s stall)
+- [x] 8.2 Time-weighted stats, power and energy, thermal rise rate, stall time
+- [x] 8.3 Residual from device constants. First confirm the units of `MotorKV` and `MotorStallCurrent` against the Q7 values and WPILib's Kraken X60 model; near-zero-residual test on a free-spin segment; `no-motor-constants` path
 
 ## 9. Gold and commands (spec: match-features)
 
