@@ -24,10 +24,12 @@ The rule for the rewrite: **only build what is Flashpoint-specific**, meaning li
   - Without a Pro-licensed device in the log, only a fixed free subset exports.
   - For Talon FX that subset is SupplyCurrent, StatorCurrent, MotorVoltage, Position, Velocity, and fault booleans.
   - It does **not** include continuous DeviceTemp (CTR Electronics, n.d.-a).
+  - **P0 finding (2026-10-04):** the team's 2025 and 2026 hoots are Pro-licensed, so everything exports (ADR-0005).
 - **Prior art for version handling.** AdvantageScope's `owletInterface.ts`:
   - picks "an owlet executable capable of opening the Hoot log",
   - spawns `owlet <hoot> <wpilog> -f wpilog`,
   - uses `owlet --check-pro` (Mechanical Advantage, 2026).
+  - **P0 finding (2026-10-04):** `owlet --compliancy` reports the hoot format version (2025: 13, 2026: 19). That is the key for choosing an owlet version (ADR-0004).
 
   **Copy this design.**
 - **Hoot Replay** needs a Pro-licensed device (CTR Electronics, n.d.-d). It isn't relevant to analytics.
