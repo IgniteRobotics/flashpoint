@@ -91,7 +91,10 @@ def test_detect_skips_root_symlink_and_queries_each_entry(
     root = tmp_path / "Volumes"
     root.mkdir()
     (root / "ROBOTLOGS").mkdir()
-    (root / "Macintosh HD").symlink_to("/")
+    try:
+        (root / "Macintosh HD").symlink_to("/")
+    except OSError:
+        pytest.skip("symlinks unavailable")
     calls: list[list[str]] = []
 
     def fake_run(args: list[str]) -> bytes:
@@ -102,6 +105,32 @@ def test_detect_skips_root_symlink_and_queries_each_entry(
     found = macos.detect_macos(volumes_dir=root)
     assert [v.label for v in found] == ["ROBOTLOGS"]
     assert calls == [["diskutil", "info", "-plist", str(root / "ROBOTLOGS")]]
+
+
+def test_detect_skips_entry_whose_diskutil_exits_nonzero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "STALE").mkdir()
+    (tmp_path / "ROBOTLOGS").mkdir()
+
+    def fake_run(args: list[str]) -> bytes:
+        if args[-1].endswith("STALE"):
+            raise volumes.CommandFailedError("diskutil failed (exit 1)")
+        return _load("usb-stick.plist")
+
+    monkeypatch.setattr(volumes, "run_os_command", fake_run)
+    assert [v.label for v in macos.detect_macos(volumes_dir=tmp_path)] == ["ROBOTLOGS"]
+
+
+def test_detect_timeout_still_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "X").mkdir()
+
+    def fake_run(args: list[str]) -> bytes:
+        raise volumes.VolumeDetectionError("diskutil timed out")
+
+    monkeypatch.setattr(volumes, "run_os_command", fake_run)
+    with pytest.raises(volumes.VolumeDetectionError):
+        macos.detect_macos(volumes_dir=tmp_path)
 
 
 def test_detect_missing_volumes_dir_is_empty(tmp_path: Path) -> None:
@@ -144,4 +173,5 @@ def test_run_os_command_passes_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(subprocess, "run", ok)
     assert volumes.run_os_command(["x"]) == b"hi"
+    assert seen["stdin"] == subprocess.DEVNULL
     assert seen["timeout"] == volumes.OS_CALL_TIMEOUT_S == 10.0
