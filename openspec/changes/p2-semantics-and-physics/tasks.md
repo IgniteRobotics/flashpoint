@@ -36,8 +36,8 @@
 
 ## 7. Silver (spec: telemetry-lake)
 
-- [ ] 7.1 Tests first: metric normalization, clock shift onto the wpilog clock, phase and match time per sample, atomic per-session write
-- [ ] 7.2 Implement the `silver/samples` writer (streamed per hoot window, bounded memory)
+- [x] 7.1 Tests first: metric normalization, clock shift onto the wpilog clock, phase and match time per sample, atomic per-session write
+- [x] 7.2 Implement the `silver/samples` writer (streamed per hoot window, bounded memory)
 
 ## 8. Physics (spec: motor-physics)
 
