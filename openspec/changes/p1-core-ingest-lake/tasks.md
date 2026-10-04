@@ -33,12 +33,12 @@
 
 ## 5. Log metadata (spec: log-metadata)
 
-- [ ] 5.1 FMS fields (last non-empty), absent rather than empty
-- [ ] 5.2 Build metadata parsing that splits on the first `": "` only
-- [ ] 5.3 Wall-clock anchor from `systemTime` (linear fit), with the filename as fallback and the source recorded
+- [x] 5.1 FMS fields (last non-empty), absent rather than empty
+- [x] 5.2 Build metadata parsing that splits on the first `": "` only
+- [x] 5.3 Wall-clock anchor from `systemTime` (linear fit), with the filename as fallback and the source recorded
 - [ ] 5.4 Hoot metadata: bus from the filename, compliancy, owlet version, Pro, profile, first and last timestamp
-- [ ] 5.5 CAN inventory capture and schema-v1 validation (synthetic fixture: valid, error payload, malformed)
-- [ ] 5.6 Corpus tests: Q7 resolves to GACMP Q7 from FMS; `2025-nofms` has no FMS match; anchor scenario; bus detection
+- [x] 5.5 CAN inventory capture and schema-v1 validation (synthetic fixture: valid, error payload, malformed)
+- [x] 5.6 Corpus tests: Q7 resolves to GACMP Q7 from FMS; `2025-nofms` has no FMS match; anchor scenario; bus detection
 
 ## 6. Ingest orchestration and CLI
 

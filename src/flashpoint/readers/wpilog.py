@@ -9,7 +9,8 @@ Spec: https://github.com/wpilibsuite/allwpilib/blob/main/datalog/doc/datalog.ado
 """
 
 import struct
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -296,6 +297,24 @@ class WpilogLog:
 
     def __len__(self) -> int:
         return len(self._cat)
+
+    def ts_range(self) -> tuple[int, int] | None:
+        """(min, max) sample timestamp in microseconds, or None for an empty log."""
+        if not len(self._ts):
+            return None
+        return int(self._ts.min()), int(self._ts.max())
+
+    def subset(self, keep: Callable[[CatalogEntry], bool]) -> "WpilogLog":
+        """A view restricted to catalog entries matching `keep` (cheap; no payload copies)."""
+        wanted = np.array([keep(e) for e in self.catalog] or [False], dtype=np.bool_)
+        mask = wanted[self._cat] if len(self._cat) else np.zeros(0, np.bool_)
+        return replace(
+            self,
+            _cat=self._cat[mask],
+            _ts=self._ts[mask],
+            _off=self._off[mask],
+            _sz=self._sz[mask],
+        )
 
     def to_arrow(self) -> pa.Table:
         """Long-format samples in file order.
