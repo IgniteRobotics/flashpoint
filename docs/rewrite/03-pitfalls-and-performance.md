@@ -90,11 +90,12 @@ Severity: 🔴 data loss/corruption or won't run · 🟠 wrong results · 🟡 p
 
 - **Hoot licensing.**
   - "Any log that contains a pro-licensed device will export all signals. Otherwise, [only a listed subset] … can be exported for free" (CTR Electronics, n.d.-a). Continuous `DeviceTemp` is not on the free Talon FX list.
-  - Find out whether the team's logs have Pro devices. AdvantageScope probes this with `owlet --check-pro` (Mechanical Advantage, 2026).
-  - If they don't, log temperature through NetworkTables or wpilog.
+  - **P0 finding (2026-10-04):** `owlet --check-pro` (as used by Mechanical Advantage, 2026) reports the team's 2025 and 2026 hoots as Pro-licensed, so all signals export. The ingest records `pro_licensed` per log in case that ever changes (ADR-0005).
 - **owlet versioning.**
   - Tuner X documents an "API Version Mismatch" error that "may happen if your hoot file was generated using an old version of Phoenix" (CTR Electronics, n.d.-c).
   - Pick the owlet version from the log, not from the host OS or the folder name.
+  - **P0 finding (2026-10-04):** `owlet --compliancy` prints the hoot's format version: 19 for 2026 logs and 13 for 2025 logs. owlet 26.1.0 reads that version for older hoots but refuses to convert them. Select by compliancy ([ADR-0004](../adr/0004-owlet-registry-by-compliancy.md)).
+  - **P0 finding (2026-10-04):** owlet converts a truncated hoot **without error** (corpus `2026-gacmp-e10-truncated`), so ingest must detect corrupt tails itself, for example from signal timestamp coverage.
 - **Timestamps.** wpilog timestamps are "64-bit integer microseconds. The zero time is not specified" (WPILib Developers, 2022). Anchor them to wall-clock time using the `systemTime` entry.
 - **Match identity.**
   - Filenames are `FRC_yyyyMMdd_HHmmss_{event}_{P|Q|E}{n}.wpilog` (WPILib Developers, 2026b). `E{n}` doesn't map directly to TBA's `sf`/`f` + set-number keys (The Blue Alliance, n.d.).

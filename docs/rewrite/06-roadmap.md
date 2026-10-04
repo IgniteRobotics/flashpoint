@@ -51,7 +51,7 @@ gantt
   - First open `http://<rio>:1250/?action=getdevices` against the current Phoenix 6 robot to confirm the field names. The only documented example is from Phoenix 5 (CTR Electronics, n.d.-h).
   - Ship it before the next practice session, because every log recorded without it becomes a legacy-identity log.
   - Back-fill a `units` seed: walk each robot and spare shelf with Tuner X, record each serial against its slot, and label the motors physically.
-- **Pro check:** run `owlet --check-pro` (Mechanical Advantage, 2026) on the corpus. If it fails, open a robot-code issue to log DeviceTemp through NT (CTR Electronics, n.d.-a).
+- **Pro check:** run `owlet --check-pro` (Mechanical Advantage, 2026) on the corpus. ✅ Done 2026-10-04: all hoots are Pro-licensed (ADR-0005). `--compliancy` was also found to be the owlet selection key (ADR-0004).
 - **Exit:** ADRs merged, corpus available, CI skeleton green, `/Flashpoint/CANInventory` present in a fresh log from every robot.
 
 ### P1 — Core readers & lake (L)
@@ -157,7 +157,7 @@ gantt
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Logs are not Pro, so no hoot temperature | High | High | P0 probe. Robot-side NT logging of DeviceTemp |
+| ~~Logs are not Pro, so no hoot temperature~~ | Retired | — | P0 confirmed the logs are Pro-licensed (ADR-0005). `doctor` flags any log that isn't |
 | owlet / Phoenix format changes mid-season | Medium | High | Registry plus `doctor`. Pin the robot's Phoenix version during events |
 | Logs rotate out before they're pulled | Medium | High | P3 free-space alerts. A USB drive on the robot |
 | Student turnover leaves the code unmaintained | High | Medium | Small core, typed, tested, ADRs, marimo notebooks as the on-ramp |

@@ -174,4 +174,4 @@ flowchart TD
 | wpilog `NT:/photonvision/*` | latencyMillis, hasTarget, plus about 10 unused per camera | |
 | wpilog `NT:/Preferences/*` | All tunables | Stored as text |
 | wpilog `DS:enabled` | Enable edge | Used for match framing |
-| hoot `Phoenix6/TalonFX-N/*` | SupplyVoltage, SupplyCurrent, StatorCurrent, MotorVoltage, Velocity, Position, DeviceTemp | Without Pro, DeviceTemp **is not** exportable (CTR Electronics, n.d.-a) |
+| hoot `Phoenix6/TalonFX-N/*` | SupplyVoltage, SupplyCurrent, StatorCurrent, MotorVoltage, Velocity, Position, DeviceTemp | Without Pro, DeviceTemp **is not** exportable (CTR Electronics, n.d.-a). The team's logs are Pro-licensed (P0 check, ADR-0005) |

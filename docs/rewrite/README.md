@@ -26,7 +26,7 @@ Flashpoint ingests FRC robot logs (WPILib `.wpilog` and CTRE Phoenix 6 `.hoot`).
   - Don't rebuild AdvantageScope. Link to it.
 
   See [05-target-architecture.md](05-target-architecture.md) and [06-roadmap.md](06-roadmap.md).
-- **Biggest external risk:** without a Pro-licensed device, CTRE's free hoot export does **not** include continuous `DeviceTemp` (CTR Electronics, n.d.-a). Thermal trending, the best early failure signal, may need to be logged through NetworkTables or wpilog instead.
+- **Temperature risk, retired in P0:** without a Pro-licensed device, CTRE's free hoot export excludes continuous `DeviceTemp` (CTR Electronics, n.d.-a). **P0 finding (2026-10-04):** `owlet --check-pro` reports the team's 2025 and 2026 hoots as **Pro-licensed**, so thermal trending from hoot works ([ADR-0005](../adr/0005-temperature-source.md)).
 
 ## Documents
 
