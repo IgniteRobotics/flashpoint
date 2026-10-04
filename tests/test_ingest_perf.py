@@ -1,7 +1,6 @@
 """Ingest budget (spec: telemetry-lake / Ingest budget): one qual match < 30 s and < 1 GB."""
 
 import json
-import resource
 import subprocess
 import sys
 import time
@@ -16,9 +15,17 @@ BUDGET_S = 30.0
 BUDGET_RSS_BYTES = 1 << 30
 
 
-def _max_rss_bytes() -> int:
-    rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-    return rss if sys.platform == "darwin" else rss * 1024  # Linux reports KiB
+_MEASURE = """
+import json, resource, sys
+from flashpoint.cli import main
+code = main(sys.argv[1:])
+scale = 1 if sys.platform == "darwin" else 1024  # Linux reports KiB
+print(json.dumps({
+    "flashpoint_peak_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale,
+    "owlet_peak_bytes": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * scale,
+}))
+sys.exit(code)
+"""
 
 
 def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_path: Path) -> None:
@@ -35,8 +42,8 @@ def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_p
     done = subprocess.run(
         [
             sys.executable,
-            "-m",
-            "flashpoint",
+            "-c",
+            _MEASURE,
             "ingest",
             "--lake",
             str(tmp_path / "lake"),
@@ -46,10 +53,14 @@ def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_p
         text=True,
     )
     elapsed = time.perf_counter() - started
-    peak = _max_rss_bytes()
+    peaks = json.loads(done.stdout.strip().splitlines()[-1])
+    flashpoint_mb = peaks["flashpoint_peak_bytes"] / 2**20
+    owlet_mb = peaks["owlet_peak_bytes"] / 2**20
 
-    print(json.dumps({"elapsed_s": round(elapsed, 2), "peak_rss_mb": round(peak / 2**20)}))
+    print(json.dumps({"elapsed_s": round(elapsed, 2), "flashpoint_peak_mb": round(flashpoint_mb),
+                      "owlet_peak_mb": round(owlet_mb)}))  # fmt: skip
     assert done.returncode == 0, done.stdout + done.stderr
     assert "3 ingested" in done.stdout
     assert elapsed < BUDGET_S
-    assert peak < BUDGET_RSS_BYTES
+    assert peaks["flashpoint_peak_bytes"] < BUDGET_RSS_BYTES
+    assert peaks["owlet_peak_bytes"] < BUDGET_RSS_BYTES
