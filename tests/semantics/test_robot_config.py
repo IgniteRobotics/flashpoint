@@ -30,7 +30,7 @@ def _write(tmp_path: Path, text: str, name: str = "r.toml") -> Path:
 
 def test_repo_2026_config_is_valid() -> None:
     robot = load_robot(REPO_CONFIG / "2026-comp.toml")
-    assert len(robot.slots) == 18
+    assert len(robot.slots) == 23
     assert robot.slot_for("rio", "TalonFX", 10).id == "intake-roller-follower"  # type: ignore[union-attr]
     assert robot.slot_for(CANIVORE, "TalonFX", 11).id == "drive-fl"  # type: ignore[union-attr]
     assert robot.slot_for("rio", "TalonFX", 11) is None
@@ -76,4 +76,5 @@ def test_select_robot_by_project_and_season(tmp_path: Path) -> None:
     assert select_robot(robots, "Robot-2026", "2026").robot == "r"  # type: ignore[union-attr]
     assert select_robot(robots, "Robot-2026", "2025").robot == "old"  # type: ignore[union-attr]
     assert select_robot(robots, "Other", "2026") is None
-    assert select_robot(robots, None, "2026") is None
+    assert select_robot(robots, None, "2026").robot == "r"  # type: ignore[union-attr]  # season's only robot
+    assert select_robot(robots, None, "2024") is None

@@ -160,3 +160,44 @@ model = "TalonFX"
 can_id = 8
 subsystem = "shooter"
 role = "hood"
+
+# --- sensors (CANivore) ------------------------------------------------------------------
+[[slot]]
+id = "gyro"
+bus = "canivore"
+model = "Pigeon2"
+can_id = 10
+subsystem = "drivetrain"
+role = "gyro"
+
+[[slot]]
+id = "encoder-fl"
+bus = "canivore"
+model = "CANcoder"
+can_id = 13
+subsystem = "drivetrain"
+role = "front-left steer encoder"
+
+[[slot]]
+id = "encoder-fr"
+bus = "canivore"
+model = "CANcoder"
+can_id = 23
+subsystem = "drivetrain"
+role = "front-right steer encoder"
+
+[[slot]]
+id = "encoder-bl"
+bus = "canivore"
+model = "CANcoder"
+can_id = 33
+subsystem = "drivetrain"
+role = "back-left steer encoder"
+
+[[slot]]
+id = "encoder-br"
+bus = "canivore"
+model = "CANcoder"
+can_id = 43
+subsystem = "drivetrain"
+role = "back-right steer encoder"

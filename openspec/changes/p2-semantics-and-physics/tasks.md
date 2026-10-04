@@ -8,7 +8,7 @@
 
 - [x] 2.1 Add pydantic. Tests first for the config model: valid load, unknown key, duplicate slot, bad date, `canivore` bus matching
 - [x] 2.2 Loader: `config/robots/*.toml`; robot selection by project and season; `robot = unknown` fallback
-- [x] 2.3 Seed `config/robots/2026-comp.toml` from Robot-2026 `development` constants and the Q7 `ConnectedMotor` scan (18 slots; 17 present in Q7)
+- [x] 2.3 Seed `config/robots/2026-comp.toml` from Robot-2026 `development` constants and the Q7 `ConnectedMotor` scan (23 slots: 18 motors and 5 sensors; 22 present in Q7)
 - [x] 2.4 `tools/migrate-legacy-config.py`: the 2025 device CSVs become `2025-comp.toml` (`Pheonix6` fixed); the report lists NT-only rows as unmapped
 - [x] 2.5 `flashpoint doctor` reports each robot's config and its TBD or unmapped slots
 
@@ -26,8 +26,8 @@
 
 ## 5. Device identity (spec: device-identity)
 
-- [ ] 5.1 Tests first: slot resolution (bus, model, CAN id); legacy epochs from swap dates; inventory serial units; mid-session swap split; unmapped device report
-- [ ] 5.2 Implement the slots, units, and observations tables (ledger and snapshots)
+- [x] 5.1 Tests first: slot resolution (bus, model, CAN id); legacy epochs from swap dates; inventory serial units; mid-session swap split; unmapped device report
+- [x] 5.2 Implement the slots, units, and observations tables (ledger and snapshots)
 
 ## 6. Match framing (spec: match-framing)
 

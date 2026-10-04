@@ -51,6 +51,17 @@ CREATE TABLE IF NOT EXISTS session_hoots (
     offset_us INTEGER, method TEXT, confidence TEXT, spread_us INTEGER, matches INTEGER,
     bus_agreement_us INTEGER
 );
+CREATE TABLE IF NOT EXISTS slot_observations (
+    session_id TEXT NOT NULL, slot_id TEXT NOT NULL, unit_id TEXT NOT NULL, source TEXT NOT NULL,
+    from_ts_us INTEGER, to_ts_us INTEGER
+);
+CREATE TABLE IF NOT EXISTS unit_swaps (
+    session_id TEXT NOT NULL, slot_id TEXT NOT NULL, ts_us INTEGER NOT NULL,
+    old_unit TEXT NOT NULL, new_unit TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS unmapped_devices (
+    session_id TEXT NOT NULL, bus TEXT, model TEXT, can_id INTEGER, source TEXT
+);
 CREATE TABLE IF NOT EXISTS inventory (
     log_id TEXT NOT NULL, ts_us INTEGER NOT NULL, payload TEXT NOT NULL,
     valid INTEGER NOT NULL, error TEXT
@@ -58,7 +69,13 @@ CREATE TABLE IF NOT EXISTS inventory (
 """
 _SQL_TO_ARROW = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64()}
 METADATA_TABLES = ("logs", "hoot_logs", "entries", "inventory")
-DERIVED_TABLES = ("sessions", "session_hoots")
+DERIVED_TABLES = (
+    "sessions",
+    "session_hoots",
+    "slot_observations",
+    "unit_swaps",
+    "unmapped_devices",
+)
 
 
 class Stage(StrEnum):
