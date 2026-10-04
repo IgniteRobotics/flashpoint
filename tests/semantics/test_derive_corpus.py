@@ -66,3 +66,28 @@ def test_e10_restart_after_wpilog_end_is_separate(derived: dict[str, Any]) -> No
 def test_practice_and_2025_sessions(derived: dict[str, Any]) -> None:
     keys = {s["match_key"] for s in derived["sessions"].values()}
     assert {"2026gacmp_pm2", "2025gadal_qm30"} <= keys
+
+
+def test_q7_slots_are_legacy_units(corpus_lake: Any) -> None:
+    deriver = Deriver(corpus_lake, config.config_root())
+    try:
+        deriver.derive_sessions()
+        deriver.derive_identity()
+        q7 = deriver.ledger.query(
+            "SELECT o.slot_id, o.unit_id, o.source FROM slot_observations o"
+            " JOIN sessions s USING (session_id) WHERE s.match_key = '2026gacmp_qm7'"
+        )
+        unmapped = deriver.ledger.query(
+            "SELECT u.* FROM unmapped_devices u JOIN sessions s USING (session_id)"
+            " WHERE s.match_key = '2026gacmp_qm7'"
+        )
+    finally:
+        deriver.close()
+    assert len(q7) == 22  # 17 motors + gyro + 4 steer encoders
+    assert {o["source"] for o in q7} == {"legacy"}
+    assert {
+        "slot_id": "drive-fl",
+        "unit_id": "legacy:2026-comp:drive-fl:0",
+        "source": "legacy",
+    } in q7
+    assert unmapped == []

@@ -3,8 +3,9 @@
 Everything here is rebuildable without raw logs or network access.
 """
 
+import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ from flashpoint.semantics.alignment import (
     align_by_payload,
     hoot_bus_agreement_us,
 )
+from flashpoint.semantics.identity import DeviceSighting, InventoryEvent, resolve_identity
 from flashpoint.semantics.match_identity import identify
 from flashpoint.semantics.robot_config import RobotConfig, load_robots, select_robot
 from flashpoint.semantics.sessions import HootGroup, HootLog, Session, WpilogLog, group_sessions
@@ -231,3 +233,77 @@ class Deriver:
         self.ledger.replace_rows("sessions", session_rows)
         self.ledger.replace_rows("session_hoots", hoot_rows)
         return sessions, aligned
+
+    # --- device identity -----------------------------------------------------------------
+
+    def _sightings(self, session_id: str) -> list[DeviceSighting]:
+        rows = self.ledger.query(
+            "SELECT DISTINCT sh.bus, e.name FROM session_hoots sh JOIN entries e USING (log_id)"
+            " WHERE sh.session_id = ? AND e.name LIKE 'Phoenix6/%'",
+            (session_id,),
+        )
+        found = set()
+        for row in rows:
+            match = _DEVICE.match(row["name"])
+            if match:
+                found.add(DeviceSighting(row["bus"], match["model"], int(match["id"])))
+        return sorted(found, key=lambda d: (d.bus, d.model, d.can_id))
+
+    def derive_identity(self) -> None:
+        robots = {r.robot: r for r in self.robots}
+        observations, swaps, unmapped = [], [], []
+        for session in self.ledger.query(
+            "SELECT s.*, l.utc_start FROM sessions s LEFT JOIN logs l ON l.log_id = s.wpilog_id"
+        ):
+            robot = robots.get(session["robot"])
+            if robot is None:
+                continue
+            day = _session_day(session)
+            inventories = [
+                InventoryEvent(r["ts_us"], r["payload"])
+                for r in self.ledger.query(
+                    "SELECT ts_us, payload FROM inventory WHERE log_id = ? ORDER BY ts_us",
+                    (session["wpilog_id"],),
+                )
+            ]
+            result = resolve_identity(
+                session["session_id"],
+                robot,
+                day,
+                self._sightings(session["session_id"]),
+                inventories,
+            )
+            observations += [o.__dict__ for o in result.observations]
+            swaps += [
+                {
+                    "session_id": session["session_id"],
+                    "slot_id": s,
+                    "ts_us": t,
+                    "old_unit": a,
+                    "new_unit": b,
+                }
+                for s, t, a, b in result.swaps
+            ]
+            unmapped += [
+                {
+                    "session_id": session["session_id"],
+                    "bus": b,
+                    "model": m,
+                    "can_id": i,
+                    "source": src,
+                }
+                for b, m, i, src in result.unmapped
+            ]
+        self.ledger.replace_rows("slot_observations", observations)
+        self.ledger.replace_rows("unit_swaps", swaps)
+        self.ledger.replace_rows("unmapped_devices", unmapped)
+
+
+_DEVICE = re.compile(r"^Phoenix6/(?P<model>[A-Za-z0-9]+)-(?P<id>\d+)/")
+
+
+def _session_day(session: dict[str, Any]) -> date:
+    if session.get("utc_start"):
+        return datetime.fromisoformat(session["utc_start"]).date()
+    stamp = session["session_id"].removeprefix("hoot-")[:10]
+    return date.fromisoformat(stamp)

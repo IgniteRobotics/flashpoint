@@ -34,8 +34,10 @@ class Slot(BaseModel):
         raise ValueError("bus must be 'rio', 'canivore', or a 32-hex CANivore id")
 
     def matches_bus(self, bus: str) -> bool:
+        """`canivore` matches any non-rio bus: hoot files name it by its hex id, while the
+        diagnostics server (CAN inventory) reports its configured name, e.g. "DriveTrain"."""
         if self.bus == "canivore":
-            return bool(CANIVORE_ID.match(bus))
+            return bus.lower() != "rio"
         return self.bus.lower() == bus.lower()
 
 
@@ -64,6 +66,7 @@ class RobotConfig(BaseModel):
         return self
 
     def slot_for(self, bus: str, model: str, can_id: int) -> Slot | None:
+        model = model.replace(" ", "")  # inventory reports "Talon FX"; hoot says "TalonFX"
         for slot in self.slots:
             if slot.model == model and slot.can_id == can_id and slot.matches_bus(bus):
                 return slot
@@ -84,8 +87,12 @@ def load_robots(directory: Path) -> list[RobotConfig]:
 
 
 def select_robot(robots: list[RobotConfig], project: str | None, season: str) -> RobotConfig | None:
-    """The robot whose code project and season match a log (None if no unique match)."""
+    """The robot whose code project and season match a log (None if no unique match).
+
+    Without a project (hoot-only sessions have no wpilog), the season's only robot is used.
+    """
+    in_season = [r for r in robots if str(r.season) == season]
     if project is None:
-        return None
-    matches = [r for r in robots if r.project == project and str(r.season) == season]
+        return in_season[0] if len(in_season) == 1 else None
+    matches = [r for r in in_season if r.project == project]
     return matches[0] if len(matches) == 1 else None

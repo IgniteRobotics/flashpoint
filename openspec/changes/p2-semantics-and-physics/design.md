@@ -45,7 +45,7 @@ swaps = ["2026-03-20"]            # optional; legacy unit epochs
 ```
 - `bus = "canivore"` matches any 32-hex CANivore id. A specific id can be pinned later if a robot has two.
 - pydantic is a new runtime dependency. It's familiar to students and gives good error messages (D-config).
-- **Seed:** `2026-comp.toml` comes from Robot-2026 `development` (`TunerConstants`, subsystem constants) plus the Q7 `ConnectedMotor` scan. 18 slots. TalonFX-10 is the intake roller follower. TalonFX-14 (intake extension follower) was added after GACMP, so it doesn't appear in the corpus. Swerve gear ratios: drive 6.746, steer 21.43.
+- **Seed:** `2026-comp.toml` comes from Robot-2026 `development` (`TunerConstants`, subsystem constants) plus the Q7 `ConnectedMotor` scan. 23 slots: 18 motors, plus the Pigeon2 gyro (10) and 4 CANcoders (13/23/33/43), which the first corpus run reported as unmapped. TalonFX-10 is the intake roller follower. TalonFX-14 (intake extension follower) was added after GACMP, so it doesn't appear in the corpus. Swerve gear ratios: drive 6.746, steer 21.43.
 - **Migration:** `tools/migrate-legacy-config.py` converts the 2025 device CSVs into `2025-comp.toml`, fixes `Pheonix6`, and reports NT-only rows as unmapped (non-goal above).
 
 ### Match identity
