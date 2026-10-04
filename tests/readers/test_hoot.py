@@ -134,3 +134,14 @@ def test_convert_unknown_profile(fake_registry: OwletRegistry, tmp_path: Path) -
     src.write_bytes(_hoot_bytes(19))
     with pytest.raises(ValueError, match="profile"):
         hoot.convert(src, tmp_path / "out", fake_registry, profile="bogus")
+
+
+def test_concurrent_first_download_is_safe(fake_registry: OwletRegistry) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        paths = list(pool.map(lambda _: fake_registry.binary_for(19), range(16)))
+
+    assert len(set(paths)) == 1
+    assert fake_registry.binary_for(19, download=False) == paths[0]
+    assert not list(paths[0].parent.glob("*.part"))
