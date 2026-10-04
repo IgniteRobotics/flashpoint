@@ -1,11 +1,14 @@
 """macOS removable-volume detection via `diskutil info -plist`."""
 
+import logging
 import plistlib
 from pathlib import Path
 from typing import Any
 
 from flashpoint.acquire import volumes
-from flashpoint.acquire.volumes import Volume, VolumeDetectionError
+from flashpoint.acquire.volumes import CommandFailedError, Volume, VolumeDetectionError
+
+log = logging.getLogger(__name__)
 
 VOLUMES_DIR = Path("/Volumes")
 NETWORK_FILESYSTEMS = frozenset({"smbfs", "afpfs", "nfs", "webdav"})
@@ -48,7 +51,12 @@ def detect_macos(volumes_dir: Path = VOLUMES_DIR) -> list[Volume]:
     for entry in entries:
         if entry.is_symlink() and entry.resolve() == Path("/"):
             continue
-        output = volumes.run_os_command(["diskutil", "info", "-plist", str(entry)])
+        try:
+            output = volumes.run_os_command(["diskutil", "info", "-plist", str(entry)])
+        except CommandFailedError as exc:
+            # stale mountpoint directories left by an unclean eject are not volumes
+            log.debug("skipping %s: %s", entry, exc)
+            continue
         volume = parse_diskutil_info(output, fallback_mount=entry)
         if volume is not None:
             found.append(volume)

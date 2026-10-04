@@ -10,6 +10,8 @@ from flashpoint.acquire.volumes import Volume, VolumeDetectionError
 
 REMOVABLE_BUS_TYPES = frozenset({"USB", "SD", "MMC"})
 POWERSHELL_SCRIPT = (
+    "$ErrorActionPreference = 'Stop'; "
+    "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
     "Get-Partition | Where-Object { $_.DriveLetter } | ForEach-Object { "
     "$disk = Get-Disk -Number $_.DiskNumber; "
     "$vol = Get-Volume -DriveLetter $_.DriveLetter; "

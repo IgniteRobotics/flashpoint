@@ -81,5 +81,7 @@ def test_detect_runs_one_powershell_call(monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(calls) == 1
     assert calls[0][:3] == ["powershell", "-NoProfile", "-Command"]
     script = calls[0][3]
+    assert "$ErrorActionPreference = 'Stop'" in script
+    assert "OutputEncoding = [Text.Encoding]::UTF8" in script
     for token in ("Get-Partition", "Get-Disk", "Get-Volume", "ConvertTo-Json"):
         assert token in script
