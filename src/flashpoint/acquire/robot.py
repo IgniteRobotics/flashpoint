@@ -34,6 +34,7 @@ COMMAND_NOT_FOUND = 127
 SHA256_HEX_LEN = 64
 _STATVFS_FORMAT = ">11Q"  # f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, ...
 _BYTES_PER_MB = 1024 * 1024
+MAX_READ_REQUESTS = 32  # 32 x 32 KiB SFTP reads in flight: one 1 MiB transfer chunk
 
 
 @dataclass(frozen=True)
@@ -131,6 +132,32 @@ class KnownRobots:
         tmp = self._path.with_name(self._path.name + ".tmp")
         tmp.write_text(json.dumps(known, indent=2, sort_keys=True), encoding="utf-8")
         tmp.replace(self._path)
+
+
+class RemoteReader:
+    """A read-only remote file whose reads are pipelined in 32 KiB SFTP requests.
+
+    Each `read(n)` requests exactly its own range (`readv`, at most `MAX_READ_REQUESTS` in
+    flight) and waits for all of it, so nothing is outstanding between reads. A whole-file
+    `prefetch()` would leave the rest of the file queued, and `close()` would block until the
+    robot had streamed all of it, which breaks the stop bound.
+    """
+
+    def __init__(self, remote: paramiko.SFTPFile, size: int) -> None:
+        self._remote = remote
+        self._size = size
+        self._pos = 0
+
+    def read(self, size: int, /) -> bytes:
+        length = min(size, self._size - self._pos)
+        if length <= 0:
+            return b""
+        data = b"".join(self._remote.readv([(self._pos, length)], MAX_READ_REQUESTS))
+        self._pos += len(data)
+        return data
+
+    def close(self) -> None:
+        self._remote.close()
 
 
 class RobotClient:
@@ -247,19 +274,9 @@ class RobotClient:
         attr = self._sftp.stat(remote_path)
         return attr.st_size or 0, (attr.st_mtime or 0) * 10**9
 
-    def open_remote(self, remote_path: str, size: int) -> paramiko.SFTPFile:
-        """Open a file read-only, prefetching `size` bytes in 32 KiB requests.
-
-        paramiko's prefetch issues `SFTPFile.MAX_REQUEST_SIZE` (32 KiB) requests in parallel;
-        a plain read without it is several times slower.
-        """
-        remote = self._sftp.open(remote_path, "rb")
-        try:
-            remote.prefetch(size)
-        except BaseException:
-            remote.close()
-            raise
-        return remote
+    def open_remote(self, remote_path: str, size: int) -> "RemoteReader":
+        """Open a file read-only for a pipelined, bounded read of its first `size` bytes."""
+        return RemoteReader(self._sftp.open(remote_path, "rb"), size)
 
     def remote_sha256(self, remote_path: str) -> str | None:
         """The robot's SHA-256 of a file; None when the robot has no `sha256sum`."""

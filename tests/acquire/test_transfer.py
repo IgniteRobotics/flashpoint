@@ -3,6 +3,7 @@ import io
 import logging
 import os
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from flashpoint.acquire.robot import RobotClient
 from flashpoint.acquire.transfer import (
     CHUNK_BYTES,
     PART_SUFFIX,
+    ByteSource,
     CopyJob,
     TransferResult,
     TransferStatus,
@@ -93,7 +95,19 @@ def test_inbox_path_keeps_relpath_under_source(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize("relpath", ["../escape.wpilog", "a/../../b.wpilog", "/abs.wpilog", ""])
+@pytest.mark.parametrize(
+    "relpath",
+    [
+        "../escape.wpilog",
+        "a/../../b.wpilog",
+        "/abs.wpilog",
+        "",
+        "..\\..\\x.wpilog",  # a separator on Windows
+        "a\\b.wpilog",
+        "log.wpilog:stream",  # an NTFS alternate data stream
+        "C:x.wpilog",
+    ],
+)
 def test_inbox_path_rejects_escaping_relpaths(tmp_path: Path, relpath: str) -> None:
     with pytest.raises(ValueError):
         inbox_path(tmp_path, "host", relpath)
@@ -282,7 +296,7 @@ def test_existing_inbox_file_is_never_overwritten(
     assert pull_ledger.query("SELECT * FROM pulls") == []  # not an attempt
 
 
-def test_stop_flag_between_files_stops_the_source(
+def test_stop_flag_set_before_the_pull_copies_nothing(
     fake_robot: FakeRobot,
     connect_robot: Callable[[], RobotClient],
     pull_ledger: PullLedger,
@@ -295,6 +309,114 @@ def test_stop_flag_between_files_stops_the_source(
     assert result.status == TransferStatus.STOPPED
     assert _inbox_files(inbox) == []
     assert pull_ledger.query("SELECT * FROM pulls") == []
+
+
+class StopOnSecondCheck(threading.Event):
+    """Unset for the pre-copy check, set from the first between-chunk check on."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.checks = 0
+
+    def is_set(self) -> bool:
+        self.checks += 1
+        return self.checks >= 2
+
+
+def test_stop_mid_file_returns_promptly_without_draining_the_file(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+) -> None:
+    _put(fake_robot, f"{ROOT}/FRC_1.wpilog", _payload(16 * MB), 1000)
+    _put(fake_robot, f"{ROOT}/FRC_2.wpilog", b"current", 2000)
+    client = connect_robot()
+    selection = select_robot_files(
+        client, pull_ledger, include_active=False, settle_s=5, sleep=_no_sleep
+    )
+    fake_robot.reset_counters()
+    started = time.monotonic()
+    (result,) = pull_robot(client, pull_ledger, inbox, selection, stop=StopOnSecondCheck())
+    assert time.monotonic() - started < 2.0
+    assert result.status == TransferStatus.STOPPED
+    # Nothing beyond the first chunk was in flight, so closing did not stream the rest.
+    assert fake_robot.bytes_served <= 2 * MB
+    assert _inbox_files(inbox) == []
+    assert pull_ledger.query("SELECT * FROM pulls") == []  # a stop is not an attempt
+
+
+def test_robot_path_with_backslash_or_colon_is_skipped(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+) -> None:
+    _put(fake_robot, f"{ROOT}/..\\..\\evil.wpilog", b"evil", 1000)
+    _put(fake_robot, f"{ROOT}/FRC_1.wpilog", b"one", 1500)
+    _put(fake_robot, f"{ROOT}/FRC_2.wpilog", b"current", 2000)
+    results = _cycle(connect_robot, pull_ledger, inbox)
+    assert [(r.status, r.reason) for r in results] == [
+        (TransferStatus.SKIPPED, "bad-path"),
+        (TransferStatus.VERIFIED, None),
+    ]
+    assert [p.name for p in _inbox_files(inbox)] == ["FRC_1.wpilog"]
+
+
+class _DeleteOnClose:
+    """Wraps a remote reader; the robot rotates the file away right after the copy."""
+
+    def __init__(self, inner: ByteSource, local: Path) -> None:
+        self.inner = inner
+        self.local = local
+
+    def read(self, size: int, /) -> bytes:
+        return self.inner.read(size)
+
+    def close(self) -> None:
+        self.inner.close()
+        self.local.unlink()
+
+
+@pytest.mark.parametrize(
+    ("doomed_name", "include_active"),
+    [("FRC_1.wpilog", False), ("FRC_3.wpilog", True)],  # sha256sum path; active re-stat path
+)
+def test_file_rotated_away_before_the_hash_does_not_abandon_the_robot(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    doomed_name: str,
+    include_active: bool,
+) -> None:
+    _put(fake_robot, f"{ROOT}/FRC_1.wpilog", b"one", 1000)
+    _put(fake_robot, f"{ROOT}/FRC_2.wpilog", b"two", 1500)
+    _put(fake_robot, f"{ROOT}/FRC_3.wpilog", b"current", 2000)
+    doomed = fake_robot.root / ROOT.lstrip("/") / doomed_name
+    client = connect_robot()
+    original = client.open_remote
+
+    def open_remote(remote_path: str, size: int) -> ByteSource:
+        reader = original(remote_path, size)
+        return _DeleteOnClose(reader, doomed) if remote_path.endswith(doomed_name) else reader
+
+    monkeypatch.setattr(client, "open_remote", open_remote)
+    selection = select_robot_files(
+        client, pull_ledger, include_active=include_active, settle_s=5, sleep=_no_sleep
+    )
+    results = pull_robot(client, pull_ledger, inbox, selection, stop=threading.Event())
+    outcomes = {
+        r.source_path.rsplit("/", 1)[1]: (r.status, r.reason, r.source_lost) for r in results
+    }
+    expected: dict[str, tuple[TransferStatus, str | None, bool]] = {
+        name: (TransferStatus.VERIFIED, None, False)
+        for name in ("FRC_1.wpilog", "FRC_2.wpilog", "FRC_3.wpilog")[: 3 if include_active else 2]
+    }
+    expected[doomed_name] = (TransferStatus.RETRY, "vanished", False)
+    assert outcomes == expected
+    assert doomed_name not in [p.name for p in _inbox_files(inbox)]
 
 
 # --- the shared copy core (also used by volumes) -------------------------------------------
