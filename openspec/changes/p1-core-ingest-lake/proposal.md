@@ -6,8 +6,8 @@ Today's ingest round-trips binary logs through text CSV, uses a pure-Python pars
 
 - Content-addressed **raw store**: originals are kept byte-for-byte, keyed by SHA-256, and never modified
 - An **import ledger** with per-stage status (received → bronze → silver → gold → success), a `pipeline_version` field, and quarantine with a reason
-- A **wpilog reader** that writes typed, long-format bronze samples, including struct-typed entries
-- **hoot conversion** through a versioned owlet registry: pick the version per log, checksum the binaries, detect Pro, and fail loudly on version mismatch
+- A **wpilog reader** that writes typed, long-format bronze samples. Struct, array, and protobuf entries are kept losslessly as raw bytes plus their schema; decoding them into fields is deferred to a later change
+- **hoot conversion** through a versioned owlet registry: pick the version by compliancy, checksum the binaries, detect Pro, and fail loudly on version mismatch. Signal profiles: `health` (the default, 212 signals on the Q7 CANivore bus) and `all` (1,021)
 - **Log metadata**: FMSInfo, git build metadata, a `systemTime` wall-clock anchor, and the raw CANInventory entry
 - CLI: `flashpoint ingest PATH...` and `flashpoint doctor`
 - A performance budget enforced in CI: one qual match (wpilog plus 2 hoots) in under 30 s and under 1 GB RAM
