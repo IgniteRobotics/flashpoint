@@ -19,10 +19,10 @@
 
 ## 4. Sessions and clock alignment (spec: session-grouping)
 
-- [ ] 4.1 Tests first (synthetic): hoot-group-by-stamp, wpilog overlap join, hoot-only sessions, restart with two hoot groups
-- [ ] 4.2 `payload-match` alignment (struct bytes and unique doubles, median and IQR, at least 50 matches, spread under 5 ms), with synthetic tests
-- [ ] 4.3 `enable-edges` and `wall-clock` fallbacks with confidence; cross-bus agreement check
-- [ ] 4.4 Corpus tests: Q7 aligns by `payload-match` at about 19.56 s with spread under 5 ms; buses agree under 1 ms; E10 gives one session with two hoot-group offsets
+- [x] 4.1 Tests first (synthetic): hoot-group-by-stamp, wpilog overlap join, hoot-only sessions, restart with two hoot groups
+- [x] 4.2 `payload-match` alignment (struct bytes and unique doubles, median and IQR, at least 50 matches, spread under 5 ms), with synthetic tests
+- [x] 4.3 `enable-edges` and `wall-clock` fallbacks with confidence; cross-bus agreement check
+- [x] 4.4 Corpus tests: Q7 aligns by `payload-match` at about 19.56 s with spread under 5 ms; buses agree under 1 ms; E10 gives one session with two hoot-group offsets
 
 ## 5. Device identity (spec: device-identity)
 
