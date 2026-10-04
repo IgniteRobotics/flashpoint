@@ -12,11 +12,17 @@
 - [x] 2.2 Delete `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt`, `executables/owlet.exe`
 - [x] 2.3 CI passes. Merge through a PR
 
-## 3. Stage 2b: mapping config (gate: p2-semantics-and-physics archived)
+## 3. Stage 2b-i: device maps (gate: p2-semantics-and-physics archived)
 
-- [ ] 3.1 Verify the gate, and confirm that the config migration output under `config/` covers every non-empty row of `datamaps/**` and `log_configs/**`
-- [ ] 3.2 Delete `datamaps/`, `log_configs/`
+- [x] 3.1 Verify the gate: P2 archived; `config/robots/2025-comp.toml` covers every row of the two device CSVs (14 slots, `Pheonix6` corrected). The NetworkTables maps and `log_configs/` are **not** covered (P2 non-goal), so they move to stage 2b-ii (team decision, 2026-10-04)
+- [x] 3.2 Delete `datamaps/drivetrain_devices_map.csv` and `datamaps/rio_devices_map.csv`; `tools/migrate-legacy-config.py` now reads them from the `legacy-2025` tag
 - [ ] 3.3 CI passes. Merge through a PR
+
+## 3b. Stage 2b-ii: NetworkTables maps (gate: a future NT-mapping change is archived)
+
+- [ ] 3b.1 Verify the gate: a change that maps NetworkTables-only signals (subsystem telemetry, vision) into robot configuration is archived, and it covers every row of `datamaps/{2024,2025}/{metrics,vision}_map.csv` and the prefixes in `log_configs/*.json`
+- [ ] 3b.2 Delete `datamaps/` and `log_configs/`
+- [ ] 3b.3 CI passes. Merge through a PR
 
 ## 4. Stage 2c: deployment and backup (gate: p3-log-acquisition archived)
 
