@@ -145,6 +145,7 @@ class TransferResult:
     status: TransferStatus
     reason: str | None = None
     source_lost: bool = False  # the source stopped answering; skip its remaining files
+    sha256: str | None = None  # of the inbox copy, on success
 
 
 class ByteSource(Protocol):
@@ -210,8 +211,11 @@ def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> Tr
         copied: int = 0,
         reason: str | None = None,
         source_lost: bool = False,
+        sha256: str | None = None,
     ) -> TransferResult:
-        return TransferResult(job.key.remote_path, job.dest, copied, status, reason, source_lost)
+        return TransferResult(
+            job.key.remote_path, job.dest, copied, status, reason, source_lost, sha256
+        )
 
     if stop.is_set():
         return result(TransferStatus.STOPPED)
@@ -239,7 +243,7 @@ def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> Tr
         part.replace(job.dest)  # os.replace: atomic within one directory
         moved = True
         ledger.record_success(job.key, digest, PullStatus(status), job.include_active)
-        return result(status, copied)
+        return result(status, copied, sha256=digest)
     except _StopRequestedError:
         return result(TransferStatus.STOPPED)
     except _AttemptFailedError as failure:
