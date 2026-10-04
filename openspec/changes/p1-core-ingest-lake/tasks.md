@@ -1,6 +1,6 @@
 ## 1. Foundations
 
-- [ ] 1.1 Add runtime dependencies (numpy, numba, polars, pyarrow, duckdb) and dev dependency robotpy-wpiutil. Confirm wheels install on Python 3.11 and 3.12 in CI
+- [x] 1.1 Add runtime dependencies (numpy, numba, polars, pyarrow, duckdb) and dev dependency robotpy-wpiutil. Confirm wheels install on Python 3.11 and 3.12 in CI
 - [x] 1.2 `flashpoint.config`: resolve the lake root (`--lake`, then `$FLASHPOINT_LAKE`, then `~/flashpoint-lake`) and the cache root (`~/.cache/flashpoint`). Add `PIPELINE_VERSION`. Tests first
 - [x] 1.3 Add a corpus fixture helper that returns a path per corpus group and fails clearly if the corpus hasn't been fetched
 

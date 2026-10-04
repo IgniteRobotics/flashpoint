@@ -4,7 +4,7 @@
 - [x] 1.2 Confirm nothing references the stage-1 files (`git grep` for each filename). Record the result in the PR
 - [x] 1.3 Delete `setup-db.py`, `ingest_dir.sh`, `ingest_dir_scripts/`, `summary_metrics.py`, `manage_imports.py`, `old_sync_scripts/`, `requirements.txt`, `docs/*.excalidraw`
 - [x] 1.4 Update `docs/rewrite/README.md` "How code is cited" to use `legacy-2025:path:line`, and rewrite the `main:` locators across `docs/rewrite/*.md`
-- [ ] 1.5 CI passes. Merge through a PR
+- [x] 1.5 CI passes. Merge through a PR
 
 ## 2. Stage 2a: ingest pipeline (gate: p1-core-ingest-lake archived)
 
