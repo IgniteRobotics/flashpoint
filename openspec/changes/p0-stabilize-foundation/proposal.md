@@ -5,7 +5,7 @@ Main has never had CI, and none of its entry points run (#1–#9). Work is split
 ## What Changes
 
 - Protect `main`: require PRs and CI. Add a CI skeleton (lint, type check, pytest) that passes on an empty `src/flashpoint/` package
-- Tag `main` as `legacy-2025`. Archive `origin/development` and `origin/feature/power-tracking` as `archive/*` tags once their salvage is listed
+- Tag `main` as `legacy-2025` (prerequisite for `retire-legacy-code` stage 1, which ships alongside this change). Archive `origin/development` and `origin/feature/power-tracking` as `archive/*` tags once their salvage is listed
 - Record D1–D10 as ADRs in `docs/adr/`. D11 (serial-number identity) is already decided; record it too
 - Build the **golden log corpus** (about 6 real logs: qual with rio and CANivore hoots, practice, non-FMS, corrupt tail, a 2025 log and a 2026 log), stored by fetch script or Git LFS
 - Run `owlet --check-pro` on the corpus and record the result (it decides where temperature data comes from)

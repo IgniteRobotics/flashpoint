@@ -27,4 +27,4 @@ None.
 
 ## Impact
 
-New `src/flashpoint/acquire/`, `deploy/`. Retires `docker-services/`, `drive-backup.py`, `old_sync_scripts/`.
+New `src/flashpoint/acquire/`, `deploy/`. Supersedes `docker-services/` and `drive-backup.py` (removed by `retire-legacy-code` stage 2c). `old_sync_scripts/` is already removed in stage 1.

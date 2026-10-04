@@ -33,4 +33,4 @@ Raw signals mean nothing until they are tied to a robot, a match, a role, and a 
 
 ## Impact
 
-New `src/flashpoint/{config,identity,physics}`, `config/seasons/`, `config/robots/`. Retires `datamaps/`, `log_configs/`, `utils/motors.toml`.
+New `src/flashpoint/{config,identity,physics}`, `config/seasons/`, `config/robots/`. Migrates `datamaps/`, `log_configs/`, and `utils/motors.toml`. The legacy files are removed by `retire-legacy-code` stage 2b.
