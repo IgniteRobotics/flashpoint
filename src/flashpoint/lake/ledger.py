@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS logs (
 CREATE TABLE IF NOT EXISTS hoot_logs (
     log_id TEXT PRIMARY KEY, bus TEXT, bus_description TEXT, session_stamp TEXT,
     compliancy INTEGER, owlet_version TEXT, pro_licensed INTEGER, profile TEXT,
-    signal_count INTEGER, integrity TEXT
+    signal_count INTEGER, read_status TEXT, integrity TEXT
 );
 CREATE TABLE IF NOT EXISTS entries (
     log_id TEXT NOT NULL, idx INTEGER NOT NULL, entry_id INTEGER NOT NULL, name TEXT NOT NULL,
@@ -153,6 +153,10 @@ class Ledger:
                         f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608
                         tuple(row.values()),
                     )
+
+    def execute(self, sql: str, args: tuple[Any, ...] = ()) -> None:
+        with self._db:
+            self._db.execute(sql, args)
 
     def query(self, sql: str, args: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         cursor = self._db.execute(sql, args)

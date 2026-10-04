@@ -36,18 +36,18 @@
 - [x] 5.1 FMS fields (last non-empty), absent rather than empty
 - [x] 5.2 Build metadata parsing that splits on the first `": "` only
 - [x] 5.3 Wall-clock anchor from `systemTime` (linear fit), with the filename as fallback and the source recorded
-- [ ] 5.4 Hoot metadata: bus from the filename, compliancy, owlet version, Pro, profile, first and last timestamp
+- [x] 5.4 Hoot metadata: bus from the filename, compliancy, owlet version, Pro, profile, first and last timestamp
 - [x] 5.5 CAN inventory capture and schema-v1 validation (synthetic fixture: valid, error payload, malformed)
 - [x] 5.6 Corpus tests: Q7 resolves to GACMP Q7 from FMS; `2025-nofms` has no FMS match; anchor scenario; bus detection
 
 ## 6. Ingest orchestration and CLI
 
-- [ ] 6.1 `flashpoint ingest`: discovery (files and directories), hash, ledger, raw, convert (parallel), decode, bronze, metadata, success. Per-file quarantine; exit codes 0, 1, 2
-- [ ] 6.2 Integrity check: hoot `short-coverage` against an overlapping wpilog (E10 truncated corpus test)
-- [ ] 6.3 `flashpoint rebuild` (reprocess files from an older pipeline version, from raw)
-- [ ] 6.4 `flashpoint doctor` (lake path, ledger counts, owlet cache per compliancy, numba warm-up status)
-- [ ] 6.5 E2E corpus test: ingest the entire corpus into an empty lake. Expected success and quarantine sets, idempotent second run
-- [ ] 6.6 Budget test (`perf`): Q7 group under 30 s and under 1 GB peak RSS. Record the measured numbers in the PR
+- [x] 6.1 `flashpoint ingest`: discovery (files and directories), hash, ledger, raw, convert (parallel), decode, bronze, metadata, success. Per-file quarantine; exit codes 0, 1, 2
+- [x] 6.2 Integrity check: hoot `short-coverage` against an overlapping wpilog (E10 truncated corpus test)
+- [x] 6.3 `flashpoint rebuild` (reprocess files from an older pipeline version, from raw)
+- [x] 6.4 `flashpoint doctor` (lake path, ledger counts, owlet cache per compliancy, numba warm-up status)
+- [x] 6.5 E2E corpus test: ingest the entire corpus into an empty lake. Expected success and quarantine sets, idempotent second run
+- [x] 6.6 Budget test (`perf`): Q7 group under 30 s and under 1 GB peak RSS. Record the measured numbers in the PR
 
 ## 7. Docs and wrap-up
 

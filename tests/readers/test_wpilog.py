@@ -1,8 +1,9 @@
 from pathlib import Path
 
+import polars as pl
 import pytest
 
-from flashpoint.readers.wpilog import WpilogError, read_wpilog
+from flashpoint.readers.wpilog import WpilogError, WpilogReader, read_wpilog
 from tests.wpilog_builder import WpilogBuilder
 
 
@@ -105,3 +106,27 @@ def test_unsupported_version_rejected(tmp_path: Path) -> None:
 def test_empty_log_has_no_samples(tmp_path: Path) -> None:
     log = read_wpilog(WpilogBuilder().write(tmp_path / "e.wpilog"))
     assert log.samples().height == 0
+
+
+@pytest.mark.parametrize("window", [16, 64, 1000])
+def test_streaming_windows_match_whole_file_read(tmp_path: Path, window: int) -> None:
+    b = _sample_log()
+    b.start(8, "big", "raw").record(8, 400, bytes(range(200)))  # larger than small windows
+    b.finish(1, 401).start(1, "reused", "int64").int64(1, 402, 9)
+    path = b.write(tmp_path / "s.wpilog", truncate_tail=2)
+
+    whole = read_wpilog(path)
+    reader = WpilogReader(path, window_bytes=window)
+    chunks = list(reader)
+
+    streamed = pl.concat([c.samples() for c in chunks]) if chunks else whole.samples().clear()
+    assert streamed.to_dicts() == whole.samples().to_dicts()
+    assert [e.name for e in reader.catalog] == [e.name for e in whole.catalog]
+    assert reader.truncated_bytes == whole.truncated_bytes > 0
+    assert reader.records == len(whole)
+
+
+def test_sorted_orders_by_signal_then_time(tmp_path: Path) -> None:
+    rows = read_wpilog(_sample_log().write(tmp_path / "a.wpilog")).sorted().samples()
+    keys = list(zip(rows["signal"].cast(pl.String).to_list(), rows["ts_us"].to_list(), strict=True))
+    assert keys == sorted(keys)
