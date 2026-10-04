@@ -1,8 +1,12 @@
-"""Removable-volume detection: per-OS parsers and thin runners (dispatch lives in a later task)."""
+"""Removable-volume detection: per-OS parsers and thin runners, dispatched by `detect()`."""
 
+import logging
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 OS_CALL_TIMEOUT_S = 10.0
 
@@ -40,3 +44,29 @@ def run_os_command(args: list[str]) -> bytes:
         detail = proc.stderr.decode("utf-8", "replace").strip()
         raise CommandFailedError(f"{args[0]} failed (exit {proc.returncode}): {detail}")
     return proc.stdout
+
+
+def detect() -> list[Volume]:
+    """Removable volumes mounted now, one per ID (Linux bind mounts can repeat a volume).
+
+    A failed OS call logs a warning and finds nothing, so USB is skipped for this cycle.
+    """
+    from flashpoint.acquire.volumes import linux, macos, windows  # they import this module
+
+    platform = sys.platform
+    try:
+        if platform == "darwin":
+            found = macos.detect_macos()
+        elif platform.startswith("linux"):
+            found = linux.detect_linux()
+        elif platform == "win32":
+            found = windows.detect_windows()
+        else:
+            return []
+    except VolumeDetectionError as exc:
+        log.warning("removable volume detection failed, skipping USB this cycle: %s", exc)
+        return []
+    unique: dict[str, Volume] = {}
+    for volume in found:
+        unique.setdefault(volume.id, volume)
+    return list(unique.values())
