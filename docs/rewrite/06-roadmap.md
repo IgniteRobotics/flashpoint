@@ -57,7 +57,7 @@ gantt
 - **Exit:** ADRs merged, corpus available, CI skeleton green, `/Flashpoint/CANInventory` present in a fresh log from every robot.
 
 ### P1 — Core readers & lake (L)
-> **Status: implemented, in review** (2026-10-04, `openspec/changes/p1-core-ingest-lake`). Measured: full Q7 match ingested in 5.6 s with a 862 MB peak (budget 30 s / 1 GB); reader at 20 M records/s, matching the official WPILib reader exactly; all 15 corpus files handled (14 ingested, 1 real 0-byte hoot quarantined, 3 integrity warnings). Revised decisions: ADR-0001, 0003, and 0004 updates.
+> **Status: ✅ done** (2026-10-04). Merged into `rewrite` (#11) and archived (`openspec/changes/archive/2026-10-04-p1-core-ingest-lake`). Its specs are now the baseline in `openspec/specs/`. Measured: full Q7 match ingested in 5.6 s with a 862 MB peak (budget 30 s / 1 GB); reader at 20 M records/s, matching the official WPILib reader exactly; all 15 corpus files handled (14 ingested, 1 real 0-byte hoot quarantined, 3 integrity warnings). Revised decisions: ADR-0001, 0003, and 0004 updates.
 
 - **wpilog reader** on `robotpy-wpiutil` (RobotPy, n.d.). Stream it into Arrow record batches and write bronze Parquet. Handle struct-typed entries (WPILib Developers, 2023).
 - **owlet registry:**
