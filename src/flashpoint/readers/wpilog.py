@@ -85,15 +85,9 @@ def _read_le(buf: U8Array, pos: int, length: int) -> int:
 
 @njit(cache=True)
 def _scan(
-    buf: U8Array,
-    start: int,
-    count_only: bool,
-    ent: U32Array,
-    ts: I64Array,
-    off: I64Array,
-    sz: U32Array,
+    buf: U8Array, start: int, ent: U32Array, ts: I64Array, off: I64Array, sz: U32Array
 ) -> tuple[int, int]:
-    """Walk record framing. Returns (records, end position of the last complete record)."""
+    """Walk record framing in one pass. Returns (records, end of the last complete record)."""
     n = len(buf)
     pos = start
     k = 0
@@ -108,31 +102,42 @@ def _scan(
         size = _read_le(buf, pos + 1 + el, sl)
         if pos + hl + size > n:
             break
-        if not count_only:
-            ent[k] = _read_le(buf, pos + 1, el)
-            ts[k] = _read_le(buf, pos + 1 + el + sl, tl)
-            off[k] = pos + hl
-            sz[k] = size
+        ent[k] = _read_le(buf, pos + 1, el)
+        ts[k] = _read_le(buf, pos + 1 + el + sl, tl)
+        off[k] = pos + hl
+        sz[k] = size
         k += 1
         pos += hl + size
     return k, pos
 
 
 @njit(cache=True)
-def _assign(
+def _assign_compact(
     ent: U32Array,
+    ts: I64Array,
+    off: I64Array,
+    sz: U32Array,
+    n: int,
     ctrl_pos: I64Array,
     ctrl_kind: I32Array,
     ctrl_entry: I64Array,
     ctrl_cat: I32Array,
     map_size: int,
-) -> I32Array:
-    """Catalog index for each record (-1 for control records and orphans)."""
+) -> tuple[I32Array, I64Array, I64Array, U32Array, int, int]:
+    """Map data records to catalog entries and compact them, in file order.
+
+    Returns (catalog index, timestamp, offset, size, kept count, orphan count).
+    """
     active = np.full(map_size, -1, np.int32)
-    out = np.full(len(ent), -1, np.int32)
+    cat_out = np.empty(n, np.int32)
+    ts_out = np.empty(n, np.int64)
+    off_out = np.empty(n, np.int64)
+    sz_out = np.empty(n, np.uint32)
     j = 0
+    kept = 0
+    orphans = 0
     n_ctrl = len(ctrl_pos)
-    for i in range(len(ent)):
+    for i in range(n):
         if j < n_ctrl and ctrl_pos[j] == i:
             e = ctrl_entry[j]
             if 0 <= e < map_size:
@@ -143,24 +148,69 @@ def _assign(
             j += 1
             continue
         e = int(ent[i])
-        if e != 0 and e < map_size:
-            out[i] = active[e]
-    return out
+        c = active[e] if e < map_size else -1
+        if c < 0:
+            orphans += 1
+            continue
+        cat_out[kept] = c
+        ts_out[kept] = ts[i]
+        off_out[kept] = off[i]
+        sz_out[kept] = sz[i]
+        kept += 1
+    return cat_out, ts_out, off_out, sz_out, kept, orphans
+
+
+@njit(cache=True)
+def _read_u64(buf: U8Array, p: int, width: int) -> np.uint64:
+    v = np.uint64(0)
+    for b in range(width):
+        v |= np.uint64(buf[p + b]) << np.uint64(8 * b)
+    return v
 
 
 @njit(cache=True)
 def _gather_fixed(
-    buf: U8Array, off: I64Array, mask: BoolArray, width: int
-) -> npt.NDArray[np.uint64]:
-    out = np.zeros(len(off), np.uint64)
-    for i in range(len(off)):
-        if mask[i]:
-            v = np.uint64(0)
-            p = off[i]
-            for b in range(width):
-                v |= np.uint64(buf[p + b]) << np.uint64(8 * b)
-            out[i] = v
-    return out
+    buf: U8Array, cat: I32Array, off: I64Array, sz: U32Array, cat_kind: I32Array
+) -> tuple[
+    npt.NDArray[np.float64], BoolArray, I64Array, BoolArray, BoolArray, BoolArray, BoolArray,
+    BoolArray,
+]:  # fmt: skip
+    """One pass over all samples: typed values plus validity per value column."""
+    n = len(cat)
+    f64 = np.zeros(n, np.float64)
+    f64_ok = np.zeros(n, np.bool_)
+    i64 = np.zeros(n, np.int64)
+    i64_ok = np.zeros(n, np.bool_)
+    bools = np.zeros(n, np.bool_)
+    bool_ok = np.zeros(n, np.bool_)
+    str_ok = np.zeros(n, np.bool_)
+    bytes_ok = np.zeros(n, np.bool_)
+    scratch = np.zeros(1, np.uint64)
+    scratch32 = np.zeros(1, np.uint32)
+    for i in range(n):
+        kind = cat_kind[cat[i]]
+        size = sz[i]
+        p = off[i]
+        if kind == KIND_F64 and size == 8:
+            scratch[0] = _read_u64(buf, p, 8)
+            f64[i] = scratch.view(np.float64)[0]
+            f64_ok[i] = True
+        elif kind == KIND_F32 and size == 4:
+            scratch32[0] = np.uint32(_read_u64(buf, p, 4))
+            f64[i] = np.float64(scratch32.view(np.float32)[0])
+            f64_ok[i] = True
+        elif kind == KIND_I64 and size == 8:
+            scratch[0] = _read_u64(buf, p, 8)
+            i64[i] = scratch.view(np.int64)[0]
+            i64_ok[i] = True
+        elif kind == KIND_BOOL and size == 1:
+            bools[i] = buf[p] != 0
+            bool_ok[i] = True
+        elif kind == KIND_STR:
+            str_ok[i] = True
+        else:
+            bytes_ok[i] = True
+    return f64, f64_ok, i64, i64_ok, bools, bool_ok, str_ok, bytes_ok
 
 
 @njit(cache=True)
@@ -190,23 +240,19 @@ def _validity(mask: BoolArray) -> pa.Buffer:
     return pa.py_buffer(np.packbits(mask, bitorder="little").tobytes())
 
 
-def _fixed_array(raw: npt.NDArray[np.uint64], mask: BoolArray, kind: int) -> pa.Array:
-    if kind == KIND_F64:
-        values: npt.NDArray[np.generic] = raw.view(np.float64)
-        arrow_type = pa.float64()
-    elif kind == KIND_F32:
-        values = raw.astype(np.uint32).view(np.float32).astype(np.float64)
-        arrow_type = pa.float64()
-    elif kind == KIND_I64:
-        values = raw.view(np.int64)
-        arrow_type = pa.int64()
-    else:
-        return pa.array(raw.astype(np.bool_), type=pa.bool_(), mask=~mask)
+def _primitive(
+    values: npt.NDArray[np.generic], mask: BoolArray, arrow_type: pa.DataType
+) -> pa.Array:
+    data = (
+        np.packbits(values.astype(np.bool_), bitorder="little")
+        if arrow_type == pa.bool_()
+        else np.ascontiguousarray(values)
+    )
     return pa.Array.from_buffers(
         arrow_type,
-        len(raw),
-        [_validity(mask), pa.py_buffer(np.ascontiguousarray(values))],
-        null_count=int((~mask).sum()),
+        len(mask),
+        [_validity(mask), pa.py_buffer(data)],
+        null_count=len(mask) - int(np.count_nonzero(mask)),
     )
 
 
@@ -216,17 +262,21 @@ def _var_array(buf: U8Array, off: I64Array, sz: U32Array, mask: BoolArray) -> pa
         pa.large_binary(),
         len(off),
         [_validity(mask), pa.py_buffer(offsets), pa.py_buffer(data)],
-        null_count=int((~mask).sum()),
+        null_count=len(mask) - int(np.count_nonzero(mask)),
     )
 
 
 def _dictionary(codes: I32Array, values: list[str]) -> pa.DictionaryArray:
-    unique = sorted(set(values))
-    position = {v: i for i, v in enumerate(unique)}
-    remap = np.array([position[v] for v in values], dtype=np.int32)
-    indices = remap[codes] if len(codes) else codes
+    """Dictionary-encode per-sample codes into catalog values (deduplicating if needed)."""
+    if len(set(values)) == len(values):
+        indices, dictionary = codes, values
+    else:
+        unique = list(dict.fromkeys(values))
+        position = {v: i for i, v in enumerate(unique)}
+        remap = np.array([position[v] for v in values], dtype=np.int32)
+        indices, dictionary = remap[codes], unique
     return pa.DictionaryArray.from_arrays(
-        pa.array(indices, pa.int32()), pa.array(unique, pa.string())
+        pa.array(indices, pa.int32()), pa.array(dictionary, pa.string())
     )
 
 
@@ -252,47 +302,28 @@ class WpilogLog:
 
         Columns: signal, type, ts_us, v_f64, v_i64, v_bool, v_str, v_bytes.
         """
-        cat, buf, off, sz = self._cat, self._buf, self._off, self._sz
-        kinds = np.array(
+        cat_kind = np.array(
             [_TYPE_KIND.get(e.type, KIND_BYTES) for e in self.catalog] or [KIND_BYTES], np.int32
         )
-        row_kind = kinds[cat] if len(cat) else np.empty(0, np.int32)
-        expected = np.full(len(row_kind), -1, np.int64)
-        for kind, width in _KIND_SIZE.items():
-            expected[row_kind == kind] = width
-        fixed_ok = (expected >= 0) & (sz == expected)
-
-        def fixed(kinds_: tuple[int, ...], width: int) -> tuple[npt.NDArray[np.uint64], BoolArray]:
-            mask = fixed_ok & np.isin(row_kind, kinds_)
-            return _gather_fixed(buf, off, mask, width), mask
-
-        f64_raw, f64_mask = fixed((KIND_F64,), 8)
-        f32_raw, f32_mask = fixed((KIND_F32,), 4)
-        f32_vals = f32_raw.astype(np.uint32).view(np.float32).astype(np.float64)
-        f64_vals = np.where(f32_mask, f32_vals, f64_raw.view(np.float64))
-        v_f64 = _fixed_array(f64_vals.view(np.uint64), f64_mask | f32_mask, KIND_F64)
-        i64_raw, i64_mask = fixed((KIND_I64,), 8)
-        bool_raw, bool_mask = fixed((KIND_BOOL,), 1)
-
-        str_mask = row_kind == KIND_STR
-        bytes_mask = ~(fixed_ok | str_mask)
-        v_str = _var_array(buf, off, sz, str_mask)
+        f64, f64_ok, i64, i64_ok, bools, bool_ok, str_ok, bytes_ok = _gather_fixed(
+            self._buf, self._cat, self._off, self._sz, cat_kind
+        )
+        v_str = _var_array(self._buf, self._off, self._sz, str_ok)
         try:
             v_str = pc.cast(v_str, pa.large_string())
-        except pa.ArrowInvalid:  # invalid UTF-8: keep the payload as bytes instead
-            bytes_mask |= str_mask
-            v_str = pa.nulls(len(cat), pa.large_string())
-
+        except pa.ArrowInvalid:  # invalid UTF-8: keep those payloads as bytes instead
+            bytes_ok |= str_ok
+            v_str = pa.nulls(len(self._cat), pa.large_string())
         return pa.table(
             {
-                "signal": _dictionary(cat, [e.name for e in self.catalog]),
-                "type": _dictionary(cat, [e.type for e in self.catalog]),
+                "signal": _dictionary(self._cat, [e.name for e in self.catalog]),
+                "type": _dictionary(self._cat, [e.type for e in self.catalog]),
                 "ts_us": pa.array(self._ts, pa.int64()),
-                "v_f64": v_f64,
-                "v_i64": _fixed_array(i64_raw, i64_mask, KIND_I64),
-                "v_bool": _fixed_array(bool_raw, bool_mask, KIND_BOOL),
+                "v_f64": _primitive(f64, f64_ok, pa.float64()),
+                "v_i64": _primitive(i64, i64_ok, pa.int64()),
+                "v_bool": _primitive(bools, bool_ok, pa.bool_()),
                 "v_str": v_str,
-                "v_bytes": _var_array(buf, off, sz, bytes_mask),
+                "v_bytes": _var_array(self._buf, self._off, self._sz, bytes_ok),
             }
         )
 
@@ -382,31 +413,33 @@ def read_wpilog(path: Path) -> WpilogLog:
         raise WpilogError("invalid-header", "extra header overruns file")
     extra_header = bytes(buf[HEADER_FIXED_SIZE:data_start]).decode(errors="replace")
 
-    empty_u32 = np.empty(0, np.uint32)
-    empty_i64 = np.empty(0, np.int64)
-    count, _ = _scan(buf, data_start, True, empty_u32, empty_i64, empty_i64, empty_u32)
-    ent = np.empty(count, np.uint32)
-    ts = np.empty(count, np.int64)
-    off = np.empty(count, np.int64)
-    sz = np.empty(count, np.uint32)
-    _, end = _scan(buf, data_start, False, ent, ts, off, sz)
+    # Upper bound on record count (min record = 4 header bytes). np.empty is lazily paged,
+    # so only the slots actually written consume memory.
+    capacity = (size - data_start) // 4 + 1
+    ent = np.empty(capacity, np.uint32)
+    ts = np.empty(capacity, np.int64)
+    off = np.empty(capacity, np.int64)
+    sz = np.empty(capacity, np.uint32)
+    count, end = _scan(buf, data_start, ent, ts, off, sz)
 
-    catalog, ctrl_pos, ctrl_kind, ctrl_entry, ctrl_cat = _decode_controls(buf, ent, ts, off, sz)
+    catalog, ctrl_pos, ctrl_kind, ctrl_entry, ctrl_cat = _decode_controls(
+        buf, ent[:count], ts[:count], off[:count], sz[:count]
+    )
     map_size = int(ctrl_entry.max()) + 1 if len(ctrl_entry) and ctrl_entry.max() >= 0 else 1
-    cat_all = _assign(ent, ctrl_pos, ctrl_kind, ctrl_entry, ctrl_cat, map_size)
-
-    data = ent != 0
-    keep = data & (cat_all >= 0)
+    cat, ts_k, off_k, sz_k, kept, orphans = _assign_compact(
+        ent, ts, off, sz, count, ctrl_pos, ctrl_kind, ctrl_entry, ctrl_cat, map_size
+    )
+    del ent, ts, off, sz
     return WpilogLog(
         path=path,
         version=version,
         extra_header=extra_header,
         catalog=catalog,
         truncated_bytes=size - end,
-        orphan_records=int((data & (cat_all < 0)).sum()),
+        orphan_records=orphans,
         _buf=buf,
-        _cat=cat_all[keep],
-        _ts=ts[keep],
-        _off=off[keep],
-        _sz=sz[keep],
+        _cat=cat[:kept].copy(),
+        _ts=ts_k[:kept].copy(),
+        _off=off_k[:kept].copy(),
+        _sz=sz_k[:kept].copy(),
     )

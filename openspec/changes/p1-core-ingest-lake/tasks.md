@@ -12,16 +12,16 @@
 - [x] 2.4 Typed gather kernels (double, float, int64, boolean). Text for string and json; raw bytes for every other type, with `structschema` entries captured
 - [x] 2.5 Header and version validation (`invalid-header`, `unsupported-version`)
 - [x] 2.6 Oracle test (corpus): Q7 wpilog decoded output equals the official reader's (count, catalog, all scalar values)
-- [ ] 2.7 Throughput test (corpus, `@pytest.mark.perf`): Q7 all-signals hoot export of about 37 M records decodes in under 4 s after warm-up
+- [x] 2.7 Throughput test (corpus, `@pytest.mark.perf`): Q7 all-signals hoot export of about 37 M records decodes in under 4 s after warm-up
 
 ## 3. owlet registry and hoot conversion (spec: hoot-conversion)
 
-- [ ] 3.1 `tools/update-owlet-manifest.py`: build `owlet-manifest.toml` from CTRE's index (stable channels, latest version per compliancy, all four platforms, sha1 from CTRE, sha256 computed). Commit the generated manifest
-- [ ] 3.2 Tests, then implementation: read compliancy from byte 70; `empty-file`, `invalid-header`, `too-old` (below 6), and `unsupported-compliancy:<n>`
-- [ ] 3.3 Tests, then implementation: binary resolution (platform key, cache path, download, sha256 verify, refuse to run on mismatch, works offline once cached)
-- [ ] 3.4 Signal profiles: `--scan` parsing, the `health` allowlist, and `-s` id selection, with the profile recorded per log
-- [ ] 3.5 Run `--check-pro`; convert into a temp dir; surface owlet failures as quarantine reasons
-- [ ] 3.6 Corpus tests: Q7 (C19) and 2025 Q19 (C13) convert with the right owlet; Q11 is `empty-file`; profile `health` has fewer signals than `all`
+- [x] 3.1 `tools/update-owlet-manifest.py`: build `owlet-manifest.toml` from CTRE's index (stable channels, latest version per compliancy, all four platforms, sha1 from CTRE, sha256 computed). Commit the generated manifest
+- [x] 3.2 Tests, then implementation: read compliancy from byte 70; `empty-file`, `invalid-header`, `too-old` (below 6), and `unsupported-compliancy:<n>`
+- [x] 3.3 Tests, then implementation: binary resolution (platform key, cache path, download, sha256 verify, refuse to run on mismatch, works offline once cached)
+- [x] 3.4 Signal profiles: `--scan` parsing, the `health` allowlist, and `-s` id selection, with the profile recorded per log
+- [x] 3.5 Run `--check-pro`; convert into a temp dir; surface owlet failures as quarantine reasons
+- [x] 3.6 Corpus tests: Q7 (C19) and 2025 Q19 (C13) convert with the right owlet; Q11 is `empty-file`; profile `health` has fewer signals than `all`
 
 ## 4. Ledger and lake (specs: log-ingest-ledger, telemetry-lake)
 
