@@ -12,7 +12,7 @@ P1 delivered bronze samples, per-log metadata, and a ledger, all in `rewrite`. T
 | Is the motor model known? | **Yes.** `ConnectedMotor` per device (KrakenX60, KrakenX44, Falcon500), plus device constants `MotorKT`, `MotorKV`, `MotorStallCurrent` |
 | Temperature available? | **Yes** (Pro). Q7 maximum 46 °C on intake TalonFX-1 |
 | 2026 robot layout | rio: TalonFX-1..8 and 10 (intake, indexer, shooter, hood; **10 not in `motor-ids.txt`**). CANivore: 11/12, 21/22, 31/32, 41/42 (drive Kraken X60, steer Falcon 500) |
-| Restarts | E10 has **one** wpilog but **two** hoot groups (`19-26-19`, `19-29-15`): the hoot logger restarted mid-match |
+| Restarts | E10 has **one** wpilog but **two** hoot groups (`19-26-19`, `19-29-15`). *Corrected during implementation:* the wpilog **ends at 19:28:10 UTC**, so the second group (19:29:15) is outside it, probably a reboot whose new wpilog isn't in the corpus. It becomes a hoot-only session. A single wpilog enable edge also mis-paired into a bogus 127.8 s offset (the wall clock says about 196 s), so enable-edge alignment now requires at least 2 pairs, a spread under 1 s, and wall-clock agreement within 10 s |
 
 ## Goals / Non-Goals
 
@@ -56,7 +56,7 @@ swaps = ["2026-03-20"]            # optional; legacy unit epochs
 ### Sessions and clock alignment
 - **Grouping:**
   - Hoots group by filename session stamp.
-  - A hoot group joins the wpilog whose anchored UTC span contains its stamp within ±120 s, with the same event and match prefix when both have one.
+  - A hoot group joins the wpilog whose anchored UTC span contains its stamp, allowing it to start up to 60 s before the wpilog. Event and match labels must agree when both have one.
   - Otherwise it forms a hoot-only session.
 - **`payload-match` alignment:**
   - Find non-`Phoenix6/` hoot signals whose name equals a wpilog signal's name with its `NT:/` prefix removed, and whose types are equal.
