@@ -50,9 +50,13 @@ context: |
 
   Conventions: kebab-case filenames and directories, snake_case functions,
   PascalCase classes, SCREAMING_SNAKE_CASE constants, type hints everywhere.
-  Imports go external, then internal, then local. Default branch is main,
-  with feature/<name> branches. Every change goes through a PR with CI;
-  never push straight to main.
+  Imports go external, then internal, then local.
+
+  Branching: the rewrite integrates on the long-lived `rewrite` branch.
+  Each change is a `feature/<name>` branch cut from `rewrite`, and merges
+  back into `rewrite` through a PR with CI (never push directly). `main`
+  keeps the legacy code until `rewrite` merges into it once, replacing it.
+  Legacy deletions (retire-legacy-code) happen on `rewrite` too.
 
 rules:
   proposal:
