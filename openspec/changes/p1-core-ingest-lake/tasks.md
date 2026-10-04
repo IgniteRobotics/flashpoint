@@ -51,7 +51,7 @@
 
 ## 7. Docs and wrap-up
 
-- [ ] 7.1 Update ADR-0001 (SQLite ledger + Parquet snapshots), ADR-0003 (compiled scanner, official reader as oracle, spike numbers), and ADR-0004 (CTRE index, byte-70 compliancy, signal profiles)
-- [ ] 7.2 Update `docs/rewrite/05-target-architecture.md` (§2 and §4 layout) and `06-roadmap.md` (P1 status)
-- [ ] 7.3 README "Getting started" for `flashpoint ingest` (the README is rewritten fully later, in retire-legacy-code stage 2d)
-- [ ] 7.4 Add a `perf` CI job (non-blocking at first) that runs the budget tests on ubuntu-latest
+- [x] 7.1 Update ADR-0001 (SQLite ledger + Parquet snapshots), ADR-0003 (compiled scanner, official reader as oracle, spike numbers), and ADR-0004 (CTRE index, byte-70 compliancy, signal profiles)
+- [x] 7.2 Update `docs/rewrite/05-target-architecture.md` (§2 and §4 layout) and `06-roadmap.md` (P1 status)
+- [x] 7.3 README "Getting started" for `flashpoint ingest` (the README is rewritten fully later, in retire-legacy-code stage 2d)
+- [x] 7.4 Add a `perf` CI job (non-blocking at first) that runs the budget tests on ubuntu-latest

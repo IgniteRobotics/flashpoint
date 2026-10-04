@@ -21,3 +21,11 @@ SQLite stores every sample as row-oriented TEXT, with no indexes and with key co
 ## Alternatives considered
 - **SQLite** (status quo): simple, but a row store with the wrong access pattern.
 - **TimescaleDB:** needs a Postgres server. Revisit only for multi-team hosting.
+
+## Update (P1 implementation, 2026-10-04)
+- **Ledger and per-log metadata live in SQLite (WAL)**, `lake/meta/flashpoint.sqlite`. They need transactional per-file state changes, which Parquet can't provide. Each run exports every table to `lake/meta/*.parquet`, so DuckDB reads everything as plain Parquet (no extensions; works offline).
+- **Bronze layout:** `bronze/samples/season=<YYYY|unknown>/log_id=<sha256>/part-0.parquet` (zstd-3).
+  - Rows are sorted by `(signal, ts_us)` **within each row group**. One row group per 32 MB decode window, so ingest memory is bounded.
+  - Queries filter by `log_id` partition first, so the file isn't globally sorted.
+- **Writes are staged and atomically renamed** into place; readers never see a partial log.
+- **Measured:** about 44 MB of bronze per CANivore bus per match (`health` profile); one-signal query in under 1 s.

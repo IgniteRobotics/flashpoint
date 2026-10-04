@@ -54,10 +54,10 @@ flowchart TD
     H -->|seen & success| SKIP[skip]
     H -->|new| RAW[copy to raw/sha256.ext<br>ledger: status=received]
     RAW --> T{type?}
-    T -->|.hoot| OV[owlet registry<br>pick version → hoot→wpilog<br>--check-pro]
+    T -->|.hoot| OV[owlet registry<br>compliancy byte 70 → owlet build<br>health profile, --check-pro]
     T -->|.wpilog| RD
     T -->|.revlog .dslog| LATER[future readers]
-    OV --> RD[wpiutil.log.DataLogReader<br>→ Arrow batches]
+    OV --> RD[streaming wpilog scanner<br>32 MB windows → Arrow]
     RD --> B[bronze: signals<br>log_id, signal, ts_us, value_*]
     RD --> META[log metadata<br>FMSInfo, git, systemTime anchor]
     RD --> INV[CAN inventory parser<br>CANInventory entry → serial per slot]
@@ -84,11 +84,11 @@ Notes on the design:
 ```
 lake/
   raw/<sha256>.{wpilog,hoot}                       # immutable originals
-  bronze/signals/season=2026/event=GADAL/log_id=<sha>/part-0.parquet
+  bronze/samples/season=2026/log_id=<sha>/part-0.parquet   # sorted per row group (P1)
   silver/samples/season=2026/event=GADAL/match=Q12/part-0.parquet
   gold/match_slot_features/season=2026/part-0.parquet
   gold/anomalies/season=2026/part-0.parquet
-  meta/ledger.parquet  meta/logs.parquet  meta/matches.parquet
+  meta/flashpoint.sqlite (ledger, WAL)  meta/*.parquet (snapshots: files, logs, hoot_logs, entries, inventory)
   meta/units.parquet   meta/device_observations.parquet   # physical-device registry
 config/
   seasons/2026.toml        # NT prefixes, owlet version, match framing rules
@@ -241,7 +241,7 @@ erDiagram
 flashpoint/
   pyproject.toml
   src/flashpoint/
-    readers/      wpilog.py (wpiutil.log), hoot.py (owlet registry), dslog.py, revlog.py
+    readers/      wpilog.py (compiled streaming scanner), hoot.py (owlet registry + owlet-manifest.toml), dslog.py, revlog.py
     identity/     match.py (FMSInfo/filename/TBA), session.py (time-overlap grouping),
                   inventory.py (CANInventory → slot/unit resolution)
     config/       models.py (pydantic), loader.py (TOML)
@@ -253,7 +253,7 @@ flashpoint/
     cli.py        typer: acquire | ingest | rebuild | report | doctor
   tests/          unit/, golden/ (real small logs + expected parquet), e2e/
   notebooks/      marimo apps
-  tools/owlet/    fetch script + checksum manifest (binaries NOT in git)
+  tools/          fetch-corpus.py, update-owlet-manifest.py (owlet binaries are never in git)
 ```
 
 ## 6. Key decisions

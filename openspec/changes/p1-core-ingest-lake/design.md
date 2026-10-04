@@ -32,7 +32,7 @@ Other facts:
 
 ## Decisions
 
-### D3 revised: compiled spec-based scanner; the official reader becomes the test oracle
+### D3 revised: compiled spec-based streaming scanner; the official reader becomes the test oracle
 The official reader is fast in C++, but crossing into Python once per record caps throughput at about 1 M records/s. All-signals hoot exports would then blow the budget, and even `health` exports would use about a third of it.
 - Implement the WPILib DataLog 1.0 record framing as a numba-compiled scan over a memory-mapped file. It returns parallel arrays (entry id, timestamp, payload offset, payload size).
 - Decode control records (Start, Finish, SetMetadata) in Python. There are few of them.
@@ -74,7 +74,10 @@ $FLASHPOINT_LAKE (default ~/flashpoint-lake)
 ```
 - Bronze is written to `_staging`, `fsync`ed, then moved into place with an atomic directory rename. Only after that does the ledger move the file to `success`.
 - Leftover staging directories are deleted at the start of each run.
-- **Bronze columns:** `signal` (dictionary-encoded string), `type` (dictionary), `ts_us` (int64), `v_f64`, `v_i64`, `v_bool`, `v_str`, and `v_bytes` (nullable). The data is sorted by `(signal, ts_us)` within the file, which gives good row-group statistics and solves the unordered-timestamp problem.
+- **Bronze columns:** `signal` (dictionary-encoded string), `type` (dictionary), `ts_us` (int64), `v_f64`, `v_i64`, `v_bool`, `v_str`, and `v_bytes` (nullable).
+- **Sorting:** rows are sorted by `(signal, ts_us)` **within each row group**, which also solves the unordered-timestamp problem.
+  - *Revised during implementation:* a whole-file sort pushed peak memory to 1.9 GB on one match.
+  - The reader now streams 32 MB windows. Each window becomes a sorted row group, so peak memory is bounded by the window, not the log (measured: 862 MB for a full match, with about 130 MB of that being library imports).
 - **Season** comes from the anchored UTC start year. The filename is the fallback, then `unknown`.
 
 ### Metadata extraction
