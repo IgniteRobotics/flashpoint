@@ -1,0 +1,43 @@
+[project]
+name = "flashpoint"
+version = "0.1.0"
+description = "FRC robot telemetry platform: ingest WPILib and CTRE logs, track motor health across a robot's life"
+authors = [{ name = "Ignite Robotics" }]
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = []
+
+[project.scripts]
+flashpoint = "flashpoint.cli:main"
+
+[tool.poetry]
+packages = [{ include = "flashpoint", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+ruff = "^0.13"
+mypy = "^1.18"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers -q -m \"not corpus\""
+testpaths = ["tests"]
+markers = [
+    "corpus: tests that need the golden log corpus (run tools/fetch-corpus.py first)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Legacy top-level scripts are never edited (retire-legacy-code); lint new code only.
+include = ["src/**/*.py", "tests/**/*.py", "tools/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "PTH"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"

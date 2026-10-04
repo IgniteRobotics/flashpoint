@@ -174,3 +174,6 @@ imported_data/
 # Claude Code: share OpenSpec skills/commands, keep personal settings local
 .claude/settings.local.json
 .DS_Store
+
+# Golden corpus cache (tools/fetch-corpus.py)
+.corpus/

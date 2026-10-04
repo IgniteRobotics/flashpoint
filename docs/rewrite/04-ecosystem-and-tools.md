@@ -14,7 +14,7 @@ The rule for the rewrite: **only build what is Flashpoint-specific**, meaning li
 - **Readers.**
   - "WPILib provides a `DataLogReader` class for Java, C++, and Python" (WPILib, n.d.-b).
   - In Python, RobotPy's `wpiutil.log.DataLogReader` (RobotPy, n.d.) is a binding over the C++ reader. **Use it instead of the vendored pure-Python `datalog.py`.**
-  - `robotpy-wpiutil` is already in `main:requirements.txt` but has never been used.
+  - `robotpy-wpiutil` is already in `legacy-2025:requirements.txt` but has never been used.
 - **DataLogTool.** It "integrates a SFTP client for downloading data log files" and exports CSV in list or table style (WPILib, n.d.-b).
 
 ### CTRE Phoenix 6 hoot (`.hoot`)
@@ -24,10 +24,12 @@ The rule for the rewrite: **only build what is Flashpoint-specific**, meaning li
   - Without a Pro-licensed device in the log, only a fixed free subset exports.
   - For Talon FX that subset is SupplyCurrent, StatorCurrent, MotorVoltage, Position, Velocity, and fault booleans.
   - It does **not** include continuous DeviceTemp (CTR Electronics, n.d.-a).
+  - **P0 finding (2026-10-04):** the team's 2025 and 2026 hoots are Pro-licensed, so everything exports (ADR-0005).
 - **Prior art for version handling.** AdvantageScope's `owletInterface.ts`:
   - picks "an owlet executable capable of opening the Hoot log",
   - spawns `owlet <hoot> <wpilog> -f wpilog`,
   - uses `owlet --check-pro` (Mechanical Advantage, 2026).
+  - **P0 finding (2026-10-04):** `owlet --compliancy` reports the hoot format version (2025: 13, 2026: 19). That is the key for choosing an owlet version (ADR-0004).
 
   **Copy this design.**
 - **Hoot Replay** needs a Pro-licensed device (CTR Electronics, n.d.-d). It isn't relevant to analytics.

@@ -1,15 +1,15 @@
 ## 1. Stage 1: dead code (with P0)
 
-- [ ] 1.1 Confirm the `legacy-2025` tag exists on origin, pointing at the pre-rewrite main
-- [ ] 1.2 Confirm nothing references the stage-1 files (`git grep` for each filename). Record the result in the PR
-- [ ] 1.3 Delete `setup-db.py`, `ingest_dir.sh`, `ingest_dir_scripts/`, `summary_metrics.py`, `manage_imports.py`, `old_sync_scripts/`, `requirements.txt`, `executables/owlet.exe`, `docs/*.excalidraw`
-- [ ] 1.4 Update `docs/rewrite/README.md` "How code is cited" to use `legacy-2025:path:line`, and rewrite the `main:` locators across `docs/rewrite/*.md`
+- [x] 1.1 Confirm the `legacy-2025` tag exists on origin, pointing at the pre-rewrite main
+- [x] 1.2 Confirm nothing references the stage-1 files (`git grep` for each filename). Record the result in the PR
+- [x] 1.3 Delete `setup-db.py`, `ingest_dir.sh`, `ingest_dir_scripts/`, `summary_metrics.py`, `manage_imports.py`, `old_sync_scripts/`, `requirements.txt`, `docs/*.excalidraw`
+- [x] 1.4 Update `docs/rewrite/README.md` "How code is cited" to use `legacy-2025:path:line`, and rewrite the `main:` locators across `docs/rewrite/*.md`
 - [ ] 1.5 CI passes. Merge through a PR
 
 ## 2. Stage 2a: ingest pipeline (gate: p1-core-ingest-lake archived)
 
 - [ ] 2.1 Verify the gate: `openspec/changes/archive/*p1-core-ingest-lake*` exists
-- [ ] 2.2 Delete `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt`
+- [ ] 2.2 Delete `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt`, `executables/owlet.exe`
 - [ ] 2.3 CI passes. Merge through a PR
 
 ## 3. Stage 2b: mapping config (gate: p2-semantics-and-physics archived)
