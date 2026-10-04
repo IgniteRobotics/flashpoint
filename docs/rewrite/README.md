@@ -26,7 +26,7 @@ Flashpoint ingests FRC robot logs (WPILib `.wpilog` and CTRE Phoenix 6 `.hoot`).
   - Don't rebuild AdvantageScope. Link to it.
 
   See [05-target-architecture.md](05-target-architecture.md) and [06-roadmap.md](06-roadmap.md).
-- **Biggest external risk:** without a Pro-licensed device, CTRE's free hoot export does **not** include continuous `DeviceTemp` (CTR Electronics, n.d.-a). Thermal trending, the best early failure signal, may need to be logged through NetworkTables or wpilog instead.
+- **Temperature risk, retired in P0:** without a Pro-licensed device, CTRE's free hoot export excludes continuous `DeviceTemp` (CTR Electronics, n.d.-a). **P0 finding (2026-10-04):** `owlet --check-pro` reports the team's 2025 and 2026 hoots as **Pro-licensed**, so thermal trending from hoot works ([ADR-0005](../adr/0005-temperature-source.md)).
 
 ## Documents
 
@@ -43,10 +43,12 @@ Flashpoint ingests FRC robot logs (WPILib `.wpilog` and CTRE Phoenix 6 `.hoot`).
 
 ## How code is cited
 
-Repository code is cited as IgniteRobotics (2026), with an inline locator `branch:path:line`. For example, `main:ingest_library.py:137` or `origin/feature/power-tracking:utils/hoot_loader.py:86`. Line numbers come from the remote branch tips as of 2026-10-04:
-- `main` at `70be731`
-- `origin/development` at `16c8d88`
-- `origin/feature/power-tracking` at `af97804`
+Repository code is cited as IgniteRobotics (2026), with an inline locator `ref:path:line`:
+- `legacy-2025:ingest_library.py:137`: the pre-rewrite main, tag `legacy-2025` at `70be731`. Legacy files are being deleted from main by the `retire-legacy-code` change, so these locators point at the tag.
+- `origin/development:viz.py:42`: also preserved as tag `archive/development` (`16c8d88`).
+- `origin/feature/power-tracking:utils/hoot_loader.py:86`: also preserved as tag `archive/power-tracking` (`af97804`).
+
+To view one: `git show legacy-2025:ingest_library.py | sed -n 137p`.
 
 ## Audit
 

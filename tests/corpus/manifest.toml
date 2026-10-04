@@ -1,0 +1,185 @@
+# Golden log corpus. Fetch with: python tools/fetch-corpus.py
+# Never replace an asset in place: bump `version` and publish a new release.
+
+version = "corpus-v1"
+release_url = "https://github.com/IgniteRobotics/flashpoint/releases/download/corpus-v1"
+
+[[file]]
+group = "2026-gacmp-q7"
+name = "FRC_20260409_215113_GACMP_Q7.wpilog"
+sha256 = "97b6be652e98b001dc683d6bb4c58134b931162a6cdb66c4d88d13952e00ced4"
+size = 22712484
+kind = "wpilog"
+season = 2026
+covers = "Full qualification session: wpilog + CANivore + rio hoot (compliancy 19)"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-q7"
+name = "GACMP_Q7_6E9415C3394C485320202050101C18FF_2026-04-09_21-51-06.hoot"
+sha256 = "a391f0ecfb9b2928a0d697d4b344b86f0fa9b3609884201b4b1dd32dbb43bd92"
+size = 38617088
+kind = "hoot"
+season = 2026
+bus = "canivore"
+compliancy = 19
+pro = true
+covers = "Full qualification session: wpilog + CANivore + rio hoot (compliancy 19)"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-q7"
+name = "GACMP_Q7_rio_2026-04-09_21-51-06.hoot"
+sha256 = "15407c13c4024e3093fa18a27eccb42c5fd5ce2c0a5c0ad367f082f3964985c4"
+size = 17924096
+kind = "hoot"
+season = 2026
+bus = "rio"
+compliancy = 19
+pro = true
+covers = "Full qualification session: wpilog + CANivore + rio hoot (compliancy 19)"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-e10"
+name = "FRC_20260411_192626_GACMP_E10.wpilog"
+sha256 = "fb2c9ee63a1f07e2ab3a03e9e69759d3d58e8e55708582eb89ff312e2f9c8367"
+size = 11876324
+kind = "wpilog"
+season = 2026
+covers = "Playoff match (E): hoot sessions split across a restart, two files per bus"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-e10"
+name = "GACMP_E10_6E9415C3394C485320202050101C18FF_2026-04-11_19-26-19.hoot"
+sha256 = "1707a273e2d2da8366be03cdfed0905cd94c4add8f3cacb553e8394c7b01bf80"
+size = 9404416
+kind = "hoot"
+season = 2026
+bus = "canivore"
+compliancy = 19
+pro = true
+covers = "Playoff match (E): hoot sessions split across a restart, two files per bus"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-e10"
+name = "GACMP_E10_6E9415C3394C485320202050101C18FF_2026-04-11_19-29-15.hoot"
+sha256 = "d1bdf7d856d39891058b499f760b2520229aa7a6c56117eac56d840bc0226f77"
+size = 868352
+kind = "hoot"
+season = 2026
+bus = "canivore"
+compliancy = 19
+pro = true
+covers = "Playoff match (E): hoot sessions split across a restart, two files per bus"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-e10"
+name = "GACMP_E10_rio_2026-04-11_19-26-19.hoot"
+sha256 = "ac504efb3818e43fa6c99e9f153bc3f9d3b163810f4f44c336e34988106eb0d1"
+size = 5013504
+kind = "hoot"
+season = 2026
+bus = "rio"
+compliancy = 19
+pro = true
+covers = "Playoff match (E): hoot sessions split across a restart, two files per bus"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-e10"
+name = "GACMP_E10_rio_2026-04-11_19-29-15.hoot"
+sha256 = "c027e26cc1fd2338e9cde8e0ad2f2149d445227f4136a4b3e02bd7d0d805a7af"
+size = 425984
+kind = "hoot"
+season = 2026
+bus = "rio"
+compliancy = 19
+pro = true
+covers = "Playoff match (E): hoot sessions split across a restart, two files per bus"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-p2"
+name = "FRC_20260409_171208_GACMP_P2.wpilog"
+sha256 = "cc310fab60c0729eb1849a435aed3f13138e23ed08471921ad665cd563eab8a2"
+size = 55834961
+kind = "wpilog"
+season = 2026
+covers = "Practice match (P), wpilog only"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gadal-q11-empty"
+name = "GADAL_Q11_6E9415C3394C485320202050101C18FF_2026-03-06_17-52-51.hoot"
+sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+size = 0
+kind = "hoot"
+season = 2026
+bus = "canivore"
+compliancy = 0  # unreadable (empty)
+covers = "Real 0-byte CANivore hoot from the event (quarantine path)"
+source = "Ignite Shared Drive: 2026 FRC/Telemetry"
+
+[[file]]
+group = "2026-gacmp-e10-truncated"
+name = "GACMP_E10_rio_2026-04-11_19-26-19.truncated-60pct.hoot"
+sha256 = "ae9826e6f251b2d089c4da4fd8c32f3e2e95b9c901ba50e4cb19de75f7987b4f"
+size = 3008102
+kind = "hoot"
+season = 2026
+bus = "rio"
+compliancy = 19
+pro = true
+derived_from = "GACMP_E10_rio_2026-04-11_19-26-19.hoot"
+covers = "Derived: first 60% of the E10 rio hoot. NOTE owlet 26.1.0 converts it WITHOUT error; corrupt tails must be detected by ingest, not owlet"
+source = "derived (head -c 60%)"
+
+[[file]]
+group = "2025-gadal-q30"
+name = "FRC_20250307_213719_GADAL_Q30.wpilog"
+sha256 = "a9eacb508244fe4ae23e360c8efdae8576b8d7cbcc0f80f357fc6d33edb4e71d"
+size = 6006445
+kind = "wpilog"
+season = 2025
+covers = "2025 season wpilog (2025 NT prefixes and datamaps)"
+source = "Ignite 2025 event downloads"
+
+[[file]]
+group = "2025-gacmp-q19"
+name = "GACMP_Q19_D4F5AE23394C4853202020500E3418FF_2025-04-04_09-53-33.hoot"
+sha256 = "ade8ebd195865eeb85d04db2785b28d7030009399a4c57a9499313bfce6c37c7"
+size = 6830646
+kind = "hoot"
+season = 2025
+bus = "canivore"
+compliancy = 13
+pro = true
+covers = "2025 CANivore + rio hoot, compliancy 13 (needs owlet 25.x; owlet 26 refuses)"
+source = "Ignite 2025 event downloads"
+
+[[file]]
+group = "2025-gacmp-q19"
+name = "GACMP_Q19_rio_2025-04-04_09-53-33.hoot"
+sha256 = "1a122de27252affb7887ba06a2869364946b4954bed47b433eae7f7cefe2c09a"
+size = 3317551
+kind = "hoot"
+season = 2025
+bus = "rio"
+compliancy = 13
+pro = true
+covers = "2025 CANivore + rio hoot, compliancy 13 (needs owlet 25.x; owlet 26 refuses)"
+source = "Ignite 2025 event downloads"
+
+[[file]]
+group = "2025-nofms"
+name = "FRC_20250404_221544.wpilog"
+sha256 = "86bc15414a71325374d6041409c7452f6b42e53658fe6cd768e2953c7592e463"
+size = 4694081
+kind = "wpilog"
+season = 2025
+covers = "wpilog whose filename has no event/match suffix (non-FMS fallback path)"
+source = "Ignite 2025 event downloads"

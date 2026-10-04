@@ -216,7 +216,7 @@ erDiagram
 | Item | Value |
 |---|---|
 | Where | **wpilog** `/Flashpoint/CANInventory` (string, JSON) through `DataLog`/`DataLogManager`. Optionally also mirrored to hoot as a custom signal, since custom signals export without Pro (CTR Electronics, n.d.-a) |
-| When | Once after devices enumerate, while disabled, in a background thread. Re-log on enable edges if the payload changed (a hot-swap in the pit) |
+| When | Once after devices enumerate, while disabled, in a background thread. Re-check on each entry to Disabled (never while enabled) and re-log only if the payload changed (a hot-swap in the pit). Implemented in Robot-2026#107 and Phoenix-2026#12 |
 | Payload | `{"schema":1,"source":"phoenix-diag","devices":[{"model","bus","id","serial","fw","hw_rev","boot_rev","man_date"}]}`. Normalize to this shape on the robot, so ingest doesn't depend on the diagnostics server's field names |
 | Failure | Log `{"schema":1,"error":"..."}`, never crash robot code. Ingest then falls back to legacy identity |
 
@@ -263,8 +263,8 @@ flashpoint/
 | D1 | Storage | **Parquet lake + DuckDB** | SQLite (simple, but a row store); TimescaleDB (needs a server, better for concurrent writes) |
 | D2 | Transform engine | **Polars** (+ DuckDB SQL) | pandas: familiar to students, about 90× slower on the vendor benchmark (Polars, 2025) |
 | D3 | wpilog reader | **`robotpy-wpiutil`** | Vendored `datalog.py`: no build dependency, pure-Python speed |
-| D4 | owlet distribution | **Fetch script + checksum manifest, cached under `~/.cache/flashpoint/owlet/`** | Commit binaries (today: repo bloat); Git LFS |
-| D5 | Temperature source | **Probe `--check-pro`. If not Pro, add robot-side NT logging of DeviceTemp** | Accept the gap; buy Pro |
+| D4 | owlet distribution | **Fetch script + checksum manifest, cached under `~/.cache/flashpoint/owlet/`. Select by hoot `--compliancy`** | Commit binaries (today: repo bloat); Git LFS |
+| D5 | Temperature source | **Hoot `DeviceTemp`. P0 confirmed the logs are Pro-licensed. Record `pro_licensed` per log** | Robot-side NT logging (fallback only) |
 | D6 | Per-match UI | **Static site generated from gold/silver** (reuse power-tracking SPA, payload ≤ 2 MB) | Streamlit (server, cache pitfalls) |
 | D7 | Lifetime UI | **marimo app** (Python, Git-friendly) | Grafana + DuckDB plugin (needs glibc Linux server, unsigned plugin); Streamlit |
 | D8 | Deep dive | **Link to AdvantageScope** (download raw wpilog) | Rebuild graphs (don't) |
