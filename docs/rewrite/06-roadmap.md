@@ -148,14 +148,39 @@ gantt
 | Known motor swaps (pit notes, memory) | Declare as `[[slots.swaps]]` dates in robot TOML → legacy unit epochs | P2 |
 | Excalidraw diagrams | Replace with the mermaid diagrams in these docs | P0 |
 
-## 4. Quality gates (every phase)
+## 4. Branching
+
+```mermaid
+gitGraph
+    commit id: "legacy main"
+    commit id: "P0 (#9)"
+    branch rewrite
+    branch feature/p1-core-ingest-lake
+    commit id: "P1"
+    checkout rewrite
+    merge feature/p1-core-ingest-lake
+    branch feature/p2-semantics-and-physics
+    commit id: "P2"
+    checkout rewrite
+    merge feature/p2-semantics-and-physics
+    commit id: "P3, P4, legacy stages 2a–2d"
+    checkout main
+    merge rewrite id: "one-time replacement"
+```
+
+- `rewrite` is the integration branch, cut from `main` after P0 (2026-10-04).
+- Every phase and every legacy-removal stage is a `feature/*` branch from `rewrite`, merged back through a PR with CI. `rewrite` is protected like `main`.
+- `main` stays on the legacy code (plus P0's docs and CI) until the rewrite is ready. Then `rewrite` merges into `main` once, replacing the legacy code entirely.
+- Keep `rewrite` current with any `main` hotfixes by merging `main` into `rewrite`. Never rebase it; it's shared.
+
+## 5. Quality gates (every phase)
 
 - **CI:** `pytest --strict-markers`, coverage on `src/flashpoint/{readers,lake,physics}` ≥ 85%, ruff, mypy `--strict`.
 - **Golden-corpus E2E** on every PR. Add a perf budget check from P1 onward.
 - **Container builds:** amd64 and arm64.
 - **Docs:** the ADR log is updated when a decision changes.
 
-## 5. Risks
+## 6. Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
@@ -167,6 +192,6 @@ gantt
 | Too few failures to learn from | High | Medium | Lean on Tier 1 and 2 (physics and baselines). ML is optional |
 | Scope creep into rebuilding AdvantageScope | Medium | Medium | D8: link, don't rebuild |
 
-## 6. Odds
+## 7. Odds
 
 **[Background]** My honest estimate is that P0–P4 delivers a working tool by the 2027 events. Doing the first five phases before anomaly detection beats trying to bolt ML onto today's pipeline. Today's storage and joins return wrong numbers (#10–#27), so a model trained on them would learn the bugs.
