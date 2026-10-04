@@ -7,12 +7,14 @@ come from a committed manifest generated from CTRE's redist index
 """
 
 import hashlib
+import os
 import platform
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import tomllib
 import urllib.request
 from dataclasses import dataclass
@@ -107,6 +109,7 @@ class OwletRegistry:
             data: dict[str, Any] = tomllib.load(f)
         self._entries = {int(e["compliancy"]): e for e in data.get("owlet", [])}
         self.cache_dir = cache_dir
+        self._lock = threading.Lock()  # parallel conversions share the first download
 
     def compliancies(self) -> list[int]:
         return sorted(self._entries)
@@ -126,6 +129,10 @@ class OwletRegistry:
         return self.cache_dir / f"owlet-{entry['version']}-C{compliancy}{suffix}"
 
     def binary_for(self, compliancy: int, download: bool = True) -> Path:
+        with self._lock:
+            return self._resolve(compliancy, download)
+
+    def _resolve(self, compliancy: int, download: bool) -> Path:
         entry = self._entry(compliancy)
         build = entry.get("platforms", {}).get(platform_key())
         if build is None:
@@ -143,7 +150,8 @@ class OwletRegistry:
 
     def _download(self, url: str, sha256: str, target: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_name(target.name + ".part")
+        # Unique per process and thread, so concurrent downloaders never share a temp file.
+        tmp = target.with_name(f"{target.name}.{os.getpid()}.{threading.get_ident()}.part")
         try:
             with urllib.request.urlopen(url, timeout=60) as response, tmp.open("wb") as out:
                 shutil.copyfileobj(response, out, 1 << 20)

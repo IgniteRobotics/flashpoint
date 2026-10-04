@@ -15,16 +15,36 @@ BUDGET_S = 30.0
 BUDGET_RSS_BYTES = 1 << 30
 
 
+# Runs the CLI in a fresh process and reports its own peak RSS.
+# Linux keeps ru_maxrss across exec (a child inherits the parent's high-water mark), so there
+# the process's own peak comes from VmHWM, which exec resets. For the same reason, children's
+# ru_maxrss on Linux is inflated by the forking parent, so the owlet peak is asserted on macOS only.
 _MEASURE = """
 import json, resource, sys
 from flashpoint.cli import main
+
+def own_peak():
+    if sys.platform.startswith("linux"):
+        with open("/proc/self/status") as status:
+            for line in status:
+                if line.startswith("VmHWM:"):
+                    return int(line.split()[1]) * 1024
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
 code = main(sys.argv[1:])
 scale = 1 if sys.platform == "darwin" else 1024  # Linux reports KiB
 print(json.dumps({
-    "flashpoint_peak_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale,
+    "flashpoint_peak_bytes": own_peak(),
     "owlet_peak_bytes": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * scale,
 }))
 sys.exit(code)
+"""
+_WARM_UP = """
+from flashpoint import config
+from flashpoint.readers import hoot
+from flashpoint.cli import main
+hoot.default_registry(config.cache_root()).binary_for(19)  # converter download
+main(["doctor"])  # imports and compiled-kernel cache
 """
 
 
@@ -34,9 +54,8 @@ def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_p
     for path in corpus_group("2026-gacmp-q7"):
         (match_dir / path.name).symlink_to(path)
 
-    # Warm-up (excluded by the spec): owlet download and compiled-kernel cache.
-    warm = [sys.executable, "-m", "flashpoint", "doctor"]
-    subprocess.run(warm, check=True, capture_output=True)
+    # Warm-up (excluded by the spec): converter download and compiled-kernel cache.
+    subprocess.run([sys.executable, "-c", _WARM_UP], check=True, capture_output=True)
 
     started = time.perf_counter()
     done = subprocess.run(
@@ -63,4 +82,5 @@ def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_p
     assert "3 ingested" in done.stdout
     assert elapsed < BUDGET_S
     assert peaks["flashpoint_peak_bytes"] < BUDGET_RSS_BYTES
-    assert peaks["owlet_peak_bytes"] < BUDGET_RSS_BYTES
+    if sys.platform == "darwin":
+        assert peaks["owlet_peak_bytes"] < BUDGET_RSS_BYTES
