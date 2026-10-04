@@ -8,6 +8,7 @@ Fault switches are plain attributes and may be changed at any time; they apply t
 request (``rotate_host_key`` and ``auth_*`` to the next connection).
 """
 
+import contextlib
 import hashlib
 import os
 import shlex
@@ -90,14 +91,16 @@ class FakeRobot:
 
     def stop(self) -> None:
         self._stopping.set()
-        if self._accept_thread is not None:
-            self._accept_thread.join(timeout=5)
-        if self._listener is not None:
-            self._listener.close()
         with self._lock:
             transports = list(self._transports)
         for transport in transports:
             transport.close()
+        if self._accept_thread is not None:
+            self._accept_thread.join(timeout=5)
+        if self._listener is not None:
+            self._listener.close()
+        for transport in transports:
+            transport.join(timeout=5)
 
     # -- switches and observations ---------------------------------------------------------
 
@@ -108,7 +111,7 @@ class FakeRobot:
     @property
     def host_key_fingerprint(self) -> str:
         """The host key's SHA256 fingerprint, OpenSSH style (``SHA256:<base64>``)."""
-        return f"SHA256:{self._host_key.fingerprint}"
+        return str(self._host_key.fingerprint)
 
     def reset_counters(self) -> None:
         with self._lock:
@@ -162,12 +165,15 @@ class FakeRobot:
                 self.connection_count += 1
                 self._transports.append(transport)
             try:
-                transport.start_server(server=_Server(self))
+                # An event makes start_server return at once; a silent peer must not stall accepts.
+                transport.start_server(event=threading.Event(), server=_Server(self))
             except (paramiko.SSHException, OSError):
                 transport.close()
 
 
 def _packets_sent(channel: paramiko.Channel) -> int:
+    # Assumes one in-flight exec per connection (our tests run them one at a time); a second
+    # concurrent exec's own packets could satisfy the wait early.
     packetizer: Any = channel.get_transport().packetizer
     return int(packetizer._Packetizer__sequence_number_out)
 
@@ -205,20 +211,21 @@ class _Server(paramiko.ServerInterface):
         self.robot.record_exec(command)
         # paramiko sends the exec request's success reply after this handler returns; output
         # sent before it makes the client see "Channel closed". Wait for one more packet out.
-        deadline = time.monotonic() + 2
-        while _packets_sent(channel) <= sent_before and time.monotonic() < deadline:
-            time.sleep(0.001)
         try:
+            deadline = time.monotonic() + 2
+            while _packets_sent(channel) <= sent_before and time.monotonic() < deadline:
+                time.sleep(0.001)
             code, out, err = self._execute(command)
             if out:
                 channel.sendall(out)
             if err:
                 channel.sendall_stderr(err)
             channel.send_exit_status(code)
-        except (OSError, EOFError, paramiko.SSHException):
-            pass
+        except (OSError, EOFError, AttributeError, paramiko.SSHException):
+            pass  # the client went away first; nothing left to report to
         finally:
-            channel.close()
+            with contextlib.suppress(OSError, EOFError, paramiko.SSHException):
+                channel.close()
 
     def _execute(self, command: str) -> tuple[int, bytes, bytes]:
         try:
@@ -244,7 +251,11 @@ class _Server(paramiko.ServerInterface):
                 err.append(f"sha256sum: {arg}: No such file or directory\n")
                 code = 1
                 continue
-            digest = hashlib.sha256(real.read_bytes()).hexdigest()
+            hasher = hashlib.sha256()
+            with real.open("rb") as f:
+                while chunk := f.read(1024 * 1024):
+                    hasher.update(chunk)
+            digest = hasher.hexdigest()
             if self.robot.wrong_hash:
                 digest = hashlib.sha256(digest.encode()).hexdigest()
             out.append(f"{digest}  {arg}\n")

@@ -2,7 +2,10 @@
 
 import hashlib
 import shlex
+import socket
 import struct
+import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -183,7 +186,7 @@ def test_drop_after_bytes(robot: FakeRobot) -> None:
 def test_rotate_host_key(robot: FakeRobot) -> None:
     def seen_fingerprint() -> str:
         with connect(robot) as t:
-            return f"SHA256:{t.get_remote_server_key().fingerprint}"
+            return str(t.get_remote_server_key().fingerprint)
 
     first = seen_fingerprint()
     assert first == robot.host_key_fingerprint
@@ -228,7 +231,41 @@ def test_paths_cannot_escape_root(robot: FakeRobot, tmp_path: Path) -> None:
 def test_reset_counters(robot: FakeRobot) -> None:
     with connect(robot) as t:
         run(t, "df -Pk -- /")
-        sftp(t).open(LOG_PATH, "rb").read()
+        with sftp(t).open(LOG_PATH, "rb") as f:
+            f.read()
     assert robot.bytes_served > 0
     robot.reset_counters()
     assert (robot.bytes_served, robot.exec_log, robot.write_attempts) == (0, [], [])
+
+
+def test_fingerprint_has_single_sha256_prefix(robot: FakeRobot) -> None:
+    assert robot.host_key_fingerprint.startswith("SHA256:")
+    assert not robot.host_key_fingerprint.startswith("SHA256:SHA256:")
+
+
+def test_lifecycle_distinct_ports_and_prompt_stop_with_silent_client(tmp_path: Path) -> None:
+    before = {t.ident for t in threading.enumerate()}
+    one, two = FakeRobot(tmp_path / "one"), FakeRobot(tmp_path / "two")
+    one.start()
+    two.start()
+    silent = socket.create_connection((one.host, one.port))
+    try:
+        assert one.port > 0
+        assert two.port > 0
+        assert one.port != two.port
+        # A stalled peer must not block later connections.
+        with connect(one) as t:
+            assert t.is_authenticated()
+        started = time.monotonic()
+        one.stop()
+        assert time.monotonic() - started < 1
+    finally:
+        silent.close()
+        two.stop()
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        leftover = [t for t in threading.enumerate() if t.ident not in before and t.is_alive()]
+        if not leftover:
+            break
+        time.sleep(0.01)
+    assert leftover == []
