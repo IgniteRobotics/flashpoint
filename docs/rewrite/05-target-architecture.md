@@ -52,32 +52,27 @@ flowchart LR
 flowchart TD
     F[new file in inbox] --> H[sha256 → ledger lookup]
     H -->|seen & success| SKIP[skip]
-    H -->|new| RAW[copy to raw/sha256.ext<br>ledger: status=received]
+    H -->|new| RAW[raw/sha256.ext<br>ledger: received]
     RAW --> T{type?}
     T -->|.hoot| OV[owlet registry<br>compliancy byte 70 → owlet build<br>health profile, --check-pro]
     T -->|.wpilog| RD
-    T -->|.revlog .dslog| LATER[future readers]
     OV --> RD[streaming wpilog scanner<br>32 MB windows → Arrow]
-    RD --> B[bronze: signals<br>log_id, signal, ts_us, value_*]
-    RD --> META[log metadata<br>FMSInfo, git, systemTime anchor]
-    RD --> INV[CAN inventory parser<br>CANInventory entry → serial per slot]
-    INV --> UNITS[(meta/device_observations)]
-    META --> ID[match identity resolver<br>FMSInfo → filename → TBA]
-    ID --> GRP[session grouping<br>wpilog + N hoots by time overlap]
-    B --> SIL[silver: mapped + framed<br>robot config → component, metric, unit<br>match phases auto/teleop]
-    GRP --> SIL
-    UNITS --> SIL
-    SIL --> GOLD[gold: per match × slot × unit features<br>stats, energy, residuals, thermal]
-    GOLD --> AN[anomaly scoring<br>rules → z-score → PyOD/River]
-    AN --> LED[ledger: status=success<br>pipeline_version]
+    RD --> B[bronze: samples per log<br>+ log metadata, inventory]
     OV -. error .-> Q[quarantine + reason]
-    RD -. corrupt tail .-> Q
+    B --> DER{{flashpoint derive<br>separate process}}
+    DER --> SES[sessions: wpilog + hoot groups<br>match key: FMS → filename]
+    SES --> AL[clock alignment<br>payload-match → enable-edges → wall-clock]
+    AL --> ID[device identity<br>slots → units: serial or legacy epoch]
+    ID --> FR[match framing<br>hoot RobotMode → DS fallback]
+    FR --> SIL[silver: mapped device samples<br>wpilog clock, phase, match time]
+    SIL --> GOLD[gold: match × phase × slot × unit<br>physics features]
+    GOLD --> AN["anomaly scoring - P5"]
 ```
 
-Notes on the design:
-- **Pairing hoot files with a wpilog by time overlap** uses the `systemTime` anchor (WPILib, n.d.-a). It replaces filename substring matching (#20, #21). Hoot files are per CAN bus and named differently (CTR Electronics, n.d.-a).
-- **`pipeline_version` in the ledger.** Bumping it marks silver and gold for rebuild. Raw files are never re-pulled.
-- **Quarantine instead of `sys.exit`** (#57). One bad file never blocks a batch.
+Implementation notes (P1 + P2, 2026-10-04):
+- Ingest and derive run in separate processes so peak memory is the larger of the two, not their sum (Q7: 870 MB and 593 MB).
+- Derive is fingerprinted per session, so a repeat run is a no-op. `--all` forces a rebuild.
+- Alignment: see ADR-0012. Identity: see ADR-0011.
 
 ## 4. Data model (lake layout)
 
@@ -85,8 +80,8 @@ Notes on the design:
 lake/
   raw/<sha256>.{wpilog,hoot}                       # immutable originals
   bronze/samples/season=2026/log_id=<sha>/part-0.parquet   # sorted per row group (P1)
-  silver/samples/season=2026/event=GADAL/match=Q12/part-0.parquet
-  gold/match_slot_features/season=2026/part-0.parquet
+  silver/samples/season=2026/session_id=<id>/part-*.parquet          # P2: one per hoot in the session
+  gold/match_features/season=2026/session_id=<id>/part-0.parquet      # P2
   gold/anomalies/season=2026/part-0.parquet
   meta/flashpoint.sqlite (ledger, WAL)  meta/*.parquet (snapshots: files, logs, hoot_logs, entries, inventory)
   meta/units.parquet   meta/device_observations.parquet   # physical-device registry

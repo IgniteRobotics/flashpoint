@@ -25,3 +25,12 @@
 ## Alternatives considered
 - **CAN ID only:** swaps silently corrupt histories.
 - **A manual maintenance log only:** error-prone, and it lags reality.
+
+## Implementation notes (P2, 2026-10-04)
+- **Slots** come from `config/robots/<robot>.toml`: 2026-comp has 23 slots (18 motors, the Pigeon2 gyro, and 4 CANcoders).
+  - A slot with bus `canivore` matches any non-rio bus: hoot files name the bus by its hex id, while the diagnostics server reports its configured name.
+  - Inventory model names are normalized ("Talon FX" → `TalonFX`).
+- **Units:** `ctre:<serial>` from a valid `/Flashpoint/CANInventory`, otherwise `legacy:<robot>:<slot>:<epoch>`, where the epoch counts the slot's configured swap dates on or before the session day.
+- **Mid-session swaps** split attribution at the second inventory's timestamp (`unit_swaps`).
+- **Unmapped devices** from logs or inventories are reported (`unmapped_devices`), never dropped. The first corpus run found the gyro and the CANcoders this way.
+- Tables: `slot_observations`, `unit_swaps`, `unmapped_devices` (ledger plus `meta/*.parquet`).
