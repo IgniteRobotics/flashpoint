@@ -25,11 +25,11 @@
 
 ## 4. Ledger and lake (specs: log-ingest-ledger, telemetry-lake)
 
-- [ ] 4.1 SQLite ledger schema (WAL): files, aliases, stage transitions, quarantine reasons, pipeline version. Tests for idempotency and aliases
-- [ ] 4.2 Raw store: content-addressed copy with hash verify. Never overwrites
-- [ ] 4.3 Bronze writer: sample columns, sorted by `(signal, ts_us)`, zstd, written to staging then atomically renamed. Crash-safety test (kill between write and rename leaves nothing visible)
-- [ ] 4.4 Metadata tables (logs, hoot_logs, entries, inventory) and their Parquet snapshots in `meta/`
-- [ ] 4.5 DuckDB query helper `flashpoint.lake.query(sql)` with views over bronze and meta. Test: one-signal query under 1 s
+- [x] 4.1 SQLite ledger schema (WAL): files, aliases, stage transitions, quarantine reasons, pipeline version. Tests for idempotency and aliases
+- [x] 4.2 Raw store: content-addressed copy with hash verify. Never overwrites
+- [x] 4.3 Bronze writer: sample columns, sorted by `(signal, ts_us)`, zstd, written to staging then atomically renamed. Crash-safety test (kill between write and rename leaves nothing visible)
+- [x] 4.4 Metadata tables (logs, hoot_logs, entries, inventory) and their Parquet snapshots in `meta/`
+- [x] 4.5 DuckDB query helper `flashpoint.lake.query(sql)` with views over bronze and meta. Test: one-signal query under 1 s
 
 ## 5. Log metadata (spec: log-metadata)
 
