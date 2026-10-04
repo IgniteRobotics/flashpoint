@@ -31,11 +31,11 @@ The system SHALL recursively list `.wpilog` and `.hoot` files under the configur
 - **THEN** the internal root is still listed, and no error is reported
 
 ### Requirement: Active files are not pulled by default
-A file SHALL be pulled only once it is stable. Stable means its size and modification time are unchanged across two observations at least one poll interval apart. The newest `.wpilog` in each directory, and every `.hoot` in the newest hoot session directory, SHALL be treated as active until a newer one exists, because a new file only appears when the robot code restarts. An explicit include-active option SHALL pull active files immediately, and every file pulled that way SHALL be marked `incomplete-read` in the ledger.
+A file SHALL be pulled only once it is stable. Stable means its size and modification time are unchanged across two observations at least a settle interval apart (default 5 s, within the same cycle). The newest `.wpilog` in each directory, and every `.hoot` in the newest hoot session directory, SHALL be treated as active until a newer one exists, because a new file only appears when the robot code restarts. An explicit include-active option SHALL pull active files immediately, and every file pulled that way SHALL be marked `incomplete-read` in the ledger.
 
 #### Scenario: Log still being written
-- **WHEN** a wpilog grows between two polls
-- **THEN** it is not pulled in either poll, and it is pulled in the first poll after it stops growing and is no longer the newest file
+- **WHEN** a wpilog that is not the newest in its directory grows between the two observations of a cycle
+- **THEN** it is not pulled in that cycle, and it is pulled in the first cycle where both observations agree
 
 #### Scenario: Current hoot session
 - **WHEN** the newest hoot session directory holds a rio hoot and a CANivore hoot, and only the rio hoot grew since the last poll
