@@ -6,12 +6,12 @@
 
 ## 2. wpilog reader (spec: wpilog-reading)
 
-- [ ] 2.1 Tests: synthetic wpilog builder (header, Start/Finish/SetMetadata, every scalar type, string, raw, out-of-order timestamps, truncated tail). Expectations cover records, types, values, and `truncated_bytes`
-- [ ] 2.2 Compiled framing scan over a memory-mapped buffer, returning entry, timestamp, offset, and size arrays plus `truncated_bytes`
-- [ ] 2.3 Control-record decoding and the entry catalog (id → name, type, metadata, with entry ids reused after Finish)
-- [ ] 2.4 Typed gather kernels (double, float, int64, boolean). Text for string and json; raw bytes for every other type, with `structschema` entries captured
-- [ ] 2.5 Header and version validation (`invalid-header`, `unsupported-version`)
-- [ ] 2.6 Oracle test (corpus): Q7 wpilog decoded output equals the official reader's (count, catalog, all scalar values)
+- [x] 2.1 Tests: synthetic wpilog builder (header, Start/Finish/SetMetadata, every scalar type, string, raw, out-of-order timestamps, truncated tail). Expectations cover records, types, values, and `truncated_bytes`
+- [x] 2.2 Compiled framing scan over a memory-mapped buffer, returning entry, timestamp, offset, and size arrays plus `truncated_bytes`
+- [x] 2.3 Control-record decoding and the entry catalog (id → name, type, metadata, with entry ids reused after Finish)
+- [x] 2.4 Typed gather kernels (double, float, int64, boolean). Text for string and json; raw bytes for every other type, with `structschema` entries captured
+- [x] 2.5 Header and version validation (`invalid-header`, `unsupported-version`)
+- [x] 2.6 Oracle test (corpus): Q7 wpilog decoded output equals the official reader's (count, catalog, all scalar values)
 - [ ] 2.7 Throughput test (corpus, `@pytest.mark.perf`): Q7 all-signals hoot export of about 37 M records decodes in under 4 s after warm-up
 
 ## 3. owlet registry and hoot conversion (spec: hoot-conversion)

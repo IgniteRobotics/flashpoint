@@ -43,3 +43,8 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "PTH"]
 [tool.mypy]
 strict = true
 python_version = "3.11"
+
+[[tool.mypy.overrides]]
+# Third-party packages without type stubs.
+module = ["pyarrow", "pyarrow.*", "numba", "numba.*", "wpiutil", "wpiutil.*"]
+ignore_missing_imports = true
