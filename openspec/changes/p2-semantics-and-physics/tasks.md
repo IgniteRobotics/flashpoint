@@ -47,10 +47,10 @@
 
 ## 9. Gold and commands (spec: match-features)
 
-- [ ] 9.1 `gold/match_features` writer; rows per (match, phase, slot, unit) with alignment confidence and source logs
-- [ ] 9.2 `flashpoint derive [--all]`; ingest runs derive for touched sessions; `rebuild` covers derived layers
-- [ ] 9.3 Corpus e2e: Q7 produces 17 slots × 3 phases of rows; a season maximum-temperature query runs under 1 s; the second derive is a no-op
-- [ ] 9.4 Budget: Q7 ingest plus derive stays under 30 s and 1 GB
+- [x] 9.1 `gold/match_features` writer; rows per (match, phase, slot, unit) with alignment confidence and source logs
+- [x] 9.2 `flashpoint derive [--all]`; ingest runs derive for touched sessions; `rebuild` covers derived layers
+- [x] 9.3 Corpus e2e: Q7 produces 17 slots × 3 phases of rows; a season maximum-temperature query runs under 1 s; the second derive is a no-op
+- [x] 9.4 Budget: Q7 ingest plus derive stays under 30 s and 1 GB
 
 ## 10. Docs and wrap-up
 

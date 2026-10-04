@@ -2,6 +2,7 @@
 
 import argparse
 import platform
+import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -13,6 +14,7 @@ from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
 from flashpoint.readers.hoot import HootError
+from flashpoint.semantics.derive import Deriver
 from flashpoint.semantics.robot_config import ConfigError, load_robots
 
 EXIT_USAGE = 2
@@ -36,9 +38,19 @@ def _parser() -> argparse.ArgumentParser:
     ingest.add_argument("--jobs", type=int, help="parallel hoot conversions")
     lake_arg(ingest)
 
+    ingest.add_argument("--no-derive", action="store_true", help="skip deriving silver/gold")
+
     rebuild = sub.add_parser("rebuild", help="reprocess files from an older pipeline version")
     rebuild.add_argument("--profile", choices=hoot.PROFILES, default="health")
     lake_arg(rebuild)
+
+    derive = sub.add_parser(
+        "derive", help="sessions, alignment, identity, silver, and gold from bronze"
+    )
+    derive.add_argument(
+        "--all", action="store_true", help="rebuild every session, not only changed ones"
+    )
+    lake_arg(derive)
 
     doctor = sub.add_parser("doctor", help="report environment and lake health")
     lake_arg(doctor)
@@ -55,6 +67,20 @@ def _summarize(report: IngestReport) -> None:
         f"{report.count('success')} ingested, {report.count('skipped')} skipped, "
         f"{report.count('quarantined')} quarantined in {report.elapsed_s:.1f}s"
     )
+
+
+def _derive(lake: LakePaths, force: bool) -> int:
+    try:
+        deriver = Deriver(lake, config.config_root())
+    except ConfigError as exc:
+        print(f"robot configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        result = deriver.run(force=force)
+    finally:
+        deriver.close()
+    print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
+    return 0
 
 
 def _doctor(lake: LakePaths) -> int:
@@ -104,6 +130,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     lake = LakePaths(config.lake_root(args.lake))
     if args.command == "doctor":
         return _doctor(lake)
+    if args.command == "derive":
+        return _derive(lake, force=args.all)
     registry = hoot.default_registry(config.cache_root())
     ingestor = Ingestor(
         lake, registry, profile=args.profile, jobs=getattr(args, "jobs", None), log=print
@@ -120,4 +148,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     finally:
         ingestor.close()
     _summarize(report)
+    if (args.command == "rebuild" or not args.no_derive) and report.count("success"):
+        # A fresh process: peak memory is max(ingest, derive) rather than their sum, because
+        # the allocator keeps ingest's high-water mark (measured: 1155 MB vs 870 / 589 MB).
+        derive = [sys.executable, "-m", "flashpoint", "derive", "--lake", str(lake.root)]
+        subprocess.run(derive + (["--all"] if args.command == "rebuild" else []), check=False)
     return report.exit_code
