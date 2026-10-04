@@ -91,3 +91,22 @@ def test_q7_slots_are_legacy_units(corpus_lake: Any) -> None:
         "source": "legacy",
     } in q7
     assert unmapped == []
+
+
+def test_q7_framing_from_hoot_robot_mode(corpus_lake: Any) -> None:
+    deriver = Deriver(corpus_lake, config.config_root())
+    try:
+        deriver.derive_sessions()
+        framings = deriver.derive_framing()
+        q7_id = deriver.ledger.query(
+            "SELECT session_id FROM sessions WHERE match_key = '2026gacmp_qm7'"
+        )
+    finally:
+        deriver.close()
+    framing = framings[q7_id[0]["session_id"]]
+    assert framing.source == "hoot-robot-mode"
+    names = [p.name for p in framing.phases]
+    assert names == ["pre", "auto", "gap", "teleop", "post"]
+    teleop = framing.phases[3]
+    assert teleop.end_us is not None and abs(teleop.end_us - 291_580_000) < 50_000
+    assert framing.match_start_us is not None and abs(framing.match_start_us - 127_500_000) < 50_000

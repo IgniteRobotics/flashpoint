@@ -59,6 +59,10 @@ CREATE TABLE IF NOT EXISTS unit_swaps (
     session_id TEXT NOT NULL, slot_id TEXT NOT NULL, ts_us INTEGER NOT NULL,
     old_unit TEXT NOT NULL, new_unit TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS match_phases (
+    session_id TEXT NOT NULL, phase TEXT NOT NULL, start_us INTEGER, end_us INTEGER,
+    source TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS unmapped_devices (
     session_id TEXT NOT NULL, bus TEXT, model TEXT, can_id INTEGER, source TEXT
 );
@@ -75,6 +79,7 @@ DERIVED_TABLES = (
     "slot_observations",
     "unit_swaps",
     "unmapped_devices",
+    "match_phases",
 )
 
 

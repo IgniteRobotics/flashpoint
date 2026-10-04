@@ -31,8 +31,8 @@
 
 ## 6. Match framing (spec: match-framing)
 
-- [ ] 6.1 Tests first: pre/auto/gap/teleop/post from synthetic `DS:enabled` and `DS:autonomous`; never-enabled session; match-time origin
-- [ ] 6.2 Implement; corpus test: Q7 has exactly one auto and one teleop period
+- [x] 6.1 Tests first: pre/auto/gap/teleop/post from synthetic `DS:enabled` and `DS:autonomous`; never-enabled session; match-time origin
+- [x] 6.2 Implement; corpus test: Q7 has exactly one auto and one teleop period
 
 ## 7. Silver (spec: telemetry-lake)
 
