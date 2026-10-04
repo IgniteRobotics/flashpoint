@@ -8,8 +8,8 @@
 
 ## 2. Stage 2a: ingest pipeline (gate: p1-core-ingest-lake archived)
 
-- [ ] 2.1 Verify the gate: `openspec/changes/archive/*p1-core-ingest-lake*` exists
-- [ ] 2.2 Delete `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt`, `executables/owlet.exe`
+- [x] 2.1 Verify the gate: `openspec/changes/archive/*p1-core-ingest-lake*` exists
+- [x] 2.2 Delete `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt`, `executables/owlet.exe`
 - [ ] 2.3 CI passes. Merge through a PR
 
 ## 3. Stage 2b: mapping config (gate: p2-semantics-and-physics archived)
