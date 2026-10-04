@@ -13,7 +13,8 @@ The rewrite replaces all of the legacy code on main, but no change owns removing
   | Legacy component | Gate |
   |---|---|
   | `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt`, `executables/owlet.exe` | `p1-core-ingest-lake` archived (owlet.exe moved here from stage 1 during P0: `ingest_library.py:50` still uses it on Windows, and its replacement, the owlet registry, arrives in P1) |
-  | `datamaps/`, `log_configs/` | `p2-semantics-and-physics` archived, **and** the config migration has run |
+  | `datamaps/drivetrain_devices_map.csv`, `datamaps/rio_devices_map.csv` (stage 2b-i) | `p2-semantics-and-physics` archived, **and** the config migration has run |
+  | `datamaps/{2024,2025}/`, `log_configs/` (stage 2b-ii) | a future NetworkTables-mapping change archived (P2 deliberately didn't map NT-only signals) |
   | `docker-services/`, `docker-compose.yml`, `.dockerignore`, `drive-backup.py` | `p3-log-acquisition` archived |
   | `viz.py`, `viz-requirements.txt`, `gw_config.json` | `p4-views-and-reports` archived |
 
