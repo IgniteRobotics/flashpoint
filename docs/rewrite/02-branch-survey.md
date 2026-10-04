@@ -133,9 +133,9 @@ gitGraph
 
 | Keep (idea or code) | From | Why |
 |---|---|---|
-| SHA-256 import ledger with two-phase success | `main:ingest_system_log.py`, `ingest_library.py:18-33` | The right idempotency primitive |
+| SHA-256 import ledger with two-phase success | `legacy-2025:ingest_system_log.py`, `ingest_library.py:18-33` | The right idempotency primitive |
 | raw → processed → stats layering | `docs/data_arch.excalidraw` | Maps onto a medallion layout |
-| FMSInfo + git metadata extraction | `main:ingest_library.py:148-184` | Match and code provenance |
+| FMSInfo + git metadata extraction | `legacy-2025:ingest_library.py:148-184` | Match and code provenance |
 | Practice-aware match regex | `origin/development:docker-services/importer/main.py:8` | Matches WPILib naming (WPILib Developers, 2026b) |
 | Power/energy/W/RPS/thermal math + tests | `origin/feature/power-tracking:utils/analyzer.py`, `tests/utils/*` | Domain logic, already specified and tested |
 | TOML name map with competition overrides | `origin/feature/power-tracking:utils/motors.toml`, `names.py` | Better than per-year CSV |
