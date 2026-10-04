@@ -60,7 +60,7 @@ gantt
   - `(phoenix_api_version, os, arch) → binary`, with checksums and lazy download.
   - Pick the version by probing the hoot. Fail loudly on version mismatch (CTR Electronics, n.d.-c).
   - Build a multi-arch container (fixes the x86-only Linux binaries).
-- **Ledger:** content hash with `received` → `bronze` → `silver` → `gold` → `success` states plus `pipeline_version`, and quarantine on error. This ports the idea from `main:ingest_system_log.py`.
+- **Ledger:** content hash with `received` → `bronze` → `silver` → `gold` → `success` states plus `pipeline_version`, and quarantine on error. This ports the idea from `legacy-2025:ingest_system_log.py`.
 - **Metadata extraction:** FMSInfo (WPILib Developers, 2026a), git metadata, and `systemTime` anchoring (WPILib, n.d.-a).
 - **CLI:** `flashpoint ingest PATH...` and `flashpoint doctor` (environment, owlet, and Pro checks).
 - **Exit:**

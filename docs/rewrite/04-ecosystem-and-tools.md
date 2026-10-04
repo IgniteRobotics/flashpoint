@@ -14,7 +14,7 @@ The rule for the rewrite: **only build what is Flashpoint-specific**, meaning li
 - **Readers.**
   - "WPILib provides a `DataLogReader` class for Java, C++, and Python" (WPILib, n.d.-b).
   - In Python, RobotPy's `wpiutil.log.DataLogReader` (RobotPy, n.d.) is a binding over the C++ reader. **Use it instead of the vendored pure-Python `datalog.py`.**
-  - `robotpy-wpiutil` is already in `main:requirements.txt` but has never been used.
+  - `robotpy-wpiutil` is already in `legacy-2025:requirements.txt` but has never been used.
 - **DataLogTool.** It "integrates a SFTP client for downloading data log files" and exports CSV in list or table style (WPILib, n.d.-b).
 
 ### CTRE Phoenix 6 hoot (`.hoot`)

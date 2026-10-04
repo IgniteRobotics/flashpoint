@@ -43,10 +43,12 @@ Flashpoint ingests FRC robot logs (WPILib `.wpilog` and CTRE Phoenix 6 `.hoot`).
 
 ## How code is cited
 
-Repository code is cited as IgniteRobotics (2026), with an inline locator `branch:path:line`. For example, `main:ingest_library.py:137` or `origin/feature/power-tracking:utils/hoot_loader.py:86`. Line numbers come from the remote branch tips as of 2026-10-04:
-- `main` at `70be731`
-- `origin/development` at `16c8d88`
-- `origin/feature/power-tracking` at `af97804`
+Repository code is cited as IgniteRobotics (2026), with an inline locator `ref:path:line`:
+- `legacy-2025:ingest_library.py:137`: the pre-rewrite main, tag `legacy-2025` at `70be731`. Legacy files are being deleted from main by the `retire-legacy-code` change, so these locators point at the tag.
+- `origin/development:viz.py:42`: also preserved as tag `archive/development` (`16c8d88`).
+- `origin/feature/power-tracking:utils/hoot_loader.py:86`: also preserved as tag `archive/power-tracking` (`af97804`).
+
+To view one: `git show legacy-2025:ingest_library.py | sed -n 137p`.
 
 ## Audit
 

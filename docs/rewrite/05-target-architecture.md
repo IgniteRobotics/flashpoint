@@ -216,7 +216,7 @@ erDiagram
 | Item | Value |
 |---|---|
 | Where | **wpilog** `/Flashpoint/CANInventory` (string, JSON) through `DataLog`/`DataLogManager`. Optionally also mirrored to hoot as a custom signal, since custom signals export without Pro (CTR Electronics, n.d.-a) |
-| When | Once after devices enumerate, while disabled, in a background thread. Re-log on enable edges if the payload changed (a hot-swap in the pit) |
+| When | Once after devices enumerate, while disabled, in a background thread. Re-check on each entry to Disabled (never while enabled) and re-log only if the payload changed (a hot-swap in the pit). Implemented in Robot-2026#107 and Phoenix-2026#12 |
 | Payload | `{"schema":1,"source":"phoenix-diag","devices":[{"model","bus","id","serial","fw","hw_rev","boot_rev","man_date"}]}`. Normalize to this shape on the robot, so ingest doesn't depend on the diagnostics server's field names |
 | Failure | Log `{"schema":1,"error":"..."}`, never crash robot code. Ingest then falls back to legacy identity |
 

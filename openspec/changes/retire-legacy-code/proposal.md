@@ -6,13 +6,13 @@ The rewrite replaces all of the legacy code on main, but no change owns removing
 
 - **Stage 1 (with P0): delete code that is already dead.** These files are broken, unreferenced, or superseded, so removing them loses nothing:
   - `setup-db.py`, `ingest_dir.sh`, `ingest_dir_scripts/`, `summary_metrics.py`, `manage_imports.py`, `old_sync_scripts/`
-  - `requirements.txt` (a dev-machine pip freeze), `executables/owlet.exe` (replaced by the owlet fetch manifest)
+  - `requirements.txt` (a dev-machine pip freeze)
   - `docs/*.excalidraw` (stale; superseded by the mermaid diagrams in `docs/rewrite/`)
 - **Stage 2 (gated): delete each legacy component only after the change that replaces it is archived:**
 
   | Legacy component | Gate |
   |---|---|
-  | `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt` | `p1-core-ingest-lake` archived |
+  | `csv_converter.py`, `datalog.py`, `ingest_library.py`, `ingest_system_log.py`, `ingest_device_log.py`, `ingest_match_logs.py`, `ingest-requirements.txt`, `executables/owlet.exe` | `p1-core-ingest-lake` archived (owlet.exe moved here from stage 1 during P0: `ingest_library.py:50` still uses it on Windows, and its replacement, the owlet registry, arrives in P1) |
   | `datamaps/`, `log_configs/` | `p2-semantics-and-physics` archived, **and** the config migration has run |
   | `docker-services/`, `docker-compose.yml`, `.dockerignore`, `drive-backup.py` | `p3-log-acquisition` archived |
   | `viz.py`, `viz-requirements.txt`, `gw_config.json` | `p4-views-and-reports` archived |

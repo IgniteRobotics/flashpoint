@@ -45,7 +45,7 @@ Facts found while planning (2026-10-04):
   - A self-contained `CanInventoryLogger` class.
   - On a daemon thread it polls `http://localhost:1250/?action=getdevices` with backoff until it gets a non-empty device list (at most 60 s).
   - It normalizes the result to the 05 §4a schema v1 and writes it to the wpilog string entry `/Flashpoint/CANInventory`.
-  - It re-checks on every disabled→enabled transition, at most once, and logs again only if the payload changed.
+  - It re-checks on each entry to Disabled and logs again only if the payload changed. It never queries while enabled, because the query triggers a bus enumeration (99 doc). This was originally planned for the enable edge and was corrected during implementation.
   - It never throws into robot code. On failure it logs `{"schema":1,"error":...}`.
   - The normalizer accepts the documented Phoenix 5 field names (`SerialNo`, `CANbus`, `ID`, `Model`, `CurrentVers`, `HardwareRev`, `BootloaderRev`, `ManDate`) and fails soft on missing ones. Field names must be checked on a live Phoenix 6 robot before this is trusted (a human task).
 - **ADR format:** a light MADR style (Status, Context, Decision, Consequences, Alternatives), stored at `docs/adr/NNNN-kebab-title.md` with an index in `docs/adr/README.md`.
