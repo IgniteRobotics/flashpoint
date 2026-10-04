@@ -26,10 +26,10 @@
 
 ## 5. Removable volumes (spec: removable-media-acquisition)
 
-- [ ] 5.1 Capture fixtures: `diskutil info -plist` for a USB stick, an internal SSD, a .dmg, and SMB (captured on Josh's Mac); Linux mountinfo and a fake `/sys` tree (stick and `removable=0` USB SSD); PowerShell JSON (USB and NVMe)
-- [ ] 5.2 Tests first, then the macOS parser and runner
-- [ ] 5.3 Tests first, then the Linux parser and runner
-- [ ] 5.4 Tests first, then the Windows parser and runner (PowerShell JSON, single call, 10 s timeout)
+- [x] 5.1 Capture fixtures: `diskutil info -plist` for a USB stick, an internal SSD, a .dmg, and SMB (captured on Josh's Mac); Linux mountinfo and a fake `/sys` tree (stick and `removable=0` USB SSD); PowerShell JSON (USB and NVMe)
+- [x] 5.2 Tests first, then the macOS parser and runner
+- [x] 5.3 Tests first, then the Linux parser and runner
+- [x] 5.4 Tests first, then the Windows parser and runner (PowerShell JSON, single call, 10 s timeout)
 - [ ] 5.5 Tests first: depth-4 scan, hidden and OS-metadata directories skipped, verified copy with source re-hash, label sanitising, stick removed mid-copy, reinsert copies 0 bytes, volume untouched, safe-to-eject only when nothing is pending or failed
 - [ ] 5.6 Implement `volumes.detect()` dispatch, scan, and copy; `--no-usb`
 

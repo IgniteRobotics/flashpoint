@@ -1,0 +1,6 @@
+[
+  {"DriveLetter":"C","BusType":"NVMe","UniqueId":"\\\\?\\Volume{0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d}\\","FileSystemLabel":"Windows"},
+  {"DriveLetter":"E","BusType":"USB","UniqueId":"\\\\?\\Volume{5e1d2b8a-3c4f-4a6b-9d7e-1f2a3b4c5d6e}\\","FileSystemLabel":"ROBOTLOGS"},
+  {"DriveLetter":"F","BusType":"SD","UniqueId":"\\\\?\\Volume{7f8e9d0c-1b2a-4c3d-8e4f-5a6b7c8d9e0f}\\","FileSystemLabel":""},
+  {"DriveLetter":"G","BusType":"SATA","UniqueId":"\\\\?\\Volume{11111111-2222-4333-8444-555555555555}\\","FileSystemLabel":"Data"}
+]
