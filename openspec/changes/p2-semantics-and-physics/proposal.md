@@ -6,10 +6,14 @@ Raw signals mean nothing until they are tied to a robot, a match, a role, and a 
 
 - **Robot and season config** (TOML, validated): slots, motor models, gear ratios, declared swap dates. A one-off migration from `datamaps/*.csv` and `utils/motors.toml`
 - **Match identity**: in-log FMSInfo, then the filename, then an optional TBA key. One parser, practice-aware
-- **Session grouping**: pair a wpilog with its hoots by wall-clock overlap, not by filename substring
+- **Session grouping and clock alignment**: pair a wpilog with its hoots, and put every hoot sample on the wpilog clock.
+  - **Spike (2026-10-04, Q7):** CTRE swerve telemetry writes the same `DriveState/Pose` struct to both logs. Every wpilog pose (15,039) matched a hoot pose byte-for-byte, giving offset 19.5635 s with IQR 0.076 ms and 0.1 ms drift.
+  - Enable edges are off by 30–500 ms, so they're a low-confidence fallback only.
+  - Rio and CANivore hoots share one clock (identical `RobotEnable` edges).
 - **Device identity**: resolve CANInventory into slot and unit observations, detect mid-session swaps, assign legacy epochs, report unmapped serials
 - **Match framing**: auto, teleop, and disabled phases from DS state
-- **Motor physics**: time-weighted stats, power, energy, signed velocity, thermal, stall time, DCMotor current residuals. Ported from power-tracking's analyzer and tests
+- **Motor physics**: time-weighted stats, power, energy, signed velocity, thermal, stall time, and current residuals. Ported from power-tracking's analyzer and tests.
+  - **Spike:** hoot reports each device's motor model (`ConnectedMotor`) and its own constants (`MotorKT`, `MotorKV`, `MotorStallCurrent`). Residuals use device-reported constants, so there's no hand-maintained motor table.
 - **Gold features**: one row per (match, slot, unit)
 
 ## Capabilities
@@ -25,6 +29,7 @@ Raw signals mean nothing until they are tied to a robot, a match, a role, and a 
 
 ### Modified Capabilities
 - `telemetry-lake`: adds the silver and gold layers and the unit registry tables
+- `hoot-conversion`: the `health` profile adds the alignment anchor (`DriveState/Pose`), `RotorVelocity`, and the device motor constants (`MotorKT`, `MotorKV`, `MotorStallCurrent`); the pipeline version is bumped
 
 ## Non-goals
 

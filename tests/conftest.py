@@ -37,3 +37,20 @@ def corpus_group(corpus_manifest: dict[str, Any], corpus_dir: Path) -> Callable[
         return paths
 
     return resolve
+
+
+@pytest.fixture(scope="session")
+def corpus_lake(corpus_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Any:
+    """A lake with the whole golden corpus ingested (shared by derived-layer corpus tests)."""
+    from flashpoint import config
+    from flashpoint.ingest import Ingestor
+    from flashpoint.lake.paths import LakePaths
+    from flashpoint.readers import hoot
+
+    lake = LakePaths(tmp_path_factory.mktemp("corpus-lake") / "lake")
+    ingestor = Ingestor(lake, hoot.default_registry(config.cache_root()))
+    try:
+        ingestor.ingest([corpus_dir])
+    finally:
+        ingestor.close()
+    return lake
