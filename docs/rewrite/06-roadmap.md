@@ -35,6 +35,8 @@ gantt
 ## 2. Phases
 
 ### P0 — Stabilize & decide (S)
+> **Status: in progress** (started 2026-10-04). Done: CI skeleton, tags, ADRs (D1–D10 Proposed, D11 Accepted), corpus-v1, Pro/compliancy findings, robot inventory logger PRs (Robot-2026#107, Phoenix-2026#12), retire-legacy-code stage 1. Open: [HUMAN] verify `getdevices` field names on a live robot, confirm `/Flashpoint/CANInventory` in fresh logs, Tuner X unit walk, team review of the ADRs. Tracked in `openspec/changes/p0-stabilize-foundation/tasks.md`.
+
 - **Repo:**
   - Tag the current `main` as `legacy-2025`.
   - Archive the branches under `archive/*`: `development`, `power-tracking`, `static-site`, `dataviz`, `docker`.
