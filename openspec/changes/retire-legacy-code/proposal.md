@@ -28,6 +28,10 @@ None. This change removes code and doesn't alter any spec-level behavior (`skip_
 ### Modified Capabilities
 None.
 
+## Branching
+
+All of these deletions land on the `rewrite` integration branch, never directly on `main`; stage 1 is the exception, already on `main` via #9. `main` keeps the legacy code until the one-time `rewrite` → `main` merge.
+
 ## Non-goals
 
 - **Rewriting git history** to purge binaries (about 20 MB of owlet builds). That needs a force-push to a shared repo; revisit only if clone size becomes a real problem
