@@ -170,3 +170,7 @@ faketele/
 old_2024_data/
 imported_data/
 
+
+# Claude Code: share OpenSpec skills/commands, keep personal settings local
+.claude/settings.local.json
+.DS_Store

@@ -1,0 +1,80 @@
+schema: spec-driven
+
+context: |
+  Project: Flashpoint, the FRC robot telemetry platform for Ignite Robotics.
+  It ingests WPILib DataLog (.wpilog) and CTRE Phoenix 6 signal logs (.hoot)
+  and tracks motor and robot health across a robot's whole life. The goal is
+  to detect anomalies and eventually predict failures before they happen.
+
+  Status: ground-up rewrite. Legacy code on main (ingest_*.py, viz.py,
+  docker-services/) is reference-only and is not being evolved. The research
+  and roadmap live in docs/rewrite/ and are the source of truth for these
+  changes:
+    - 01-current-capabilities.md   what exists today on every branch
+    - 03-pitfalls-and-performance.md   defects, cited as #N (e.g. #14)
+    - 05-target-architecture.md    design; decisions D1-D11 (D11 decided)
+    - 06-roadmap.md                phases P0-P6 (each P is one change here)
+    - 99-ctre-device-serial-numbers.md   CAN inventory / serial identity
+  Salvage sources: the origin/development and origin/feature/power-tracking
+  branches, plus the archive/static-site tag.
+
+  Target stack (proposed; confirm per ADR):
+    - Python 3.11+, Poetry, pytest with --strict-markers, ruff, mypy --strict
+    - Readers: robotpy-wpiutil (wpiutil.log.DataLogReader); CTRE owlet CLI
+      chosen per log through a versioned registry (binaries are not in git)
+    - Storage: immutable raw files plus a hive-partitioned Parquet lake
+      (bronze/silver/gold), queried with DuckDB; transforms in Polars
+    - Views: a static per-match site (offline, vendored JS), marimo for
+      lifetime analysis; AdvantageScope for single-log deep dives (link to
+      it, don't rebuild it)
+
+  Domain rules:
+    - Never join signals on exact timestamps. Store data long, and use as-of
+      joins with an explicit tolerance.
+    - wpilog timestamps are microseconds from an unspecified zero. Anchor
+      them with the systemTime entry.
+    - Match identity order: in-log FMSInfo, then the filename
+      (FRC_yyyyMMdd_HHmmss_EVENT_{P|Q|E}n), then The Blue Alliance key.
+    - Device identity: a slot is a role on a robot (robot, bus, model,
+      CAN id); a unit is a physical device (CTRE serial number from the
+      /Flashpoint/CANInventory wpilog entry). Baselines are per unit;
+      sibling comparisons are per slot. Logs with no inventory use legacy
+      epochs.
+    - Free (non-Pro) hoot export excludes continuous DeviceTemp. Don't assume
+      hoot carries temperature.
+    - Everything must work offline on a pit laptop. Network enrichment is
+      optional.
+    - Never delete logs on the robot by default.
+
+  Conventions: kebab-case filenames and directories, snake_case functions,
+  PascalCase classes, SCREAMING_SNAKE_CASE constants, type hints everywhere.
+  Imports go external, then internal, then local. Default branch is main,
+  with feature/<name> branches. Every change goes through a PR with CI;
+  never push straight to main.
+
+rules:
+  proposal:
+    - Name the roadmap phase (P0-P6) and the docs/rewrite sections it implements
+    - List the pitfalls it fixes by ID (#N from 03-pitfalls-and-performance.md)
+    - Always include a "Non-goals" section
+    - Keep it under 600 words
+  specs:
+    - Describe observable behavior only. No library or class names
+    - Every requirement has at least one WHEN/THEN scenario that can run against the golden log corpus or a synthetic fixture
+    - Include error and quarantine behavior for malformed or partial logs
+  design:
+    - Reference the D1-D11 decisions. If you deviate from one, say so and add an ADR under docs/adr/
+    - State memory and time budgets for anything that touches full logs
+  tasks:
+    - Write the test first (TDD); each task group ends with passing tests
+    - Keep each task under 2 hours
+    - Include a task to update docs/rewrite when a decision or design changes
+
+operations:
+  apply:
+    guidance:
+      - Run pytest and the golden-corpus e2e before marking a task group done
+      - Don't modify legacy top-level scripts; new code goes in src/flashpoint/
+  archive:
+    guidance:
+      - Update docs/rewrite/06-roadmap.md phase status when archiving a phase change
