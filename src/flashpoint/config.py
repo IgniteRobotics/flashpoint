@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 # Bump whenever bronze or metadata output changes; `flashpoint rebuild` reprocesses older files.
-PIPELINE_VERSION = 1
+PIPELINE_VERSION = 2  # v2: health profile adds DriveState/Pose, RotorVelocity, motor constants
 
 LAKE_ENV = "FLASHPOINT_LAKE"
 CACHE_ENV = "FLASHPOINT_CACHE"

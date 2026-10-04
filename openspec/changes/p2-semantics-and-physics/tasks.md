@@ -1,8 +1,8 @@
 ## 1. Profile change and pipeline version
 
-- [ ] 1.1 Tests first: the `health` profile selects `DriveState/Pose`, `RotorVelocity`, `MotorKT`, `MotorKV`, and `MotorStallCurrent`; the corpus test confirms they're present in the Q7 CANivore output
-- [ ] 1.2 Extend `HEALTH_PATTERN`; bump `PIPELINE_VERSION` to 2; check that `flashpoint rebuild` reconverts hoots from raw
-- [ ] 1.3 Re-measure the Q7 budget with the wider profile and record it
+- [x] 1.1 Tests first: the `health` profile selects `DriveState/Pose`, `RotorVelocity`, `MotorKT`, `MotorKV`, and `MotorStallCurrent`; the corpus test confirms they're present in the Q7 CANivore output
+- [x] 1.2 Extend `HEALTH_PATTERN`; bump `PIPELINE_VERSION` to 2; check that `flashpoint rebuild` reconverts hoots from raw
+- [x] 1.3 Re-measure the Q7 budget with the wider profile and record it
 
 ## 2. Robot configuration (spec: robot-config)
 
