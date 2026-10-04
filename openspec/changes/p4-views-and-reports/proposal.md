@@ -29,4 +29,4 @@ None.
 
 ## Impact
 
-New `src/flashpoint/report/`, `notebooks/`. Reuses the power-tracking SPA UX (from `archive/static-site` and `origin/feature/power-tracking`). Retires `viz.py` and `gw_config.json`.
+New `src/flashpoint/report/`, `notebooks/`. Reuses the power-tracking SPA UX (from `archive/static-site` and `origin/feature/power-tracking`). Supersedes `viz.py` and `gw_config.json` (removed by `retire-legacy-code` stage 2d).

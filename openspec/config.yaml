@@ -7,7 +7,9 @@ context: |
   to detect anomalies and eventually predict failures before they happen.
 
   Status: ground-up rewrite. Legacy code on main (ingest_*.py, viz.py,
-  docker-services/) is reference-only and is not being evolved. The research
+  docker-services/) is reference-only: it is never edited, only deleted
+  through the retire-legacy-code change (staged, one gate per phase). The
+  pre-rewrite tree is preserved at the legacy-2025 tag. The research
   and roadmap live in docs/rewrite/ and are the source of truth for these
   changes:
     - 01-current-capabilities.md   what exists today on every branch
@@ -74,7 +76,9 @@ operations:
   apply:
     guidance:
       - Run pytest and the golden-corpus e2e before marking a task group done
-      - Don't modify legacy top-level scripts; new code goes in src/flashpoint/
+      - Never edit legacy code; new code goes in src/flashpoint/
+      - Delete legacy code only through the tasks in the retire-legacy-code change, and only once that task group's gate is met
   archive:
     guidance:
       - Update docs/rewrite/06-roadmap.md phase status when archiving a phase change
+      - After archiving p1, p2, p3, or p4, open the matching retire-legacy-code task group (stage 2a, 2b, 2c, or 2d) and do it in a follow-up PR. Don't archive retire-legacy-code until all of its groups are done

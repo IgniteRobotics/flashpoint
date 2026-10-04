@@ -32,4 +32,4 @@ None (greenfield).
 
 ## Impact
 
-New `src/flashpoint/{readers,lake,cli}`. Dependencies: robotpy-wpiutil, polars, pyarrow, duckdb. An owlet fetch manifest. Replaces `csv_converter.py`, `datalog.py`, and `ingest_library.py` (legacy, untouched).
+New `src/flashpoint/{readers,lake,cli}`. Dependencies: robotpy-wpiutil, polars, pyarrow, duckdb. An owlet fetch manifest. Replaces `csv_converter.py`, `datalog.py`, and `ingest_*.py`; they are removed by `retire-legacy-code` stage 2a after this change is archived.
