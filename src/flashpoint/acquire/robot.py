@@ -242,6 +242,25 @@ class RobotClient:
                     RemoteFile(root, child_rel, attr.st_size or 0, (attr.st_mtime or 0) * 10**9)
                 )
 
+    def stat(self, remote_path: str) -> tuple[int, int]:
+        """(size, mtime_ns) of a file or directory, with the listing's mtime resolution."""
+        attr = self._sftp.stat(remote_path)
+        return attr.st_size or 0, (attr.st_mtime or 0) * 10**9
+
+    def open_remote(self, remote_path: str, size: int) -> paramiko.SFTPFile:
+        """Open a file read-only, prefetching `size` bytes in 32 KiB requests.
+
+        paramiko's prefetch issues `SFTPFile.MAX_REQUEST_SIZE` (32 KiB) requests in parallel;
+        a plain read without it is several times slower.
+        """
+        remote = self._sftp.open(remote_path, "rb")
+        try:
+            remote.prefetch(size)
+        except BaseException:
+            remote.close()
+            raise
+        return remote
+
     def remote_sha256(self, remote_path: str) -> str | None:
         """The robot's SHA-256 of a file; None when the robot has no `sha256sum`."""
         code, out, err = self._exec(f"sha256sum -- {shlex.quote(remote_path)}")

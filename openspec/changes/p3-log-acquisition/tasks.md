@@ -19,10 +19,10 @@
 
 ## 4. Selection and verified transfer (spec: log-acquisition)
 
-- [ ] 4.1 Tests first: active rule (newest wpilog per directory, every hoot in the newest session directory), settle re-stat, include-active bypass and flag
-- [ ] 4.2 Implement selection in `acquire/transfer.py`
-- [ ] 4.3 Tests first: clean pull is `verified`; a drop mid-transfer leaves no final file or `.part`; hash mismatch retries then `failed`; no `sha256sum` gives `size-verified`; a second cycle transfers 0 bytes; the robot listing is identical before and after
-- [ ] 4.4 Implement the streaming hash, prefetch read, `.part` and atomic rename, stop-flag checks between 1 MiB chunks
+- [x] 4.1 Tests first: active rule (newest wpilog per directory, every hoot in the newest session directory), settle re-stat, include-active bypass and flag
+- [x] 4.2 Implement selection in `acquire/transfer.py`
+- [x] 4.3 Tests first: clean pull is `verified`; a drop mid-transfer leaves no final file or `.part`; hash mismatch retries then `failed`; no `sha256sum` gives `size-verified`; a second cycle transfers 0 bytes; the robot listing is identical before and after
+- [x] 4.4 Implement the streaming hash, prefetch read, `.part` and atomic rename, stop-flag checks between 1 MiB chunks
 
 ## 5. Removable volumes (spec: removable-media-acquisition)
 
