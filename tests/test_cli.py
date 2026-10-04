@@ -17,6 +17,7 @@ def test_ingest_then_doctor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     out = capsys.readouterr().out
     assert "success" in out
     assert "owlet cache" in out
+    assert "2026-comp" in out and "18 slots" in out
 
 
 def test_ingest_missing_path_is_usage_error(tmp_path: Path) -> None:

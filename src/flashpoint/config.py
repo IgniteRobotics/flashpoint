@@ -22,3 +22,19 @@ def cache_root() -> Path:
     """Cache root for downloaded tools: $FLASHPOINT_CACHE or ~/.cache/flashpoint."""
     env = os.environ.get(CACHE_ENV)
     return Path(env) if env else Path.home() / ".cache" / "flashpoint"
+
+
+CONFIG_ENV = "FLASHPOINT_CONFIG"
+_REPO_CONFIG = Path(__file__).resolve().parents[2] / "config"
+
+
+def config_root(explicit: Path | None = None) -> Path:
+    """Robot configuration root: explicit, $FLASHPOINT_CONFIG, repo config/, else ~/.config."""
+    if explicit is not None:
+        return explicit
+    env = os.environ.get(CONFIG_ENV)
+    if env:
+        return Path(env)
+    if _REPO_CONFIG.is_dir():
+        return _REPO_CONFIG
+    return Path.home() / ".config" / "flashpoint"

@@ -30,3 +30,11 @@ def test_cache_root_honours_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 def test_pipeline_version_is_positive_int() -> None:
     assert isinstance(config.PIPELINE_VERSION, int)
     assert config.PIPELINE_VERSION >= 1
+
+
+def test_config_root_precedence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(tmp_path / "env"))
+    assert config.config_root(tmp_path / "arg") == tmp_path / "arg"
+    assert config.config_root() == tmp_path / "env"
+    monkeypatch.delenv("FLASHPOINT_CONFIG")
+    assert (config.config_root() / "robots" / "2026-comp.toml").is_file()  # repo checkout

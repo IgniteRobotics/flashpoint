@@ -6,11 +6,11 @@
 
 ## 2. Robot configuration (spec: robot-config)
 
-- [ ] 2.1 Add pydantic. Tests first for the config model: valid load, unknown key, duplicate slot, bad date, `canivore` bus matching
-- [ ] 2.2 Loader: `config/robots/*.toml`; robot selection by project and season; `robot = unknown` fallback
-- [ ] 2.3 Seed `config/robots/2026-comp.toml` from `Robot-2026/motor-ids.txt` and the Q7 `ConnectedMotor` scan (17 slots; TalonFX-10 `role = "TBD"`)
-- [ ] 2.4 `tools/migrate-legacy-config.py`: the 2025 device CSVs become `2025-comp.toml` (`Pheonix6` fixed); the report lists NT-only rows as unmapped
-- [ ] 2.5 `flashpoint doctor` reports each robot's config and its TBD or unmapped slots
+- [x] 2.1 Add pydantic. Tests first for the config model: valid load, unknown key, duplicate slot, bad date, `canivore` bus matching
+- [x] 2.2 Loader: `config/robots/*.toml`; robot selection by project and season; `robot = unknown` fallback
+- [x] 2.3 Seed `config/robots/2026-comp.toml` from Robot-2026 `development` constants and the Q7 `ConnectedMotor` scan (18 slots; 17 present in Q7)
+- [x] 2.4 `tools/migrate-legacy-config.py`: the 2025 device CSVs become `2025-comp.toml` (`Pheonix6` fixed); the report lists NT-only rows as unmapped
+- [x] 2.5 `flashpoint doctor` reports each robot's config and its TBD or unmapped slots
 
 ## 3. Match identity (spec: match-identity)
 

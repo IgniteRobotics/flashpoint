@@ -45,7 +45,7 @@ swaps = ["2026-03-20"]            # optional; legacy unit epochs
 ```
 - `bus = "canivore"` matches any 32-hex CANivore id. A specific id can be pinned later if a robot has two.
 - pydantic is a new runtime dependency. It's familiar to students and gives good error messages (D-config).
-- **Seed:** `2026-comp.toml` comes from `Robot-2026/motor-ids.txt` plus the Q7 `ConnectedMotor` scan. TalonFX-10 gets `role = "TBD"` and a TODO; the robot team fills it in.
+- **Seed:** `2026-comp.toml` comes from Robot-2026 `development` (`TunerConstants`, subsystem constants) plus the Q7 `ConnectedMotor` scan. 18 slots. TalonFX-10 is the intake roller follower. TalonFX-14 (intake extension follower) was added after GACMP, so it doesn't appear in the corpus. Swerve gear ratios: drive 6.746, steer 21.43.
 - **Migration:** `tools/migrate-legacy-config.py` converts the 2025 device CSVs into `2025-comp.toml`, fixes `Pheonix6`, and reports NT-only rows as unmapped (non-goal above).
 
 ### Match identity
@@ -93,5 +93,4 @@ swaps = ["2026-03-20"]            # optional; legacy unit epochs
 
 - **Payload match needs shared telemetry.** Robots that don't publish the same struct to both logs get low-confidence alignment. Mitigation: the fallbacks, plus a recommendation to log the pose to both (Robot-2026 and Phoenix-2026 already do through CTRE `Telemetry.java`).
 - **One robot per project per season** until the inventory logger is deployed: practice-bot logs would map onto the competition robot. Inventory serial sets resolve this later.
-- **Unknown slot (TalonFX-10):** mapped as role `TBD`; the robot team must fill it in.
 - **Gear ratios aren't in any log.** They're optional, and only needed for mechanism-level features (not in P2).
