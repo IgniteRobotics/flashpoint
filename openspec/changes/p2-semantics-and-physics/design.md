@@ -91,6 +91,15 @@ swaps = ["2026-03-20"]            # optional; legacy unit epochs
 
 ## Risks / Trade-offs
 
+- **Implementation findings (2026-10-04):**
+  - **Framing source:** the aligned hoot's `RobotMode` is preferred. On Q7 the wpilog stops at 213 s while teleop ran to 291.6 s; the DS signals are the fallback.
+  - **Memory:**
+    - DuckDB is capped at 512 MB and spills to `<lake>/tmp`.
+    - Silver isn't globally sorted, because sorting 9.3 M rows pushed derive past 1 GB.
+    - Gold reads one motor at a time.
+    - Derive runs in a fresh process after ingest. Measured: 870 MB (ingest) and 593 MB (derive), where the combined in-process figure was 1,155 MB.
+  - **The residual is only meaningful relative to a baseline.** The DC-motor model ignores stator current limits and FOC torque control, so Q7's residual P95 is about 65 A on drive and 105 A on steer. It's a per-unit trend feature for P5, not an absolute fault threshold.
+
 - **Payload match needs shared telemetry.** Robots that don't publish the same struct to both logs get low-confidence alignment. Mitigation: the fallbacks, plus a recommendation to log the pose to both (Robot-2026 and Phoenix-2026 already do through CTRE `Telemetry.java`).
 - **One robot per project per season** until the inventory logger is deployed: practice-bot logs would map onto the competition robot. Inventory serial sets resolve this later.
 - **Gear ratios aren't in any log.** They're optional, and only needed for mechanism-level features (not in P2).

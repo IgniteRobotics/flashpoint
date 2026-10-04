@@ -54,7 +54,7 @@
 
 ## 10. Docs and wrap-up
 
-- [ ] 10.1 ADR-0012 (clock alignment by shared payload); update ADR-0011 with the slot and unit implementation notes
-- [ ] 10.2 Update `docs/rewrite/05` (§3 pipeline, §4 data model) and the `06` P2 status
-- [ ] 10.3 README: config files, `derive`, and example lifetime queries
+- [x] 10.1 ADR-0012 (clock alignment by shared payload); update ADR-0011 with the slot and unit implementation notes
+- [x] 10.2 Update `docs/rewrite/05` (§3 pipeline, §4 data model) and the `06` P2 status
+- [x] 10.3 README: config files, `derive`, and example lifetime queries
 - [ ] 10.4 Start `retire-legacy-code` stage 2b after archive (separate PR): `datamaps/` and `log_configs/` once the migration covers them
