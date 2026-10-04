@@ -207,6 +207,8 @@ def test_cycle_pulls_robot_then_volume_then_ingests_and_clears_the_inbox(
     assert _inbox_files(lake) == []
     assert [p for p in lake.inbox.iterdir()] == []  # source dirs pruned, inbox root kept
     assert result.raw_changed and result.ledger_changed
+    assert result.derive is not None and result.derive.returncode == 0
+    assert not result.derive_pending
 
 
 def test_quarantined_file_is_cleared_and_not_pulled_again(
@@ -244,9 +246,15 @@ def test_already_ingested_file_is_skipped_and_cleared(
     media = _media(pulls, lake)
     _run(config, lake, pulls, media, connect)
     dropped = _put(lake.inbox, "copies/again.wpilog", robot_logs[OLD], 100)
+    ingests: list[object] = []
 
-    result = _run(config, lake, pulls, media, _no_robot)
+    def ingest(paths: Sequence[Path], lk: LakePaths) -> list[str]:
+        ingests.append(paths)
+        return cycle.ingest_command(paths, lk)
 
+    result = _run(config, lake, pulls, media, _no_robot, ingest_command=ingest)
+
+    assert ingests == [] and result.ingest is None  # already done: no ingest launched
     (entry,) = result.inbox
     assert (entry.path, entry.outcome) == (dropped, InboxOutcome.SKIPPED)
     assert entry.origin == "pull"  # same bytes as a pulled file: known by its hash
@@ -497,22 +505,99 @@ def test_backup_hook_runs_last_with_the_result(
     assert seen == [(True, 0)]
 
 
-def test_stop_during_ingest_ends_it_and_keeps_the_inbox(
-    config: AcquireConfig, lake: LakePaths, pulls: PullLedger
+_SLOW_INGEST = """
+import json, pathlib, subprocess, sys, time
+real, marker, beat = sys.argv[1], sys.argv[2], sys.argv[3]
+subprocess.run(json.loads(real), check=True, stdout=subprocess.DEVNULL)
+pulse = "import pathlib, sys, time\\nwhile True:\\n"
+pulse += "    pathlib.Path(sys.argv[1]).write_text(str(time.monotonic_ns()))\\n    time.sleep(0.05)"
+subprocess.Popen([sys.executable, "-c", pulse, beat])
+pathlib.Path(marker).write_text("done")
+time.sleep(30)
+"""
+
+
+def test_stop_during_ingest_ends_its_process_group_and_keeps_the_inbox(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, tmp_path: Path
 ) -> None:
     drop = _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
     stop = threading.Event()
+    marker, beat = tmp_path / "ingested", tmp_path / "heartbeat"
 
-    def slow_ingest(_paths: Sequence[Path], _lake: LakePaths) -> list[str]:
-        threading.Timer(0.3, stop.set).start()
-        return [sys.executable, "-c", "import time; time.sleep(30)"]
+    def stop_once_ingested() -> None:
+        while not marker.exists():
+            time.sleep(0.05)
+        stop.set()
 
-    started = time.monotonic()
+    def slow_ingest(paths: Sequence[Path], lk: LakePaths) -> list[str]:
+        threading.Thread(target=stop_once_ingested, daemon=True).start()
+        real = json.dumps(cycle.ingest_command(paths, lk))
+        return [sys.executable, "-c", _SLOW_INGEST, real, str(marker), str(beat)]
+
     result = _run(
         config, lake, pulls, _media(pulls, lake), _no_robot, stop=stop, ingest_command=slow_ingest
     )
+    stopped_at = time.monotonic()
 
-    assert time.monotonic() - started < 5
     assert result.ingest is not None and result.ingest.stopped
     assert result.stopped and result.inbox == []
-    assert drop.exists()
+    assert drop.exists()  # not cleared on a stop
+    # What ingest stored before the stop still counts for backup and derive.
+    assert result.raw_changed and result.ledger_changed and result.derive_pending
+    assert _stage(lake, _sha(_wpilog(9.0)))[0] == Stage.SUCCESS
+    # The grandchild (same process group) is gone: its heartbeat stops.
+    time.sleep(0.3)
+    last = beat.read_text()
+    time.sleep(0.3)
+    assert beat.read_text() == last
+    assert time.monotonic() - stopped_at < 5
+
+
+def test_drop_landing_during_the_settle_wait_is_not_ingested(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger
+) -> None:
+    stable = _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+    late = lake.inbox / "late" / "FRC_20260315_130000_GACMP_Q10.wpilog"
+
+    def sleep(_: float) -> None:
+        late.parent.mkdir(parents=True, exist_ok=True)
+        late.write_bytes(_wpilog(10.0)[:30])  # a copy that has only just started
+
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, sleep=sleep)
+
+    assert [(f.path, f.outcome) for f in result.inbox] == [(stable, InboxOutcome.SUCCESS)]
+    assert _stage(lake, _sha(late.read_bytes()))[0] is None
+    assert late.exists()
+
+
+def _derive_exit(code: int) -> Callable[[LakePaths], list[str]]:
+    def command(_lake: LakePaths) -> list[str]:
+        return [sys.executable, "-c", f"print('derive said boom'); raise SystemExit({code})"]
+
+    return command
+
+
+def test_failing_derive_is_reported_and_retried_until_it_succeeds(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger
+) -> None:
+    drop = _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+    media = _media(pulls, lake)
+
+    failed = _run(config, lake, pulls, media, _no_robot, derive_command=_derive_exit(4))
+
+    assert failed.derive is not None and failed.derive.returncode == 4
+    assert "derive said boom" in failed.derive.output
+    assert "derive: exit 4" in failed.errors
+    assert failed.derive_pending
+    assert not drop.exists()  # ingested: raw holds it, derive is retried on its own
+    assert failed.as_dict()["derive"]["returncode"] == 4
+
+    idle = _run(config, lake, pulls, media, _no_robot, derive_pending=True)
+
+    assert idle.ingest is None  # nothing new: only derive runs
+    assert idle.derive is not None and idle.derive.returncode == 0
+    assert not idle.derive_pending and idle.errors == []
+
+    after = _run(config, lake, pulls, media, _no_robot, derive_pending=idle.derive_pending)
+
+    assert after.derive is None and not after.derive_pending
