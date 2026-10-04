@@ -47,5 +47,34 @@ jobs:
         with:
           path: .corpus
           key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/flashpoint/owlet
+          key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
       - run: poetry run python tools/fetch-corpus.py
-      - run: poetry run pytest -m corpus
+      - run: poetry run pytest -m "corpus and not perf"
+
+  perf:
+    name: perf (budgets, non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction
+      - uses: actions/cache@v4
+        with:
+          path: .corpus
+          key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/flashpoint/owlet
+          key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
+      - run: poetry run python tools/fetch-corpus.py
+      - run: poetry run pytest -m perf -s
