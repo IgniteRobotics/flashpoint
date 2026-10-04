@@ -91,6 +91,12 @@ $FLASHPOINT_LAKE (default ~/flashpoint-lake)
 
 ## Risks / Trade-offs
 
+- **owlet output is nondeterministic** (found during implementation). Converting the same hoot three times with owlet 26.3.0 gave sample counts that differ by 1–2 per signal at the edges, and a different file hash each time. Consequences:
+  - Re-ingest stays a no-op, because files are skipped by input hash.
+  - `rebuild` produces slightly different bronze for hoots.
+  - Tests never assert exact sample counts from hoot conversions.
+  - Worth reporting to CTRE.
+
 - **numba is a heavy dependency (llvmlite).** It is acceptable for a pit laptop. If it ever blocks a platform, the scanner's interface allows a pure-Python fallback (slow, but correct).
 - **The CTRE index format may change.** The manifest is generated offline and committed, so ingest never depends on the index at runtime. Only `update-owlet-manifest.py` does.
 - **The `health` allowlist may miss a signal needed later.** Raw hoots are kept, so a profile change plus `rebuild` recovers it.
