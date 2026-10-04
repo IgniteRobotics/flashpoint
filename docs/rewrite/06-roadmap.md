@@ -1,0 +1,170 @@
+# 06 — Rewrite Roadmap
+
+Phases are ordered by dependency, not by calendar. Each phase ends with something usable at a competition. Sizes are relative (S/M/L), because team availability drives the dates.
+
+## 1. Overview
+
+```mermaid
+flowchart LR
+    P0[P0 Stabilize<br>& decide] --> P1[P1 Core readers<br>& lake]
+    P1 --> P2[P2 Semantics<br>& physics]
+    P2 --> P3[P3 Acquire<br>& automate]
+    P2 --> P4[P4 Views]
+    P3 --> P5[P5 Anomaly<br>detection]
+    P4 --> P5
+    P5 --> P6[P6 Prediction<br>& fleet]
+```
+
+```mermaid
+gantt
+    title Indicative sequence (offseason → 2027 build → 2027 events)
+    dateFormat YYYY-MM-DD
+    axisFormat %b
+    section Foundation
+    P0 Stabilize & decide         :p0, 2026-10-12, 2w
+    P1 Core readers & lake        :p1, after p0, 5w
+    P2 Semantics & physics        :p2, after p1, 4w
+    section Usable
+    P3 Acquire & automate         :p3, after p2, 3w
+    P4 Views                      :p4, after p2, 4w
+    section Insight
+    P5 Anomaly detection          :p5, after p4, 6w
+    P6 Prediction & fleet         :p6, after p5, 8w
+```
+
+## 2. Phases
+
+### P0 — Stabilize & decide (S)
+- **Repo:**
+  - Tag the current `main` as `legacy-2025`.
+  - Archive the branches under `archive/*`: `development`, `power-tracking`, `static-site`, `dataviz`, `docker`.
+  - Delete `hoot-support`.
+  - Protect `main` and require PRs plus CI.
+- **Decisions:** make the calls D1–D11 in [05 §6](05-target-architecture.md#6-key-decisions). Record each as a short ADR in `docs/adr/`.
+- **Golden corpus:** pick about 6 real logs and commit them through LFS or a fetch script.
+  - one qual wpilog, plus its rio and CANivore hoots
+  - one practice log
+  - one non-FMS log
+  - one log with a corrupt tail
+  - one 2025 log and one 2026 log (owlet versions)
+- **Robot-side CAN inventory logger (all robots):** implement the contract in [05 §4a](05-target-architecture.md#4a-device-identity-slot-vs-unit) and [99](99-ctre-device-serial-numbers.md).
+  - First open `http://<rio>:1250/?action=getdevices` against the current Phoenix 6 robot to confirm the field names. The only documented example is from Phoenix 5 (CTR Electronics, n.d.-h).
+  - Ship it before the next practice session, because every log recorded without it becomes a legacy-identity log.
+  - Back-fill a `units` seed: walk each robot and spare shelf with Tuner X, record each serial against its slot, and label the motors physically.
+- **Pro check:** run `owlet --check-pro` (Mechanical Advantage, 2026) on the corpus. If it fails, open a robot-code issue to log DeviceTemp through NT (CTR Electronics, n.d.-a).
+- **Exit:** ADRs merged, corpus available, CI skeleton green, `/Flashpoint/CANInventory` present in a fresh log from every robot.
+
+### P1 — Core readers & lake (L)
+- **wpilog reader** on `robotpy-wpiutil` (RobotPy, n.d.). Stream it into Arrow record batches and write bronze Parquet. Handle struct-typed entries (WPILib Developers, 2023).
+- **owlet registry:**
+  - `(phoenix_api_version, os, arch) → binary`, with checksums and lazy download.
+  - Pick the version by probing the hoot. Fail loudly on version mismatch (CTR Electronics, n.d.-c).
+  - Build a multi-arch container (fixes the x86-only Linux binaries).
+- **Ledger:** content hash with `received` → `bronze` → `silver` → `gold` → `success` states plus `pipeline_version`, and quarantine on error. This ports the idea from `main:ingest_system_log.py`.
+- **Metadata extraction:** FMSInfo (WPILib Developers, 2026a), git metadata, and `systemTime` anchoring (WPILib, n.d.-a).
+- **CLI:** `flashpoint ingest PATH...` and `flashpoint doctor` (environment, owlet, and Pro checks).
+- **Exit:**
+  - The golden corpus ingests byte-for-byte reproducibly.
+  - Re-ingesting is a no-op.
+  - Ingesting a full qual match **(wpilog + 2 hoots) takes under 30 s and under 1 GB RAM** on a pit laptop. Benchmark it in CI.
+
+### P2 — Semantics & physics (M)
+- **Config:**
+  - Season TOML and robot TOML, validated with pydantic.
+  - Generated from today's `datamaps/*.csv` and `utils/motors.toml` by a one-off migration script. Fix the `Pheonix6` typo during migration.
+- **Match identity resolver:** FMSInfo, then the filename regex (one implementation, covering `P|Q|E` per WPILib Developers, 2026b), then an optional TBA key lookup (The Blue Alliance, n.d.).
+- **Session grouping:** pair the wpilog and hoots by time overlap.
+- **Device identity:** add `identity/inventory.py`.
+  - Map the CANInventory entry to `DEVICE_OBSERVATION`, `UNIT`, and `SLOT`, detect mid-session swaps, and assign legacy epochs for old logs.
+  - `doctor` reports unmapped serials and slots with no observation.
+- **Match phases:** auto, teleop, and disabled, taken from DS enable and autonomous flags. Fixes #13.
+- **Physics:** port `analyzer.py` from power-tracking, along with its tests, onto Polars:
+  - Use time-weighted means.
+  - Don't zero-fill before the first sample.
+  - Keep velocity signed.
+  - Fixes #23, #26, #27.
+- **DCMotor residuals:** expected current from motor constants (WPILib, n.d.-c) and the configured gear ratio.
+- **Gold:** the `match_slot_features` table, keyed by match, slot, and unit.
+- **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
+
+### P3 — Acquire & automate (S)
+- **SFTP puller** (paramiko or asyncssh, [Background]):
+  - copies to the inbox, verifies size and hash, and **never deletes on the robot by default**;
+  - is aware of rotation: warn when robot free space is under 100 MB, since WPILib and Phoenix prune at 50 MB (WPILib Developers, 2026b; CTR Electronics, n.d.-a).
+- **Watcher:** watch the inbox and run ingest when files arrive.
+- **Packaging:** one container or a systemd unit with a correct `ExecStart` (#7).
+- **Backup:** `rclone sync` of `lake/raw` and `lake/meta` [Background]. Replaces `drive-backup.py`.
+- **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.
+
+### P4 — Views (M)
+- **Per-match static site:**
+  - Rebuild the power-tracking SPA on silver and gold.
+  - Payload ≤ 2 MB per match with min/max envelopes.
+  - Escape all values (#56).
+  - Ship a `serve` command.
+  - Add an "Open in AdvantageScope" download link for the raw wpilog (Mechanical Advantage, n.d.-a).
+- **Lifetime app** (marimo, per marimo, n.d.):
+  - per-slot **and per-unit** trend lines across matches, events, and robots;
+  - a unit page with odometry (hours, Wh, thermal cycles, stall-seconds) and the slot history the serial has occupied;
+  - filters push down to DuckDB SQL instead of loading the whole table (#35).
+- **Optional:** Grafana with the DuckDB plugin on the pit server (MotherDuck, n.d.).
+- **Exit:** a drive coach can answer "is FL-drive running hotter than last event?" in two clicks, offline.
+
+### P5 — Anomaly detection (L)
+- **Tier 1, rules:**
+  - temperature thresholds (port 55 °C avg / 65 °C max);
+  - stall seconds (high current at near-zero velocity);
+  - CAN dropout and brownout counts (needs the DS log reader, LigerBots, 2026);
+  - current residual P95 above a threshold.
+- **Tier 2, baselines:**
+  - robust z-score (median/MAD) of each gold feature against that **unit's** own history. A swapped-in unit starts its own baseline automatically;
+  - also compared against the sibling **slots** (the 4 drive motors should look alike).
+- **Tier 3, models:**
+  - IsolationForest (scikit-learn developers, n.d.) or PyOD detectors (Zhao et al., n.d.) on gold feature vectors;
+  - River HalfSpaceTrees for online scoring (River developers, n.d.);
+  - STUMPY discords on silver current traces to catch odd shapes (STUMPY developers, n.d.).
+- **Output:** an `anomalies` table, badges in the views, and an optional Slack or Discord webhook.
+- **Exit:**
+  - Backtest on the 2025–2026 logs flags at least one known real failure (team pit notes are the ground truth).
+  - False-positive rate is low enough that students don't learn to ignore it.
+
+### P6 — Prediction & fleet (L, stretch)
+- Label failures from pit notes and maintenance records to make a `maintenance_events` table keyed by **serial number**. Unit identity makes these labels reliable.
+- Model time to failure or degradation slopes per component (thermal rise rate, residual drift). Literature shows measurable current and speed shifts before faults (Jin et al., 2014).
+- Optionally pool data across robots or teams. That needs the robot config to be portable.
+
+## 3. Migration of existing assets
+
+| Asset | Action | Phase |
+|---|---|---|
+| Raw logs on Drive / `telemetry/` | Bulk `flashpoint ingest` into `lake/raw` (dedup by hash) | P1 |
+| `db/robot.db`, GRITS.db | **Don't migrate.** Rebuild from raw. Keep as a read-only archive | P1 |
+| `datamaps/*.csv`, `log_configs/*.json`, `utils/motors.toml` | Script → `config/seasons/*.toml`, `config/robots/*.toml` | P2 |
+| power-tracking `analyzer.py` + tests | Port to Polars; keep the test cases as golden expectations | P2 |
+| power-tracking SPA + specs | Reuse the UI; replace the data contract | P4 |
+| `development` match regex | Becomes the single filename-fallback parser | P2 |
+| Known motor swaps (pit notes, memory) | Declare as `[[slots.swaps]]` dates in robot TOML → legacy unit epochs | P2 |
+| Excalidraw diagrams | Replace with the mermaid diagrams in these docs | P0 |
+
+## 4. Quality gates (every phase)
+
+- **CI:** `pytest --strict-markers`, coverage on `src/flashpoint/{readers,lake,physics}` ≥ 85%, ruff, mypy `--strict`.
+- **Golden-corpus E2E** on every PR. Add a perf budget check from P1 onward.
+- **Container builds:** amd64 and arm64.
+- **Docs:** the ADR log is updated when a decision changes.
+
+## 5. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Logs are not Pro, so no hoot temperature | High | High | P0 probe. Robot-side NT logging of DeviceTemp |
+| owlet / Phoenix format changes mid-season | Medium | High | Registry plus `doctor`. Pin the robot's Phoenix version during events |
+| Logs rotate out before they're pulled | Medium | High | P3 free-space alerts. A USB drive on the robot |
+| Student turnover leaves the code unmaintained | High | Medium | Small core, typed, tested, ADRs, marimo notebooks as the on-ramp |
+| Diagnostics server not reachable or schema changes, so no inventory | Medium | High | Normalize on the robot (contract schema v1), never crash, log an error payload. `doctor` alerts on logs with no inventory. Fall back to legacy epochs |
+| Too few failures to learn from | High | Medium | Lean on Tier 1 and 2 (physics and baselines). ML is optional |
+| Scope creep into rebuilding AdvantageScope | Medium | Medium | D8: link, don't rebuild |
+
+## 6. Odds
+
+**[Background]** My honest estimate is that P0–P4 delivers a working tool by the 2027 events. Doing the first five phases before anomaly detection beats trying to bolt ML onto today's pipeline. Today's storage and joins return wrong numbers (#10–#27), so a model trained on them would learn the bugs.
