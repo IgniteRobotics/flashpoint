@@ -61,6 +61,7 @@ class FakeRobot:
         self.no_sha256sum = False  # sha256sum exits 127, "not found"
         self.df_free_kb = 10_000_000  # free space reported by df and statvfs
         self.auth_reject = False  # reject every auth method
+        self.read_delay_s = 0.0  # sleep before answering each SFTP read (a slow link)
 
         # Observations.
         self.bytes_served = 0  # SFTP file bytes sent to clients
@@ -283,6 +284,8 @@ class _ReadHandle(SFTPHandle):
         self._served = 0
 
     def read(self, offset: int, length: int) -> bytes | int:
+        if self._robot.read_delay_s:
+            time.sleep(self._robot.read_delay_s)
         limit = self._robot.drop_after_bytes
         if limit is not None:
             allowed = limit - self._served

@@ -1,6 +1,7 @@
-"""`flashpoint` command line: ingest, rebuild, doctor."""
+"""`flashpoint` command line: ingest, rebuild, derive, acquire, doctor."""
 
 import argparse
+import logging
 import platform
 import subprocess
 import sys
@@ -9,6 +10,8 @@ from pathlib import Path
 
 import flashpoint
 from flashpoint import config
+from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
+from flashpoint.acquire.watch import describe_status, read_status, run_acquire
 from flashpoint.ingest import Ingestor, IngestReport
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
@@ -52,6 +55,26 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(derive)
 
+    acquire = sub.add_parser(
+        "acquire", help="pull logs from the robot and USB sticks into the lake, then ingest"
+    )
+    acquire.add_argument("--watch", action="store_true", help="repeat every poll_s until stopped")
+    acquire.add_argument(
+        "--host",
+        nargs="+",
+        action="extend",
+        metavar="H",
+        help="robot address(es) to try, replacing the configured hosts",
+    )
+    acquire.add_argument(
+        "--include-active", action="store_true", help="also pull logs still being written"
+    )
+    acquire.add_argument(
+        "--dry-run", action="store_true", help="list what would be copied; change nothing"
+    )
+    acquire.add_argument("--no-usb", action="store_true", help="do not scan removable volumes")
+    lake_arg(acquire)
+
     doctor = sub.add_parser("doctor", help="report environment and lake health")
     lake_arg(doctor)
     return parser
@@ -81,6 +104,27 @@ def _derive(lake: LakePaths, force: bool) -> int:
         deriver.close()
     print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
     return 0
+
+
+def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+    try:
+        settings = AcquireConfig.load(config.config_root()).with_overrides(
+            hosts=args.host, removable_media=False if args.no_usb else None
+        )
+    except AcquireConfigError as exc:
+        print(f"acquire configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    return run_acquire(
+        settings,
+        lake,
+        watch=args.watch,
+        include_active=args.include_active,
+        dry_run=args.dry_run,
+    )
 
 
 def _doctor(lake: LakePaths) -> int:
@@ -119,6 +163,10 @@ def _doctor(lake: LakePaths) -> int:
         except HootError as exc:
             state = exc.reason
         print(f"  C{compliancy:<3} owlet {registry.version_for(compliancy):<10} {state}")
+    print("acquire")
+    status = read_status(lake.status)
+    for line in describe_status(status) if status else ["no acquire status yet"]:
+        print(f"  {line}")
     return 0
 
 
@@ -132,6 +180,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _doctor(lake)
     if args.command == "derive":
         return _derive(lake, force=args.all)
+    if args.command == "acquire":
+        if args.watch and args.dry_run:
+            print("--dry-run runs a single cycle; drop --watch", file=sys.stderr)
+            return EXIT_USAGE
+        return _acquire(lake, args)
     registry = hoot.default_registry(config.cache_root())
     ingestor = Ingestor(
         lake, registry, profile=args.profile, jobs=getattr(args, "jobs", None), log=print
