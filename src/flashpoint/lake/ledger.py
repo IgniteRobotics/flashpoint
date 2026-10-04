@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS inventory (
     valid INTEGER NOT NULL, error TEXT
 );
 """
+# The acquire watch writes `pulls` while an ingest subprocess holds derive transactions.
+BUSY_TIMEOUT_MS = 30_000
 _SQL_TO_ARROW = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64()}
 METADATA_TABLES = ("logs", "hoot_logs", "entries", "inventory")
 DERIVED_TABLES = (
@@ -101,7 +103,8 @@ def _now() -> str:
 class Ledger:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(path, isolation_level=None)
+        self._db = sqlite3.connect(path, isolation_level=None, timeout=BUSY_TIMEOUT_MS / 1000)
+        self._db.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA foreign_keys=ON")
         self._db.executescript(SCHEMA)
@@ -156,6 +159,22 @@ class Ledger:
                 "UPDATE files SET stage = ?, reason = NULL, warnings = ?, pipeline_version = ?,"
                 " updated = ? WHERE sha256 = ?",
                 (stage, warnings, pipeline_version, _now(), sha256),
+            )
+
+    def add_warning(self, sha256: str, warning: str) -> None:
+        """Append a warning to a file's comma-separated `warnings`, once."""
+        with self._db:
+            row = self._db.execute(
+                "SELECT warnings FROM files WHERE sha256 = ?", (sha256,)
+            ).fetchone()
+            if row is None:
+                return
+            existing = [w for w in (row[0] or "").split(",") if w]
+            if warning in existing:
+                return
+            self._db.execute(
+                "UPDATE files SET warnings = ?, updated = ? WHERE sha256 = ?",
+                (",".join([*existing, warning]), _now(), sha256),
             )
 
     def quarantine(self, sha256: str, reason: str, pipeline_version: int) -> None:

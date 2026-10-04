@@ -28,6 +28,14 @@ class LakePaths:
     def ledger(self) -> Path:
         return self.meta / "flashpoint.sqlite"
 
+    @property
+    def inbox(self) -> Path:
+        return self.root / "inbox"
+
+    @property
+    def status(self) -> Path:
+        return self.meta / "acquire-status.json"
+
     def ensure(self) -> None:
         for path in (self.raw, self.bronze, self.staging, self.meta):
             path.mkdir(parents=True, exist_ok=True)

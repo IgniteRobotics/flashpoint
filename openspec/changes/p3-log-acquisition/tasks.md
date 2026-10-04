@@ -1,9 +1,9 @@
 ## 1. Foundations (config, lake paths, pull ledger)
 
-- [ ] 1.1 Tests first: `AcquireConfig` defaults with no file, full file load, unknown key rejected naming the key, CLI overrides win
-- [ ] 1.2 Implement `acquire/config.py` (pydantic, `extra="forbid"`); `LakePaths.inbox` and `LakePaths.status`
-- [ ] 1.3 Tests first: `pulls` table upsert by (source, path, size, mtime); dedupe lookup; attempts → `failed` after 3; Parquet snapshot export; `busy_timeout` 30 s on both connections
-- [ ] 1.4 Implement `acquire/pulls.py` and `Ledger.add_warning`; check that the tests pass
+- [x] 1.1 Tests first: `AcquireConfig` defaults with no file, full file load, unknown key rejected naming the key, CLI overrides win
+- [x] 1.2 Implement `acquire/config.py` (pydantic, `extra="forbid"`); `LakePaths.inbox` and `LakePaths.status`
+- [x] 1.3 Tests first: `pulls` table upsert by (source, path, size, mtime); dedupe lookup; attempts → `failed` after 3; Parquet snapshot export; `busy_timeout` 30 s on both connections
+- [x] 1.4 Implement `acquire/pulls.py` and `Ledger.add_warning`; check that the tests pass
 
 ## 2. Fake robot server (test infrastructure)
 
