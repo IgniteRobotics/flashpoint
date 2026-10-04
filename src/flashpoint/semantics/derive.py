@@ -25,10 +25,16 @@ from flashpoint.semantics.alignment import (
     hoot_bus_agreement_us,
 )
 from flashpoint.semantics.framing import Framing, frame, modes_from_ds
-from flashpoint.semantics.identity import DeviceSighting, InventoryEvent, resolve_identity
+from flashpoint.semantics.identity import (
+    DeviceSighting,
+    InventoryEvent,
+    Observation,
+    resolve_identity,
+)
 from flashpoint.semantics.match_identity import identify
 from flashpoint.semantics.robot_config import RobotConfig, load_robots, select_robot
 from flashpoint.semantics.sessions import HootGroup, HootLog, Session, WpilogLog, group_sessions
+from flashpoint.semantics.silver import HootInSession, write_session
 
 _SAMPLE_COLUMNS = "signal::VARCHAR AS signal, type::VARCHAR AS type, ts_us, v_f64, v_bytes, v_bool"
 
@@ -356,6 +362,44 @@ class Deriver:
             ]
         self.ledger.replace_rows("match_phases", rows)
         return framings
+
+    # --- silver ---------------------------------------------------------------------------
+
+    def derive_silver(self, framings: dict[str, Framing], run_id: str) -> dict[str, int]:
+        robots = {r.robot: r for r in self.robots}
+        counts: dict[str, int] = {}
+        for session in self.ledger.query("SELECT * FROM sessions WHERE robot != 'unknown'"):
+            robot = robots.get(session["robot"])
+            hoot_rows = self.ledger.query(
+                "SELECT log_id, bus, offset_us FROM session_hoots"
+                " WHERE session_id = ? AND offset_us IS NOT NULL",
+                (session["session_id"],),
+            )
+            if robot is None or not hoot_rows:
+                continue
+            hoots = []
+            for row in hoot_rows:
+                slots = {}
+                for sighting in self._sightings(session["session_id"]):
+                    if sighting.bus != row["bus"]:
+                        continue
+                    slot = robot.slot_for(sighting.bus, sighting.model, sighting.can_id)
+                    if slot is not None:
+                        slots[(sighting.model, sighting.can_id)] = slot.id
+                hoots.append(HootInSession(row["log_id"], row["offset_us"], slots))
+            observations = [
+                Observation(**o)
+                for o in self.ledger.query(
+                    "SELECT session_id, slot_id, unit_id, source, from_ts_us, to_ts_us"
+                    " FROM slot_observations WHERE session_id = ?",
+                    (session["session_id"],),
+                )
+            ]
+            counts[session["session_id"]] = write_session(
+                self.con, self.lake, session["session_id"], session["season"], hoots,
+                observations, framings[session["session_id"]], run_id,
+            )  # fmt: skip
+        return counts
 
 
 _DEVICE = re.compile(r"^Phoenix6/(?P<model>[A-Za-z0-9]+)-(?P<id>\d+)/")

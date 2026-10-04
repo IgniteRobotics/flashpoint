@@ -110,3 +110,42 @@ def test_q7_framing_from_hoot_robot_mode(corpus_lake: Any) -> None:
     teleop = framing.phases[3]
     assert teleop.end_us is not None and abs(teleop.end_us - 291_580_000) < 50_000
     assert framing.match_start_us is not None and abs(framing.match_start_us - 127_500_000) < 50_000
+
+
+def test_q7_silver(corpus_lake: Any) -> None:
+    import duckdb
+
+    deriver = Deriver(corpus_lake, config.config_root())
+    try:
+        deriver.derive_sessions()
+        deriver.derive_identity()
+        framings = deriver.derive_framing()
+        counts = deriver.derive_silver(framings, run_id="t")
+        q7 = deriver.ledger.query(
+            "SELECT session_id FROM sessions WHERE match_key = '2026gacmp_qm7'"
+        )
+    finally:
+        deriver.close()
+    session_id = q7[0]["session_id"]
+    assert counts[session_id] > 1_000_000
+    path = (
+        corpus_lake.root
+        / "silver"
+        / "samples"
+        / "season=2026"
+        / f"session_id={session_id}"
+        / "*.parquet"
+    )
+    stats = duckdb.sql(
+        f"SELECT count(DISTINCT slot_id), count(DISTINCT unit_id), min(t_us), max(t_us),"
+        " count(*) FILTER (WHERE phase = 'teleop' AND metric = 'supply_current'"
+        " AND slot_id = 'drive-fl')"
+        f" FROM read_parquet('{path}')"
+    ).fetchone()
+    assert stats is not None
+    slots, units, t_min, t_max, teleop_rows = stats
+    assert slots == 22 and units == 22
+    assert (
+        t_max > 290_000_000
+    )  # hoot data runs past the wpilog's end (213 s) to teleop end (291.6 s)
+    assert teleop_rows > 10_000
