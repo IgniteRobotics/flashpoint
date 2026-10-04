@@ -13,6 +13,7 @@ from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
 from flashpoint.readers.hoot import HootError
+from flashpoint.semantics.robot_config import ConfigError, load_robots
 
 EXIT_USAGE = 2
 
@@ -73,6 +74,16 @@ def _doctor(lake: LakePaths) -> int:
         if stale:
             print(f"  {stale} file(s) from an older pipeline version: run `flashpoint rebuild`")
         ledger.close()
+    robots_dir = config.config_root() / "robots"
+    print(f"robots     {robots_dir}")
+    try:
+        for robot in load_robots(robots_dir):
+            slots = len(robot.slots)
+            print(
+                f"  {robot.robot:<14} season {robot.season} project {robot.project}: {slots} slots"
+            )
+    except ConfigError as exc:
+        print(f"  INVALID: {exc}")
     registry = hoot.default_registry(config.cache_root())
     print(f"owlet cache {registry.cache_dir}")
     for compliancy in registry.compliancies():

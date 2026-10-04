@@ -1,0 +1,116 @@
+# Migrated from legacy datamaps by tools/migrate-legacy-config.py (14 slots).
+robot = "2025-comp"
+season = 2025
+project = "Robot-2025"
+
+[[slot]]
+id = "drivetrain-front-left-drive-motor-11"
+bus = "canivore"
+model = "TalonFX"
+can_id = 11
+subsystem = "drivetrain"
+role = "front left drive motor"
+
+[[slot]]
+id = "drivetrain-front-left-steer-motor-12"
+bus = "canivore"
+model = "TalonFX"
+can_id = 12
+subsystem = "drivetrain"
+role = "front left steer motor"
+
+[[slot]]
+id = "drivetrain-front-right-drive-motor-21"
+bus = "canivore"
+model = "TalonFX"
+can_id = 21
+subsystem = "drivetrain"
+role = "front right drive motor"
+
+[[slot]]
+id = "drivetrain-front-right-steer-motor-22"
+bus = "canivore"
+model = "TalonFX"
+can_id = 22
+subsystem = "drivetrain"
+role = "front right steer motor"
+
+[[slot]]
+id = "drivetrain-back-left-drive-motor-31"
+bus = "canivore"
+model = "TalonFX"
+can_id = 31
+subsystem = "drivetrain"
+role = "back left drive motor"
+
+[[slot]]
+id = "drivetrain-back-left-steer-motor-32"
+bus = "canivore"
+model = "TalonFX"
+can_id = 32
+subsystem = "drivetrain"
+role = "back left steer motor"
+
+[[slot]]
+id = "drivetrain-back-right-drive-motor-41"
+bus = "canivore"
+model = "TalonFX"
+can_id = 41
+subsystem = "drivetrain"
+role = "back right drive motor"
+
+[[slot]]
+id = "drivetrain-back-right-steer-motor-42"
+bus = "canivore"
+model = "TalonFX"
+can_id = 42
+subsystem = "drivetrain"
+role = "back right steer motor"
+
+[[slot]]
+id = "corraler-motor-2"
+bus = "rio"
+model = "TalonFX"
+can_id = 2
+subsystem = "corraler"
+role = "motor"
+
+[[slot]]
+id = "algae-collector-intake-motor-3"
+bus = "rio"
+model = "TalonFX"
+can_id = 3
+subsystem = "algae collector"
+role = "intake motor"
+
+[[slot]]
+id = "algae-collector-wrist-motor-4"
+bus = "rio"
+model = "TalonFX"
+can_id = 4
+subsystem = "algae collector"
+role = "wrist motor"
+
+[[slot]]
+id = "elevator-lead-motor-6"
+bus = "rio"
+model = "TalonFX"
+can_id = 6
+subsystem = "elevator"
+role = "lead motor"
+
+[[slot]]
+id = "elevator-follow-motor-7"
+bus = "rio"
+model = "TalonFX"
+can_id = 7
+subsystem = "elevator"
+role = "follow motor"
+
+[[slot]]
+id = "climber-motor-15"
+bus = "rio"
+model = "TalonFX"
+can_id = 15
+subsystem = "climber"
+role = "motor"

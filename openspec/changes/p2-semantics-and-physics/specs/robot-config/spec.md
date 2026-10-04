@@ -13,7 +13,7 @@ Configuration SHALL be validated on load. Unknown keys, duplicate (bus, model, C
 
 #### Scenario: Valid 2026 configuration
 - **WHEN** the 2026 competition robot configuration is loaded
-- **THEN** it yields 17 slots, including drivetrain module slots on the CANivore bus and intake, indexer, and shooter slots on the rio bus
+- **THEN** it yields 18 slots, including drivetrain module slots on the CANivore bus and intake, indexer, and shooter slots on the rio bus, and all 17 devices present in corpus `2026-gacmp-q7` map to a slot
 
 #### Scenario: Duplicate slot
 - **WHEN** two slots declare the same bus, model, and CAN id
