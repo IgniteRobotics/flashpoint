@@ -14,8 +14,8 @@
 
 ## 3. Match identity (spec: match-identity)
 
-- [ ] 3.1 Tests first: key format (qm, pm, e, replay), FMS-over-filename precedence with conflict warning, non-match classification
-- [ ] 3.2 Implement; optional TBA enrichment behind `FLASHPOINT_TBA_KEY` (no network in tests)
+- [x] 3.1 Tests first: key format (qm, pm, e, replay), FMS-over-filename precedence with conflict warning, non-match classification
+- [x] 3.2 Implement. Optional TBA enrichment (spec: MAY) is **deferred**: no network dependency in P2; revisit with P4 views
 
 ## 4. Sessions and clock alignment (spec: session-grouping)
 
