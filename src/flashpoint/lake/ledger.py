@@ -42,6 +42,33 @@ CREATE TABLE IF NOT EXISTS entries (
     log_id TEXT NOT NULL, idx INTEGER NOT NULL, entry_id INTEGER NOT NULL, name TEXT NOT NULL,
     type TEXT NOT NULL, metadata TEXT, PRIMARY KEY (log_id, idx)
 );
+CREATE TABLE IF NOT EXISTS sessions (
+    session_id TEXT PRIMARY KEY, wpilog_id TEXT, robot TEXT, season TEXT, match_key TEXT,
+    match_source TEXT, kind TEXT, warnings TEXT
+);
+CREATE TABLE IF NOT EXISTS session_hoots (
+    log_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, hoot_group TEXT NOT NULL, bus TEXT,
+    offset_us INTEGER, method TEXT, confidence TEXT, spread_us INTEGER, matches INTEGER,
+    bus_agreement_us INTEGER
+);
+CREATE TABLE IF NOT EXISTS slot_observations (
+    session_id TEXT NOT NULL, slot_id TEXT NOT NULL, unit_id TEXT NOT NULL, source TEXT NOT NULL,
+    from_ts_us INTEGER, to_ts_us INTEGER
+);
+CREATE TABLE IF NOT EXISTS unit_swaps (
+    session_id TEXT NOT NULL, slot_id TEXT NOT NULL, ts_us INTEGER NOT NULL,
+    old_unit TEXT NOT NULL, new_unit TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS match_phases (
+    session_id TEXT NOT NULL, phase TEXT NOT NULL, start_us INTEGER, end_us INTEGER,
+    source TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS derived_state (
+    session_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, silver_rows INTEGER, gold_rows INTEGER
+);
+CREATE TABLE IF NOT EXISTS unmapped_devices (
+    session_id TEXT NOT NULL, bus TEXT, model TEXT, can_id INTEGER, source TEXT
+);
 CREATE TABLE IF NOT EXISTS inventory (
     log_id TEXT NOT NULL, ts_us INTEGER NOT NULL, payload TEXT NOT NULL,
     valid INTEGER NOT NULL, error TEXT
@@ -49,6 +76,15 @@ CREATE TABLE IF NOT EXISTS inventory (
 """
 _SQL_TO_ARROW = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64()}
 METADATA_TABLES = ("logs", "hoot_logs", "entries", "inventory")
+DERIVED_TABLES = (
+    "sessions",
+    "session_hoots",
+    "slot_observations",
+    "unit_swaps",
+    "unmapped_devices",
+    "match_phases",
+    "derived_state",
+)
 
 
 class Stage(StrEnum):
@@ -157,6 +193,19 @@ class Ledger:
     def execute(self, sql: str, args: tuple[Any, ...] = ()) -> None:
         with self._db:
             self._db.execute(sql, args)
+
+    def replace_rows(self, table: str, rows: list[dict[str, Any]]) -> None:
+        """Atomically replace every row of a derived table (sessions, session_hoots, ...)."""
+        if table not in DERIVED_TABLES:
+            raise ValueError(f"not a derived table: {table!r}")
+        with self._db:
+            self._db.execute(f"DELETE FROM {table}")  # noqa: S608
+            for row in rows:
+                cols, marks = ", ".join(row), ", ".join("?" for _ in row)
+                self._db.execute(
+                    f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608
+                    tuple(row.values()),
+                )
 
     def query(self, sql: str, args: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         cursor = self._db.execute(sql, args)

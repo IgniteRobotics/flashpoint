@@ -1,0 +1,203 @@
+# 2026 competition robot (Robot-2026).
+# Sources: Robot-2026 `development`: generated/TunerConstants.java (swerve IDs and ratios) and the
+# subsystem constants (intake, indexer, shooter); motor models from hoot ConnectedMotor (GACMP Q7).
+robot = "2026-comp"
+season = 2026
+project = "Robot-2026"
+
+# --- drivetrain (CANivore "DriveTrain") --------------------------------------------------
+[[slot]]
+id = "drive-fl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 11
+subsystem = "drivetrain"
+role = "front-left drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-fl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 12
+subsystem = "drivetrain"
+role = "front-left steer"
+gear_ratio = 21.428571428571427
+
+[[slot]]
+id = "drive-fr"
+bus = "canivore"
+model = "TalonFX"
+can_id = 21
+subsystem = "drivetrain"
+role = "front-right drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-fr"
+bus = "canivore"
+model = "TalonFX"
+can_id = 22
+subsystem = "drivetrain"
+role = "front-right steer"
+gear_ratio = 21.428571428571427
+
+[[slot]]
+id = "drive-bl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 31
+subsystem = "drivetrain"
+role = "back-left drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-bl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 32
+subsystem = "drivetrain"
+role = "back-left steer"
+gear_ratio = 21.428571428571427
+
+[[slot]]
+id = "drive-br"
+bus = "canivore"
+model = "TalonFX"
+can_id = 41
+subsystem = "drivetrain"
+role = "back-right drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-br"
+bus = "canivore"
+model = "TalonFX"
+can_id = 42
+subsystem = "drivetrain"
+role = "back-right steer"
+gear_ratio = 21.428571428571427
+
+# --- intake (rio) --------------------------------------------------------------------------
+[[slot]]
+id = "intake-extension"
+bus = "rio"
+model = "TalonFX"
+can_id = 1
+subsystem = "intake"
+role = "extension leader"
+
+[[slot]]
+id = "intake-extension-follower"
+bus = "rio"
+model = "TalonFX"
+can_id = 14
+subsystem = "intake"
+role = "extension follower"   # added after GACMP; not in the 2026 corpus
+
+[[slot]]
+id = "intake-roller"
+bus = "rio"
+model = "TalonFX"
+can_id = 2
+subsystem = "intake"
+role = "roller leader"
+
+[[slot]]
+id = "intake-roller-follower"
+bus = "rio"
+model = "TalonFX"
+can_id = 10
+subsystem = "intake"
+role = "roller follower"
+
+# --- indexer (rio) -------------------------------------------------------------------------
+[[slot]]
+id = "indexer-accelerator"
+bus = "rio"
+model = "TalonFX"
+can_id = 3
+subsystem = "indexer"
+role = "accelerator"
+
+[[slot]]
+id = "indexer-main"
+bus = "rio"
+model = "TalonFX"
+can_id = 4
+subsystem = "indexer"
+role = "main"
+
+# --- shooter (rio) -------------------------------------------------------------------------
+[[slot]]
+id = "flywheel-left-leader"
+bus = "rio"
+model = "TalonFX"
+can_id = 5
+subsystem = "shooter"
+role = "flywheel left leader"
+
+[[slot]]
+id = "flywheel-right"
+bus = "rio"
+model = "TalonFX"
+can_id = 6
+subsystem = "shooter"
+role = "flywheel right"
+
+[[slot]]
+id = "flywheel-left-follower"
+bus = "rio"
+model = "TalonFX"
+can_id = 7
+subsystem = "shooter"
+role = "flywheel left follower"
+
+[[slot]]
+id = "hood"
+bus = "rio"
+model = "TalonFX"
+can_id = 8
+subsystem = "shooter"
+role = "hood"
+
+# --- sensors (CANivore) ------------------------------------------------------------------
+[[slot]]
+id = "gyro"
+bus = "canivore"
+model = "Pigeon2"
+can_id = 10
+subsystem = "drivetrain"
+role = "gyro"
+
+[[slot]]
+id = "encoder-fl"
+bus = "canivore"
+model = "CANcoder"
+can_id = 13
+subsystem = "drivetrain"
+role = "front-left steer encoder"
+
+[[slot]]
+id = "encoder-fr"
+bus = "canivore"
+model = "CANcoder"
+can_id = 23
+subsystem = "drivetrain"
+role = "front-right steer encoder"
+
+[[slot]]
+id = "encoder-bl"
+bus = "canivore"
+model = "CANcoder"
+can_id = 33
+subsystem = "drivetrain"
+role = "back-left steer encoder"
+
+[[slot]]
+id = "encoder-br"
+bus = "canivore"
+model = "CANcoder"
+can_id = 43
+subsystem = "drivetrain"
+role = "back-right steer encoder"

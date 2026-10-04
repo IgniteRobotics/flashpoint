@@ -65,3 +65,19 @@ def test_empty_hoot_is_rejected_before_running_owlet(
     with pytest.raises(HootError) as exc:
         hoot.convert(path, tmp_path, registry)
     assert exc.value.reason == "empty-file"
+
+
+def test_health_output_has_alignment_and_motor_constants(
+    corpus_group: Callable[[str], list[Path]], registry: hoot.OwletRegistry, tmp_path: Path
+) -> None:
+    group = corpus_group("2026-gacmp-q7")
+    rio = hoot.convert(_pick(group, "rio"), tmp_path / "rio", registry)
+    canivore = hoot.convert(_pick(group, "canivore"), tmp_path / "can", registry)
+    rio_names = {e.name for e in read_wpilog(rio.wpilog).catalog}
+    can_names = {e.name for e in read_wpilog(canivore.wpilog).catalog}
+
+    # Custom signals (the alignment anchor) are written to the rio hoot; the buses share a clock.
+    assert "DriveState/Pose" in rio_names
+    for signal in ("RotorVelocity", "MotorKT", "MotorKV", "MotorStallCurrent"):
+        assert f"Phoenix6/TalonFX-11/{signal}" in can_names
+        assert f"Phoenix6/TalonFX-1/{signal}" in rio_names

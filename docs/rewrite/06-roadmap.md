@@ -73,6 +73,12 @@ gantt
   - Ingesting a full qual match **(wpilog + 2 hoots) takes under 30 s and under 1 GB RAM** on a pit laptop. Benchmark it in CI.
 
 ### P2 — Semantics & physics (M)
+> **Status: implemented, in review** (2026-10-04, `openspec/changes/p2-semantics-and-physics`).
+> - **Q7:** aligned by payload-match (offset 19.5635 s, IQR 76 µs); 22 devices mapped to slots and units; phases from hoot RobotMode (teleop runs to 291.6 s, past the wpilog's end).
+> - **Gold:** 17 motors × {auto, teleop, match}.
+> - **Budget:** ingest + derive 10.5 s; peak 870 MB (ingest) and 593 MB (derive).
+> - **Found on real data:** the gyro and CANcoders were unmapped (added); the E10 hoot restart came after its wpilog ended; a mis-paired enable edge gave a bogus offset (guards added, ADR-0012).
+
 - **Config:**
   - Season TOML and robot TOML, validated with pydantic.
   - Generated from today's `datamaps/*.csv` and `utils/motors.toml` by a one-off migration script. Fix the `Pheonix6` typo during migration.

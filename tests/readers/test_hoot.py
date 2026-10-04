@@ -145,3 +145,16 @@ def test_concurrent_first_download_is_safe(fake_registry: OwletRegistry) -> None
     assert len(set(paths)) == 1
     assert fake_registry.binary_for(19, download=False) == paths[0]
     assert not list(paths[0].parent.glob("*.part"))
+
+
+def test_health_profile_includes_alignment_and_physics_signals() -> None:
+    signals = {
+        "DriveState/Pose": "a",
+        "DriveState/ModuleStates": "b",
+        "TalonFX-1/RotorVelocity": "c",
+        "TalonFX-1/MotorKT": "d",
+        "TalonFX-1/MotorKV": "e",
+        "TalonFX-1/MotorStallCurrent": "f",
+        "TalonFX-1/PIDVelocity_Reference": "g",
+    }
+    assert set(hoot.select_signals(signals, "health") or []) == {"a", "c", "d", "e", "f"}

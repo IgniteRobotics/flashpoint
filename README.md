@@ -42,6 +42,31 @@ con.sql("""
 """).show()
 ```
 
+### Robots, matches, and motor features (P2)
+
+Each robot is described in `config/robots/<robot>.toml` (slots: bus, model, CAN id, subsystem, role, optional gear ratio and swap dates). `flashpoint doctor` lists the configured robots. Ingest then runs `derive` automatically:
+- groups each wpilog with its hoots;
+- aligns their clocks;
+- maps devices to slots and physical units;
+- frames the match (auto, gap, teleop);
+- writes `silver/` (mapped samples) and `gold/match_features/` (one row per match × phase × motor).
+
+```bash
+poetry run flashpoint derive          # only sessions whose inputs changed
+poetry run flashpoint derive --all    # rebuild every session (e.g. after editing a robot config)
+```
+
+```python
+import duckdb
+gold = "~/flashpoint-lake/gold/match_features/*/*/*.parquet"
+duckdb.sql(f"""
+    SELECT match_key, slot_id, round(temp_max_c) AS max_c, round(supply_energy_wh, 2) AS wh
+    FROM read_parquet('{gold}', hive_partitioning = true)
+    WHERE phase = 'match' AND subsystem = 'drivetrain'
+    ORDER BY match_key, slot_id
+""").show()
+```
+
 ### Tests
 
 ```bash

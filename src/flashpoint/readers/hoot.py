@@ -37,9 +37,11 @@ PROFILES = ("health", "all")
 # can widen later and `flashpoint rebuild` recovers the extra signals.
 HEALTH_PATTERN = re.compile(
     r"^(RobotEnable|RobotMode|DS:IsFMSAttached)$"
+    r"|^DriveState/Pose$"  # also published to NetworkTables: anchors hoot-to-wpilog clock alignment
     r"|/(MotorVoltage|SupplyVoltage|StatorCurrent|SupplyCurrent|TorqueCurrent"
-    r"|DeviceTemp|ProcessorTemp|AncillaryDeviceTemp|Velocity|Position|DutyCycle"
+    r"|DeviceTemp|ProcessorTemp|AncillaryDeviceTemp|Velocity|RotorVelocity|Position|DutyCycle"
     r"|DeviceEnable|FaultField|StickyFaultField|ConnectedMotor|Version"
+    r"|MotorKT|MotorKV|MotorStallCurrent"  # device-reported motor model for current residuals
     r"|Fault_\w+)$"
 )
 

@@ -19,6 +19,7 @@ These record the rewrite's key decisions (D1–D11 in [05-target-architecture.md
 | [0009](0009-deploy-pipx-single-container.md) | Deploy: pipx + optional single container | Proposed |
 | [0010](0010-anomaly-v1-rules-baselines.md) | Anomaly v1: rules + baselines + residuals | Proposed |
 | [0011](0011-device-identity-ctre-serials.md) | Device identity: CTRE serial numbers | **Accepted** |
+| [0012](0012-clock-alignment-shared-payload.md) | Hoot-to-wpilog clock alignment by shared payload | Proposed |
 
 ## Template
 
