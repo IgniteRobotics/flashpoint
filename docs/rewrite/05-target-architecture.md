@@ -246,7 +246,7 @@ flashpoint/
     acquire/      config.py, pulls.py, robot.py (paramiko), transfer.py, volumes/ (macos, linux, windows),
                   removable.py, cycle.py, watch.py, backup.py (rclone)
     report/       site.py (static), templates/
-    cli.py        argparse: acquire | backup | restore | ingest | derive | rebuild | report | doctor
+    cli.py        argparse: acquire | backup | restore | ingest | derive | rebuild | report (P4) | doctor
   tests/          unit/, golden/ (real small logs + expected parquet), e2e/
   notebooks/      marimo apps
   tools/          fetch-corpus.py, update-owlet-manifest.py (owlet binaries are never in git)

@@ -81,7 +81,7 @@ Each backend is a pure parser (unit-tested on captured output) plus a runner tha
 3. Read each inbox file's SHA (from `pulls`, or hash it for manual drops). Remove the file if the ledger stage is `success` or `quarantined`, or if it was skipped because it's already in the ledger. On a non-zero exit with no ledger change, keep everything.
 4. An include-active file that grows during the pull is copied to its listed size and recorded `size-verified`. The same relpath under two roots waits as `inbox-occupied` until the inbox clears.
 5. `incomplete-read` for include-active pulls: the cycle calls a new `Ledger.add_warning(sha, "incomplete-read")` after ingest. Hoots truncated by power loss already get this from owlet.
-6. Backup runs if raw or the ledger changed and 15 minutes have passed since the last one.
+6. Backup runs if raw or the ledger changed and 15 minutes have passed since the last one (watch only; a one-shot `acquire` doesn't back up; use `flashpoint backup`).
 7. Status is written atomically (temp file plus `os.replace`).
 
 ### Locking
@@ -134,7 +134,7 @@ A `windows-latest` job runs `ruff`, `mypy`, and `pytest -m "not corpus"` on Pyth
 | Idle cycle (robot reachable, nothing new) | < 3 s wall, excluding the 5 s settle | one connect plus a listing of under 200 files |
 | Idle cycle (no robot) | < 7 s | 3 candidates × 2 s timeout, plus volume detection |
 | Watch process RSS | ≤ 150 MB | ingest and derive run in subprocesses (their 1 GB budgets are unchanged) |
-| Transfer | ≥ 3 MB/s over the radio, ≥ 10 MB/s over the tether | paramiko with prefetch; measured in the `[HUMAN]` live-rio task |
+| Transfer | ≥ 3 MB/s over the radio, ≥ 10 MB/s over the tether | paramiko, pipelined bounded reader; measured in the `[HUMAN]` live-rio task |
 | Time to lake, one match (~100 MB of logs) | ≤ 5 min | pull ~35 s + ingest ~6 s + derive ~30 s, well inside |
 | Remote `sha256sum` on the rio | ~1–2 s per 100 MB | rio ARM; measured in the live task |
 
@@ -151,7 +151,7 @@ The idle-cycle and watch-RSS budgets get perf tests against the fake SFTP server
 ## Risks / Trade-offs
 
 - **`sha256sum` may be missing on the NI Linux RT image.** BusyBox normally provides it. If it's absent, everything is `size-verified`. The live-rio task checks this first.
-- **paramiko SFTP throughput** may still miss 3 MB/s over the radio. Mitigation: tune prefetch and window size. The 5-minute budget has about 4× headroom.
+- **paramiko SFTP throughput** may still miss 3 MB/s over the radio. Mitigation: tune `MAX_READ_REQUESTS`. The 5-minute budget has about 4× headroom.
 - **Active-file rule:** the last log of a session sits on the robot until the code restarts. That's accepted, because events power-cycle between matches. `--include-active` covers the bench.
 - **The robot's clock jumps when the DS connects**, which changes nothing here. mtime is compared, never interpreted.
 - **Windows-only P1/P2 bugs** could balloon. The 2-hour-per-task rule and `skipif` fallback cap the damage, and any skips are listed in the PR.

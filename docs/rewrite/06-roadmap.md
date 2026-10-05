@@ -97,7 +97,7 @@ gantt
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
 ### P3 — Acquire & automate (S)
-> **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on each OS, and the Windows service. The container moved out of P3 (ADR-0009 amended).
+> **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on each OS, the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
 
 - **SFTP puller** (paramiko or asyncssh, [Background]):
   - copies to the inbox, verifies size and hash, and **never deletes on the robot by default**;
