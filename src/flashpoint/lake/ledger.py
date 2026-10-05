@@ -126,7 +126,7 @@ class Ledger:
             )
             self._db.execute(
                 "INSERT OR IGNORE INTO aliases (sha256, path, name, seen) VALUES (?, ?, ?, ?)",
-                (sha256, str(path), path.name, now),
+                (sha256, path.as_posix(), path.name, now),
             )
         return new
 
