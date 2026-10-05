@@ -12,55 +12,71 @@
 - [ ] 2.5 Implement `usage.session_usage` and write `gold/unit_usage` (staged rename, like match features); wire it into the derive loop for every session with silver; bump `PIPELINE_VERSION` to 3
 - [ ] 2.6 Corpus tests: Q7 usage rows exist for all 17 motors, usage supply energy ≥ match-phase feature energy, cycle counts match the spike (12 of 17 motors); measure added derive time (< 3 s) and peak memory (< 1 GB)
 
-## 3. Lifetime queries (spec: lifetime-trends, unit-odometry)
+## 3. History queries (spec: lifetime-trends, unit-odometry)
 
-- [ ] 3.1 Synthetic gold fixture builder: one season (60 matches × 3 phases × 23 slots) of match features and usage, plus slot observations including a swap and a robot move
-- [ ] 3.2 Tests first for `views/queries.py`: filters (season, robot, event, match type, phase, subsystem, slot, unit) appear as SQL parameters and return only matching rows; a hostile filter value is treated as data
-- [ ] 3.3 Implement the trend queries (per slot, per unit with slot changes marked) and sibling deviation (`(subsystem, model)` median, 25 % default)
-- [ ] 3.4 Implement the unit queries: lifetime totals (sums and maxima, filterable by season and robot), slot history with identity source, closest-match lookup for unknown units, and the count of sessions without aligned samples
-- [ ] 3.5 Perf test (`perf` marker): each view query on the synthetic season returns in < 2 s
+- [ ] 3.1 Synthetic gold fixture builder: one season (60 matches × 3 phases × 23 slots) of match features and usage, plus slot observations covering a swap, a robot move, and a gap
+- [ ] 3.2 Tests first for `views/queries.py`: each filter (range, robot, event, match type, phase, subsystem, slot, unit) binds as a parameter and returns only matching rows; a hostile value is treated as data; the metric whitelist rejects unknown names
+- [ ] 3.3 Implement the trend queries: per unit with slot changes marked and gaps where the unit was not installed; per slot; low-alignment flag
+- [ ] 3.4 Implement the device table (current slot, serial, in-service span, latest value, change, sparkline, temperature health) and the summary tiles
+- [ ] 3.5 Implement the unit queries: odometry totals (filterable by season and robot), lifeline events (first seen, moved, replaced by, last seen) with identity source, closest-match lookup for unknown units, and sessions without aligned samples
+- [ ] 3.6 Perf test (`perf` marker): each query on the synthetic season returns in < 2 s
 
-## 4. Report data and envelopes (spec: match-reports)
+## 4. Replay data, envelopes, and markers (spec: match-reports)
 
-- [ ] 4.1 Tests first for `report/envelope.py`: about 1000 buckets with width rounded to 10 ms, a 4 ms 150 A spike survives, empty buckets are null, rounding to 3 significant figures, temperature change points
-- [ ] 4.2 Implement the envelope over one silver partition in DuckDB (memory limit 256 MB) plus the battery proxy
-- [ ] 4.3 Tests first for `report/build.py`: match payload shape (header, per-phase slot table from gold, series, change points, "not logged" markers, alignment, source logs), embedded JSON escaping (`</`, U+2028/2029), 2 MB guard that drops the bucket count without dropping min/max
-- [ ] 4.4 Implement the per-match build, writing `data/<match_key>.js` through a temp file and rename
-- [ ] 4.5 Tests first for `report/site.py`: `site-state.json` fingerprints, incremental rebuild touching only changed matches, `--event` and match-key selection, an index that lists hoot-only and low-alignment entries with reasons, and a build summary counting sessions without a match key
-- [ ] 4.6 Implement the site build: copy static assets, `matches.js` from state, and raw downloads (hard link or copy, `<match_key>__<source>__<name>`, `--no-raw` lists hashes)
-- [ ] 4.7 Corpus tests: Q7 data ≤ 2 MB; every bucket's min and max equal the silver min and max over that bucket's range; raw download hashes equal the ledger hashes; build < 5 s and < 500 MB (perf)
+- [ ] 4.1 Tests first for `report/envelope.py`: about 1000 buckets, width rounded to 10 ms; a 4 ms 150 A spike survives; empty buckets are null; 3-significant-figure rounding; temperature change points; battery proxy (lowest supply voltage as the minimum)
+- [ ] 4.2 Implement the envelope over one silver partition in DuckDB (memory limit 256 MB)
+- [ ] 4.3 Tests first for `report/markers.py`: temperature WARN and FAULT, brownout and sag, stall interval, sample gap, quiet match, thresholds from `config/report.toml`
+- [ ] 4.4 Implement the markers
+- [ ] 4.5 Tests first for `report/build.py`: payload shape (header, per-phase slot features, series, change points, markers, "not logged" markers, alignment, source logs); embedded JSON escaping (`</`, U+2028/2029); the 2 MB guard lowers the bucket count without losing min or max
+- [ ] 4.6 Implement the per-match build (`data/<match_key>.js`, temp file then rename) and `site-state.json`. Incremental rebuild, `--event` and match-key selection, and an index listing hoot-only and low-alignment entries with reasons; the build summary counts sessions without a match key
+- [ ] 4.7 Corpus tests: Q7 data ≤ 2 MB; every bucket's min and max equal the silver min and max over its range; build < 5 s and < 500 MB (perf)
 
-## 5. Report front end (spec: match-reports)
+## 5. Server and API (spec: match-reports, lifetime-trends)
 
-- [ ] 5.1 Vendor Plotly 2.35.2 (from `archive/static-site`, with its license) and write `index.html`, `app.css`, and `app.js` with DOM-only rendering, porting the power-tracking UX (chips, compare, stats first, heatmaps, total power), plus the phase selector, slot detail charts with phase bands, hot-limit highlights from `config/report.toml`, the low-alignment banner, and the downloads panel
-- [ ] 5.2 URL hash state for matches, phase, and view
-- [ ] 5.3 Static lint test: `app.js` has no `innerHTML`, `outerHTML`, `insertAdjacentHTML`, inline `on*=` handlers, or `eval`; no file in the report references a remote host
-- [ ] 5.4 Add `pytest-playwright`, the `browser` marker, and a CI job that installs Chromium
-- [ ] 5.5 Browser tests (file:// with network blocked): index loads and Q7-like fixture charts render; hostile names show literally with no dialog or console error; URL restore; compare with an absent slot; "not logged" temperature; CSP behaviour recorded (fall back per design if Chromium rejects `'self'` on file://)
+- [ ] 5.1 Tests first for `web/server.py`: routes (`/`, `/static`, `/data`, `/raw/<sha256>/<name>` for ledger hashes only, `/api`), 404 for everything else including traversal, `--host` warning, clean exit on interrupt, lazy DuckDB (idle RSS < 150 MB)
+- [ ] 5.2 Implement the server; `serve` runs an incremental report build on start (`--no-build` skips it)
+- [ ] 5.3 Tests first for `web/api.py`: each endpoint's JSON shape, 400 on unknown parameters, empty-lake message, the lake is byte-identical after exercising every endpoint
+- [ ] 5.4 Implement the API over `views/queries.py`
+- [ ] 5.5 Corpus test: the API answers for Q7 and E10, and raw download hashes equal the ledger hashes
 
-## 6. CLI: report, serve, trends
+## 6. App shell and design tokens (spec: match-reports "Shared app shell")
 
-- [ ] 6.1 Tests first: `flashpoint report [--out] [--event] [--match] [--no-raw]` exit codes and summary; `flashpoint serve DIR [--host] [--port]` serves files, rejects traversal, and exits 0 on interrupt
-- [ ] 6.2 Implement `report` and `serve`; keep heavy imports deferred (extend `test_acquire_imports.py` so `acquire --watch` RSS doesn't grow)
-- [ ] 6.3 Add the `views` extra (marimo, altair); `flashpoint trends [--lake] [--port] [--report-dir]` runs the app, and prints the install hint when the extra is missing (test)
+- [ ] 6.1 Vendor uPlot (with its license) and the VT323 and IBM Plex woff2 fonts (OFL), with `@font-face`
+- [ ] 6.2 `tokens.css` (palette, type, spacing lifted from the canvas) and `shell.css` (header, nav, panels, section headings, chips, tables, tiles, status glyphs, focus outline, scanline toggle)
+- [ ] 6.3 `shell.js`: view registry (`needsApi` hides views in static mode), hash router and URL state, the `h()` DOM builder, and the `track()` uPlot wrapper with the shell theme
+- [ ] 6.4 Static lint test: no `innerHTML`, `outerHTML`, `insertAdjacentHTML`, inline `on*=`, `eval`, or `new Function` in `web/static/**/*.js`; no remote host referenced by any app file
+- [ ] 6.5 Add `pytest-playwright`, the `browser` marker, and a CI job that installs Chromium; a test view registered with the shell renders with shell fonts and colours and no stylesheet of its own; keyboard focus is visible
 
-## 7. Lifetime app (spec: lifetime-trends, unit-odometry)
+## 7. Replay view (spec: match-reports)
 
-- [ ] 7.1 `apps/lifetime.py` Trends tab: feature, phase, and filter controls, with a per-slot or per-unit toggle; low-alignment markers; slot-change markers on unit lines
-- [ ] 7.2 Siblings tab: per-match sibling comparison with deviation highlighting
-- [ ] 7.3 Units tab: totals, usage trend, slot history, "not found" with suggestions, and sessions without aligned samples
-- [ ] 7.4 Drill-through: link to the report page (or "not built" plus the command) and a raw-file download
-- [ ] 7.5 Tests: the app runs headless against the corpus lake and an empty lake (no error, empty-lake message); the lake is byte-identical before and after; a hostile slot role renders as text
-- [ ] 7.6 `notebooks/README.md` and one example notebook using `views/queries.py`
+- [ ] 7.1 `views/replay.js`: match list grouped by event with marker counts and low-alignment marks; header; marker strip; default tracks with reference lines and per-track slot/metric pickers; scrub (drag and keyboard); readout (at the cursor, or match maxima hottest-first); "not logged" cells
+- [ ] 7.2 Compare overlay (dashed series, second readout column, absent slots) and URL state (match, overlay, cursor, tracks)
+- [ ] 7.3 AdvantageScope downloads panel (served `/raw/` links; static `raw/` links or the "not included" list of hashes)
+- [ ] 7.4 `report --static OUT [--no-raw]` export, with tests (layout, History absent from the nav, raw hard link or copy)
+- [ ] 7.5 Browser tests, served and file:// (network blocked): hottest-first readout on a Q7-like fixture, scrub, marker select, compare, URL restore, "not logged" temperature, hostile names show literally with no dialog or console error; record CSP behaviour and apply the design fallback if Chromium rejects `'self'` on file://
 
-## 8. Docs and wrap-up
+## 8. History view (spec: lifetime-trends, unit-odometry)
 
-- [ ] 8.1 Amend ADR-0006 (about 1000-bucket envelopes, script-tag data for file://, W/RPS dropped) and ADR-0007 (apps in the package, `views` extra); update `docs/rewrite/05-target-architecture.md` §7 and the layout
-- [ ] 8.2 Update `docs/rewrite/06-roadmap.md` P4 status; README usage for `report`, `serve`, and `trends`
-- [ ] 8.3 File GitHub issues: `DeviceEnable` dropped by silver; no battery-voltage signal; rio TalonFX status signals at 4 Hz; hoot-only sessions missing from odometry
-- [ ] 8.4 Full gate: ruff, mypy --strict, pytest, corpus e2e, browser tests, and perf; then open the PR into `rewrite`
+- [ ] 8.1 `views/history.js`: filter bar, tiles, metric picker with reference lines, lines chart (per unit by default, per-slot toggle, emphasised selection, low-alignment markers, gaps), device table
+- [ ] 8.2 Device panel: model and serial, health, odometry tiles, sessions without aligned samples, lifeline; unit links; "not found" with suggestions
+- [ ] 8.3 Drill-through to Replay (`#view=replay&m=<key>&track=<slot>`), "not built" plus the command, raw download
+- [ ] 8.4 Browser tests against the served corpus lake: filters, unit line with a gap, lifeline order, drill-through, empty-lake message, hostile slot role as text
 
-## 9. [HUMAN] Field check
+## 9. CLI
 
-- [ ] 9.1 Open a built report from a USB stick on a pit laptop with Wi-Fi off; a student finds the hottest motor in Q7 in two clicks
-- [ ] 9.2 Run `flashpoint trends` on a mentor laptop; confirm the drill-through opens the report and the downloaded wpilog opens in AdvantageScope
+- [ ] 9.1 Tests first: `flashpoint report [--event] [--match] [--static OUT] [--no-raw]` and `flashpoint serve [--lake] [--host] [--port] [--no-build]` exit codes and summaries
+- [ ] 9.2 Implement both; keep heavy imports deferred (extend `test_acquire_imports.py` so `acquire --watch` RSS doesn't grow)
+
+## 10. Docs and wrap-up
+
+- [ ] 10.1 ADR-0013 "Views: one local app in the canvas shell" (supersedes ADR-0007; mark 0007 Superseded); amend ADR-0006 (Replay static export, about 1000-bucket envelopes, script-tag data, uPlot); update `docs/rewrite/05-target-architecture.md` (D7 row, §7, layout)
+- [ ] 10.2 `notebooks/README.md` and one example marimo notebook using `views/queries.py`
+- [ ] 10.3 Update the `docs/rewrite/06-roadmap.md` P4 status and add a Live/Pit follow-up change to the roadmap; README usage for `report` and `serve`
+- [ ] 10.4 File GitHub issues: `DeviceEnable` dropped by silver; no battery-voltage signal; rio TalonFX status signals at 4 Hz; hoot-only sessions missing from odometry; design metrics without data (faults, firmware, spin test, batteries)
+- [ ] 10.5 Full gate: ruff, mypy --strict, pytest, corpus e2e, browser tests, and perf; then open the PR into `rewrite`
+
+## 11. [HUMAN] Field check
+
+- [ ] 11.1 Open a static export from a USB stick on a pit laptop with Wi-Fi off; a student finds the hottest motor in Q7 in two clicks
+- [ ] 11.2 Run `flashpoint serve` on a mentor laptop; History drill-through opens Replay, and the downloaded wpilog opens in AdvantageScope
+- [ ] 11.3 Josh compares the built Replay and History against the canvas boards and signs off on the look
