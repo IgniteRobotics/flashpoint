@@ -1,3 +1,4 @@
+import _thread
 import hashlib
 import json
 import os
@@ -446,6 +447,7 @@ def test_low_space_and_size_verified_warnings(
     assert {(w.host, w.root, w.free_bytes) for w in result.low_space} == {
         (host, ROOT, 50 * 1024 * 1024), (host, "/u/logs", 50 * 1024 * 1024),
     }  # fmt: skip
+    assert {(r.host, r.root) for r in result.space_readings} == {(host, ROOT), (host, "/u/logs")}
     assert result.size_verified_hosts == [host]
     assert result.sources[0].transfers[0].status == TransferStatus.SIZE_VERIFIED
 
@@ -551,6 +553,30 @@ def test_stop_during_ingest_ends_its_process_group_and_keeps_the_inbox(
     time.sleep(0.3)
     assert beat.read_text() == last
     assert time.monotonic() - stopped_at < 5
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pid liveness via os.kill(pid, 0) is POSIX")
+def test_keyboard_interrupt_during_ingest_ends_its_process_group(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, tmp_path: Path
+) -> None:
+    _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+    pid_file = tmp_path / "ingest.pid"
+    script = "import os, sys, time; open(sys.argv[1], 'w').write(str(os.getpid())); time.sleep(60)"
+
+    def interrupt_once_started() -> None:
+        while not pid_file.exists() or not pid_file.read_text():
+            time.sleep(0.02)
+        _thread.interrupt_main()
+
+    def slow_ingest(_paths: Sequence[Path], _lk: LakePaths) -> list[str]:
+        threading.Thread(target=interrupt_once_started, daemon=True).start()
+        return [sys.executable, "-c", script, str(pid_file)]
+
+    with pytest.raises(KeyboardInterrupt):
+        _run(config, lake, pulls, _media(pulls, lake), _no_robot, ingest_command=slow_ingest)
+
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)
 
 
 def test_drop_landing_during_the_settle_wait_is_not_ingested(

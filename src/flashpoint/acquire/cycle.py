@@ -28,7 +28,12 @@ from flashpoint import config as flashpoint_config
 from flashpoint.acquire.config import AcquireConfig
 from flashpoint.acquire.pulls import PullLedger, PullStatus
 from flashpoint.acquire.removable import RemovableMedia, VolumeSelection, volume_source
-from flashpoint.acquire.robot import LowSpaceWarning, RobotClient
+from flashpoint.acquire.robot import (
+    LowSpaceWarning,
+    RobotClient,
+    SpaceReading,
+    low_space_warnings,
+)
 from flashpoint.acquire.transfer import (
     ROBOT_ERRORS,
     TransferResult,
@@ -121,6 +126,7 @@ class CycleResult:
     stopped: bool = False
     sources: list[SourceOutcome] = field(default_factory=list)
     low_space: list[LowSpaceWarning] = field(default_factory=list)
+    space_readings: list[SpaceReading] = field(default_factory=list)  # roots whose df was read
     size_verified_hosts: list[str] = field(default_factory=list)
     inbox: list[InboxFile] = field(default_factory=list)
     ingest: IngestOutcome | None = None  # None: nothing to ingest, stopped, or dry run
@@ -258,7 +264,9 @@ def _robot_step(
             return outcome
         with client:
             outcome.id = outcome.label = client.host
-            result.low_space += client.low_space_warnings()
+            readings = client.free_space()
+            result.space_readings += readings
+            result.low_space += low_space_warnings(readings, config.low_space_mb)
             selection = select_robot_files(
                 client, pulls, include_active=include_active, settle_s=config.settle_s, sleep=sleep
             )
@@ -551,14 +559,23 @@ def _run_subprocess(argv: list[str], stop: threading.Event) -> tuple[int | None,
     except OSError as exc:
         log.error("cannot start %s: %s", argv[:4], exc)
         return None, _describe(exc)
-    while True:
-        try:
-            out, _ = proc.communicate(timeout=STOP_POLL_S)
-            return proc.returncode, out or ""
-        except subprocess.TimeoutExpired:
-            if stop.is_set():
-                break
+    try:
+        while True:
+            try:
+                out, _ = proc.communicate(timeout=STOP_POLL_S)
+                return proc.returncode, out or ""
+            except subprocess.TimeoutExpired:
+                if stop.is_set():
+                    break
+    except BaseException:
+        # e.g. KeyboardInterrupt: never leave the group running (and writing the lake) behind.
+        _end_group_and_close(proc)
+        raise
+    _end_group_and_close(proc)
+    return None, ""
+
+
+def _end_group_and_close(proc: "subprocess.Popen[str]") -> None:
     _end_process_group(proc)
     if proc.stdout is not None:
         proc.stdout.close()
-    return None, ""
