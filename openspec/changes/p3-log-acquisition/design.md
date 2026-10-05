@@ -56,7 +56,7 @@ deploy/windows/flashpoint-acquire.xml
 2. Compare the size, then the hash: the robot's `sha256sum`, or for a volume, the source re-hashed after the copy.
 3. `os.replace` to the final name. Since `.part` sits in the same directory, the rename is atomic on all three operating systems.
 
-On any failure, unlink the `.part`, increment `attempts`, and after 3 attempts set the status to `failed`. Volume sources use `usb-<label>`; labels are sanitised to `[A-Za-z0-9_-]`, and an empty label becomes the volume ID's first 8 characters.
+On any failure, unlink the `.part`, increment `attempts`, and after 3 attempts set the status to `failed`. A local write error (a name Windows refuses, a full disk) is such a failure, reason `local-write-error`; the next file still copies. The stop flag is checked again before the hash. Every acquire start, holding the lock, removes stale `inbox/**/*.part` files left by a killed run. Volume sources use `usb-<label>`; labels are sanitised to `[A-Za-z0-9_-]`, and an empty label becomes the volume ID's first 8 characters.
 
 ### Pull ledger
 A new `pulls` table goes in `meta/flashpoint.sqlite`:
@@ -64,7 +64,7 @@ A new `pulls` table goes in `meta/flashpoint.sqlite`:
 pulls(source_kind, source_id, remote_path, size, mtime_ns, sha256, status, attempts, reason,
       include_active, first_seen, pulled_at, PRIMARY KEY (source_id, remote_path, size, mtime_ns))
 ```
-`source_id` is the host for robots and the volume UUID for sticks. It's exported to `meta/pulls.parquet` alongside the other snapshots. Concurrency: the watch process writes `pulls` while the ingest subprocess writes the rest, so both connections set `busy_timeout = 30 s` (the ledger is already in WAL mode; Python's default 5 s timeout is too short behind a derive transaction).
+`source_id` is the host for robots and the volume UUID for sticks. One robot answers on several addresses (radio, mDNS, USB tether), so the "already pulled" lookup for a robot file matches every robot row on (`remote_path`, `size`, `mtime_ns`), whatever the host; the serving host is still recorded. Likewise, robot `low-space` warnings are keyed by root, show the last host that reported them, and clear on a reading above the threshold from any address. It's exported to `meta/pulls.parquet` alongside the other snapshots. Concurrency: the watch process writes `pulls` while the ingest subprocess writes the rest, so both connections set `busy_timeout = 30 s` (the ledger is already in WAL mode; Python's default 5 s timeout is too short behind a derive transaction).
 
 ### Removable volume backends
 Each backend is a pure parser (unit-tested on captured output) plus a runner that calls the OS. It returns `Volume(id, label, mount)`.
@@ -77,7 +77,7 @@ Each backend is a pure parser (unit-tested on captured output) plus a runner tha
 
 ### The cycle and ingest handoff
 1. Robot pulls and volume copies land in the inbox. A failure in one source never stops the others.
-2. If the inbox has any non-`.part` stable files, run `[sys.executable, "-m", "flashpoint", "ingest", <settled paths>, "--no-derive", "--lake", L]` as a subprocess, in batches of 200 paths. It gets the explicit settled inbox paths, never the inbox directory, so a manual drop landing mid-cycle can't be ingested half-written. Then one `derive` subprocess runs and its exit is checked. A derive failure is recorded in status, and derive re-runs on later cycles until it succeeds. Ingest and derive each run in their own process group, which is ended on stop. The watch process itself stays small.
+2. If the inbox has any non-`.part` stable files, run `[sys.executable, "-m", "flashpoint", "ingest", <settled paths>, "--no-derive", "--lake", L]` as a subprocess, in batches of at most 200 paths and 24 000 command-line characters (Windows stops at 32 KiB). It gets the explicit settled inbox paths, never the inbox directory, so a manual drop landing mid-cycle can't be ingested half-written. Then one `derive` subprocess runs and its exit is checked. A derive failure is recorded in status, and derive re-runs on later cycles until it succeeds. Ingest and derive each run in their own process group, which is ended on stop. The watch process itself stays small.
 3. Read each inbox file's SHA (from `pulls`, or hash it for manual drops). Remove the file if the ledger stage is `success` or `quarantined`, or if it was skipped because it's already in the ledger. On a non-zero exit with no ledger change, keep everything.
 4. An include-active file that grows during the pull is copied to its listed size and recorded `size-verified`. The same relpath under two roots waits as `inbox-occupied` until the inbox clears.
 5. `incomplete-read` for include-active pulls: the cycle calls a new `Ledger.add_warning(sha, "incomplete-read")` after ingest. Hoots truncated by power loss already get this from owlet.
@@ -96,6 +96,8 @@ SIGINT and SIGTERM (and Ctrl-C/Ctrl-Break on Windows) set a stop flag. The trans
 - `rclone copy --immutable <lake>/raw <remote>/raw`. `--immutable` makes rclone refuse to overwrite a remote file that differs, so raw on the remote is append-only.
 - Raw backup excludes `*.part`. `flashpoint backup` and `flashpoint restore` take the acquire lock, and a manual backup updates the status backup slot.
 - **Meta:** use `sqlite3.Connection.backup` to `<lake>/tmp/meta-snapshot/flashpoint.sqlite`, alongside the existing `meta/*.parquet` snapshots copied as files (not re-exported, to keep pyarrow out of the watch and inside the RSS budget) and the status, then `rclone sync` that folder to `<remote>/meta/latest`. Snapshots are consistent because the SQLite online backup API copies a transactionally consistent image.
+- **Meta history:** the sync passes `--backup-dir <remote>/meta/history/<UTC time>`, so every file it replaces or deletes in `meta/latest` is kept there. A backup from a wrong or empty lake can't destroy the only remote metadata. Nothing prunes the history.
+- **Bounds:** every rclone call gets `--contimeout 10s --timeout 60s --retries 1 --low-level-retries 2`. The watch's backup runs inside the cycle, so it also gets `--max-duration 4m`. The raw copy is incremental: when the limit cuts it short (rclone exit 10), the metadata is still synced, the backup stays owed, and the rest of raw goes up at the next backup. `flashpoint backup` and `restore` have no duration limit.
 - **Restore:** refuse if the target ledger exists, unless `--force`. Copy remote raw into `lake/raw` and `meta/latest` into `lake/meta`. Don't import the source's `acquire-status.json`. Set `pipeline_version = NULL` on every file, so `needs_processing` is true. Then print `run: flashpoint rebuild`. `rebuild` reprocesses from raw because the version differs, then runs `derive --all` itself.
 - Settings are `backup.remote` (for example `gdrive:flashpoint`) and `backup.interval_min` (default 15). Flashpoint never reads rclone credentials. If `rclone` isn't on `PATH`, that's a status error, not a crash.
 
