@@ -1,0 +1,100 @@
+/* ==========================================================================
+   Ignite design tokens (shared by Mnemosyne and Flashpoint)
+   Source of truth: /design/tokens.json (keep the two in sync).
+   Every color, size and font in the app comes from here. No raw hex in components.
+   ========================================================================== */
+:root {
+  /* ---- Ground & surfaces (warm black, never neutral grey) ---- */
+  --bg:             #0A0806;  /* page */
+  --surface-1:      #0C0906;  /* graph canvas, terminal logs */
+  --surface-2:      #0D0A07;  /* side rails, inspector, input band */
+  --surface-3:      #0F0B07;  /* inputs, cards, status bar */
+  --surface-raised: #15100A;  /* active / selected rows */
+  --surface-drag:   #1A140B;  /* drop-target hover */
+
+  /* ---- Lines ---- */
+  --line-soft:      #241A0B;  /* row dividers */
+  --line:           #3D2C10;  /* panel borders, idle buttons */
+  --line-strong:    #7A5715;  /* idle graph nodes, dashed chips. NON-TEXT ONLY (3.05:1) */
+
+  /* ---- Phosphor amber text scale (every one passes WCAG AA on every surface) ---- */
+  --amber:          #FFB000;  /* primary: brand, active, primary text   10.9:1 */
+  --amber-hi:       #FFD27A;  /* emphasis: values, selected labels      14.0:1 */
+  --amber-mid:      #E0A12A;  /* idle node labels, chip text             8.9:1 */
+  --amber-dim:      #C98C1A;  /* secondary text                           6.9:1 */
+  --amber-muted:    #A27A36;  /* tertiary: section labels, meta           5.1:1 (4.7 worst case) */
+  --prose:          #F2D49B;  /* long-form reading text                  14.0:1 */
+
+  /* ---- Signal ---- */
+  --hot:            #FF5A1F;  /* warnings, open flags, weaknesses, DEMO   6.4:1 */
+  --on-amber:       #0A0806;  /* text on amber fills                     10.9:1 */
+
+  /* ---- Glow (sparingly: wordmark, selection, primary input, top result) ---- */
+  --glow-text:      0 0 10px rgba(255, 176, 0, 0.40);
+  --glow-select:    0 0 18px rgba(255, 176, 0, 0.45);
+  --glow-panel:     0 0 22px rgba(255, 176, 0, 0.15);
+  --glow-line:      0 0 6px  rgba(255, 176, 0, 0.60);
+
+  /* ---- Type ---- */
+  --font-display:   'VT323', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+  --font-ui:        'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-prose:     'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  --fs-micro:  11px;  /* system labels (caps, tracked) */
+  --fs-xs:     12px;  /* meta, badges, button text */
+  --fs-sm:     13px;  /* dense UI: rows, logs, status line */
+  --fs-base:   14px;  /* default UI */
+  --fs-md:     15px;  /* inspector prose, result titles */
+  --fs-prose:  17px;  /* codex article body */
+  --fs-lg:     20px;  /* prompt input */
+  --fs-d1:     38px;  /* wordmark (VT323) */
+  --fs-d2:     44px;  /* panel titles (VT323) */
+  --fs-d3:     52px;  /* solution headline (VT323) */
+  --fs-d4:     72px;  /* codex article title (VT323) */
+
+  --lh-tight:  1;
+  --lh-ui:     1.5;
+  --lh-prose:  1.7;
+
+  --track-label: 0.2em;   /* micro caps labels */
+  --track-btn:   0.14em;  /* buttons, nav tabs */
+  --track-brand: 0.18em;  /* wordmark */
+
+  /* ---- Space (4px base) ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-7: 28px; --sp-8: 32px; --sp-10: 40px; --sp-16: 64px;
+
+  /* ---- Sizing ---- */
+  --hit:        44px;   /* minimum touch target */
+  --hit-sm:     36px;   /* dense secondary controls */
+  --rail-left:  220px;
+  --rail-right: 320px;
+  --measure:    760px;  /* max article width, about 75 characters at 17px Plex Sans */
+  --radius:     0;      /* terminals don't round */
+
+  /* ---- Motion ---- */
+  --dur-fast:   150ms;
+  --dur-base:   200ms;
+  --dur-layout: 420ms;
+  --ease:       cubic-bezier(.2, .7, .2, 1);
+
+  /* ---- Texture ---- */
+  --scanlines: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0, rgba(0,0,0,0.22) 1px, transparent 1px, transparent 3px);
+  --grid:      linear-gradient(rgba(255,176,0,0.05) 1px, transparent 1px),
+               linear-gradient(90deg, rgba(255,176,0,0.05) 1px, transparent 1px);
+  --grid-size: 40px 40px;
+
+  /* ---- Node-type borders: SHAPE, not hue, tells types apart ---- */
+  --border-game:      3px double;
+  --border-strategy:  1px solid;
+  --border-archetype: 2px solid;
+  --border-mechanism: 1px dashed;
+  --border-guide:     2px dashed;
+  --border-source:    1px dotted;
+
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-layout: 0ms; }
+}

@@ -1,0 +1,595 @@
+[
+  {
+    "serial": "…3A17",
+    "name": "Drive FL",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": "Two robots, one motor. It drifted in 2025, got a new bearing, and has stayed in band since.",
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "Drive FL",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed · Drive FL (2025 robot)",
+        "author": null
+      },
+      {
+        "when": "2025 · DCMP · M7",
+        "kind": "anomaly",
+        "text": "Flagged: spin-test current drifting up",
+        "author": null
+      },
+      {
+        "when": "2025 · OFF · M1",
+        "kind": "repair",
+        "text": "Bearing replaced · back in band",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "move",
+        "text": "Moved with its swerve module to the 2026 robot",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "…3A52",
+    "name": "Drive FR",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "Drive FR",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed · Drive FR (2025 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "move",
+        "text": "Moved with its swerve module to the 2026 robot",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "…3B09",
+    "name": "Drive BL",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "Drive BL",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed · Drive BL (2025 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "move",
+        "text": "Moved with its swerve module to the 2026 robot",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "…3B44",
+    "name": "Drive BR",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": "Flat for a season and a half, then spin-test current started climbing at 2026 District Champs. The other three modules didn’t move.",
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "Drive BR",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed · Drive BR (2025 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "move",
+        "text": "Moved with its swerve module to the 2026 robot",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      },
+      {
+        "when": "2026 · DCMP · M5",
+        "kind": "anomaly",
+        "text": "Anomaly opened: spin-test current climbing",
+        "author": null
+      }
+    ],
+    "anomaly": "a2"
+  },
+  {
+    "serial": "…0EC8",
+    "name": "Indexer",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": "Healthy temperatures, but current-limit hits jumped after DCMP Qual 12.",
+    "installs": [
+      {
+        "robot": "2026 robot",
+        "slot": "Indexer",
+        "fromMatch": "2026 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed new · Indexer (2026 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      },
+      {
+        "when": "2026 · DCMP · M13",
+        "kind": "anomaly",
+        "text": "Anomaly opened: current-limit hits stepped up",
+        "author": null
+      }
+    ],
+    "anomaly": "a4"
+  },
+  {
+    "serial": "…7B42",
+    "name": "Shooter L",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": "Replaced the old shooter motor mid-season and is already running hot. Same pattern as the motor it replaced.",
+    "installs": [
+      {
+        "robot": "2026 robot",
+        "slot": "Shooter L",
+        "fromMatch": "2026 · DIST 2 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2026 · DIST 2 · M1",
+        "kind": "repair",
+        "text": "Installed new · Shooter L (replaced …19D0)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M7",
+        "kind": "anomaly",
+        "text": "Anomaly opened: heating faster than Shooter R",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      }
+    ],
+    "anomaly": "a1"
+  },
+  {
+    "serial": "…7B90",
+    "name": "Shooter R",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2026 robot",
+        "slot": "Shooter R",
+        "fromMatch": "2026 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed new · Shooter R (2026 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.0.0 (behind fleet)",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "…5C11",
+    "name": "Intake",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2026 robot",
+        "slot": "Intake",
+        "fromMatch": "2026 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed new · Intake (2026 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      },
+      {
+        "when": "2026 · OFF · M3",
+        "kind": "anomaly",
+        "text": "Anomaly opened: noisy idle current",
+        "author": null
+      }
+    ],
+    "anomaly": "a5"
+  },
+  {
+    "serial": "…6D73",
+    "name": "Climber",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2026 robot",
+        "slot": "Climber",
+        "fromMatch": "2026 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed new · Climber (2026 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M3",
+        "kind": "note",
+        "text": "Gearbox ratio changed · spec updated",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M13",
+        "kind": "firmware",
+        "text": "Firmware 26.1.1.1",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "…19D0",
+    "name": "Shooter …19D0",
+    "kind": "motor",
+    "model": "Kraken X60",
+    "retired": true,
+    "summary": "Retired. Its last ten matches show the slow heat climb that now shows up on its replacement.",
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "Shooter …19D0",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": "2026 · DIST 1 · M14"
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Installed · Shooter (2025 robot)",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "move",
+        "text": "Moved to the 2026 robot · Shooter L",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M7",
+        "kind": "threshold",
+        "text": "Temps climbing match over match",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M14",
+        "kind": "retire",
+        "text": "Retired · bearing noise and heat",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "B01",
+    "name": "B01",
+    "kind": "battery",
+    "model": "SLA 12 V 18 Ah",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "B01",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Commissioned",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "B02",
+    "name": "B02",
+    "kind": "battery",
+    "model": "SLA 12 V 18 Ah",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "B02",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Commissioned",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "B03",
+    "name": "B03",
+    "kind": "battery",
+    "model": "SLA 12 V 18 Ah",
+    "retired": false,
+    "summary": "Steady aging all season. Past the 15 mΩ match spec; on track to hit 20 mΩ in about 12 cycles.",
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "B03",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Commissioned",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 2 · M5",
+        "kind": "threshold",
+        "text": "Crossed 15 mΩ match spec",
+        "author": null
+      },
+      {
+        "when": "2026 · DCMP · M9",
+        "kind": "anomaly",
+        "text": "Anomaly opened: resistance climbing",
+        "author": null
+      }
+    ],
+    "anomaly": "a3"
+  },
+  {
+    "serial": "B04",
+    "name": "B04",
+    "kind": "battery",
+    "model": "SLA 12 V 18 Ah",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2026 robot",
+        "slot": "B04",
+        "fromMatch": "2026 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2026 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Commissioned",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "B05",
+    "name": "B05",
+    "kind": "battery",
+    "model": "SLA 12 V 18 Ah",
+    "retired": false,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2026 robot",
+        "slot": "B05",
+        "fromMatch": "2026 · DCMP · M9",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2026 · DCMP · M9",
+        "kind": "install",
+        "text": "Commissioned",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "B06",
+    "name": "B06",
+    "kind": "battery",
+    "model": "SLA 12 V 18 Ah",
+    "retired": true,
+    "summary": null,
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "B06",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": "2025 · OFF · M2"
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Commissioned",
+        "author": null
+      },
+      {
+        "when": "2025 · OFF · M2",
+        "kind": "retire",
+        "text": "Retired · cracked case after a drop",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  },
+  {
+    "serial": "B07",
+    "name": "B07",
+    "kind": "battery",
+    "model": "SLA 12 V 18 Ah",
+    "retired": false,
+    "summary": "Past the retirement line since early 2026. Practice use only.",
+    "installs": [
+      {
+        "robot": "2025 robot",
+        "slot": "B07",
+        "fromMatch": "2025 · DIST 1 · M1",
+        "toMatch": null
+      }
+    ],
+    "life": [
+      {
+        "when": "2025 · DIST 1 · M1",
+        "kind": "install",
+        "text": "Commissioned",
+        "author": null
+      },
+      {
+        "when": "2026 · DIST 1 · M3",
+        "kind": "threshold",
+        "text": "Crossed 20 mΩ: practice only",
+        "author": null
+      },
+      {
+        "when": "2026 · OFF · M5",
+        "kind": "threshold",
+        "text": "Recommended for retirement",
+        "author": null
+      }
+    ],
+    "anomaly": null
+  }
+]

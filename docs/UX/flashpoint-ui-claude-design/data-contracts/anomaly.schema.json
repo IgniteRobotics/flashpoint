@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flashpoint.local/schemas/anomaly.schema.json",
+  "title": "Anomaly",
+  "type": "object",
+  "required": [
+    "id",
+    "serial",
+    "dev",
+    "severity",
+    "method",
+    "state",
+    "title",
+    "metric",
+    "actual",
+    "expected",
+    "evidence",
+    "why",
+    "causes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "serial": {
+      "type": "string"
+    },
+    "dev": {
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "high",
+        "med",
+        "low"
+      ]
+    },
+    "method": {
+      "enum": [
+        "SPEC",
+        "DRIFT",
+        "SIBLING",
+        "STEP",
+        "NOISE"
+      ]
+    },
+    "state": {
+      "enum": [
+        "new",
+        "investigating",
+        "resolved",
+        "dismissed"
+      ]
+    },
+    "firstSeen": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "metric": {
+      "type": "string"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "actual": {
+      "type": "string"
+    },
+    "expected": {
+      "type": "string"
+    },
+    "matchesAffected": {
+      "type": "integer"
+    },
+    "confidence": {
+      "enum": [
+        "high",
+        "med",
+        "low"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "range",
+        "band",
+        "values"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "band": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "peer": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "number"
+          }
+        },
+        "peerName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "xFrom": {
+          "type": "string"
+        },
+        "xTo": {
+          "type": "string"
+        }
+      }
+    },
+    "why": {
+      "type": "string"
+    },
+    "causes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "similar": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resolution": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
