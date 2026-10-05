@@ -281,6 +281,7 @@ class _YankedStick(io.RawIOBase):
 
     def read(self, size: int = -1, /) -> bytes:
         if self._served:
+            self._f.close()  # Windows can't delete a file that is still open
             shutil.rmtree(self._mount)
             raise OSError(errno.EIO, "Input/output error")
         self._served += 1
