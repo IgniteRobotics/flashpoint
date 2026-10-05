@@ -484,7 +484,7 @@ def _run_ingest(
     stopped = False
     for start in range(0, len(targets), INGEST_BATCH):
         argv = ingest_command(targets[start : start + INGEST_BATCH], lake)
-        code, text = _run_subprocess(argv, stop)
+        code, text = run_subprocess(argv, stop)
         output.append(text)
         if code is None:
             stopped = stop.is_set()
@@ -503,7 +503,7 @@ def _run_ingest(
 def _derive_step(
     lake: LakePaths, result: CycleResult, stop: threading.Event, derive_command: DeriveCommand
 ) -> None:
-    code, text = _run_subprocess(derive_command(lake), stop)
+    code, text = run_subprocess(derive_command(lake), stop)
     tail = text[-OUTPUT_TAIL_CHARS:]
     result.derive = DeriveOutcome(code, tail)
     if code is not None:
@@ -541,8 +541,8 @@ def _end_process_group(proc: "subprocess.Popen[str]") -> None:
     proc.wait()
 
 
-def _run_subprocess(argv: list[str], stop: threading.Event) -> tuple[int | None, str]:
-    """Run ingest or derive in its own process group; (exit code, output).
+def run_subprocess(argv: list[str], stop: threading.Event) -> tuple[int | None, str]:
+    """Run a child (ingest, derive, rclone) in its own process group; (exit code, output).
 
     None: it could not start, or the stop flag ended it (with everything it started).
     """

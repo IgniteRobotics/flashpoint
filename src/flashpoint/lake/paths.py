@@ -33,6 +33,10 @@ class LakePaths:
         return self.root / "inbox"
 
     @property
+    def tmp(self) -> Path:
+        return self.root / "tmp"
+
+    @property
     def status(self) -> Path:
         return self.meta / "acquire-status.json"
 

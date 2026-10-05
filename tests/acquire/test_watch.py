@@ -435,7 +435,7 @@ def test_status_holds_sources_failed_files_derive_error_and_backup_slot(lake: La
     assert status["derive"]["pending"] is True
     assert "ValueError: bad slot" in status["derive"]["error"]
     assert status["errors"] == ["derive: exit 4"]
-    assert status["backup"] == {"last_time": None, "result": None}
+    assert status["backup"] == {"last_time": None, "result": None, "pending": False}
     assert StatusTracker(lake.status).derive_pending  # a restarted watch still owes derive
 
 
