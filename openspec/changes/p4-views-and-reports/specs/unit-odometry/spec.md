@@ -22,7 +22,7 @@ The usage rows SHALL be rebuildable from bronze and configuration alone, like th
 
 #### Scenario: Match session agrees with features
 - **WHEN** corpus `2026-gacmp-q7` is derived
-- **THEN** every unit's usage-row supply energy is at least its `match`-phase feature energy, since the session also covers time outside the match
+- **THEN** every unit's usage-row supply energy is at least its `match`-phase feature energy, since the session also covers time outside the match, less any energy the unit regenerated outside the match (a coasting drive returns a few joules; supply energy is net)
 
 #### Scenario: Swap splits usage
 - **WHEN** a session's inventories show serial `A` and then serial `B` in one slot

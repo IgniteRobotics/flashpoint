@@ -1,16 +1,16 @@
 ## 1. Stall threshold check (spec: unit-odometry; motor-physics)
 
-- [ ] 1.1 Corpus spike: distribution of stator/stall-current ratio while |velocity| < 0.5 rps for the intake extension and intake roller on Q7 and E10; record the numbers in design.md's spike table
-- [ ] 1.2 Tests first: synthetic stall at the chosen threshold counts; corpus test pins the Q7 stall result (non-zero if the evidence supports it, otherwise a documented zero); adjust `stall_current_fraction` only on evidence
+- [x] 1.1 Corpus spike: distribution of stator/stall-current ratio while |velocity| < 0.5 rps for the intake extension and intake roller on Q7 and E10; record the numbers in design.md's spike table
+- [x] 1.2 Tests first: synthetic stall at the chosen threshold counts; corpus test pins the Q7 stall result (non-zero if the evidence supports it, otherwise a documented zero); adjust `stall_current_fraction` only on evidence
 
 ## 2. Unit usage and thermal cycles (spec: unit-odometry)
 
-- [ ] 2.1 Tests first: thermal-cycle state machine covers the spec cases (cool-down, powered off hot, small wobble, no temperature) plus configurable rise and fall thresholds
-- [ ] 2.2 Implement thermal cycles in `semantics/usage.py`; add `thermal_rise_c = 10`, `thermal_fall_c = 3` to `PhysicsConfig`
-- [ ] 2.3 Expose the enabled intervals (mode runs) from `framing.py`, with tests: practice session with several enable toggles, and a match session
-- [ ] 2.4 Tests first: usage on synthetic silver covers powered-on time (with the hold cap and a gap), enabled time, energy, stall, a mid-session swap split, and a non-match session
-- [ ] 2.5 Implement `usage.session_usage` and write `gold/unit_usage` (staged rename, like match features); wire it into the derive loop for every session with silver; bump `PIPELINE_VERSION` to 3
-- [ ] 2.6 Corpus tests: Q7 usage rows exist for all 17 motors, usage supply energy ≥ match-phase feature energy, cycle counts match the spike (12 of 17 motors); measure added derive time (< 3 s) and peak memory (< 1 GB)
+- [x] 2.1 Tests first: thermal-cycle state machine covers the spec cases (cool-down, powered off hot, small wobble, no temperature) plus configurable rise and fall thresholds
+- [x] 2.2 Implement thermal cycles in `semantics/usage.py`; add `thermal_rise_c = 10`, `thermal_fall_c = 3` to `PhysicsConfig`
+- [x] 2.3 Expose the enabled intervals (mode runs) from `framing.py`, with tests: practice session with several enable toggles, and a match session
+- [x] 2.4 Tests first: usage on synthetic silver covers powered-on time (with the hold cap and a gap), enabled time, energy, stall, a mid-session swap split, and a non-match session
+- [x] 2.5 Implement `usage.session_usage` and write `gold/unit_usage` (staged rename, like match features); wire it into the derive loop for every session with silver; add `DERIVE_VERSION` 2 to the derive fingerprint (not `PIPELINE_VERSION`, which would re-ingest bronze)
+- [x] 2.6 Corpus tests: Q7 usage rows exist for all 17 motors, usage supply energy ≥ match-phase feature energy, cycle counts match the spike (12 of 17 motors); measure added derive time (< 3 s) and peak memory (< 1 GB)
 
 ## 3. History queries (spec: lifetime-trends, unit-odometry)
 

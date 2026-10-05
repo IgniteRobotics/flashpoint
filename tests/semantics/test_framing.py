@@ -51,3 +51,35 @@ def test_modes_from_driver_station_booleans() -> None:
     assert modes_from_ds(enabled, autonomous) == [
         (19, DISABLED), (127, AUTO), (134, DISABLED), (152, TELEOP),
     ]  # fmt: skip
+
+
+def test_enabled_intervals_practice_toggles() -> None:
+    """Practice toggles enable many times; every enabled run counts, Test mode included."""
+    framing = frame(
+        [
+            (0, DISABLED),
+            (100, TELEOP),
+            (200, DISABLED),
+            (300, "Test"),
+            (350, DISABLED),
+            (400, TELEOP),
+            (450, DISABLED),
+        ]
+    )
+    assert framing.enabled == [(100, 200), (300, 350), (400, 450)]
+
+
+def test_enabled_intervals_match_merges_auto_into_teleop() -> None:
+    framing = frame([(0, DISABLED), (100, AUTO), (115, TELEOP), (250, DISABLED)])
+    assert framing.enabled == [(100, 250)]
+
+
+def test_enabled_interval_open_at_end_of_log() -> None:
+    framing = frame([(0, DISABLED), (100, TELEOP)])
+    assert framing.enabled == [(100, None)]
+
+
+def test_enabled_intervals_test_mode_only() -> None:
+    framing = frame([(0, DISABLED), (100, "Test"), (200, DISABLED)])
+    assert framing.match_start_us is None
+    assert framing.enabled == [(100, 200)]

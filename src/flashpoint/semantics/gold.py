@@ -16,8 +16,8 @@ from flashpoint.semantics.silver import silver_dir
 PHASES = ("auto", "teleop")
 
 
-def gold_dir(lake: LakePaths) -> Path:
-    return lake.root / "gold" / "match_features"
+def gold_dir(lake: LakePaths, table: str = "match_features") -> Path:
+    return lake.root / "gold" / table
 
 
 def _periods(framing: Framing) -> dict[str, tuple[int, int]]:
@@ -54,6 +54,8 @@ def session_features(
         " WHERE metric = 'stator_current' AND phase IN ('auto', 'teleop')"
     ).fetchall()
     slots = {s.id: s for s in robot.slots}
+    # The gap's rows are excluded, so the last auto sample must not hold across the gap.
+    breaks = [p.start_us for p in framing.phases if p.name == "gap" and p.start_us is not None]
     rows = []
     for slot_id, unit_id in sorted(motors):
         # One motor at a time keeps memory bounded by a motor's samples, not the session's.
@@ -76,23 +78,29 @@ def session_features(
                     "role": slots[slot_id].role if slot_id in slots else None,
                     "alignment": alignment,
                     "source_logs": source_logs,
-                    **motor_features(motor, start, end),
+                    **motor_features(motor, start, end, breaks=breaks),
                 }
             )
     return rows
 
 
 def write_session(
-    lake: LakePaths, season: str, session_id: str, rows: list[dict[str, Any]], run_id: str
+    lake: LakePaths,
+    season: str,
+    session_id: str,
+    rows: list[dict[str, Any]],
+    run_id: str,
+    table: str = "match_features",
+    schema: dict[str, pl.DataType] | None = None,
 ) -> None:
-    final = gold_dir(lake) / f"season={season}" / f"session_id={session_id}"
-    for existing in gold_dir(lake).glob(f"season=*/session_id={session_id}"):
+    final = gold_dir(lake, table) / f"season={season}" / f"session_id={session_id}"
+    for existing in gold_dir(lake, table).glob(f"season=*/session_id={session_id}"):
         shutil.rmtree(existing)
     if not rows:
         return
-    stage = lake.root / "gold" / "_staging" / run_id / f"session_id={session_id}"
+    stage = lake.root / "gold" / "_staging" / run_id / table / f"session_id={session_id}"
     stage.mkdir(parents=True, exist_ok=True)
-    pl.DataFrame(rows, infer_schema_length=None).write_parquet(
+    pl.DataFrame(rows, schema=schema, infer_schema_length=None).write_parquet(
         stage / "part-0.parquet", compression="zstd"
     )
     final.parent.mkdir(parents=True, exist_ok=True)

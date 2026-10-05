@@ -193,3 +193,15 @@ def test_full_derive_gold_and_noop_rerun(corpus_lake: Any) -> None:
         " WHERE season = '2026' AND subsystem = 'drivetrain' GROUP BY slot_id"
     ).fetchall()
     assert time.perf_counter() - started < 1.0
+
+    stalls = dict(
+        duckdb.sql(
+            f"SELECT slot_id, stall_s FROM read_parquet('{gold}', hive_partitioning = true)"
+            " WHERE match_key = '2026gacmp_qm7' AND phase = 'match' AND stall_s > 0"
+        ).fetchall()
+    )
+    # P4 spike: the extension holds against its stop and the rollers jam, at the current limit
+    # (0.20-0.30 of stall current); nothing else stalls.
+    assert set(stalls) == {"intake-extension", "intake-roller", "intake-roller-follower"}
+    assert stalls["intake-extension"] == pytest.approx(21.5, abs=1.0)
+    assert 3.0 < stalls["intake-roller"] < 8.0

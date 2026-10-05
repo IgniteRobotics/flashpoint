@@ -104,6 +104,40 @@ def test_custom_stall_thresholds() -> None:
         _series("rotor_velocity_rps", [(t, 0.0) for t in times]),
         _motor_constants(1.0),
     )
-    assert motor_features(frame, 0, S)["stall_s"] == 0.0
-    loose = PhysicsConfig(stall_current_fraction=0.2)
-    assert motor_features(frame, 0, S, loose)["stall_s"] == pytest.approx(1.0, abs=0.02)
+    assert motor_features(frame, 0, S)["stall_s"] == pytest.approx(1.0, abs=0.02)
+    strict = PhysicsConfig(stall_current_fraction=0.4)
+    assert motor_features(frame, 0, S, strict)["stall_s"] == 0.0
+
+
+def _limited(amps: float, stall_amps: float) -> pl.DataFrame:
+    times = [i * 0.25 for i in range(40)]  # 10 s at 4 Hz, like the rio TalonFX status signals
+    return _frame(
+        _series("stator_current", [(t, amps) for t in times]),
+        _series("rotor_velocity_rps", [(t, 0.1) for t in times]),
+        _series("stall_current", [(0, stall_amps)]),
+    )
+
+
+def test_current_limited_stall_counts() -> None:
+    """The intake extension held against its stop at the 80 A limit (corpus Q7: 0.24 of stall)."""
+    assert motor_features(_limited(80.0, 329.0), 0, 10 * S)["stall_s"] == pytest.approx(10.0)
+
+
+def test_low_speed_transient_is_not_a_stall() -> None:
+    """Steer modules accelerating from rest peak at 0.149 of stall in corpus Q7."""
+    assert motor_features(_limited(59.6, 400.0), 0, 10 * S)["stall_s"] == 0.0
+
+
+def test_hold_stops_at_a_break() -> None:
+    """The last auto sample must not hold across the excluded gap (P4: 37 A flywheel)."""
+    frame = _frame(
+        _series("supply_voltage", [(0.0, 12.0), (0.5, 12.0), (5.0, 12.0)]),
+        _series("supply_current", [(0.0, 10.0), (0.5, 40.0), (5.0, 10.0)]),
+    )
+    unbroken = motor_features(frame, 0, int(5.5 * S))
+    broken = motor_features(frame, 0, int(5.5 * S), breaks=[int(0.75 * S)])
+    # 40 A holds 1 s (the cap) without the break, 0.25 s with it
+    assert unbroken["supply_energy_wh"] == pytest.approx(12 * (10 * 0.5 + 40 + 10 * 0.5) / 3600)
+    assert broken["supply_energy_wh"] == pytest.approx(
+        12 * (10 * 0.5 + 40 * 0.25 + 10 * 0.5) / 3600
+    )
