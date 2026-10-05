@@ -51,9 +51,9 @@
 
 ## 8. Packaging
 
-- [ ] 8.1 `deploy/systemd/flashpoint-acquire.service` (user unit, single absolute `ExecStart`, restart on failure); CI step runs `systemd-analyze verify --user`
-- [ ] 8.2 `deploy/windows/flashpoint-acquire.xml` (logon trigger, restart ×3); a test parses the XML and checks the command
-- [ ] 8.3 `deploy/README.md`: pipx install, `acquire.toml`, Linux user unit with `enable-linger` and udisks/udiskie automount, Windows `schtasks /Create /XML`, macOS foreground run, rclone remote setup, restore drill
+- [x] 8.1 `deploy/systemd/flashpoint-acquire.service` (user unit, single absolute `ExecStart`, restart on failure); CI step runs `systemd-analyze verify --user`
+- [x] 8.2 `deploy/windows/flashpoint-acquire.xml` (logon trigger, restart ×3); a test parses the XML and checks the command
+- [x] 8.3 `deploy/README.md`: pipx install, `acquire.toml`, Linux user unit with `enable-linger` and udisks/udiskie automount, Windows `schtasks /Create /XML`, macOS foreground run, rclone remote setup, restore drill
 
 ## 9. Windows CI
 
