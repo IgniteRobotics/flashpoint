@@ -10,8 +10,9 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-import pyarrow as pa
-import pyarrow.parquet as pq
+# Set by acquire on a file pulled while still being written. Nothing in the pipeline can
+# re-derive it, so a stage update (rebuild, restore) keeps it.
+INCOMPLETE_READ = "incomplete-read"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
@@ -74,7 +75,8 @@ CREATE TABLE IF NOT EXISTS inventory (
     valid INTEGER NOT NULL, error TEXT
 );
 """
-_SQL_TO_ARROW = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64()}
+# The acquire watch writes `pulls` while an ingest subprocess holds derive transactions.
+BUSY_TIMEOUT_MS = 30_000
 METADATA_TABLES = ("logs", "hoot_logs", "entries", "inventory")
 DERIVED_TABLES = (
     "sessions",
@@ -101,7 +103,8 @@ def _now() -> str:
 class Ledger:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(path, isolation_level=None)
+        self._db = sqlite3.connect(path, isolation_level=None, timeout=BUSY_TIMEOUT_MS / 1000)
+        self._db.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA foreign_keys=ON")
         self._db.executescript(SCHEMA)
@@ -123,7 +126,7 @@ class Ledger:
             )
             self._db.execute(
                 "INSERT OR IGNORE INTO aliases (sha256, path, name, seen) VALUES (?, ?, ?, ?)",
-                (sha256, str(path), path.name, now),
+                (sha256, path.as_posix(), path.name, now),
             )
         return new
 
@@ -152,10 +155,32 @@ class Ledger:
         self, sha256: str, stage: Stage, pipeline_version: int, warnings: str | None = None
     ) -> None:
         with self._db:
+            row = self._db.execute(
+                "SELECT warnings FROM files WHERE sha256 = ?", (sha256,)
+            ).fetchone()
+            new = [w for w in (warnings or "").split(",") if w]
+            if row is not None and INCOMPLETE_READ in (row[0] or "").split(","):
+                new += [] if INCOMPLETE_READ in new else [INCOMPLETE_READ]
             self._db.execute(
                 "UPDATE files SET stage = ?, reason = NULL, warnings = ?, pipeline_version = ?,"
                 " updated = ? WHERE sha256 = ?",
-                (stage, warnings, pipeline_version, _now(), sha256),
+                (stage, ",".join(new) or None, pipeline_version, _now(), sha256),
+            )
+
+    def add_warning(self, sha256: str, warning: str) -> None:
+        """Append a warning to a file's comma-separated `warnings`, once."""
+        with self._db:
+            row = self._db.execute(
+                "SELECT warnings FROM files WHERE sha256 = ?", (sha256,)
+            ).fetchone()
+            if row is None:
+                return
+            existing = [w for w in (row[0] or "").split(",") if w]
+            if warning in existing:
+                return
+            self._db.execute(
+                "UPDATE files SET warnings = ?, updated = ? WHERE sha256 = ?",
+                (",".join([*existing, warning]), _now(), sha256),
             )
 
     def quarantine(self, sha256: str, reason: str, pipeline_version: int) -> None:
@@ -213,13 +238,18 @@ class Ledger:
         return [dict(zip(cols, row, strict=True)) for row in cursor]
 
     def export_snapshots(self, meta_dir: Path) -> None:
+        # Deferred: pyarrow's ~45 MB must not load in the acquire watch (watch RSS budget).
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        sql_to_arrow = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64()}
         meta_dir.mkdir(parents=True, exist_ok=True)
         tables = [
             r[0] for r in self._db.execute("SELECT name FROM sqlite_master WHERE type='table'")
         ]
         for table in tables:
             info = self._db.execute(f"PRAGMA table_info({table})").fetchall()
-            schema = pa.schema([(c[1], _SQL_TO_ARROW.get(c[2], pa.string())) for c in info])
+            schema = pa.schema([(c[1], sql_to_arrow.get(c[2], pa.string())) for c in info])
             rows = self.query(f"SELECT * FROM {table}")  # noqa: S608
             tmp = meta_dir / f"{table}.parquet.part"
             pq.write_table(pa.Table.from_pylist(rows, schema=schema), tmp)

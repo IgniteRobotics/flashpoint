@@ -67,6 +67,19 @@ duckdb.sql(f"""
 """).show()
 ```
 
+### Acquiring logs (P3)
+
+`flashpoint acquire` pulls new logs from the roboRIO (SFTP) and from removable USB volumes into the lake's `inbox/`, verifies them by hash, then runs ingest and derive. It never writes to the robot or a stick.
+
+```bash
+poetry run flashpoint acquire --dry-run   # list what would be copied; changes nothing
+poetry run flashpoint acquire             # one cycle
+poetry run flashpoint acquire --watch     # keep going (Ctrl-C to stop)
+poetry run flashpoint backup              # rclone backup, if backup.remote is set
+```
+
+Settings live in `acquire.toml` (hosts, roots, poll interval, rclone remote). Running it as a service (systemd user unit on Linux, scheduled task on Windows) and the full config are in [`deploy/README.md`](deploy/README.md).
+
 ### Tests
 
 ```bash

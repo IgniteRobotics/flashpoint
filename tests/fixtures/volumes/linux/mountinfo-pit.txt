@@ -1,0 +1,10 @@
+22 1 259:2 / / rw,relatime shared:1 - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+23 22 259:1 / /boot/efi rw,relatime shared:2 - vfat /dev/nvme0n1p1 rw,fmask=0077,dmask=0077
+24 22 0:21 / /proc rw,nosuid,nodev,noexec,relatime shared:5 - proc proc rw
+25 22 0:5 / /dev rw,nosuid,relatime shared:6 - devtmpfs udev rw,size=8165036k,nr_inodes=2041259
+26 22 0:44 / /run/user/1000 rw,nosuid,nodev,relatime shared:230 - tmpfs tmpfs rw,size=1636936k,mode=700,uid=1000,gid=1000
+41 22 259:3 / /mnt/data rw,relatime shared:60 - ext4 /dev/nvme0n1p3 rw
+42 22 0:50 / /mnt/nas rw,relatime shared:62 - nfs4 nas.local:/export rw,vers=4.2,proto=tcp
+43 22 8:17 / /run/media/pit/ROBOT\040LOGS rw,nosuid,nodev,relatime shared:70 - vfat /dev/sdb1 rw,fmask=0022,dmask=0022,uid=1000
+44 22 8:33 / /media/pit/SSDLOGS rw,nosuid,nodev,relatime shared:75 - ext4 /dev/sdc1 rw
+45 22 8:49 / /media/pit/NOUUID rw,nosuid,nodev,relatime shared:80 - vfat /dev/sdd1 rw

@@ -26,7 +26,7 @@ flowchart LR
       USB[USB<br>ctre-logs/*.hoot]
     end
     subgraph Pit laptop / server
-      ACQ[flashpoint acquire<br>SFTP pull + verify]
+      ACQ[flashpoint acquire<br>SFTP pull + USB scan + verify]
       INBOX[(inbox/)]
       ING[flashpoint ingest<br>core library]
       LAKE[(lake/<br>Parquet, hive-partitioned)]
@@ -39,7 +39,7 @@ flowchart LR
     AS[AdvantageScope<br>user's machine]
 
     RIO -->|SFTP lvuser| ACQ
-    USB -->|manual copy| INBOX
+    USB -->|acquire: removable volumes, read-only| ACQ
     ACQ --> INBOX --> ING --> LAKE --> DUCK
     TBA -.optional enrich.-> ING
     DUCK --> SITE & NB & GRAF
@@ -243,9 +243,10 @@ flashpoint/
     lake/         ledger.py, bronze.py, silver.py, gold.py, paths.py
     physics/      motor_models.py (DCMotor constants), power.py, residuals.py
     anomaly/      rules.py, baseline.py (robust z), models.py (PyOD/River)
-    acquire/      sftp.py, watcher.py
+    acquire/      config.py, pulls.py, robot.py (paramiko), transfer.py, volumes/ (macos, linux, windows),
+                  removable.py, cycle.py, watch.py, backup.py (rclone)
     report/       site.py (static), templates/
-    cli.py        typer: acquire | ingest | rebuild | report | doctor
+    cli.py        argparse: acquire | backup | restore | ingest | derive | rebuild | report (P4) | doctor
   tests/          unit/, golden/ (real small logs + expected parquet), e2e/
   notebooks/      marimo apps
   tools/          fetch-corpus.py, update-owlet-manifest.py (owlet binaries are never in git)
@@ -263,7 +264,7 @@ flashpoint/
 | D6 | Per-match UI | **Static site generated from gold/silver** (reuse power-tracking SPA, payload ≤ 2 MB) | Streamlit (server, cache pitfalls) |
 | D7 | Lifetime UI | **marimo app** (Python, Git-friendly) | Grafana + DuckDB plugin (needs glibc Linux server, unsigned plugin); Streamlit |
 | D8 | Deep dive | **Link to AdvantageScope** (download raw wpilog) | Rebuild graphs (don't) |
-| D9 | Deploy | **`pipx install` + optional single container** (multi-arch, no X11) | Three-service compose (today) |
+| D9 | Deploy | **`pipx install` + per-user services** (systemd user unit, Windows scheduled task; container deferred) | Three-service compose (today) |
 | D10 | Anomaly v1 | **Rules + robust z-score vs per-unit history + DCMotor residual** | Jump to ML (not enough data in season 1) |
 | D11 | Device identity (**decided**) | **Serial-number units from the robot-logged CAN inventory, plus config-declared legacy epochs** | CAN-ID only (swaps corrupt baselines); manual maintenance log only |
 
