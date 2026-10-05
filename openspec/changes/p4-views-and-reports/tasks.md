@@ -23,13 +23,13 @@
 
 ## 4. Replay data, envelopes, and markers (spec: match-reports)
 
-- [ ] 4.1 Tests first for `report/envelope.py`: about 1000 buckets, width rounded to 10 ms; a 4 ms 150 A spike survives; empty buckets are null; 3-significant-figure rounding; temperature change points; battery proxy (lowest supply voltage as the minimum)
-- [ ] 4.2 Implement the envelope over one silver partition in DuckDB (memory limit 256 MB)
-- [ ] 4.3 Tests first for `report/markers.py`: temperature WARN and FAULT, brownout and sag, stall interval, sample gap, quiet match, thresholds from `config/report.toml`
-- [ ] 4.4 Implement the markers
-- [ ] 4.5 Tests first for `report/build.py`: payload shape (header, per-phase slot features, series, change points, markers, "not logged" markers, alignment, source logs); embedded JSON escaping (`</`, U+2028/2029); the 2 MB guard lowers the bucket count without losing min or max
-- [ ] 4.6 Implement the per-match build (`data/<match_key>.js`, temp file then rename) and `site-state.json`. Incremental rebuild, `--event` and match-key selection, and an index listing hoot-only and low-alignment entries with reasons; the build summary counts sessions without a match key
-- [ ] 4.7 Corpus tests: Q7 data ≤ 2 MB; every bucket's min and max equal the silver min and max over its range; build < 5 s and < 500 MB (perf)
+- [x] 4.1 Tests first for `report/envelope.py`: about 1000 buckets, width rounded to 10 ms; a 4 ms 150 A spike survives; empty buckets are null; 3-significant-figure rounding; temperature change points; battery proxy (lowest supply voltage as the minimum)
+- [x] 4.2 Implement the envelope over one silver partition in DuckDB (memory limit 256 MB)
+- [x] 4.3 Tests first for `report/markers.py`: temperature WARN and FAULT, brownout and sag, stall interval, sample gap, quiet match, thresholds from `config/report.toml`
+- [x] 4.4 Implement the markers
+- [x] 4.5 Tests first for `report/build.py`: payload shape (header, per-phase slot features, series, change points, markers, "not logged" markers, alignment, source logs); embedded JSON escaping (`</`, U+2028/2029); the 2 MB guard lowers the bucket count without losing min or max
+- [x] 4.6 Implement the per-match build (`data/<match_key>.js`, temp file then rename) and `site-state.json`. Incremental rebuild, `--event` and match-key selection, and an index listing hoot-only and low-alignment entries with reasons; the build summary counts sessions without a match key
+- [x] 4.7 Corpus tests: Q7 data ≤ 2 MB; every bucket's min and max equal the silver min and max over its range; build < 5 s and < 500 MB (perf)
 
 ## 5. Server and API (spec: match-reports, lifetime-trends)
 
