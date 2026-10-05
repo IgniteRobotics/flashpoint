@@ -159,7 +159,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def _data(self, name: str) -> None:
         found = contained(data_dir(self.server.lake), name) if _DATA_NAME.match(name) else None
-        if found is None:
+        if found is None and name == "matches.js":
+            # Nothing built yet: an empty index, so the app says so instead of failing to load.
+            empty = {
+                "version": 1,
+                "lake": str(self.server.lake.root),
+                "matches": [],
+                "sessions_without_match_key": None,
+            }
+            body = ("FP.index(" + json.dumps(empty).replace("</", "<\\/") + ");\n").encode()
+            self._send_bytes(
+                HTTPStatus.OK, body, CONTENT_TYPES[".js"], {"Cache-Control": "no-store"}
+            )
+        elif found is None:
             self._not_found()
         else:
             self._send_file(found, {"Cache-Control": "no-store"})

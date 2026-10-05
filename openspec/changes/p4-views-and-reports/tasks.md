@@ -41,31 +41,31 @@
 
 ## 6. App shell and design tokens (spec: match-reports "Shared app shell")
 
-- [ ] 6.1 Vendor uPlot (with its license) and the VT323 and IBM Plex woff2 fonts (OFL), with `@font-face`
-- [ ] 6.2 `tokens.css` (palette, type, spacing lifted from the canvas) and `shell.css` (header, nav, panels, section headings, chips, tables, tiles, status glyphs, focus outline, scanline toggle)
-- [ ] 6.3 `shell.js`: view registry (`needsApi` hides views in static mode), hash router and URL state, the `h()` DOM builder, and the `track()` uPlot wrapper with the shell theme
-- [ ] 6.4 Static lint test: no `innerHTML`, `outerHTML`, `insertAdjacentHTML`, inline `on*=`, `eval`, or `new Function` in `web/static/**/*.js`; no remote host referenced by any app file
-- [ ] 6.5 Add `pytest-playwright`, the `browser` marker, and a CI job that installs Chromium; a test view registered with the shell renders with shell fonts and colours and no stylesheet of its own; keyboard focus is visible
+- [x] 6.1 Vendor uPlot (with its license) and the VT323 and IBM Plex woff2 fonts (OFL), with `@font-face`
+- [x] 6.2 `tokens.css` (palette, type, spacing lifted from the canvas) and `shell.css` (header, nav, panels, section headings, chips, tables, tiles, status glyphs, focus outline, scanline toggle)
+- [x] 6.3 `shell.js`: view registry (`needsApi` hides views in static mode), hash router and URL state, the `h()` DOM builder, and the `track()` uPlot wrapper with the shell theme
+- [x] 6.4 Static lint test: no `innerHTML`, `outerHTML`, `insertAdjacentHTML`, inline `on*=`, `eval`, or `new Function` in `web/static/**/*.js`; no remote host referenced by any app file
+- [x] 6.5 Add `pytest-playwright`, the `browser` marker, and a CI job that installs Chromium; a test view registered with the shell renders with shell fonts and colours and no stylesheet of its own; keyboard focus is visible
 
 ## 7. Replay view (spec: match-reports)
 
-- [ ] 7.1 `views/replay.js`: match list grouped by event with marker counts and low-alignment marks; header; marker strip; default tracks with reference lines and per-track slot/metric pickers; scrub (drag and keyboard); readout (at the cursor, or match maxima hottest-first); "not logged" cells
-- [ ] 7.2 Compare overlay (dashed series, second readout column, absent slots) and URL state (match, overlay, cursor, tracks)
-- [ ] 7.3 AdvantageScope downloads panel (served `/raw/` links; static `raw/` links or the "not included" list of hashes)
-- [ ] 7.4 `report --static OUT [--no-raw]` export, with tests (layout, History absent from the nav, raw hard link or copy)
-- [ ] 7.5 Browser tests, served and file:// (network blocked): hottest-first readout on a Q7-like fixture, scrub, marker select, compare, URL restore, "not logged" temperature, hostile names show literally with no dialog or console error; record CSP behaviour and apply the design fallback if Chromium rejects `'self'` on file://
+- [x] 7.1 `views/replay.js`: match list grouped by event with marker counts and low-alignment marks; header; marker strip; default tracks with reference lines and per-track slot/metric pickers; scrub (drag and keyboard); readout (at the cursor, or match maxima hottest-first); "not logged" cells
+- [x] 7.2 Compare overlay (dashed series, second readout column, absent slots) and URL state (match, overlay, cursor, tracks)
+- [x] 7.3 AdvantageScope downloads panel (served `/raw/` links; static `raw/` links or the "not included" list of hashes)
+- [x] 7.4 `report --static OUT [--no-raw]` export, with tests (layout, History absent from the nav, raw hard link or copy)
+- [x] 7.5 Browser tests, served and file:// (network blocked): hottest-first readout on a Q7-like fixture, scrub, marker select, compare, URL restore, "not logged" temperature, hostile names show literally with no dialog or console error; record CSP behaviour and apply the design fallback if Chromium rejects `'self'` on file://
 
 ## 8. History view (spec: lifetime-trends, unit-odometry)
 
-- [ ] 8.1 `views/history.js`: filter bar, tiles, metric picker with reference lines, lines chart (per unit by default, per-slot toggle, emphasised selection, low-alignment markers, gaps), device table
-- [ ] 8.2 Device panel: model and serial, health, odometry tiles, sessions without aligned samples, lifeline; unit links; "not found" with suggestions
-- [ ] 8.3 Drill-through to Replay (`#view=replay&m=<key>&track=<slot>`), "not built" plus the command, raw download
-- [ ] 8.4 Browser tests against the served corpus lake: filters, unit line with a gap, lifeline order, drill-through, empty-lake message, hostile slot role as text
+- [x] 8.1 `views/history.js`: filter bar, tiles, metric picker with reference lines, lines chart (per unit by default, per-slot toggle, emphasised selection, low-alignment markers, gaps), device table
+- [x] 8.2 Device panel: model and serial, health, odometry tiles, sessions without aligned samples, lifeline; unit links; "not found" with suggestions
+- [x] 8.3 Drill-through to Replay (`#view=replay&m=<key>&track=<slot>`), "not built" plus the command, raw download
+- [x] 8.4 Browser tests against the served corpus lake: filters, unit line with a gap, lifeline order, drill-through, empty-lake message, hostile slot role as text
 
 ## 9. CLI
 
-- [ ] 9.1 Tests first: `flashpoint report [--event] [--match] [--static OUT] [--no-raw]` and `flashpoint serve [--lake] [--host] [--port] [--no-build]` exit codes and summaries
-- [ ] 9.2 Implement both; keep heavy imports deferred (extend `test_acquire_imports.py` so `acquire --watch` RSS doesn't grow)
+- [x] 9.1 Tests first: `flashpoint report [--event] [--match] [--static OUT] [--no-raw]` and `flashpoint serve [--lake] [--host] [--port] [--no-build]` exit codes and summaries
+- [x] 9.2 Implement both; keep heavy imports deferred (extend `test_acquire_imports.py` so `acquire --watch` RSS doesn't grow)
 
 ## 10. Docs and wrap-up
 

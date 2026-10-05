@@ -238,7 +238,7 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
         server = FlashpointServer(
             (args.host, args.port), lake, HistoryQueries(lake, robots, report_config)
         )
-    except OSError as exc:
+    except (OSError, OverflowError) as exc:
         print(f"cannot listen on {args.host}:{args.port}: {exc}", file=sys.stderr)
         return EXIT_FAILED
     warning = host_warning(args.host)

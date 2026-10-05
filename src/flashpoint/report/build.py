@@ -470,6 +470,12 @@ class ReportBuilder:
                     ],
                     "markers": found_markers,
                     "sources": sources,
+                    "limits": {
+                        "temp_warn_c": self.report.temp_warn_c,
+                        "temp_fault_c": self.report.temp_fault_c,
+                        "brownout_v": self.report.brownout_v,
+                        "sag_v": self.report.sag_v,
+                    },
                 }
             )
             slow = sorted(slot for slot, hz in payload["rates"].items() if 0 < hz < SLOW_HZ)
