@@ -73,6 +73,11 @@ The task starts at logon, restarts on failure (3 times, 1 minute apart), has no
 time limit, and ignores a second start while one is running. Remove it with
 `schtasks /Delete /TN flashpoint-acquire /F`.
 
+Stopping the task (`schtasks /End`, or End in Task Scheduler) is a
+`TerminateProcess`: there is no graceful stop as with Ctrl-C or SIGTERM. The lock
+is released by Windows, and a copy cut off mid-file can leave a `.part` file in
+the inbox; it is never ingested, and the next start removes it.
+
 ## macOS
 
 No service definition yet. Run it in a terminal (or tmux) while you need it:
@@ -92,7 +97,20 @@ rclone config                 # create a remote, for example "gdrive"
 
 Set `backup.remote = "gdrive:flashpoint"` in `acquire.toml`. The watch backs up
 every `interval_min` minutes; `flashpoint backup` runs one now. Raw logs are
-copied append-only (`--immutable`); metadata is a consistent snapshot.
+copied append-only (`--immutable`); metadata is a consistent snapshot in
+`meta/latest`.
+
+Every metadata backup moves the files it replaces into
+`meta/history/<UTC time>/` on the remote, so a backup from a wrong or empty lake
+cannot destroy the last good metadata. Nothing prunes the history; delete old
+folders by hand when you want the space back. To restore an older snapshot, copy
+that folder over `meta/latest` with rclone first.
+
+The watch's backup runs inside the acquisition cycle, so it is bounded: rclone
+gives up on a dead link within about a minute, and stops after 4 minutes. Raw is
+copied incrementally, so a large first backup goes up over several cycles; the
+status shows the backup as still owed until it completes. `flashpoint backup`
+has the same timeouts but no 4-minute limit.
 
 ### Restore drill
 

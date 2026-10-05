@@ -68,7 +68,7 @@
 
 ## 11. Human verification
 
-- [ ] 11.1 [HUMAN] Live rio: confirm the log roots, `sha256sum` and `df` presence, auth as `lvuser`, transfer MB/s over the radio and the tether, `sha256sum` time per 100 MB; record the results in design.md
+- [ ] 11.1 [HUMAN] Live rio: first, reboot the rio with no Driver Station connected and list the log mtimes (for example `stat -c '%y %n'` on each root's files), to confirm whether the clock reset breaks the newest-by-mtime active-file rule. Then confirm the log roots, `sha256sum` and `df` presence, auth as `lvuser`, transfer MB/s over the radio and the tether, `sha256sum` time per 100 MB; record the results in design.md
 - [ ] 11.2 [HUMAN] Robot USB stick on macOS, Linux, and Windows: detected, copied, safe-to-eject notice, stick unchanged
 - [ ] 11.3 [HUMAN] Unattended exit check: watch running as a service, plug in the robot after a practice match, match in gold within 5 min
 - [ ] 11.4 [HUMAN] Configure the team's rclone remote (Drive), run one backup, run the restore drill into a scratch lake
