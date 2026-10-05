@@ -3,9 +3,11 @@
 import argparse
 import logging
 import platform
+import sqlite3
 import subprocess
 import sys
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,6 +23,7 @@ from flashpoint.acquire.watch import (
     StatusFormatError,
     describe_status,
     read_status,
+    record_backup,
     run_acquire,
 )
 from flashpoint.lake.ledger import Ledger
@@ -176,13 +179,26 @@ def _backup(lake: LakePaths) -> int:
     if not remote:
         print(f"backup not configured: set backup.remote in {config.config_root()}/acquire.toml")
         return 0
+    if not lake.ledger.is_file():  # before the lock file: a mistyped --lake stays uncreated
+        print(f"no ledger at {lake.ledger}; nothing to back up", file=sys.stderr)
+        return EXIT_FAILED
     try:
         with AcquireLock(lake.meta / LOCK_FILE):
-            print(run_backup(lake, remote))
+            started = datetime.now(UTC).isoformat()
+            try:
+                summary = run_backup(lake, remote)
+            except (BackupError, OSError, sqlite3.Error) as exc:
+                record_backup(lake.status, {"last_time": started, "result": f"error: {exc}",
+                                            "pending": True})  # fmt: skip
+                print(f"backup failed: {exc}", file=sys.stderr)
+                return EXIT_FAILED
+            record_backup(lake.status, {"last_time": started, "result": f"ok: {summary}",
+                                        "pending": False})  # fmt: skip
+            print(summary)
     except LockHeldError as exc:
         print(f"{exc}; a running watch backs up on its own", file=sys.stderr)
         return EXIT_LOCKED
-    except (BackupError, OSError) as exc:
+    except OSError as exc:
         print(f"backup failed: {exc}", file=sys.stderr)
         return EXIT_FAILED
     return 0
@@ -209,7 +225,7 @@ def _restore(lake: LakePaths, remote: str | None, force: bool) -> int:
     except RestoreRefusedError as exc:
         print(exc, file=sys.stderr)
         return EXIT_FAILED
-    except (BackupError, OSError) as exc:
+    except (BackupError, OSError, sqlite3.Error) as exc:
         print(f"restore failed: {exc}", file=sys.stderr)
         return EXIT_FAILED
     print(f"restored {count} file(s) from {remote}; bronze, silver and gold must be rebuilt")

@@ -310,6 +310,15 @@ def write_json_atomic(path: Path, data: dict[str, Any]) -> None:
         raise
 
 
+def record_backup(path: Path, backup: dict[str, Any]) -> None:
+    """Set the backup slot of the status file (a manual `flashpoint backup`); hold the lock."""
+    status = read_status(path)
+    if status is None or status.get("version") != STATUS_VERSION:
+        status = {"version": STATUS_VERSION}
+    status["backup"] = backup
+    write_json_atomic(path, status)
+
+
 def read_status(path: Path) -> dict[str, Any] | None:
     """The last written status; None when there is none or it cannot be read."""
     try:
