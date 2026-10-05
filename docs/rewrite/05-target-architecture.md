@@ -31,9 +31,9 @@ flowchart LR
       ING[flashpoint ingest<br>core library]
       LAKE[(lake/<br>Parquet, hive-partitioned)]
       DUCK[DuckDB views]
-      SITE[static match reports]
-      NB[marimo notebooks/apps]
-      GRAF[Grafana + DuckDB plugin]
+      APP[flashpoint serve<br>Replay + History, one app]
+      SITE[Replay static export]
+      NB[marimo notebooks, optional]
     end
     TBA[(The Blue Alliance API)]
     AS[AdvantageScope<br>user's machine]
@@ -42,7 +42,7 @@ flowchart LR
     USB -->|acquire: removable volumes, read-only| ACQ
     ACQ --> INBOX --> ING --> LAKE --> DUCK
     TBA -.optional enrich.-> ING
-    DUCK --> SITE & NB & GRAF
+    DUCK --> APP & SITE & NB
     LAKE -->|download .wpilog link| AS
 ```
 
@@ -245,10 +245,12 @@ flashpoint/
     anomaly/      rules.py, baseline.py (robust z), models.py (PyOD/River)
     acquire/      config.py, pulls.py, robot.py (paramiko), transfer.py, volumes/ (macos, linux, windows),
                   removable.py, cycle.py, watch.py, backup.py (rclone)
-    report/       site.py (static), templates/
-    cli.py        argparse: acquire | backup | restore | ingest | derive | rebuild | report (P4) | doctor
+    report/       envelope.py, markers.py, build.py (per-match data + index), export.py (static)
+    views/        queries.py (parameterised DuckDB SQL behind the History API)
+    web/          server.py (stdlib HTTP), api.py; static/ (shell, views/, vendor/uplot, fonts)
+    cli.py        argparse: acquire | backup | restore | ingest | derive | rebuild | report | serve | doctor
   tests/          unit/, golden/ (real small logs + expected parquet), e2e/
-  notebooks/      marimo apps
+  notebooks/      README + example marimo notebook over views/queries.py (optional)
   tools/          fetch-corpus.py, update-owlet-manifest.py (owlet binaries are never in git)
 ```
 
@@ -261,14 +263,17 @@ flashpoint/
 | D3 | wpilog reader | **`robotpy-wpiutil`** | Vendored `datalog.py`: no build dependency, pure-Python speed |
 | D4 | owlet distribution | **Fetch script + checksum manifest, cached under `~/.cache/flashpoint/owlet/`. Select by hoot `--compliancy`** | Commit binaries (today: repo bloat); Git LFS |
 | D5 | Temperature source | **Hoot `DeviceTemp`. P0 confirmed the logs are Pro-licensed. Record `pro_licensed` per log** | Robot-side NT logging (fallback only) |
-| D6 | Per-match UI | **Static site generated from gold/silver** (reuse power-tracking SPA, payload ≤ 2 MB) | Streamlit (server, cache pitfalls) |
-| D7 | Lifetime UI | **marimo app** (Python, Git-friendly) | Grafana + DuckDB plugin (needs glibc Linux server, unsigned plugin); Streamlit |
+| D6 | Per-match UI | **Replay view with a static export** generated from gold/silver (canvas UX, ~1000-bucket envelopes, payload ≤ 2 MB; ADR-0006 amended) | Streamlit (server, cache pitfalls) |
+| D7 | Lifetime UI | **History view in one local app** (`flashpoint serve`, DuckDB API; ADR-0013 supersedes the marimo plan) | marimo (can't render the canvas shell); Grafana + DuckDB plugin (glibc server, unsigned plugin); Streamlit |
 | D8 | Deep dive | **Link to AdvantageScope** (download raw wpilog) | Rebuild graphs (don't) |
 | D9 | Deploy | **`pipx install` + per-user services** (systemd user unit, Windows scheduled task; container deferred) | Three-service compose (today) |
 | D10 | Anomaly v1 | **Rules + robust z-score vs per-unit history + DCMotor residual** | Jump to ML (not enough data in season 1) |
 | D11 | Device identity (**decided**) | **Serial-number units from the robot-logged CAN inventory, plus config-declared legacy epochs** | CAN-ID only (swaps corrupt baselines); manual maintenance log only |
 
 ## 7. Shrinking the per-match payload (fix for #37)
+
+**[P4, measured]** Implemented differently from the plan below: about **1000 min/max/mean buckets** per match window (bucket width rounded up to 10 ms; Q7 ≈ 170 ms), temperature as change points, 3 significant figures, delivered as script files so they load from file://. Q7 is 1.07 MB. Fixed 10 ms bins measured 20 MB for Q7 and were dropped. See ADR-0006 (amended) and ADR-0013.
+
 
 **[Background — engineering estimate]**
 - Store silver as Parquet and have the static site read it, either from JSON pre-binned per **10 ms with min/max envelopes** or through DuckDB-WASM over Parquet.

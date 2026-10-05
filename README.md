@@ -80,6 +80,21 @@ poetry run flashpoint backup              # rclone backup, if backup.remote is s
 
 Settings live in `acquire.toml` (hosts, roots, poll interval, rclone remote). Running it as a service (systemd user unit on Linux, scheduled task on Windows) and the full config are in [`deploy/README.md`](deploy/README.md).
 
+### Replay and History (P4)
+
+`flashpoint report` turns each match in the lake into Replay data (about 1 MB per match, rebuilt only when its inputs change). `flashpoint serve` runs the app: **Replay** for one match (tracks, markers, the hottest motor, raw-log downloads for AdvantageScope) and **History** for every unit and slot across matches, events, seasons, and robots.
+
+```bash
+poetry run flashpoint report                            # build or refresh every match
+poetry run flashpoint report --event 2026gacmp          # just one event (or --match 2026gacmp_qm7)
+poetry run flashpoint serve                             # builds, then serves http://127.0.0.1:8000/
+poetry run flashpoint serve --host 0.0.0.0 --port 8000  # share on the pit network (read-only, no password)
+poetry run flashpoint report --static /Volumes/USB/flashpoint   # Replay folder for a USB stick
+poetry run flashpoint report --static OUT --no-raw      # without the raw logs (smaller)
+```
+
+Open the static export by double-clicking `index.html`; it needs no server or network. History needs `serve`, because it queries the lake. Thresholds for markers and health (65/75 °C, brownout and sag voltages) live in `config/report.toml`. Students can explore further with the marimo notebook in [`notebooks/`](notebooks/README.md).
+
 ### Tests
 
 ```bash
@@ -87,4 +102,6 @@ poetry run pytest                                   # unit tests (fast, no data 
 poetry run python tools/fetch-corpus.py             # golden log corpus (~180 MB, release corpus-v1)
 poetry run pytest -m "corpus and not perf"          # tests against real robot logs
 poetry run pytest -m perf -s                        # time and memory budgets
+poetry run playwright install chromium              # once, for the browser tests
+poetry run pytest -m browser                        # the web app in Chromium (served and file://)
 ```

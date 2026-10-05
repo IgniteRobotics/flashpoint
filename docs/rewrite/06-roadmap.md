@@ -12,6 +12,8 @@ flowchart LR
     P2 --> P4[P4 Views]
     P3 --> P5[P5 Anomaly<br>detection]
     P4 --> P5
+    P4 --> P4b[Live & Pit views]
+    P3 --> P4b
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
 
@@ -27,6 +29,7 @@ gantt
     section Usable
     P3 Acquire & automate         :p3, after p2, 3w
     P4 Views                      :p4, after p2, 4w
+    Live & Pit views              :p4b, after p4, 3w
     section Insight
     P5 Anomaly detection          :p5, after p4, 6w
     P6 Prediction & fleet         :p6, after p5, 8w
@@ -109,6 +112,8 @@ gantt
 - **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.
 
 ### P4 — Views (M)
+> **Status: implemented; human verification pending** (change `p4-views-and-reports`, branch `feature/p4-views-and-reports`). Built to Josh's canvas "Flashpoint UI Prototypes": one local app (`flashpoint serve`, ADR-0013 supersedes the marimo plan) with **Replay** (≈1000-bucket envelopes, Q7 = 1.07 MB, rule markers, compare overlay, static export via `flashpoint report --static`) and **History** (per-unit and per-slot trends, odometry from the new `gold/unit_usage`, lifelines). Stall threshold moved to 0.2 of stall current on corpus evidence. Open: [HUMAN] pit-laptop USB check, mentor-laptop serve and AdvantageScope round-trip, Josh's sign-off on the look. The plan below is the original scope.
+
 - **Per-match static site:**
   - Rebuild the power-tracking SPA on silver and gold.
   - Payload ≤ 2 MB per match with min/max envelopes.
@@ -121,6 +126,13 @@ gantt
   - filters push down to DuckDB SQL instead of loading the whole table (#35).
 - **Optional:** Grafana with the DuckDB plugin on the pit server (MotherDuck, n.d.).
 - **Exit:** a drive coach can answer "is FL-drive running hotter than last event?" in two clicks, offline.
+
+### Live & Pit views (M, follow-up to P4)
+The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 left them out. They become one change after P4 and P3:
+- an NT4 client (or a small relay so one robot connection serves many viewers) feeding Live at about 2 Hz;
+- the Pit board's checks and GO / DECIDE / NO-GO verdict;
+- both as views in the P4 shell: one file in `web/static/views/` and one `FP.view` call each, no restyling.
+- **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.
 
 ### P5 — Anomaly detection (L)
 - **Tier 1, rules:**
@@ -153,7 +165,7 @@ gantt
 | `db/robot.db`, GRITS.db | **Don't migrate.** Rebuild from raw. Keep as a read-only archive | P1 |
 | `datamaps/*.csv`, `log_configs/*.json`, `utils/motors.toml` | Script → `config/seasons/*.toml`, `config/robots/*.toml` | P2 |
 | power-tracking `analyzer.py` + tests | Port to Polars; keep the test cases as golden expectations | P2 |
-| power-tracking SPA + specs | Reuse the UI; replace the data contract | P4 |
+| power-tracking SPA + specs | Reference only; the canvas sets the UX (Replay + History, ADR-0013) | P4 |
 | `development` match regex | Becomes the single filename-fallback parser | P2 |
 | Known motor swaps (pit notes, memory) | Declare as `[[slots.swaps]]` dates in robot TOML → legacy unit epochs | P2 |
 | Excalidraw diagrams | Replace with the mermaid diagrams in these docs | P0 |

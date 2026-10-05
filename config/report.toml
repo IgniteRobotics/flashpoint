@@ -1,0 +1,11 @@
+# Thresholds for Replay rule markers, History health, and chart reference lines.
+# Markers state facts only (no cause, no fix). Values are the defaults.
+
+[thresholds]
+temp_warn_c = 65.0        # WARN marker, History health WARN, temperature reference line
+temp_fault_c = 75.0       # FAULT marker, History health HOT
+brownout_v = 6.75         # battery proxy (lowest device supply voltage) below this ...
+brownout_hold_s = 0.02    # ... for at least this long: FAULT
+sag_v = 8.0               # battery proxy below this: WARN
+voltage_danger_v = 7.0    # History min-voltage reference line
+sample_gap_s = 1.0        # a slot's samples stop this long during the match: WARN

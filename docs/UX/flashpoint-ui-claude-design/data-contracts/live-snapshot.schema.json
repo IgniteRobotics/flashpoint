@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flashpoint.local/schemas/live-snapshot.schema.json",
+  "title": "LiveSnapshot",
+  "description": "One ~2 Hz render tick of Live, assembled from NT4 topics (or the relay).",
+  "type": "object",
+  "required": [
+    "t",
+    "match",
+    "vitals",
+    "mechanisms",
+    "events"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "t": {
+      "type": "number",
+      "description": "Seconds since match start"
+    },
+    "match": {
+      "type": "object",
+      "required": [
+        "label",
+        "alliance",
+        "phase",
+        "remaining"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "alliance": {
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "DISABLED",
+            "AUTO",
+            "TELEOP",
+            "ENDGAME",
+            "ENDED"
+          ]
+        },
+        "remaining": {
+          "type": "number",
+          "description": "Seconds remaining in the current FRC period"
+        },
+        "recording": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "vitals": {
+      "type": "object",
+      "required": [
+        "batteryV",
+        "totalCurrentA",
+        "canUtilPct",
+        "loopMs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "batteryV": {
+          "type": "number"
+        },
+        "minBatteryV": {
+          "type": "number"
+        },
+        "totalCurrentA": {
+          "type": "number"
+        },
+        "canUtilPct": {
+          "type": "number"
+        },
+        "loopMs": {
+          "type": "number"
+        },
+        "overruns": {
+          "type": "integer"
+        },
+        "brownout": {
+          "type": "boolean"
+        }
+      }
+    },
+    "mechanisms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slot",
+          "serial",
+          "currentA",
+          "tempC",
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "slot": {
+            "type": "string"
+          },
+          "serial": {
+            "type": "string"
+          },
+          "currentA": {
+            "type": "number"
+          },
+          "tempC": {
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "warn",
+              "fault"
+            ]
+          },
+          "faults": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "time",
+          "level",
+          "src",
+          "msg"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "time": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seconds since match start"
+          },
+          "level": {
+            "enum": [
+              "INFO",
+              "WARN",
+              "FAULT"
+            ]
+          },
+          "src": {
+            "type": "string",
+            "description": "Mechanism slot, 'power', 'can', 'loop', 'fms', 'auto'…"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "cause": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Heuristic likely cause (rule table). Label as heuristic in the UI."
+          },
+          "fix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Heuristic suggested fix"
+          }
+        }
+      },
+      "description": "Events since match start, oldest first"
+    },
+    "link": {
+      "type": "object",
+      "properties": {
+        "rxMs": {
+          "type": "number"
+        },
+        "dropped": {
+          "type": "integer"
+        },
+        "rateHz": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,5 @@
-"""`flashpoint` command line: ingest, rebuild, derive, acquire, backup, restore, doctor."""
+"""`flashpoint` command line: ingest, rebuild, derive, report, serve, acquire, backup, restore,
+doctor."""
 
 import argparse
 import logging
@@ -72,6 +73,32 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(derive)
 
+    report = sub.add_parser(
+        "report", help="build per-match Replay data (incremental); --static exports a folder"
+    )
+    report.add_argument(
+        "--event", action="append", metavar="EVENT", help="only this event, e.g. 2026gacmp"
+    )
+    report.add_argument(
+        "--match", action="append", metavar="KEY", help="only this match key, e.g. 2026gacmp_qm7"
+    )
+    report.add_argument("--all", action="store_true", help="rebuild even unchanged matches")
+    report.add_argument(
+        "--static", type=Path, metavar="OUT", help="also export Replay to a folder for file://"
+    )
+    report.add_argument(
+        "--no-raw", action="store_true", help="with --static: leave the raw logs out"
+    )
+    lake_arg(report)
+
+    serve = sub.add_parser("serve", help="serve Replay and History from the lake (read-only)")
+    serve.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
+    serve.add_argument("--port", type=int, default=8000, help="port (default 8000; 0 = any)")
+    serve.add_argument(
+        "--no-build", action="store_true", help="skip the incremental report build on start"
+    )
+    lake_arg(serve)
+
     acquire = sub.add_parser(
         "acquire", help="pull logs from the robot and USB sticks into the lake, then ingest"
     )
@@ -140,6 +167,85 @@ def _derive(lake: LakePaths, force: bool) -> int:
         deriver.close()
     print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
     return 0
+
+
+def _report(lake: LakePaths, args: argparse.Namespace) -> int:
+    from flashpoint.report.build import ReportBuilder
+    from flashpoint.report.settings import ReportConfigError
+    from flashpoint.semantics.robot_config import ConfigError
+
+    if args.no_raw and args.static is None:
+        print("--no-raw only applies with --static OUT", file=sys.stderr)
+        return EXIT_USAGE
+    if not (lake.meta / "sessions.parquet").is_file():
+        print(f"no derived sessions in {lake.root}; run `flashpoint ingest` first", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        builder = ReportBuilder(lake, config.config_root())
+    except (ConfigError, ReportConfigError) as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        summary = builder.build(args.event, args.match, force=args.all)
+    finally:
+        builder.close()
+    print(
+        f"built {len(summary.built)}, unchanged {len(summary.unchanged)},"
+        f" removed {len(summary.removed)}; {summary.matches_listed} match(es) listed"
+        f" in {summary.seconds:.1f}s"
+    )
+    for key, buckets in sorted(summary.reduced.items()):
+        print(f"  {key}: over the size budget; reduced to {buckets} buckets")
+    if summary.sessions_without_match_key:
+        print(
+            f"  {summary.sessions_without_match_key} session(s) without a match key"
+            " (no Replay entry; their usage still counts in History)"
+        )
+    if args.static is not None:
+        from flashpoint.report.export import ExportError, export_static
+
+        try:
+            result = export_static(lake, args.static, include_raw=not args.no_raw)
+        except ExportError as exc:
+            print(f"export failed: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        print(
+            f"exported {result.matches} match(es) to {args.static}"
+            f" ({result.raw_files} raw file(s){', not included' if args.no_raw else ''});"
+            f" open {args.static / 'index.html'}"
+        )
+    return 0
+
+
+def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
+    from flashpoint.report.settings import ReportConfigError, load_report_config
+    from flashpoint.semantics.robot_config import ConfigError, load_robots
+    from flashpoint.views.queries import HistoryQueries
+    from flashpoint.web.server import FlashpointServer, host_warning, run
+
+    if not args.no_build and (lake.meta / "sessions.parquet").is_file():
+        # A fresh process keeps the server's idle memory free of the build's high-water mark.
+        build = [sys.executable, "-m", "flashpoint", "report", "--lake", str(lake.root)]
+        subprocess.run(build, check=False)
+    try:
+        robots_dir = config.config_root() / "robots"
+        robots = load_robots(robots_dir) if robots_dir.is_dir() else []
+        report_config = load_report_config(config.config_root())
+    except (ConfigError, ReportConfigError) as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        server = FlashpointServer(
+            (args.host, args.port), lake, HistoryQueries(lake, robots, report_config)
+        )
+    except (OSError, OverflowError) as exc:
+        print(f"cannot listen on {args.host}:{args.port}: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    warning = host_warning(args.host)
+    if warning:
+        print(warning, file=sys.stderr)
+    print(f"Flashpoint (lake {lake.root}) at {server.url}", flush=True)
+    return run(server)
 
 
 def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
@@ -307,6 +413,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _doctor(lake)
     if args.command == "derive":
         return _derive(lake, force=args.all)
+    if args.command == "report":
+        return _report(lake, args)
+    if args.command == "serve":
+        return _serve(lake, args)
     if args.command == "backup":
         return _backup(lake)
     if args.command == "restore":

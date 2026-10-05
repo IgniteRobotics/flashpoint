@@ -69,3 +69,17 @@ def corpus_lake(corpus_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> A
     finally:
         ingestor.close()
     return lake
+
+
+@pytest.fixture(scope="session")
+def derived_corpus_lake(corpus_lake: Any) -> Any:
+    """The corpus lake with silver and gold derived (shared by report and view corpus tests)."""
+    from flashpoint import config
+    from flashpoint.semantics.derive import Deriver
+
+    deriver = Deriver(corpus_lake, config.config_root())
+    try:
+        deriver.run()
+    finally:
+        deriver.close()
+    return corpus_lake
