@@ -10,9 +10,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-import pyarrow as pa
-import pyarrow.parquet as pq
-
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
     sha256 TEXT PRIMARY KEY, kind TEXT NOT NULL, size INTEGER NOT NULL,
@@ -76,7 +73,6 @@ CREATE TABLE IF NOT EXISTS inventory (
 """
 # The acquire watch writes `pulls` while an ingest subprocess holds derive transactions.
 BUSY_TIMEOUT_MS = 30_000
-_SQL_TO_ARROW = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64()}
 METADATA_TABLES = ("logs", "hoot_logs", "entries", "inventory")
 DERIVED_TABLES = (
     "sessions",
@@ -232,13 +228,18 @@ class Ledger:
         return [dict(zip(cols, row, strict=True)) for row in cursor]
 
     def export_snapshots(self, meta_dir: Path) -> None:
+        # Deferred: pyarrow's ~45 MB must not load in the acquire watch (watch RSS budget).
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        sql_to_arrow = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64()}
         meta_dir.mkdir(parents=True, exist_ok=True)
         tables = [
             r[0] for r in self._db.execute("SELECT name FROM sqlite_master WHERE type='table'")
         ]
         for table in tables:
             info = self._db.execute(f"PRAGMA table_info({table})").fetchall()
-            schema = pa.schema([(c[1], _SQL_TO_ARROW.get(c[2], pa.string())) for c in info])
+            schema = pa.schema([(c[1], sql_to_arrow.get(c[2], pa.string())) for c in info])
             rows = self.query(f"SELECT * FROM {table}")  # noqa: S608
             tmp = meta_dir / f"{table}.parquet.part"
             pq.write_table(pa.Table.from_pylist(rows, schema=schema), tmp)

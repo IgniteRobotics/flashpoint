@@ -7,6 +7,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import flashpoint
 from flashpoint import config
@@ -17,14 +18,16 @@ from flashpoint.acquire.watch import (
     read_status,
     run_acquire,
 )
-from flashpoint.ingest import Ingestor, IngestReport
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
 from flashpoint.readers.hoot import HootError
-from flashpoint.semantics.derive import Deriver
-from flashpoint.semantics.robot_config import ConfigError, load_robots
 
+if TYPE_CHECKING:
+    from flashpoint.ingest import IngestReport
+
+# The ingest, derive and robot-config modules pull in polars, duckdb and pyarrow; they are
+# imported inside the handlers that need them to keep `flashpoint acquire` small (watch RSS budget).
 EXIT_USAGE = 2
 
 
@@ -85,7 +88,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _summarize(report: IngestReport) -> None:
+def _summarize(report: "IngestReport") -> None:
     for result in report.results:
         if result.status == "quarantined":
             print(f"  QUARANTINED {result.path.name}: {result.reason}")
@@ -98,6 +101,9 @@ def _summarize(report: IngestReport) -> None:
 
 
 def _derive(lake: LakePaths, force: bool) -> int:
+    from flashpoint.semantics.derive import Deriver
+    from flashpoint.semantics.robot_config import ConfigError
+
     try:
         deriver = Deriver(lake, config.config_root())
     except ConfigError as exc:
@@ -145,6 +151,8 @@ def _acquire_status(lake: LakePaths) -> list[str]:
 
 
 def _doctor(lake: LakePaths) -> int:
+    from flashpoint.semantics.robot_config import ConfigError, load_robots
+
     print(f"flashpoint {flashpoint.__version__} (pipeline v{config.PIPELINE_VERSION})")
     print(f"python     {platform.python_version()} on {hoot.platform_key()}")
     print(f"lake       {lake.root}{'' if lake.root.exists() else ' (not created yet)'}")
@@ -201,6 +209,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("--dry-run runs a single cycle; drop --watch", file=sys.stderr)
             return EXIT_USAGE
         return _acquire(lake, args)
+    from flashpoint.ingest import Ingestor
+
     registry = hoot.default_registry(config.cache_root())
     ingestor = Ingestor(
         lake, registry, profile=args.profile, jobs=getattr(args, "jobs", None), log=print
