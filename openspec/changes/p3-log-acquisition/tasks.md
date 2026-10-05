@@ -40,7 +40,7 @@
 - [x] 6.3 Tests first: second watcher exits non-zero naming the holder; a killed holder's lock is taken over; interrupt exits in ≤ 5 s with no partial final file; dry run changes nothing and lists files with sizes
 - [x] 6.4 Implement `acquire/watch.py` (POSIX/Windows file lock, signal handling, poll loop) and atomic `acquire-status.json`
 - [x] 6.5 CLI: `flashpoint acquire [--watch] [--host] [--include-active] [--dry-run] [--no-usb]`; `doctor` shows the status (last cycle, sources, `low-space`, failed files, last backup)
-- [ ] 6.6 E2E test: fake robot → lake gold on a synthetic log; corpus-marked variant serving `2026-gacmp-q7` asserts time to lake < 5 min; perf tests for idle cycle < 3 s and watch RSS ≤ 150 MB
+- [x] 6.6 E2E test: fake robot → lake gold on a synthetic log; corpus-marked variant serving `2026-gacmp-q7` asserts time to lake < 5 min; perf tests for idle cycle < 3 s and watch RSS ≤ 150 MB
 
 ## 7. Backup and restore (spec: lake-backup)
 
