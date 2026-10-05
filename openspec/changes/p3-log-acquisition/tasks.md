@@ -63,6 +63,7 @@
   - [x] 9.2.2 The fake owlet is a shebang script, which Windows cannot exec (WinError 216); on win32 the test runs it through the interpreter
   - [x] 9.2.3 Ledger aliases stored `str(path)`, so a Windows lake held backslash paths that `Path(alias).name` cannot split on macOS/Linux; aliases are now stored as POSIX
   - [x] 9.2.4 The Linux fake `/sys` tree needs `:` in directory names, which NTFS rejects (WinError 123); those six tests skip on win32
+  - [x] 9.2.5 The lock-holder test used `Popen.pid`, but a Windows venv `python.exe` is a launcher whose child holds the lock; the holder now reports its own pid and is killed by it
 
 ## 10. Docs
 
