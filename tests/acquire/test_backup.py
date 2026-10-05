@@ -136,12 +136,16 @@ def test_first_backup_copies_raw_with_immutable_and_a_meta_snapshot(
     fake_rclone: FakeRclone, lake: LakePaths, remote: Path
 ) -> None:
     hashes = _seed_lake(lake, 15)
+    torn = lake.raw / "ff" / f"{'f' * 64}.wpilog.part"  # raw.store interrupted mid-copy
+    torn.parent.mkdir(parents=True, exist_ok=True)
+    torn.write_bytes(b"half a log")
 
     run_backup(lake, str(remote))
 
-    assert _hashes(remote / "raw") == hashes
+    assert _hashes(remote / "raw") == hashes  # the .part is not uploaded
     calls = fake_rclone.calls()
-    assert ["copy", "--immutable", str(lake.raw), f"{remote}/raw"] in calls
+    raw_copy = ["copy", "--immutable", "--exclude", "*.part", str(lake.raw), f"{remote}/raw"]
+    assert raw_copy in calls
     for argv in calls:  # raw is only ever added to: no sync, delete or move touches it
         if any(a.endswith("raw") for a in argv):
             assert argv[0] == "copy" and "--immutable" in argv
@@ -456,3 +460,118 @@ def test_restore_without_a_remote_is_a_usage_error(
     assert main(["restore", "--lake", str(tmp_path / "new")]) == 2
     assert "backup.remote" in capsys.readouterr().err
     assert fake_rclone.calls() == []
+
+
+# --- review round 1 ----------------------------------------------------------------------------
+
+
+def test_naive_last_time_in_the_status_is_treated_as_due(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path
+) -> None:
+    _seed_lake(lake, 1)
+    schedule, tracker = _schedule(lake, remote)
+    tracker.backup = {"last_time": "2026-10-04T10:00:00", "result": "ok", "pending": True}
+
+    schedule(CycleResult(started=T0.isoformat()))  # must not raise TypeError every cycle
+
+    assert fake_rclone.calls()
+    assert tracker.backup["result"].startswith("ok")
+
+
+def test_backup_command_with_a_mistyped_lake_creates_nothing(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    remote: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _write_config(config_dir, remote)
+    typo = tmp_path / "lakee"
+
+    assert main(["backup", "--lake", str(typo)]) == 1
+
+    assert "no ledger at" in capsys.readouterr().err
+    assert not typo.exists()
+    assert fake_rclone.calls() == []
+
+
+def test_backup_command_records_its_outcome_in_the_status(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 1)
+    _write_config(config_dir, remote)
+    tracker = StatusTracker(lake.status)
+    tracker.backup = {"last_time": None, "result": None, "pending": True}
+    tracker.record(CycleResult(started=T0.isoformat(), errors=["inbox: boom"]))
+    tracker.write()
+
+    monkeypatch.setenv("FAKE_RCLONE_FAIL", "1")
+    assert main(["backup", "--lake", str(lake.root)]) == 1
+    failed = json.loads(lake.status.read_text())["backup"]
+    assert failed["result"].startswith("error") and failed["pending"] is True
+
+    monkeypatch.delenv("FAKE_RCLONE_FAIL")
+    assert main(["backup", "--lake", str(lake.root)]) == 0
+
+    status = json.loads(lake.status.read_text())
+    assert status["errors"] == ["inbox: boom"]  # the rest of the status is kept
+    assert status["backup"]["result"].startswith("ok") and status["backup"]["pending"] is False
+    last = datetime.fromisoformat(status["backup"]["last_time"])
+    assert abs(datetime.now(UTC) - last) < timedelta(minutes=1)
+    assert StatusTracker(lake.status).backup == status["backup"]  # the watch interval sees it
+
+
+def test_backup_command_reports_a_corrupt_ledger_without_a_traceback(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lake.meta.mkdir(parents=True)
+    lake.ledger.write_bytes(b"not a database" * 100)
+    _write_config(config_dir, remote)
+
+    assert main(["backup", "--lake", str(lake.root)]) == 1
+
+    assert "backup failed:" in capsys.readouterr().err
+
+
+def test_restore_reports_a_corrupt_snapshot_without_a_traceback(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    remote: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    latest = remote / "meta" / "latest"
+    latest.mkdir(parents=True)
+    (latest / "flashpoint.sqlite").write_bytes(b"not a database" * 100)
+    (remote / "raw").mkdir()
+
+    code = main(["restore", "--remote", str(remote), "--lake", str(tmp_path / "new")])
+
+    assert code == 1
+    assert "restore failed:" in capsys.readouterr().err
+
+
+def test_restore_does_not_bring_over_the_source_watch_status(
+    fake_rclone: FakeRclone, config_dir: Path, lake: LakePaths, remote: Path, tmp_path: Path
+) -> None:
+    _seed_lake(lake, 1)
+    tracker = StatusTracker(lake.status)
+    tracker.backup = {"last_time": T0.isoformat(), "result": "ok", "pending": True}
+    tracker.record(CycleResult(started=T0.isoformat(), derive_pending=True))
+    tracker.write()
+    run_backup(lake, str(remote))
+    assert (remote / "meta" / "latest" / lake.status.name).is_file()  # still backed up
+    restored = LakePaths(tmp_path / "restored")
+
+    assert main(["restore", "--remote", str(remote), "--lake", str(restored.root)]) == 0
+
+    assert not restored.status.exists()
+    assert not (restored.tmp / "restore-meta").exists()

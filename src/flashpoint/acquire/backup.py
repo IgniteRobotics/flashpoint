@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 RCLONE = "rclone"
 SNAPSHOT_DIR = "meta-snapshot"
 RESTORE_DIR = "restore-meta"
+PART_PATTERN = "*.part"
 ERROR_CHARS = 1000
 _SQLITE_SIDECARS = ("-wal", "-shm", "-journal")
 
@@ -99,7 +100,9 @@ def run_backup(lake: LakePaths, remote: str, *, stop: threading.Event | None = N
     stop = stop or threading.Event()
     snapshot = snapshot_meta(lake)
     if lake.raw.is_dir():
-        _rclone(["copy", "--immutable", str(lake.raw), remote_path(remote, "raw")], stop)
+        # raw.store writes `<sha>.<ext>.part` first; a torn one must never become immutable.
+        raw_args = ["copy", "--immutable", "--exclude", PART_PATTERN]
+        _rclone([*raw_args, str(lake.raw), remote_path(remote, "raw")], stop)
     _rclone(["sync", str(snapshot), remote_path(remote, "meta/latest")], stop)
     return f"backed up raw and metadata to {remote}"
 
@@ -129,6 +132,9 @@ def restore(
     for suffix in _SQLITE_SIDECARS:  # a stale WAL would be replayed onto the restored file
         lake.ledger.with_name(lake.ledger.name + suffix).unlink(missing_ok=True)
     for path in sorted(staging.iterdir()):
+        if path.name == lake.status.name:  # another machine's watch state; this lake starts fresh
+            path.unlink()
+            continue
         path.replace(lake.meta / path.name)
     staging.rmdir()
     ledger = Ledger(lake.ledger)
@@ -193,5 +199,8 @@ class BackupSchedule:
             last = datetime.fromisoformat(str(last_time))
         except ValueError:
             return True  # never, or unreadable
-        elapsed = now - last
+        try:
+            elapsed = now - last
+        except TypeError:
+            return True  # a naive timestamp (hand-edited status): treat as due
         return elapsed < timedelta(0) or elapsed >= timedelta(minutes=self.settings.interval_min)
