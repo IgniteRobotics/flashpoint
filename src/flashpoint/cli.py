@@ -1,22 +1,42 @@
-"""`flashpoint` command line: ingest, rebuild, doctor."""
+"""`flashpoint` command line: ingest, rebuild, derive, acquire, backup, restore, doctor."""
 
 import argparse
+import logging
 import platform
+import sqlite3
 import subprocess
 import sys
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import flashpoint
 from flashpoint import config
-from flashpoint.ingest import Ingestor, IngestReport
+from flashpoint.acquire.backup import BackupError, RestoreRefusedError, restore, run_backup
+from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
+from flashpoint.acquire.watch import (
+    EXIT_LOCKED,
+    LOCK_FILE,
+    AcquireLock,
+    LockHeldError,
+    StatusFormatError,
+    describe_status,
+    read_status,
+    record_backup,
+    run_acquire,
+)
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
 from flashpoint.readers.hoot import HootError
-from flashpoint.semantics.derive import Deriver
-from flashpoint.semantics.robot_config import ConfigError, load_robots
 
+if TYPE_CHECKING:
+    from flashpoint.ingest import IngestReport
+
+# The ingest, derive and robot-config modules pull in polars, duckdb and pyarrow; they are
+# imported inside the handlers that need them to keep `flashpoint acquire` small (watch RSS budget).
+EXIT_FAILED = 1
 EXIT_USAGE = 2
 
 
@@ -52,12 +72,48 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(derive)
 
+    acquire = sub.add_parser(
+        "acquire", help="pull logs from the robot and USB sticks into the lake, then ingest"
+    )
+    acquire.add_argument("--watch", action="store_true", help="repeat every poll_s until stopped")
+    acquire.add_argument(
+        "--host",
+        nargs="+",
+        action="extend",
+        metavar="H",
+        help="robot address(es) to try, replacing the configured hosts",
+    )
+    acquire.add_argument(
+        "--include-active", action="store_true", help="also pull logs still being written"
+    )
+    acquire.add_argument(
+        "--dry-run", action="store_true", help="list what would be copied; change nothing"
+    )
+    acquire.add_argument("--no-usb", action="store_true", help="do not scan removable volumes")
+    lake_arg(acquire)
+
+    backup = sub.add_parser(
+        "backup", help="copy raw files and a metadata snapshot to backup.remote now"
+    )
+    lake_arg(backup)
+
+    restore_cmd = sub.add_parser(
+        "restore", help="copy raw files and metadata from the backup remote into a new lake"
+    )
+    restore_cmd.add_argument(
+        "--force", action="store_true", help="restore over a lake that already has a ledger"
+    )
+    restore_cmd.add_argument(
+        "--remote", help="rclone remote:path to restore from (default: backup.remote)"
+    )
+    lake_arg(restore_cmd)
+
     doctor = sub.add_parser("doctor", help="report environment and lake health")
     lake_arg(doctor)
     return parser
 
 
-def _summarize(report: IngestReport) -> None:
+def _summarize(report: "IngestReport") -> None:
     for result in report.results:
         if result.status == "quarantined":
             print(f"  QUARANTINED {result.path.name}: {result.reason}")
@@ -70,6 +126,9 @@ def _summarize(report: IngestReport) -> None:
 
 
 def _derive(lake: LakePaths, force: bool) -> int:
+    from flashpoint.semantics.derive import Deriver
+    from flashpoint.semantics.robot_config import ConfigError
+
     try:
         deriver = Deriver(lake, config.config_root())
     except ConfigError as exc:
@@ -83,7 +142,120 @@ def _derive(lake: LakePaths, force: bool) -> int:
     return 0
 
 
+def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+    try:
+        settings = AcquireConfig.load(config.config_root()).with_overrides(
+            hosts=args.host, removable_media=False if args.no_usb else None
+        )
+    except AcquireConfigError as exc:
+        print(f"acquire configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    return run_acquire(
+        settings,
+        lake,
+        watch=args.watch,
+        include_active=args.include_active,
+        dry_run=args.dry_run,
+    )
+
+
+def _load_acquire_config() -> AcquireConfig | None:
+    try:
+        return AcquireConfig.load(config.config_root())
+    except AcquireConfigError as exc:
+        print(f"acquire configuration error: {exc}", file=sys.stderr)
+        return None
+
+
+def _backup(lake: LakePaths) -> int:
+    settings = _load_acquire_config()
+    if settings is None:
+        return EXIT_USAGE
+    remote = settings.backup.remote
+    if not remote:
+        print(f"backup not configured: set backup.remote in {config.config_root()}/acquire.toml")
+        return 0
+    if not lake.ledger.is_file():  # before the lock file: a mistyped --lake stays uncreated
+        print(f"no ledger at {lake.ledger}; nothing to back up", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        with AcquireLock(lake.meta / LOCK_FILE):
+            started = datetime.now(UTC).isoformat()
+            try:
+                summary = run_backup(lake, remote)
+            except (BackupError, OSError, sqlite3.Error) as exc:
+                _record_backup(lake, {"last_time": started, "result": f"error: {exc}",
+                                      "pending": True})  # fmt: skip
+                print(f"backup failed: {exc}", file=sys.stderr)
+                return EXIT_FAILED
+            _record_backup(lake, {"last_time": started, "result": f"ok: {summary}",
+                                  "pending": False})  # fmt: skip
+            print(summary)
+    except LockHeldError as exc:
+        print(f"{exc}; a running watch backs up on its own", file=sys.stderr)
+        return EXIT_LOCKED
+    except OSError as exc:
+        print(f"backup failed: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    return 0
+
+
+def _record_backup(lake: LakePaths, backup: dict[str, Any]) -> None:
+    """Record the outcome in the status; a status that cannot be written only warns."""
+    try:
+        record_backup(lake.status, backup)
+    except OSError as exc:
+        print(f"warning: cannot update the acquire status {lake.status}: {exc}", file=sys.stderr)
+
+
+def _restore(lake: LakePaths, remote: str | None, force: bool) -> int:
+    settings = _load_acquire_config()
+    if settings is None:
+        return EXIT_USAGE
+    remote = remote or settings.backup.remote
+    if not remote:
+        print("no remote: pass --remote or set backup.remote in acquire.toml", file=sys.stderr)
+        return EXIT_USAGE
+    if lake.ledger.exists() and not force:  # checked before the lock file is created
+        print(f"{lake.ledger} already exists; restore into a new lake, or pass --force",
+              file=sys.stderr)  # fmt: skip
+        return EXIT_FAILED
+    try:
+        with AcquireLock(lake.meta / LOCK_FILE):
+            count = restore(lake, remote, force=force)
+    except LockHeldError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_LOCKED
+    except RestoreRefusedError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_FAILED
+    except (BackupError, OSError, sqlite3.Error) as exc:
+        print(f"restore failed: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"restored {count} file(s) from {remote}; bronze, silver and gold must be rebuilt")
+    print("run: flashpoint rebuild")
+    return 0
+
+
+def _acquire_status(lake: LakePaths) -> list[str]:
+    if not lake.status.exists():
+        return ["no acquire status yet"]
+    status = read_status(lake.status)
+    try:
+        if status is None:
+            raise StatusFormatError("not a JSON object")
+        return describe_status(status)
+    except StatusFormatError as exc:
+        return [f"unreadable acquire status {lake.status}: {exc}"]
+
+
 def _doctor(lake: LakePaths) -> int:
+    from flashpoint.semantics.robot_config import ConfigError, load_robots
+
     print(f"flashpoint {flashpoint.__version__} (pipeline v{config.PIPELINE_VERSION})")
     print(f"python     {platform.python_version()} on {hoot.platform_key()}")
     print(f"lake       {lake.root}{'' if lake.root.exists() else ' (not created yet)'}")
@@ -119,6 +291,9 @@ def _doctor(lake: LakePaths) -> int:
         except HootError as exc:
             state = exc.reason
         print(f"  C{compliancy:<3} owlet {registry.version_for(compliancy):<10} {state}")
+    print("acquire")
+    for line in _acquire_status(lake):
+        print(f"  {line}")
     return 0
 
 
@@ -132,6 +307,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _doctor(lake)
     if args.command == "derive":
         return _derive(lake, force=args.all)
+    if args.command == "backup":
+        return _backup(lake)
+    if args.command == "restore":
+        return _restore(lake, args.remote, args.force)
+    if args.command == "acquire":
+        if args.watch and args.dry_run:
+            print("--dry-run runs a single cycle; drop --watch", file=sys.stderr)
+            return EXIT_USAGE
+        return _acquire(lake, args)
+    from flashpoint.ingest import Ingestor
+
     registry = hoot.default_registry(config.cache_root())
     ingestor = Ingestor(
         lake, registry, profile=args.profile, jobs=getattr(args, "jobs", None), log=print

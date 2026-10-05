@@ -116,7 +116,13 @@ def test_health_profile_selects_health_signals() -> None:
     assert hoot.select_signals(signals, "all") is None
 
 
-def test_convert_with_profile(fake_registry: OwletRegistry, tmp_path: Path) -> None:
+def test_convert_with_profile(
+    fake_registry: OwletRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if sys.platform == "win32":
+        # Windows can't exec a shebang script; hand the fake owlet to the interpreter.
+        run = hoot._run
+        monkeypatch.setattr(hoot, "_run", lambda args: run([sys.executable, *args]))
     src = tmp_path / "x.hoot"
     src.write_bytes(_hoot_bytes(19))
     result = hoot.convert(src, tmp_path / "out", fake_registry, profile="health")

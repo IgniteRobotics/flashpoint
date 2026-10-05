@@ -1,6 +1,7 @@
 import os
+import threading
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,20 @@ import pytest
 
 MANIFEST_PATH = Path(__file__).parent / "corpus" / "manifest.toml"
 DEFAULT_CORPUS_DIR = Path.home() / ".cache" / "flashpoint" / "corpus"
+THREAD_GRACE_S = 2.0
+
+
+@pytest.fixture(autouse=True)
+def no_leaked_threads() -> Iterator[None]:
+    """Fail a test that leaves a non-daemon thread running: pytest would wait on it at exit
+    forever, where the per-test timeout no longer applies."""
+    before = set(threading.enumerate())
+    yield
+    leaked = [t for t in threading.enumerate() if t not in before and not t.daemon]
+    for thread in leaked:
+        thread.join(THREAD_GRACE_S)
+    alive = [t.name for t in leaked if t.is_alive()]
+    assert not alive, f"test left non-daemon threads running: {alive}"
 
 
 @pytest.fixture(scope="session")
