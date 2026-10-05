@@ -62,6 +62,7 @@
   - [x] 9.2.1 Bronze fsync opened the staged parquet read-only; Windows needs a writable handle (Errno 9, quarantined every ingest)
   - [x] 9.2.2 The fake owlet is a shebang script, which Windows cannot exec (WinError 216); on win32 the test runs it through the interpreter
   - [x] 9.2.3 Ledger aliases stored `str(path)`, so a Windows lake held backslash paths that `Path(alias).name` cannot split on macOS/Linux; aliases are now stored as POSIX
+  - [x] 9.2.4 The Linux fake `/sys` tree needs `:` in directory names, which NTFS rejects (WinError 123); those six tests skip on win32
 
 ## 10. Docs
 
