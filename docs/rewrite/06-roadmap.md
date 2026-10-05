@@ -97,12 +97,15 @@ gantt
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
 ### P3 — Acquire & automate (S)
+> **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on each OS, and the Windows service. The container moved out of P3 (ADR-0009 amended).
+
 - **SFTP puller** (paramiko or asyncssh, [Background]):
   - copies to the inbox, verifies size and hash, and **never deletes on the robot by default**;
   - is aware of rotation: warn when robot free space is under 100 MB, since WPILib and Phoenix prune at 50 MB (WPILib Developers, 2026b; CTR Electronics, n.d.-a).
-- **Watcher:** watch the inbox and run ingest when files arrive.
-- **Packaging:** one container or a systemd unit with a correct `ExecStart` (#7).
-- **Backup:** `rclone sync` of `lake/raw` and `lake/meta` [Background]. Replaces `drive-backup.py`.
+- **Removable media:** USB sticks (macOS, Linux, Windows) are a pull source next to the robot, read-only and hash-verified. Manual inbox drops still work.
+- **Watcher:** `flashpoint acquire --watch` cycles robot, volumes, ingest, derive and backup.
+- **Packaging:** a systemd user unit with a correct `ExecStart` (#7) and a Windows scheduled task. Windows is supported. The container is deferred out of P3.
+- **Backup:** `rclone` copy of `lake/raw` (immutable) and a `lake/meta` snapshot [Background]. Replaces `drive-backup.py`.
 - **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.
 
 ### P4 — Views (M)
