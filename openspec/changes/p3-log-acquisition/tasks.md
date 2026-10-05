@@ -57,7 +57,7 @@
 
 ## 9. Windows CI
 
-- [ ] 9.1 Add a `windows-latest` job (py3.12: ruff, mypy, `pytest -m "not corpus"`) to `.github/workflows/ci.yml`
+- [x] 9.1 Add a `windows-latest` job (py3.12: ruff, mypy, `pytest -m "not corpus"`) to `.github/workflows/ci.yml`
 - [ ] 9.2 Fix the P1/P2 Windows failures it finds, one task per root cause (add sub-tasks as found); any test that can't be fixed in 2 hours gets `skipif(win32)` plus an issue and is listed in the PR
 
 ## 10. Docs

@@ -38,6 +38,22 @@ jobs:
           chmod +x "$HOME/.local/bin/flashpoint"
           systemd-analyze verify --user deploy/systemd/flashpoint-acquire.service
 
+  windows:
+    name: windows (py3.12)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction
+      - run: poetry run ruff check .
+      - run: poetry run mypy src tests tools
+      - run: poetry run pytest -m "not corpus"
+
   corpus:
     name: corpus
     runs-on: ubuntu-latest
