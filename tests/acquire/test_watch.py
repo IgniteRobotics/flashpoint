@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import hashlib
 import json
@@ -10,7 +11,7 @@ import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -41,11 +42,11 @@ ROOT = "/home/lvuser/logs"
 S = 10**9
 NO_ROBOT = "127.0.0.1:1"  # connection refused at once
 HOLDER = """
-import sys, time
+import os, sys, time
 from pathlib import Path
 from flashpoint.acquire.watch import AcquireLock
 AcquireLock(Path(sys.argv[1])).acquire()
-print("locked", flush=True)
+print("locked", os.getpid(), flush=True)
 time.sleep(120)
 """
 
@@ -87,8 +88,19 @@ def lake(tmp_path: Path) -> LakePaths:
     return LakePaths(tmp_path / "lake")
 
 
+class Holder(NamedTuple):
+    proc: "subprocess.Popen[str]"
+    pid: int  # the interpreter's own pid; a Windows venv python.exe is a launcher with another
+
+    def kill(self) -> None:
+        with contextlib.suppress(OSError):  # TerminateProcess on Windows
+            os.kill(self.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+        self.proc.kill()
+        self.proc.wait()
+
+
 @pytest.fixture
-def holder(lake: LakePaths) -> Iterator["subprocess.Popen[str]"]:
+def holder(lake: LakePaths) -> Iterator[Holder]:
     """Another process holding the lake's acquire lock."""
     lake.meta.mkdir(parents=True)
     proc = subprocess.Popen(  # noqa: S603
@@ -97,10 +109,12 @@ def holder(lake: LakePaths) -> Iterator["subprocess.Popen[str]"]:
         text=True,
     )
     assert proc.stdout is not None
-    assert proc.stdout.readline().strip() == "locked"
-    yield proc
-    proc.kill()
-    proc.wait()
+    word, pid = proc.stdout.readline().split()
+    assert word == "locked"
+    held = Holder(proc, int(pid))
+    yield held
+    if proc.poll() is None:
+        held.kill()
     proc.stdout.close()
 
 
@@ -110,7 +124,7 @@ def holder(lake: LakePaths) -> Iterator["subprocess.Popen[str]"]:
 def test_second_acquire_exits_non_zero_naming_the_holder(
     config_dir: Path,
     lake: LakePaths,
-    holder: "subprocess.Popen[str]",
+    holder: Holder,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     code = main(["acquire", "--lake", str(lake.root), "--host", NO_ROBOT, "--no-usb"])
@@ -118,19 +132,18 @@ def test_second_acquire_exits_non_zero_naming_the_holder(
     assert code == EXIT_LOCKED != 0
     err = capsys.readouterr().err
     assert f"pid {holder.pid}" in err and "acquire.lock" in err
-    assert holder.poll() is None  # the first is unaffected and still holds the lock
+    assert holder.proc.poll() is None  # the first is unaffected and still holds the lock
     with pytest.raises(LockHeldError):
         AcquireLock(lake.meta / "acquire.lock").acquire()
     assert not lake.status.exists()  # the second never ran a cycle
 
 
 def test_lock_of_a_killed_holder_is_taken_over(
-    config_dir: Path, lake: LakePaths, holder: "subprocess.Popen[str]"
+    config_dir: Path, lake: LakePaths, holder: Holder
 ) -> None:
     with pytest.raises(LockHeldError, match=f"pid {holder.pid}"):
         AcquireLock(lake.meta / "acquire.lock").acquire()
     holder.kill()
-    holder.wait()
 
     code = main(["acquire", "--lake", str(lake.root), "--host", NO_ROBOT, "--no-usb"])
 
@@ -624,7 +637,7 @@ def test_doctor_tolerates_missing_optional_fields(
 
 
 SLOW_INGEST = """
-import sys, time
+import os, sys, time
 from pathlib import Path
 Path(sys.argv[1]).write_text(str(__import__("os").getpid()))
 time.sleep(60)
