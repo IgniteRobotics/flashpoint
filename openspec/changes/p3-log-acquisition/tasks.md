@@ -58,7 +58,7 @@
 ## 9. Windows CI
 
 - [x] 9.1 Add a `windows-latest` job (py3.12: ruff, mypy, `pytest -m "not corpus"`) to `.github/workflows/ci.yml`
-- [ ] 9.2 Fix the P1/P2 Windows failures it finds, one task per root cause (add sub-tasks as found); any test that can't be fixed in 2 hours gets `skipif(win32)` plus an issue and is listed in the PR
+- [x] 9.2 Fix the P1/P2 Windows failures it finds, one task per root cause (add sub-tasks as found); any test that can't be fixed in 2 hours gets `skipif(win32)` plus an issue and is listed in the PR
   - [x] 9.2.1 Bronze fsync opened the staged parquet read-only; Windows needs a writable handle (Errno 9, quarantined every ingest)
   - [x] 9.2.2 The fake owlet is a shebang script, which Windows cannot exec (WinError 216); on win32 the test runs it through the interpreter
   - [x] 9.2.3 Ledger aliases stored `str(path)`, so a Windows lake held backslash paths that `Path(alias).name` cannot split on macOS/Linux; aliases are now stored as POSIX
