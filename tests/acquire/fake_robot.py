@@ -92,14 +92,15 @@ class FakeRobot:
 
     def stop(self) -> None:
         self._stopping.set()
-        with self._lock:
-            transports = list(self._transports)
-        for transport in transports:
-            transport.close()
+        # Join the accept loop first: a connection it accepts after the snapshot would leak.
         if self._accept_thread is not None:
             self._accept_thread.join(timeout=5)
         if self._listener is not None:
             self._listener.close()
+        with self._lock:
+            transports = list(self._transports)
+        for transport in transports:
+            transport.close()
         for transport in transports:
             transport.join(timeout=5)
 
