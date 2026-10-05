@@ -13,6 +13,7 @@ jobs:
   lint-test:
     name: lint-test (py${{ matrix.python }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -29,10 +30,18 @@ jobs:
       - run: poetry run ruff format --check .
       - run: poetry run mypy src tests tools
       - run: poetry run pytest -m "not corpus"
+      - name: Verify systemd user unit
+        run: |
+          # verify checks that ExecStart exists; stand in for the pipx-installed binary
+          mkdir -p "$HOME/.local/bin"
+          printf '#!/bin/sh\nexit 0\n' > "$HOME/.local/bin/flashpoint"
+          chmod +x "$HOME/.local/bin/flashpoint"
+          systemd-analyze verify --user deploy/systemd/flashpoint-acquire.service
 
   corpus:
     name: corpus
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
     steps:
@@ -59,6 +68,7 @@ jobs:
   perf:
     name: perf (budgets, non-blocking)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     continue-on-error: true
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus

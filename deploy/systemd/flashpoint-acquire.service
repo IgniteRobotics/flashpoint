@@ -1,0 +1,20 @@
+[Unit]
+Description=Flashpoint log acquisition (watch)
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/flashpoint acquire --watch
+EnvironmentFile=-%h/.config/flashpoint/env
+Restart=on-failure
+RestartSec=10
+# The watch handles SIGTERM itself: it stops within 5 s, removes its .part
+# file and ends the ingest/derive children, which run in their own sessions.
+# KillMode=mixed sends SIGTERM to the main process only, so the children are
+# not killed mid-write by the stop signal. If anything is left in the cgroup
+# after TimeoutStopSec, systemd SIGKILLs it. The default (control-group)
+# would SIGTERM every child at the same moment as the watch.
+KillMode=mixed
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target
