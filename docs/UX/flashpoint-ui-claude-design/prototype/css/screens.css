@@ -1,0 +1,59 @@
+/* Screen-level layout only. Components live in components.css. */
+
+.band {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4) var(--sp-7);
+  padding: var(--sp-4) var(--sp-6); border-bottom: 1px solid var(--line); background: var(--surface-2);
+}
+.band__spacer { flex: 1 1 20px; }
+.group { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.group__label { font-size: var(--fs-micro); letter-spacing: var(--track-label); color: var(--amber-muted); }
+.pad { padding: var(--sp-5) var(--sp-6); }
+.stack { display: flex; flex-direction: column; gap: var(--sp-5); }
+.rail-r.stack { gap: var(--sp-7); }
+.section-label { display: flex; justify-content: space-between; gap: var(--sp-2); margin: 0 0 10px; font-size: var(--fs-micro); font-weight: 500; letter-spacing: var(--track-label); color: var(--amber-muted); text-transform: uppercase; }
+
+/* Live */
+.clock { display: flex; align-items: baseline; gap: 14px; }
+.clock__match { font-size: var(--fs-xs); letter-spacing: .14em; color: var(--amber-dim); }
+.clock__time { font-family: var(--font-display); font-size: 48px; line-height: 1; color: var(--amber-hi); text-shadow: 0 0 10px rgba(255,176,0,.35); }
+.clock__phase { font-size: var(--fs-sm); font-weight: 600; letter-spacing: .16em; }
+.timeline { flex: 1 1 360px; min-width: 0; }
+.timeline__axis { display: flex; justify-content: space-between; margin-top: 4px; font-size: var(--fs-micro); color: var(--amber-muted); }
+.vitals { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
+.mechs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.focus-plot { position: relative; height: 140px; border: 1px solid var(--line); background-color: var(--surface-1); background-image: linear-gradient(rgba(255,176,0,.05) 1px, transparent 1px); background-size: 100% 25%; }
+.focus-plot .spark { position: absolute; inset: var(--sp-2); width: calc(100% - 16px); height: calc(100% - 16px); }
+.tiles-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.footer { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-6); padding: var(--sp-3) var(--sp-6); border-top: 1px solid var(--line); background: var(--surface-3); font-size: var(--fs-xs); color: var(--amber-muted); }
+.footer b { color: var(--amber-hi); font-weight: 400; }
+
+/* Replay */
+.match-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; min-height: 56px; padding: var(--sp-2) var(--sp-3); text-align: left; background: transparent; border: 1px solid var(--line); color: var(--amber); font-size: var(--fs-sm); }
+.match-btn[aria-current="page"] { background: var(--surface-raised); border-color: var(--amber); }
+.match-btn__row { display: flex; justify-content: space-between; width: 100%; gap: var(--sp-2); }
+.title-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-2) var(--sp-4); margin-bottom: 14px; }
+
+/* Pit */
+.verdict-band { padding: var(--sp-7) var(--sp-6); gap: var(--sp-5) var(--sp-10); }
+.verdict-text { flex: 1 1 360px; min-width: 0; }
+
+/* History */
+.chart-wrap { display: flex; }
+.chart-y { flex: none; width: 44px; position: relative; height: 300px; font-size: var(--fs-micro); color: var(--amber-muted); }
+.chart-y span { position: absolute; right: 6px; }
+.chart { position: relative; flex: 1; min-width: 0; height: 300px; border: 1px solid var(--line); background: var(--surface-1); overflow: hidden; }
+.chart .spark { position: absolute; left: 0; right: 0; bottom: 0; top: 24px; height: calc(100% - 24px); }
+.chart__seg { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line-soft); }
+.chart__seg.is-off { background: rgba(255,176,0,.03); }
+.chart__seg span { position: absolute; top: 4px; left: 6px; font-size: 10px; letter-spacing: .1em; color: var(--amber-muted); white-space: nowrap; }
+.chart__spec { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--hot); pointer-events: none; }
+.chart__spec span { position: absolute; right: 6px; top: -16px; font-size: 10px; color: var(--hot); letter-spacing: .1em; }
+
+@media (max-width: 900px) {
+  .layout > .main { order: -1; }
+  .panel--rail-l { border-right: 0; border-top: 1px solid var(--line); }
+  .panel--rail-r { border-left: 0; border-top: 1px solid var(--line); }
+  .markers, .scrub { margin-left: 0; }
+  .track__label { width: 96px; }
+}
+@media (max-width: 1599px) { .brand__sub, .wide-only { display: none; } }

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI prototype · Flashpoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+<div id="app-header" data-active=""></div>
+<main class="pad" id="main" style="max-width:1000px;padding-top:40px">
+  <h1 class="title-d4">Before, during and after every match.</h1>
+  <p class="prose prose--article" style="margin-top:20px;max-width:660px">Clickable prototype of the Flashpoint telemetry UI. Runs locally with no build step and no server. All data is simulated for one demo robot whose problems show up consistently across every screen. Press <span class="kbd">Ctrl K</span> anywhere to jump to a mechanism, device, match or anomaly.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:32px">
+    <a class="card" href="live.html" style="text-decoration:none;display:block"><div class="title-d2" style="font-size:36px">Live</div><p class="meta" style="margin-top:8px">Watch a match as it happens: vitals, every mechanism, events, alerts.</p></a>
+    <a class="card" href="replay.html" style="text-decoration:none;display:block"><div class="title-d2" style="font-size:36px">Replay</div><p class="meta" style="margin-top:8px">Scrub a match log, jump to faults, see likely causes and fixes.</p></a>
+    <a class="card" href="pit.html" style="text-decoration:none;display:block"><div class="title-d2" style="font-size:36px">Pit</div><p class="meta" style="margin-top:8px">Pre-match go/no-go: devices, faults, firmware, battery.</p></a>
+    <a class="card" href="history.html" style="text-decoration:none;display:block"><div class="title-d2" style="font-size:36px">History</div><p class="meta" style="margin-top:8px">Every device across seasons, tracked by serial number, not robot slot.</p></a>
+    <a class="card" href="anomalies.html" style="text-decoration:none;display:block"><div class="title-d2" style="font-size:36px">Anomalies</div><p class="meta" style="margin-top:8px">Devices running outside spec, with evidence, causes and past cases.</p></a>
+  </div>
+  <p class="meta muted" style="margin-top:40px">Specs live in /docs. Start with README.md at the package root.</p>
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+
+</body>
+</html>

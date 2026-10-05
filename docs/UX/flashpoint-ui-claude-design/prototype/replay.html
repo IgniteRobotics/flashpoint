@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Replay · Flashpoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+<div id="app-header" data-active="replay"></div>
+
+<div class="layout">
+  <nav class="rail-l panel panel--rail-l" aria-label="Match logs">
+    <h2 class="label">Match logs · event [name]</h2>
+    <div id="matches" style="display:flex;flex-direction:column;gap:4px"></div>
+    <h2 class="label label--spaced">Compare</h2>
+    <p class="meta" style="line-height:1.6">Overlay a second match on every track to spot drift: a shooter getting hotter each match, a battery sagging earlier.</p>
+    <button type="button" class="chip" style="width:100%;min-height:44px;margin-top:10px">+ overlay a match</button>
+  </nav>
+
+  <main class="main pad" id="main">
+    <div class="title-row">
+      <h1 class="title-d3" id="mtitle">Qual 42</h1>
+      <span class="meta" id="mmeta"></span>
+      <span class="seg" style="gap:6px"><button type="button" class="btn btn--sm">EXPORT CSV</button><button type="button" class="btn btn--sm" id="copylink">COPY LINK</button></span>
+    </div>
+    <section class="markers" id="markers" aria-label="Events on timeline"></section>
+    <div id="tracks"></div>
+    <div class="scrub">
+      <label for="scrub" class="group__label">SCRUB</label>
+      <input id="scrub" type="range" min="0" max="150" step="0.5" value="97">
+      <span id="curlabel" style="font-size:13px;color:var(--amber-hi);width:92px;text-align:right">T+97.0 s</span>
+    </div>
+    <div class="timeline__axis" style="margin-left:132px"><span>AUTO</span><span>TELEOP</span><span>ENDGAME</span></div>
+  </main>
+
+  <aside class="rail-r panel panel--rail-r stack" aria-label="Event analysis and readout">
+    <section id="event" aria-live="polite" aria-label="Selected event"></section>
+    <section aria-label="Readout at cursor">
+      <h2 class="section-label"><span id="readout-label">At cursor</span></h2>
+      <div class="table-wrap"><table class="table" style="min-width:0">
+        <thead><tr><th scope="col">Device</th><th scope="col" style="text-align:right">A</th><th scope="col" style="text-align:right">°C</th><th scope="col"><span class="sr-only">Status</span></th></tr></thead>
+        <tbody id="readout"></tbody>
+      </table></div>
+    </section>
+  </aside>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/replay.js"></script>
+</body>
+</html>
