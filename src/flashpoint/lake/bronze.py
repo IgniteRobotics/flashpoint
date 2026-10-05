@@ -71,7 +71,8 @@ def write(
             writer.close()
     if writer is None:
         pq.write_table(EMPTY_SCHEMA.empty_table(), part)
-    with part.open("rb") as f:
+    # Windows' FlushFileBuffers needs a handle with write access.
+    with part.open("r+b") as f:
         os.fsync(f.fileno())
 
     resolved = season() if callable(season) else season
