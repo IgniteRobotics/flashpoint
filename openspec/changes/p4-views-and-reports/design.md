@@ -27,6 +27,8 @@ Decisions:
 | Temperature | °C end to end (owlet `℃`), integer resolution, TalonFX only. Present in both 2025 and 2026 hoots. Only 26 distinct values in Q7, so ideal for change points |
 | Q7 temps | Start at 21–25 °C, peak at 26–46 °C, cool only 4–9 °C before the log ends |
 | `stall_s` | **0.0 for every Q7 row.** Threshold suspect (`stall_current_fraction = 0.4`) |
+| Stall ratio (|stator| / stall current while |velocity| < 0.5 rps), Q7 | Bimodal. Drive and steer transients peak at 0.149 (steer, about 60 A); nothing on any motor falls in 0.15–0.20. The intake extension holds at 0.20–0.25 (about 80 A against its hard stop, 33 s), and the intake rollers jam at 0.20–0.30 (about 84 A, 6.8 s leader, 7.8 s follower). 0.4 (≥ 112 A) can't be reached under the robot's current limits. E10 has no enabled time: every ratio is ≤ 0.003 |
+| Stall threshold decision | `stall_current_fraction` 0.4 → **0.2**, in the empty gap between transients and limited stalls. Caveat: a Kraken (476 A stall) limited to 80 A reads 0.17, so it doesn't count. A rule relative to the configured current limit needs limits in robot config (a later change) |
 | Battery voltage | Not logged anywhere. Proxy: the lowest or median device `supply_voltage` |
 | Powered-on time | Not computed anywhere. Gold only exists for match-keyed sessions |
 | Bug found | `DeviceEnable` is a string in bronze, and the silver COALESCE drops it. Issue filed, not fixed here |
@@ -174,7 +176,7 @@ uPlot (about 50 KB, MIT) is vendored. It replaces the old site's Plotly 2.35.2 (
 - **Drill-through:** links to `#view=replay&m=<key>&track=<slot>`, plus the `/raw/` download.
 
 ### Unit usage (`gold/unit_usage`, partitioned like match features)
-- A new derive step after gold, in the same fingerprinted loop, so it rebuilds with silver. It runs for **every session with silver**, with or without a match key. `PIPELINE_VERSION` goes to 3, so existing lakes recompute.
+- A new derive step after gold, in the same fingerprinted loop, so it rebuilds with silver. It runs for **every session with silver**, with or without a match key. A new `DERIVE_VERSION` (2) joins the derive fingerprint, so existing lakes recompute silver and gold. `PIPELINE_VERSION` stays at 2: ingest keys off it too, and bumping it would re-convert every raw file although bronze is unchanged.
 - **Powered-on time:** the time held of the unit's `supply_voltage` samples, capped at `hold_cap_us` (1 s) so logging gaps don't count. If supply voltage is absent, the time held of any metric is used instead.
 - **Enabled time:** powered-on time intersected with the robot's enabled intervals. These come from the same mode runs framing uses, exposed from `framing.py`, not from the auto/teleop phases, because practice sessions toggle enable many times.
 - **Energy and stall:** reuse `physics.motor_features` over the whole session, not phases.
@@ -233,7 +235,7 @@ uPlot (about 50 KB, MIT) is vendored. It replaces the old site's Plotly 2.35.2 (
 - **3-significant-figure rounding**: 123.4 A shows as 123 A. That is acceptable for a pit view; exact values are in gold and AdvantageScope.
 
 ## Migration Plan
-- New commands only. Nothing existing changes behaviour, except that derive also writes `gold/unit_usage`. `PIPELINE_VERSION` 3 makes `flashpoint derive` recompute.
+- New commands only. Nothing existing changes behaviour, except that derive also writes `gold/unit_usage` and stalls use the 0.2 threshold. `DERIVE_VERSION` 2 makes `flashpoint derive` recompute; bronze is not re-ingested.
 - New ADR-0013 ("Views: one local app in the canvas shell") supersedes ADR-0007.
 - ADR-0006 is amended: static export of Replay, ~1000-bucket envelopes, script-tag data, and uPlot.
 - `viz.py` and `gw_config.json` stay until `retire-legacy-code` stage 2d, after P4 is archived.

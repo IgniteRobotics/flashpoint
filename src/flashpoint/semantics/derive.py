@@ -21,7 +21,7 @@ from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.query import connect
 from flashpoint.meta.extract import parse_hoot_filename
-from flashpoint.semantics import gold
+from flashpoint.semantics import gold, usage
 from flashpoint.semantics.alignment import (
     HOOT_ENABLE,
     WPILOG_ENABLE,
@@ -423,6 +423,7 @@ class Deriver:
     def _fingerprint(self, session_id: str, framing: Framing) -> str:
         parts = {
             "pipeline": fp_config.PIPELINE_VERSION,
+            "derive": fp_config.DERIVE_VERSION,
             "session": self.ledger.query(
                 "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
             ),
@@ -437,6 +438,10 @@ class Deriver:
             "robots": [r.model_dump(mode="json") for r in self.robots],
         }
         return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()
+
+    def _session_start(self, wpilog_id: str | None) -> str | None:
+        rows = self.ledger.query("SELECT utc_start FROM logs WHERE log_id = ?", (wpilog_id,))
+        return rows[0]["utc_start"] if rows else None
 
     def run(self, force: bool = False) -> dict[str, int]:
         """Sessions, identity, framing, then silver and gold for sessions whose inputs changed."""
@@ -486,6 +491,22 @@ class Deriver:
                 else []
             )
             gold.write_session(self.lake, session["season"], sid, rows, run_id)
+            usage_rows = (
+                usage.session_usage(
+                    self.con,
+                    self.lake,
+                    session,
+                    framings[sid],
+                    robot,
+                    alignment or "none",
+                    self._session_start(session["wpilog_id"]),
+                )
+                if robot is not None
+                else []
+            )
+            gold.write_session(
+                self.lake, session["season"], sid, usage_rows, run_id, usage.TABLE, usage.SCHEMA
+            )
             state[sid] = {
                 "session_id": sid,
                 "fingerprint": current[sid],
