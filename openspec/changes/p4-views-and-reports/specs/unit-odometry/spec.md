@@ -58,13 +58,30 @@ For each unit, the system SHALL report lifetime totals derived from the usage ro
 - **WHEN** a slot has a legacy unit before an inventory exists and `ctre:<serial>` afterwards
 - **THEN** the two units have separate totals, and neither is merged into the other
 
-### Requirement: Unit page
-The lifetime app SHALL give each unit a page showing its odometry totals, a usage trend over time, and its slot history: each slot (robot, role, bus, CAN id) the unit occupied, with first and last session dates and the identity source (inventory or legacy epoch).
+### Requirement: Device panel and lifeline
+Selecting a unit in History SHALL open a device panel showing:
+- its model and serial (or legacy id);
+- its health status;
+- odometry tiles: matches in service, powered-on hours, supply Wh, thermal cycles, and stall seconds;
+- the count of sessions without aligned samples;
+- a lifeline, newest first, of events derived from slot observations.
+
+The lifeline events are:
+- first seen (installed in a slot);
+- moved to another slot or robot;
+- replaced (another unit took its slot);
+- last seen.
+
+Each event shows the date, the slot (robot, role, bus, and CAN id), and the identity source (inventory or legacy epoch). The panel SHALL be addressable by a link to the unit.
 
 #### Scenario: Unit moved between robots
 - **WHEN** serial `ABC` was observed in the practice robot's drive-fl slot and later in the competition robot's drive-fr slot
-- **THEN** its unit page lists both slots in time order, with totals covering both
+- **THEN** its lifeline shows "first seen" in drive-fl and "moved" to the competition robot's drive-fr, in time order, with totals covering both
+
+#### Scenario: Replaced unit
+- **WHEN** unit `ctre:B` takes over a slot previously held by `ctre:A`
+- **THEN** `ctre:A`'s lifeline ends with "replaced by ctre:B", and `ctre:B`'s begins with "first seen"
 
 #### Scenario: Unknown unit
-- **WHEN** the unit page is requested for a unit id that is not in the lake
+- **WHEN** a link names a unit id that is not in the lake
 - **THEN** the app says the unit is not found and lists the closest matching unit ids
