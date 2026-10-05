@@ -232,6 +232,44 @@ def test_dry_run_lists_files_with_sizes_and_changes_nothing(
     assert fake_robot.bytes_served == 0
 
 
+def test_dry_run_reads_a_ledger_that_a_watch_is_writing(
+    lake: LakePaths, fake_robot: FakeRobot, capsys: pytest.CaptureFixture[str]
+) -> None:
+    host = f"{fake_robot.host}:{fake_robot.port}"
+    _put(fake_robot.root, f"{ROOT}/FRC_1.wpilog", b"p" * 30, 900)  # pulled by the watch
+    _put(fake_robot.root, f"{ROOT}/FRC_2.wpilog", b"a" * 40, 1000)
+    _put(fake_robot.root, f"{ROOT}/FRC_3.wpilog", b"n" * 50, 2000)  # active
+    writer = PullLedger(lake.ledger)  # the watch: its commits sit in the -wal file
+    try:
+        pulled = RemoteFile(ROOT, "FRC_1.wpilog", 30, 900 * S)
+        writer.record_success(robot_key(host, pulled), "0" * 64, PullStatus.VERIFIED, False)
+        wal = lake.ledger.with_name(lake.ledger.name + "-wal")
+        assert wal.is_file()
+        before = {p: p.read_bytes() for p in (lake.ledger, wal)}
+        config = AcquireConfig(hosts=[host], roots=[ROOT], settle_s=0, removable_media=False)
+
+        assert run_acquire(config, lake, dry_run=True, stop=threading.Event()) == 0
+
+        out = capsys.readouterr().out
+        assert "FRC_2.wpilog" in out and "FRC_1.wpilog" not in out
+        assert {p: p.read_bytes() for p in (lake.ledger, wal)} == before
+    finally:
+        writer.close()
+
+
+def test_dry_run_exits_1_when_a_source_errored(
+    lake: LakePaths, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def broken_detect() -> list[Any]:
+        raise RuntimeError("diskutil exploded")
+
+    config = AcquireConfig(hosts=[NO_ROBOT], removable_media=True)
+    code = run_acquire(config, lake, dry_run=True, stop=threading.Event(), detect=broken_detect)
+    assert code == 1
+    assert "diskutil exploded" in capsys.readouterr().out
+    assert not lake.root.exists()
+
+
 # --- configuration ---------------------------------------------------------------------------
 
 
@@ -361,6 +399,26 @@ def test_one_shot_runs_one_cycle_and_returns_zero(lake: LakePaths) -> None:
     assert lake.status.is_file()
 
 
+@pytest.mark.parametrize("watch", [False, True])
+def test_start_sweeps_stale_parts_from_the_inbox(lake: LakePaths, watch: bool) -> None:
+    stale = lake.inbox / "rio" / ("FRC_1.wpilog" + PART_SUFFIX)
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"left by a killed run")
+    kept = lake.inbox / "rio" / "FRC_2.wpilog"
+    kept.write_bytes(b"whole")
+    seen: list[bool] = []
+    stop = threading.Event()
+
+    def cycle(*_args: Any, **_kwargs: Any) -> CycleResult:
+        seen.append(stale.exists())
+        stop.set()
+        return CycleResult(started="t", finished="t")
+
+    config = AcquireConfig(removable_media=False)
+    run_acquire(config, lake, watch=watch, stop=stop, cycle=cycle)
+    assert seen == [False] and kept.exists()
+
+
 def _robot(host: str, status: SourceStatus = SourceStatus.OK) -> SourceOutcome:
     return SourceOutcome("robot", host, host, status)
 
@@ -406,6 +464,52 @@ def test_status_low_space_persists_until_a_later_reading_recovers(lake: LakePath
     )
     restarted.write()
     assert json.loads(lake.status.read_text())["warnings"] == []
+
+
+def test_low_space_is_per_robot_root_whichever_address_reported_it(lake: LakePaths) -> None:
+    tracker = StatusTracker(lake.status)
+    tracker.record(
+        CycleResult(
+            started="t1",
+            sources=[_robot("10.68.29.2")],
+            space_readings=[_read("10.68.29.2", ROOT, 1234)],
+            low_space=[LowSpaceWarning("10.68.29.2", ROOT, 1234)],
+        )
+    )
+    # Still low, now over the tether: one warning, naming the last host that reported it.
+    tracker.record(
+        CycleResult(
+            started="t2",
+            sources=[_robot("172.22.11.2")],
+            space_readings=[_read("172.22.11.2", ROOT, 999)],
+            low_space=[LowSpaceWarning("172.22.11.2", ROOT, 999)],
+        )
+    )
+    low = [w for w in tracker.status["warnings"] if w["kind"] == "low-space"]
+    assert low == [{"kind": "low-space", "host": "172.22.11.2", "root": ROOT, "free_bytes": 999}]
+
+    # Recovered, read over mDNS: cleared.
+    tracker.record(
+        CycleResult(
+            started="t3",
+            sources=[_robot("roborio-6829-frc.local")],
+            space_readings=[_read("roborio-6829-frc.local", ROOT, 10**9)],
+        )
+    )
+    assert tracker.status["warnings"] == []
+
+
+@pytest.mark.parametrize("free_bytes", ["lots", float("inf")])
+def test_corrupt_low_space_in_the_previous_status_is_ignored_at_start(
+    lake: LakePaths, free_bytes: object, caplog: pytest.LogCaptureFixture
+) -> None:
+    warning = {"kind": "low-space", "host": "rio", "root": ROOT, "free_bytes": free_bytes}
+    lake.meta.mkdir(parents=True)
+    lake.status.write_text(json.dumps({"version": 1, "warnings": [warning]}))
+    with caplog.at_level(logging.WARNING, "flashpoint.acquire.watch"):
+        tracker = StatusTracker(lake.status)
+    assert "malformed" in caplog.text
+    assert tracker.record(CycleResult(started="t"))["warnings"] == []
 
 
 def test_status_holds_sources_failed_files_derive_error_and_backup_slot(lake: LakePaths) -> None:

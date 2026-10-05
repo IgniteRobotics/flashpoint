@@ -6,6 +6,7 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -19,8 +20,10 @@ from flashpoint.acquire.transfer import (
     TransferResult,
     TransferStatus,
     inbox_path,
+    part_path,
     pull_robot,
     select_robot_files,
+    sweep_parts,
     verified_copy,
 )
 from tests.acquire.fake_robot import FakeRobot
@@ -531,3 +534,124 @@ def test_record_failure_cannot_demote_a_verified_pull(pull_ledger: PullLedger) -
     row = pull_ledger.get(key)
     assert row is not None
     assert (row["status"], row["attempts"], row["reason"]) == (PullStatus.VERIFIED, 0, None)
+
+
+def test_a_robot_reached_on_another_address_copies_zero_bytes(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+) -> None:
+    _two_logs(fake_robot)
+    first = _cycle(connect_robot, pull_ledger, inbox)
+    assert [r.status for r in first] == [TransferStatus.VERIFIED]
+    served = fake_robot.bytes_served
+
+    def via_tether() -> RobotClient:
+        client = connect_robot()
+        client.host = "172.22.11.2"  # the same rio, reached over the USB tether
+        return client
+
+    assert _cycle(via_tether, pull_ledger, inbox) == []
+    assert fake_robot.bytes_served == served
+    hosts = pull_ledger.query("SELECT DISTINCT source_id FROM pulls")
+    assert hosts == [{"source_id": f"{fake_robot.host}:{fake_robot.port}"}]
+
+
+def _refuse_local_writes_to(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`Path.open` raises OSError for `<name>.part`, as Windows does for `CON` or `a?.wpilog`."""
+    real_open = Path.open
+
+    def open_(self: Path, *args: Any, **kwargs: Any) -> Any:
+        if self.name == name + PART_SUFFIX:
+            raise OSError(22, "Invalid argument", str(self))
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", open_)
+
+
+def test_unwritable_inbox_name_is_a_failed_attempt_and_the_next_file_still_pulls(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    _put(fake_robot, f"{ROOT}/A.wpilog", b"a" * 100, 1000)
+    _put(fake_robot, f"{ROOT}/B.wpilog", b"b" * 100, 1100)
+    _put(fake_robot, f"{ROOT}/C.wpilog", b"c" * 100, 2000)  # active
+    _refuse_local_writes_to("A.wpilog", monkeypatch)
+
+    for attempt in range(1, 4):
+        with caplog.at_level(logging.WARNING, LOGGER):
+            results = _cycle(connect_robot, pull_ledger, inbox)
+        by_name = {Path(r.source_path).name: r for r in results}
+        a = by_name["A.wpilog"]
+        assert a.status == (TransferStatus.FAILED if attempt == 3 else TransferStatus.RETRY)
+        assert a.reason is not None and a.reason.startswith("local-write-error")
+        assert not a.source_lost
+        if attempt == 1:
+            assert by_name["B.wpilog"].status == TransferStatus.VERIFIED
+        assert any("local-write-error" in r.getMessage() for r in caplog.records)
+        assert not list(inbox.rglob("*" + PART_SUFFIX))
+
+    (failed,) = pull_ledger.failed()
+    assert failed["remote_path"] == f"{ROOT}/A.wpilog" and failed["attempts"] == 3
+    assert _cycle(connect_robot, pull_ledger, inbox) == []  # no automatic retry
+
+
+def test_unwritable_inbox_directory_is_a_failed_attempt(
+    tmp_path: Path, pull_ledger: PullLedger
+) -> None:
+    blocker = tmp_path / "inbox" / "usb-STICK"
+    blocker.parent.mkdir(parents=True)
+    blocker.write_bytes(b"a file where the folder should be")
+    dest = blocker / "logs" / "a.wpilog"
+    result = verified_copy(_job(dest, b"x" * 10), pull_ledger, threading.Event())
+    assert result.status == TransferStatus.RETRY
+    assert result.reason is not None and result.reason.startswith("local-write-error")
+
+
+def test_stop_during_the_last_chunk_skips_the_remote_hash(
+    tmp_path: Path, pull_ledger: PullLedger
+) -> None:
+    stop = threading.Event()
+    data = b"x" * 100
+    hashed: list[bool] = []
+
+    class StopWhileReading(io.BytesIO):
+        def read(self, size: int | None = -1, /) -> bytes:
+            stop.set()  # the stop arrives while the only chunk is in flight
+            return super().read(size)
+
+    def expected() -> str:
+        hashed.append(True)  # sha256sum on the robot, or the re-hash of a stick file
+        return hashlib.sha256(data).hexdigest()
+
+    dest = tmp_path / "inbox" / "rio" / "a.wpilog"
+    job = CopyJob(
+        key=PullKey("robot", "rio", "/logs/a.wpilog", len(data), 7),
+        dest=dest,
+        size=len(data),
+        open_source=lambda: StopWhileReading(data),
+        expected_sha256=expected,
+    )
+    result = verified_copy(job, pull_ledger, stop)
+
+    assert result.status == TransferStatus.STOPPED
+    assert hashed == []
+    assert not dest.exists() and not part_path(dest).exists()
+    assert pull_ledger.get(job.key) is None  # a stop is not an attempt
+
+
+def test_sweep_parts_removes_stale_parts_only(tmp_path: Path) -> None:
+    inbox = tmp_path / "inbox"
+    stale = inbox / "rio" / "logs" / ("FRC_1.wpilog" + PART_SUFFIX)
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"torn")
+    kept = inbox / "rio" / "logs" / "FRC_2.wpilog"
+    kept.write_bytes(b"whole")
+    assert sweep_parts(inbox) == 1
+    assert not stale.exists() and kept.exists()
+    assert sweep_parts(tmp_path / "missing") == 0

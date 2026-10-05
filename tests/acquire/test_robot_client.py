@@ -240,6 +240,21 @@ def test_corrupt_store_is_treated_as_empty(
     assert _address(fake_robot) in json.loads(store.read_text())
 
 
+def test_unwritable_store_is_warned_and_the_connection_proceeds(
+    fake_robot: FakeRobot, tmp_path: Path, clock: Clock, caplog: pytest.LogCaptureFixture
+) -> None:
+    blocker = tmp_path / "cache"
+    blocker.write_text("a file where the cache folder should be")
+    client = _connect(_config(_address(fake_robot)), blocker / "known-robots.json", clock)
+    assert client is not None
+    try:
+        assert client.list_logs() == []
+    finally:
+        client.close()
+    warnings = [r for r in _own(caplog) if r.levelno == logging.WARNING]
+    assert len(warnings) == 1 and "known-robots.json" in warnings[0].getMessage()
+
+
 # --- 3.3 listing, hashing, free space -----------------------------------------------------------
 
 

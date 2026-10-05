@@ -142,10 +142,13 @@ class KnownRobots:
                 fingerprint,
             )
         known[host] = fingerprint
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self._path.with_name(self._path.name + ".tmp")
-        tmp.write_text(json.dumps(known, indent=2, sort_keys=True), encoding="utf-8")
-        tmp.replace(self._path)
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self._path.with_name(self._path.name + ".tmp")
+            tmp.write_text(json.dumps(known, indent=2, sort_keys=True), encoding="utf-8")
+            tmp.replace(self._path)
+        except OSError as exc:  # the record is informational; never block the robot on it
+            log.warning("cannot record the host key in %s: %s", self._path, exc)
 
 
 class RemoteReader:

@@ -20,7 +20,7 @@ from typing import Protocol, TypeVar
 
 import paramiko
 
-from flashpoint.acquire.pulls import PullKey, PullLedger, PullStatus
+from flashpoint.acquire.pulls import ROBOT_KIND, PullKey, PullLedger, PullStatus
 from flashpoint.acquire.robot import RemoteFile, RobotClient
 
 log = logging.getLogger(__name__)
@@ -95,7 +95,8 @@ class RobotSelection:
 
 
 def robot_key(host: str, f: RemoteFile) -> PullKey:
-    return PullKey("robot", host, f.remote_path, f.size, f.mtime_ns)
+    # `host` is recorded; the ledger dedupes robot files across hosts.
+    return PullKey(ROBOT_KIND, host, f.remote_path, f.size, f.mtime_ns)
 
 
 def select_robot_files(
@@ -198,12 +199,28 @@ def part_path(dest: Path) -> Path:
     return dest.with_name(dest.name + PART_SUFFIX)
 
 
+def sweep_parts(inbox: Path) -> int:
+    """Remove `.part` files a killed run left in the inbox; how many. Hold the acquire lock."""
+    removed = 0
+    for path in sorted(inbox.rglob("*" + PART_SUFFIX)) if inbox.is_dir() else []:
+        try:
+            if path.is_file() and not path.is_symlink():
+                path.unlink()
+                removed += 1
+        except OSError as exc:
+            log.warning("cannot remove stale %s: %s", path, exc)
+    if removed:
+        log.info("removed %d stale partial file(s) from the inbox", removed)
+    return removed
+
+
 def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> TransferResult:
     """Copy to `<dest>.part` while hashing, verify size then hash, `os.replace` to `dest`.
 
     On any failure the `.part` is removed and an attempt is recorded (the third makes the pull
-    `failed`). A stop removes the `.part` without counting an attempt. An existing `dest` is
-    never overwritten.
+    `failed`). That includes a local write error (a name Windows refuses, a full disk): it fails
+    this file, not the source. A stop removes the `.part` without counting an attempt. An
+    existing `dest` is never overwritten.
     """
 
     def result(
@@ -224,13 +241,18 @@ def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> Tr
     if job.dest.exists() or job.dest.is_symlink():
         return result(TransferStatus.SKIPPED, reason="inbox-occupied")
     part = part_path(job.dest)
-    part.parent.mkdir(parents=True, exist_ok=True)
     copied = 0
     moved = False
     try:
-        copied, digest = _stream(job, part, stop)
+        try:
+            part.parent.mkdir(parents=True, exist_ok=True)
+            copied, digest = _stream(job, part, stop)
+        except OSError as exc:  # source errors are already _AttemptFailedError
+            raise _AttemptFailedError(f"local-write-error: {exc}", source_lost=False) from exc
         if copied != job.size:
             raise _AttemptFailedError("size-mismatch", source_lost=False)
+        if stop.is_set():  # the hash can take minutes on the rio, or re-read a whole stick file
+            raise _StopRequestedError
         try:
             expected = job.expected_sha256()
         except FileNotFoundError as exc:  # rotated away after the copy; the source is fine
@@ -240,7 +262,10 @@ def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> Tr
         if expected is not None and expected.lower() != digest:
             raise _AttemptFailedError("hash-mismatch", source_lost=False)
         status = TransferStatus.VERIFIED if expected else TransferStatus.SIZE_VERIFIED
-        part.replace(job.dest)  # os.replace: atomic within one directory
+        try:
+            part.replace(job.dest)  # os.replace: atomic within one directory
+        except OSError as exc:
+            raise _AttemptFailedError(f"local-write-error: {exc}", source_lost=False) from exc
         moved = True
         ledger.record_success(job.key, digest, PullStatus(status), job.include_active)
         return result(status, copied, sha256=digest)
@@ -253,7 +278,10 @@ def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> Tr
         return result(status, copied, reason=failure.reason, source_lost=failure.source_lost)
     finally:
         if not moved:
-            part.unlink(missing_ok=True)
+            try:
+                part.unlink(missing_ok=True)
+            except OSError as exc:  # an unusable name; swept at the next start
+                log.warning("cannot remove %s: %s", part, exc)
 
 
 def _stream(job: CopyJob, part: Path, stop: threading.Event) -> tuple[int, str]:

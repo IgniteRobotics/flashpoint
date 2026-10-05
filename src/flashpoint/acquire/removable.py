@@ -49,12 +49,14 @@ class VolumeFile:
     mtime_ns: int
 
 
-def scan_volume(mount: Path, max_depth: int = MAX_SCAN_DEPTH) -> list[VolumeFile]:
+def scan_volume(
+    mount: Path, max_depth: int = MAX_SCAN_DEPTH, errors: list[str] | None = None
+) -> list[VolumeFile]:
     """`.wpilog` and `.hoot` files up to `max_depth` directories deep, in a stable order.
 
     Hidden entries (including AppleDouble `._*` files) and OS metadata directories are
-    skipped, and symlinks are never followed. An unreadable subdirectory is skipped; an
-    unreadable root raises OSError (the volume went away).
+    skipped, and symlinks are never followed. An unreadable subdirectory is skipped with a
+    warning and noted in `errors`; an unreadable root raises OSError (the volume went away).
     """
     found: list[VolumeFile] = []
 
@@ -71,7 +73,9 @@ def scan_volume(mount: Path, max_depth: int = MAX_SCAN_DEPTH) -> list[VolumeFile
                         try:
                             walk(Path(entry.path), f"{relpath}/", depth + 1)
                         except OSError as exc:
-                            log.debug("skipping unreadable %s: %s", entry.path, exc)
+                            log.warning("skipping unreadable %s: %s", entry.path, exc)
+                            if errors is not None:
+                                errors.append(f"{relpath}: {exc}")
                 elif entry.is_file(follow_symlinks=False) and entry.name.lower().endswith(
                     _LOG_SUFFIXES
                 ):
@@ -105,6 +109,7 @@ class VolumeSelection:
     pull: list[VolumeFile]  # to copy this cycle (pending and stable), in scan order
     unstable: list[VolumeFile]  # changed during the settle wait
     insertion: tuple[str, int]  # (volume ID, mount time): one safe-to-eject notice per value
+    scan_errors: tuple[str, ...] = ()  # unreadable directories: logs may be unseen, no notice
 
 
 def select_volume_files(
@@ -120,15 +125,18 @@ def select_volume_files(
     Raises OSError if the volume can't be read.
     """
     mounted_ns = volume.mount.stat().st_mtime_ns
-    files = scan_volume(volume.mount)
+    errors: list[str] = []
+    files = scan_volume(volume.mount, errors=errors)
     todo = [f for f in files if ledger.should_pull(volume_key(volume, f))]
-    stable = set(settle(todo, partial(scan_volume, volume.mount), settle_s=settle_s, sleep=sleep))
+    relist = partial(scan_volume, volume.mount, errors=errors)
+    stable = set(settle(todo, relist, settle_s=settle_s, sleep=sleep))
     return VolumeSelection(
         volume=volume,
         files=files,
         pull=[f for f in todo if f in stable],
         unstable=[f for f in todo if f not in stable],
         insertion=(volume.id, mounted_ns),
+        scan_errors=tuple(dict.fromkeys(errors)),  # the settle re-scan repeats them
     )
 
 
@@ -331,7 +339,7 @@ class RemovableMedia:
         return self.pull(self.select(), stop=stop)
 
     def _announce_if_done(self, selection: VolumeSelection) -> None:
-        if selection.insertion in self._announced:
+        if selection.insertion in self._announced or selection.scan_errors:
             return
         volume = selection.volume
         if all(self._ledger.is_pulled(volume_key(volume, f)) for f in selection.files):
