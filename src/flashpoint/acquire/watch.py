@@ -3,16 +3,17 @@
 `run_acquire` takes `<lake>/meta/acquire.lock` (released by the OS when the holder dies, which
 is the stale-lock takeover), runs one cycle or repeats them every `poll_s` measured start to
 start, and writes `<lake>/meta/acquire-status.json` atomically after every cycle. A dry run
-takes no lock and writes nothing under the lake: it reads a copy of the pull ledger.
+takes no lock and writes nothing under the lake: it reads a copy of the pull ledger, taken
+with SQLite's backup API, and exits 1 when a source errored (as a one-shot cycle does).
 """
 
 import contextlib
 import json
 import logging
 import os
-import shutil
 import signal
 import socket
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -27,9 +28,10 @@ from flashpoint.acquire import volumes
 from flashpoint.acquire.backup import BackupSchedule
 from flashpoint.acquire.config import AcquireConfig
 from flashpoint.acquire.cycle import Connect, CycleResult, SourceStatus, run_cycle
-from flashpoint.acquire.pulls import PullLedger
+from flashpoint.acquire.pulls import BUSY_TIMEOUT_MS, PullLedger
 from flashpoint.acquire.removable import RemovableMedia
 from flashpoint.acquire.robot import RobotClient
+from flashpoint.acquire.transfer import sweep_parts
 from flashpoint.lake.paths import LakePaths
 
 log = logging.getLogger(__name__)
@@ -175,7 +177,7 @@ def stop_on_signals(stop: threading.Event) -> Iterator[None]:
 class StatusTracker:
     """Builds `acquire-status.json` from each cycle and writes it atomically.
 
-    A low-space warning stays active until a later reading of the same robot recovers, also
+    A low-space warning stays active until a later reading of the same root recovers, also
     across restarts (it is read back from the previous file), as does the backup slot.
     `backup` is filled by the backup step: `{"last_time": iso | None, "result": str | None,
     "pending": bool}` (the last attempt, its outcome, and whether a backup is still owed).
@@ -191,7 +193,7 @@ class StatusTracker:
         if previous is not None and previous.get("version") == STATUS_VERSION:
             try:
                 self._restore(previous)
-            except (AttributeError, KeyError, TypeError):
+            except (AttributeError, KeyError, TypeError, ValueError, OverflowError):
                 log.warning("ignoring malformed acquire status %s", path)
         self.status: dict[str, Any] = {}
 
@@ -215,10 +217,10 @@ class StatusTracker:
         self.derive_pending = bool(derive.get("pending"))
 
     def record(self, result: CycleResult) -> dict[str, Any]:
-        # A warning clears only when that host and root got a fresh reading.
-        read = {(r.host, r.root) for r in result.space_readings}
-        read |= {(w.host, w.root) for w in result.low_space}
-        self._low_space = [w for w in self._low_space if (w["host"], w["root"]) not in read] + [
+        # A warning clears only when that root got a fresh reading. One robot answers on several
+        # addresses, so it is keyed by root; `host` is the last address that reported it.
+        read = {r.root for r in result.space_readings} | {w.root for w in result.low_space}
+        self._low_space = [w for w in self._low_space if w["root"] not in read] + [
             {"kind": "low-space", "host": w.host, "root": w.root, "free_bytes": w.free_bytes}
             for w in result.low_space
         ]
@@ -441,6 +443,7 @@ def _loop(
     def sleep(seconds: float) -> None:  # settle waits end early on a stop
         stop.wait(seconds)
 
+    sweep_parts(lake.inbox)  # under the lock: no other acquire is writing one
     pulls = PullLedger(lake.ledger)
     media = RemovableMedia.from_config(config, pulls, lake.inbox, sleep=sleep, detect=detect)
     tracker = StatusTracker(lake.status)
@@ -511,10 +514,8 @@ def _dry_run(
 
     with tempfile.TemporaryDirectory(prefix="flashpoint-dry-run-") as scratch:
         copy = Path(scratch) / lake.ledger.name
-        for suffix in ("", "-wal"):
-            source = lake.ledger.with_name(lake.ledger.name + suffix)
-            if source.is_file():
-                shutil.copyfile(source, copy.with_name(copy.name + suffix))
+        if lake.ledger.is_file():
+            _copy_ledger(lake.ledger, copy)
         pulls = PullLedger(copy)
         try:
             media = RemovableMedia.from_config(
@@ -536,4 +537,34 @@ def _dry_run(
             total += planned.size
     count = sum(len(s.planned) for s in result.sources)
     print(f"dry run: {count} file(s), {total} bytes would be copied; nothing changed", file=out)
-    return EXIT_INTERRUPTED if result.stopped else 0
+    if result.stopped:
+        return EXIT_INTERRUPTED
+    failed = result.errors or any(s.status == SourceStatus.ERROR for s in result.sources)
+    return EXIT_ERRORS if failed else 0
+
+
+def _copy_ledger(ledger: Path, copy: Path) -> None:
+    """A consistent copy through SQLite's backup API, from a read-only connection.
+
+    An empty or missing `-wal` file means every commit is in the main file and nothing is
+    writing: `immutable=1` then reads it without creating or touching `-wal` and `-shm`. A
+    non-empty one holds commits (a running watch owns it): a plain read-only connection reads
+    them too, sharing the `-shm` index the writer already maintains.
+    """
+    wal = ledger.with_name(ledger.name + "-wal")
+    try:
+        live = wal.stat().st_size > 0
+    except FileNotFoundError:
+        live = False
+    query = "mode=ro" if live else "mode=ro&immutable=1"
+    source = sqlite3.connect(
+        f"{ledger.resolve().as_uri()}?{query}", uri=True, timeout=BUSY_TIMEOUT_MS / 1000
+    )
+    try:
+        target = sqlite3.connect(copy)
+        try:
+            source.backup(target)
+        finally:
+            target.close()
+    finally:
+        source.close()

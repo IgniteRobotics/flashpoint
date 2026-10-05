@@ -5,7 +5,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from flashpoint.acquire.pulls import MAX_ATTEMPTS, PullKey, PullLedger, PullStatus
-from flashpoint.lake.ledger import Ledger, Stage
+from flashpoint.lake.ledger import INCOMPLETE_READ, Ledger, Stage
 from flashpoint.lake.paths import LakePaths
 
 SHA = "a" * 64
@@ -157,3 +157,65 @@ def test_add_warning_on_file_without_warnings(paths: LakePaths) -> None:
 def test_lake_paths_inbox_and_status(paths: LakePaths) -> None:
     assert paths.inbox == paths.root / "inbox"
     assert paths.status == paths.root / "meta" / "acquire-status.json"
+
+
+@pytest.mark.parametrize("warnings", [None, "short-coverage", "incomplete-read"])
+def test_set_stage_keeps_an_incomplete_read_marker(paths: LakePaths, warnings: str | None) -> None:
+    ledger = Ledger(paths.ledger)
+    try:
+        ledger.register(SHA, "wpilog", 100, Path("/inbox/a.wpilog"))
+        ledger.set_stage(SHA, Stage.SUCCESS, 2)
+        ledger.add_warning(SHA, INCOMPLETE_READ)
+        ledger.execute("UPDATE files SET pipeline_version = NULL")  # restore, then rebuild
+        ledger.set_stage(SHA, Stage.BRONZE, 3)
+        ledger.set_stage(SHA, Stage.SUCCESS, 3, warnings=warnings)
+        kept = (ledger.files()[0]["warnings"] or "").split(",")
+        assert kept.count(INCOMPLETE_READ) == 1
+        assert warnings is None or warnings in kept
+    finally:
+        ledger.close()
+
+
+def test_set_stage_without_a_marker_still_replaces_warnings(paths: LakePaths) -> None:
+    ledger = Ledger(paths.ledger)
+    try:
+        ledger.register(SHA, "hoot", 100, Path("/inbox/a.hoot"))
+        ledger.set_stage(SHA, Stage.SUCCESS, 2, warnings="short-coverage")
+        ledger.set_stage(SHA, Stage.SUCCESS, 3)
+        assert ledger.files()[0]["warnings"] is None
+    finally:
+        ledger.close()
+
+
+def _via(host: str) -> PullKey:
+    return PullKey("robot", host, "/home/lvuser/logs/a.wpilog", 100, 5)
+
+
+@pytest.mark.parametrize("status", [PullStatus.VERIFIED, PullStatus.SIZE_VERIFIED])
+def test_a_robot_file_pulled_via_one_host_is_pulled_via_every_host(
+    pulls: PullLedger, status: PullStatus
+) -> None:
+    pulls.record_success(_via("10.68.29.2"), SHA, status, include_active=False)
+    for other in ("roborio-6829-frc.local", "172.22.11.2"):
+        assert pulls.is_pulled(_via(other))
+        assert not pulls.should_pull(_via(other))
+    # The serving host stays recorded.
+    rows = pulls.query("SELECT source_id FROM pulls")
+    assert rows == [{"source_id": "10.68.29.2"}]
+
+
+def test_a_robot_file_failed_via_one_host_is_not_retried_via_another(pulls: PullLedger) -> None:
+    for _ in range(MAX_ATTEMPTS):
+        pulls.record_failure(_via("10.68.29.2"), "hash-mismatch")
+    assert not pulls.should_pull(_via("172.22.11.2"))
+    assert not pulls.is_pulled(_via("172.22.11.2"))
+
+
+def test_volume_files_are_still_keyed_by_volume(pulls: PullLedger) -> None:
+    a = PullKey("volume", "UUID-A", "logs/a.wpilog", 100, 5)
+    b = PullKey("volume", "UUID-B", "logs/a.wpilog", 100, 5)
+    pulls.record_success(a, SHA, PullStatus.VERIFIED, include_active=False)
+    assert pulls.is_pulled(a)
+    assert not pulls.is_pulled(b) and pulls.should_pull(b)
+    # A robot file at the same path is not a volume file.
+    assert pulls.should_pull(PullKey("robot", "UUID-A", "logs/a.wpilog", 100, 5))

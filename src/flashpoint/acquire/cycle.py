@@ -42,15 +42,16 @@ from flashpoint.acquire.transfer import (
     select_robot_files,
     settle,
 )
-from flashpoint.lake.ledger import Ledger, Stage
+from flashpoint.lake.ledger import INCOMPLETE_READ, Ledger, Stage
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import file_sha256
 
 log = logging.getLogger(__name__)
 
-INCOMPLETE_READ = "incomplete-read"
 LOG_SUFFIXES = (".wpilog", ".hoot")  # what `flashpoint ingest` picks up (`.part` never matches)
-INGEST_BATCH = 200  # explicit paths per ingest run; Windows command lines stop at 32 KiB
+INGEST_BATCH = 200  # explicit paths per ingest run
+INGEST_ARGV_CHARS = 24_000  # per ingest command line; Windows stops at 32 KiB
+_BYTES_PER_MB = 1024 * 1024
 STOP_POLL_S = 0.2
 TERMINATE_GRACE_S = 5.0
 OUTPUT_TAIL_CHARS = 4000
@@ -266,7 +267,15 @@ def _robot_step(
             outcome.id = outcome.label = client.host
             readings = client.free_space()
             result.space_readings += readings
-            result.low_space += low_space_warnings(readings, config.low_space_mb)
+            warnings = low_space_warnings(readings, config.low_space_mb)
+            for w in warnings:
+                log.warning(
+                    "robot %s: low space on %s: %d MB free",
+                    w.host,
+                    w.root,
+                    w.free_bytes // _BYTES_PER_MB,
+                )
+            result.low_space += warnings
             selection = select_robot_files(
                 client, pulls, include_active=include_active, settle_s=config.settle_s, sleep=sleep
             )
@@ -482,9 +491,8 @@ def _run_ingest(
     returncode: int | None = 0
     output: list[str] = []
     stopped = False
-    for start in range(0, len(targets), INGEST_BATCH):
-        argv = ingest_command(targets[start : start + INGEST_BATCH], lake)
-        code, text = run_subprocess(argv, stop)
+    for batch in _path_batches(targets, lake):
+        code, text = run_subprocess(ingest_command(batch, lake), stop)
         output.append(text)
         if code is None:
             stopped = stop.is_set()
@@ -498,6 +506,25 @@ def _run_ingest(
     if crashed:
         log.warning("ingest exited with %s and changed nothing; inbox kept\n%s", returncode, tail)
     return IngestOutcome(returncode, crashed, stopped, changed, tail)
+
+
+def _path_batches(targets: Sequence[Path], lake: LakePaths) -> Iterator[list[Path]]:
+    """Batches of at most `INGEST_BATCH` paths whose ingest command line stays within
+    `INGEST_ARGV_CHARS`, measured as Windows quotes it. A path too long on its own still gets
+    a run of its own.
+    """
+    budget = INGEST_ARGV_CHARS - len(subprocess.list2cmdline(ingest_command([], lake)))
+    batch: list[Path] = []
+    used = 0
+    for path in targets:
+        cost = len(subprocess.list2cmdline([str(path)])) + 1  # and the separating space
+        if batch and (len(batch) == INGEST_BATCH or used + cost > budget):
+            yield batch
+            batch, used = [], 0
+        batch.append(path)
+        used += cost
+    if batch:
+        yield batch
 
 
 def _derive_step(
@@ -524,11 +551,13 @@ def _new_process_group() -> dict[str, Any]:
 def _end_process_group(proc: "subprocess.Popen[str]") -> None:
     """Ask the whole group to stop, then kill whatever is left after the grace period."""
     if sys.platform == "win32":
-        proc.send_signal(signal.CTRL_BREAK_EVENT)  # delivered to the whole process group
         try:
+            proc.send_signal(signal.CTRL_BREAK_EVENT)  # delivered to the whole process group
             proc.wait(TERMINATE_GRACE_S)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        except (OSError, subprocess.TimeoutExpired):
+            # No console to deliver it through, or it did not stop in time.
+            with contextlib.suppress(OSError):
+                proc.kill()
             proc.wait()
         return
     with contextlib.suppress(ProcessLookupError):

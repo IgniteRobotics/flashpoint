@@ -10,6 +10,10 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+# Set by acquire on a file pulled while still being written. Nothing in the pipeline can
+# re-derive it, so a stage update (rebuild, restore) keeps it.
+INCOMPLETE_READ = "incomplete-read"
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
     sha256 TEXT PRIMARY KEY, kind TEXT NOT NULL, size INTEGER NOT NULL,
@@ -151,10 +155,16 @@ class Ledger:
         self, sha256: str, stage: Stage, pipeline_version: int, warnings: str | None = None
     ) -> None:
         with self._db:
+            row = self._db.execute(
+                "SELECT warnings FROM files WHERE sha256 = ?", (sha256,)
+            ).fetchone()
+            new = [w for w in (warnings or "").split(",") if w]
+            if row is not None and INCOMPLETE_READ in (row[0] or "").split(","):
+                new += [] if INCOMPLETE_READ in new else [INCOMPLETE_READ]
             self._db.execute(
                 "UPDATE files SET stage = ?, reason = NULL, warnings = ?, pipeline_version = ?,"
                 " updated = ? WHERE sha256 = ?",
-                (stage, warnings, pipeline_version, _now(), sha256),
+                (stage, ",".join(new) or None, pipeline_version, _now(), sha256),
             )
 
     def add_warning(self, sha256: str, warning: str) -> None:

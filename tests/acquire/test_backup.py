@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import re
 import sqlite3
 import sys
 import threading
@@ -13,8 +14,15 @@ from typing import Any
 
 import pytest
 
+from flashpoint import cli
 from flashpoint import config as flashpoint_config
-from flashpoint.acquire.backup import BackupError, BackupSchedule, run_backup
+from flashpoint.acquire.backup import (
+    RCLONE_LIMITS,
+    BackupError,
+    BackupSchedule,
+    restore,
+    run_backup,
+)
 from flashpoint.acquire.config import AcquireConfig, BackupConfig
 from flashpoint.acquire.cycle import CycleResult, run_cycle
 from flashpoint.acquire.watch import StatusTracker, run_acquire
@@ -144,7 +152,10 @@ def test_first_backup_copies_raw_with_immutable_and_a_meta_snapshot(
 
     assert _hashes(remote / "raw") == hashes  # the .part is not uploaded
     calls = fake_rclone.calls()
-    raw_copy = ["copy", "--immutable", "--exclude", "*.part", str(lake.raw), f"{remote}/raw"]
+    raw_copy = [
+        "copy", *RCLONE_LIMITS, "--immutable", "--exclude", "*.part", str(lake.raw),
+        f"{remote}/raw",
+    ]  # fmt: skip
     assert raw_copy in calls
     for argv in calls:  # raw is only ever added to: no sync, delete or move touches it
         if any(a.endswith("raw") for a in argv):
@@ -154,7 +165,8 @@ def test_first_backup_copies_raw_with_immutable_and_a_meta_snapshot(
     assert ledger_rows(latest / "flashpoint.sqlite", "SELECT count(*) AS n FROM files") == [
         {"n": 15}
     ]
-    assert ["sync", str(lake.tmp / "meta-snapshot"), f"{remote}/meta/latest"] in calls
+    (sync,) = [argv for argv in calls if argv[0] == "sync"]
+    assert sync[-2:] == [str(lake.tmp / "meta-snapshot"), f"{remote}/meta/latest"]
 
 
 def test_raw_file_missing_locally_stays_on_the_remote(
@@ -575,3 +587,98 @@ def test_restore_does_not_bring_over_the_source_watch_status(
 
     assert not restored.status.exists()
     assert not (restored.tmp / "restore-meta").exists()
+
+
+# --- bounds and metadata history ---------------------------------------------------------------
+
+
+def _value(argv: list[str], flag: str) -> str | None:
+    return argv[argv.index(flag) + 1] if flag in argv else None
+
+
+def test_every_rclone_call_is_bounded_and_only_the_watch_has_a_max_duration(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path
+) -> None:
+    _seed_lake(lake, 2)
+    run_backup(lake, str(remote))  # `flashpoint backup`: a first upload may take long
+    manual = fake_rclone.calls()
+    schedule, _tracker = _schedule(lake, remote)
+    schedule(_changed())
+    watch = fake_rclone.calls()[len(manual) :]
+    restore(LakePaths(lake.root.parent / "restored"), str(remote))
+    restored = fake_rclone.calls()[len(manual) + len(watch) :]
+
+    bounds = {
+        "--contimeout": "10s", "--timeout": "60s", "--retries": "1", "--low-level-retries": "2",
+    }  # fmt: skip
+    for argv in manual + watch + restored:
+        assert {flag: _value(argv, flag) for flag in bounds} == bounds
+    assert [_value(argv, "--max-duration") for argv in watch] == ["4m", "4m"]
+    assert [_value(argv, "--max-duration") for argv in manual + restored] == [None] * 4
+
+
+def test_meta_sync_keeps_replaced_metadata_in_a_timestamped_history(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path
+) -> None:
+    _seed_lake(lake, 2)
+    first = remote / "meta" / "latest" / "flashpoint.sqlite"
+    run_backup(lake, str(remote), now=lambda: T0)
+    original = first.read_bytes()
+
+    lake.ledger.unlink()  # a wrong, empty lake backed up over the good one
+    Ledger(lake.ledger).close()
+    (lake.meta / "files.parquet").unlink()
+    run_backup(lake, str(remote), now=lambda: T0 + timedelta(minutes=15))
+
+    (sync, _) = [argv for argv in fake_rclone.calls() if argv[0] == "sync"]
+    assert _value(sync, "--backup-dir") == f"{remote}/meta/history/20261004T100000Z"
+    assert re.fullmatch(r"\d{8}T\d{6}Z", Path(str(_value(sync, "--backup-dir"))).name)
+    kept = remote / "meta" / "history" / "20261004T101500Z"
+    assert (kept / "flashpoint.sqlite").read_bytes() == original
+    assert (kept / "files.parquet").read_bytes() == b"parquet snapshot"
+    assert ledger_rows(kept / "flashpoint.sqlite", "SELECT count(*) AS n FROM files") == [{"n": 2}]
+
+
+def test_watch_backup_cut_short_still_backs_up_meta_and_stays_owed(
+    fake_rclone: FakeRclone,
+    lake: LakePaths,
+    remote: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 2)
+    monkeypatch.setenv("FAKE_RCLONE_DURATION_EXCEEDED", "1")
+    schedule, tracker = _schedule(lake, remote)
+    schedule(_changed())
+
+    assert (remote / "meta" / "latest" / "flashpoint.sqlite").is_file()
+    assert tracker.backup["pending"] is True
+    assert "next backup" in tracker.backup["result"]
+
+
+def test_backup_command_succeeds_even_when_the_status_cannot_be_updated(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    hashes = _seed_lake(lake, 1)
+    _write_config(config_dir, remote)
+
+    def unwritable(_path: Path, _backup: dict[str, Any]) -> None:
+        raise PermissionError(13, "Permission denied", "acquire-status.json")
+
+    monkeypatch.setattr(cli, "record_backup", unwritable)
+
+    assert main(["backup", "--lake", str(lake.root)]) == 0
+
+    out, err = capsys.readouterr()
+    assert "backed up" in out and "backup failed" not in out + err
+    assert "status" in err and "Permission denied" in err
+    assert _hashes(remote / "raw") == hashes
+
+    monkeypatch.setenv("FAKE_RCLONE_FAIL", "1")  # a failed backup still names the rclone error
+    assert main(["backup", "--lake", str(lake.root)]) == 1
+    err = capsys.readouterr().err
+    assert "backup failed" in err and "fake failure" in err

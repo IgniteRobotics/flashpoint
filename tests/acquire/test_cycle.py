@@ -1,19 +1,22 @@
 import _thread
 import hashlib
 import json
+import logging
 import os
+import signal
+import subprocess
 import sys
 import threading
 import time
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from flashpoint.acquire import cycle
 from flashpoint.acquire.config import AcquireConfig
 from flashpoint.acquire.cycle import (
-    INCOMPLETE_READ,
     CycleResult,
     InboxOutcome,
     SourceStatus,
@@ -24,7 +27,7 @@ from flashpoint.acquire.removable import RemovableMedia
 from flashpoint.acquire.robot import AuthErrorThrottle, RobotClient
 from flashpoint.acquire.transfer import PART_SUFFIX, TransferStatus
 from flashpoint.acquire.volumes import Volume
-from flashpoint.lake.ledger import Ledger, Stage
+from flashpoint.lake.ledger import INCOMPLETE_READ, Ledger, Stage
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import file_sha256
 from tests.acquire.fake_robot import FakeRobot
@@ -452,6 +455,27 @@ def test_low_space_and_size_verified_warnings(
     assert result.sources[0].transfers[0].status == TransferStatus.SIZE_VERIFIED
 
 
+def test_low_space_is_logged_once_per_reading_each_cycle(
+    config: AcquireConfig,
+    lake: LakePaths,
+    pulls: PullLedger,
+    connect: Connect,
+    fake_robot: FakeRobot,
+    robot_logs: dict[str, bytes],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_robot.df_free_kb = 50 * 1024
+    host = f"{fake_robot.host}:{fake_robot.port}"
+    for _ in range(2):
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, "flashpoint.acquire.cycle"):
+            _run(config, lake, pulls, _media(pulls, lake), connect)
+        low = [r.getMessage() for r in caplog.records if "low space" in r.getMessage()]
+        assert sorted(low) == [
+            f"robot {host}: low space on {root}: 50 MB free" for root in (ROOT, "/u/logs")
+        ]
+
+
 def test_failed_pulls_are_reported(
     config: AcquireConfig,
     lake: LakePaths,
@@ -630,3 +654,50 @@ def test_failing_derive_is_reported_and_retried_until_it_succeeds(
     after = _run(config, lake, pulls, media, _no_robot, derive_pending=idle.derive_pending)
 
     assert after.derive is None and not after.derive_pending
+
+
+# --- ingest batches and process groups ---------------------------------------------------------
+
+
+def test_ingest_batches_stay_under_the_windows_command_line_limit(lake: LakePaths) -> None:
+    long_paths = [lake.inbox / ("d" * 200) / f"{'x' * 800}_{i}.wpilog" for i in range(100)]
+    batches = list(cycle._path_batches(long_paths, lake))
+    assert len(batches) > 1
+    for batch in batches:
+        argv = cycle.ingest_command(batch, lake)
+        assert len(subprocess.list2cmdline(argv)) <= cycle.INGEST_ARGV_CHARS
+    assert [p for b in batches for p in b] == long_paths
+
+    short_paths = [Path(f"{i}.wpilog") for i in range(450)]
+    counts = [len(b) for b in cycle._path_batches(short_paths, lake)]
+    assert counts == [cycle.INGEST_BATCH, cycle.INGEST_BATCH, 50]
+
+
+class _UnsignalableProc:
+    """A Windows child whose CTRL_BREAK cannot be delivered (it already left its console)."""
+
+    pid = 4242
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def send_signal(self, _sig: int) -> None:
+        self.calls.append("signal")
+        raise OSError(87, "The parameter is incorrect")
+
+    def kill(self) -> None:
+        self.calls.append("kill")
+
+    def wait(self, timeout: float | None = None) -> int:
+        self.calls.append("wait")
+        return 1
+
+
+def test_windows_stop_kills_and_waits_when_ctrl_break_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cycle, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", 1, raising=False)
+    proc = _UnsignalableProc()
+    cycle._end_process_group(proc)  # type: ignore[arg-type]
+    assert proc.calls == ["signal", "kill", "wait"]

@@ -12,6 +12,14 @@ is ever deleted there or overwritten. Metadata goes up as a snapshot folder,
   into the watch process, which must stay within its RSS budget;
 - the acquire status file.
 
+The sync moves every file it replaces or deletes in `meta/latest` into
+`<remote>/meta/history/<UTC time>/`, so a wrong or empty lake can never destroy the only remote
+copy of the metadata. Nothing prunes the history; delete old folders by hand.
+
+Every rclone call is bounded (connect and I/O timeouts, one retry), and the watch's backup also
+stops after `--max-duration 4m` so the cycle never waits long on a slow link. The raw copy is
+incremental: what did not fit resumes at the next backup, and the backup stays owed.
+
 Bronze, silver and gold are not backed up: they rebuild from raw. Flashpoint never reads rclone
 credentials; the remote is a name from the user's rclone configuration plus a path.
 """
@@ -36,6 +44,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 RCLONE = "rclone"
+# Bounds for every call: a dead link fails in seconds instead of rclone's minutes of retries.
+RCLONE_LIMITS = (
+    "--contimeout", "10s", "--timeout", "60s", "--retries", "1", "--low-level-retries", "2",
+)  # fmt: skip
+WATCH_MAX_DURATION = "4m"  # the watch's backup runs inside the acquisition cycle
+EXIT_DURATION_EXCEEDED = 10  # rclone's exit code when --max-duration stopped it
+HISTORY_DIR = "meta/history"
 SNAPSHOT_DIR = "meta-snapshot"
 RESTORE_DIR = "restore-meta"
 PART_PATTERN = "*.part"
@@ -57,15 +72,17 @@ def remote_path(remote: str, sub: str) -> str:
     return f"{remote}{sub}" if remote.endswith(":") else f"{remote}/{sub}"
 
 
-def _rclone(args: list[str], stop: threading.Event) -> None:
+def _rclone(args: list[str], stop: threading.Event, *, allowed: tuple[int, ...] = ()) -> int:
+    """Run `rclone <args>` with `RCLONE_LIMITS`; its exit code, 0 or one of `allowed`."""
     binary = shutil.which(RCLONE)
     if binary is None:
         raise BackupError("rclone not found on PATH")
-    code, output = run_subprocess([binary, *args], stop)
+    code, output = run_subprocess([binary, *args[:1], *RCLONE_LIMITS, *args[1:]], stop)
     if stop.is_set():
         raise BackupError(f"rclone {args[0]} stopped")
-    if code != 0:
+    if code is None or (code != 0 and code not in allowed):
         raise BackupError(f"rclone {args[0]} exited {code}: {output.strip()[-ERROR_CHARS:]}")
+    return code
 
 
 def snapshot_meta(lake: LakePaths) -> Path:
@@ -95,15 +112,40 @@ def snapshot_meta(lake: LakePaths) -> Path:
     return target
 
 
-def run_backup(lake: LakePaths, remote: str, *, stop: threading.Event | None = None) -> str:
-    """Copy raw (append-only) and a metadata snapshot to `remote`; a one-line summary."""
+def run_backup(
+    lake: LakePaths,
+    remote: str,
+    *,
+    stop: threading.Event | None = None,
+    max_duration: str | None = None,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+) -> str:
+    """Copy raw (append-only) and a metadata snapshot to `remote`; a one-line summary.
+
+    With `max_duration`, each rclone call stops after it. A raw copy cut short still backs up
+    the metadata, then raises `BackupError` (the rest of raw goes up next time).
+    """
     stop = stop or threading.Event()
+    limit = ["--max-duration", max_duration] if max_duration else []
     snapshot = snapshot_meta(lake)
+    raw_done = True
     if lake.raw.is_dir():
         # raw.store writes `<sha>.<ext>.part` first; a torn one must never become immutable.
-        raw_args = ["copy", "--immutable", "--exclude", PART_PATTERN]
-        _rclone([*raw_args, str(lake.raw), remote_path(remote, "raw")], stop)
-    _rclone(["sync", str(snapshot), remote_path(remote, "meta/latest")], stop)
+        raw_args = ["copy", "--immutable", "--exclude", PART_PATTERN, *limit]
+        code = _rclone(
+            [*raw_args, str(lake.raw), remote_path(remote, "raw")],
+            stop,
+            allowed=(EXIT_DURATION_EXCEEDED,) if max_duration else (),
+        )
+        raw_done = code == 0
+    history = remote_path(remote, f"{HISTORY_DIR}/{now().strftime('%Y%m%dT%H%M%SZ')}")
+    meta_args = ["sync", "--backup-dir", history, *limit]
+    _rclone([*meta_args, str(snapshot), remote_path(remote, "meta/latest")], stop)
+    if not raw_done:
+        raise BackupError(
+            f"raw backup stopped after {max_duration} (metadata is backed up); the rest of raw"
+            " goes up at the next backup"
+        )
     return f"backed up raw and metadata to {remote}"
 
 
@@ -185,7 +227,9 @@ class BackupSchedule:
         if not pending or not self._due(state.get("last_time"), now):
             return
         try:
-            summary = run_backup(self.lake, remote, stop=self.stop)
+            summary = run_backup(
+                self.lake, remote, stop=self.stop, max_duration=WATCH_MAX_DURATION, now=self.now
+            )
         except (BackupError, OSError, sqlite3.Error) as exc:
             log.warning("backup failed: %s", exc)
             outcome, pending = f"error: {exc}", True

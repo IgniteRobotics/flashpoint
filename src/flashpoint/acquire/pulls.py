@@ -1,8 +1,11 @@
 """Pull ledger: one row per source file seen, in the lake's SQLite ledger.
 
 Rows are keyed by (source_id, remote_path, size, mtime_ns), so a file that grows or is
-rewritten is a new entry. The watch process owns this connection while the ingest
-subprocess writes the other ledger tables, hence the long busy timeout.
+rewritten is a new entry. A robot answers on several addresses (radio, mDNS, USB tether): its
+rows record the serving host, but every lookup matches robot rows on (remote_path, size,
+mtime_ns) whatever the host, so one robot is one source. The watch process owns this
+connection while the ingest subprocess writes the other ledger tables, hence the long busy
+timeout.
 """
 
 import sqlite3
@@ -23,6 +26,7 @@ CREATE TABLE IF NOT EXISTS pulls (
     first_seen TEXT NOT NULL, pulled_at TEXT,
     PRIMARY KEY (source_id, remote_path, size, mtime_ns)
 );
+CREATE INDEX IF NOT EXISTS pulls_file ON pulls (remote_path, size, mtime_ns);
 """
 
 
@@ -34,6 +38,7 @@ class PullStatus(StrEnum):
 
 
 _DONE = (PullStatus.VERIFIED, PullStatus.SIZE_VERIFIED)
+ROBOT_KIND = "robot"
 
 
 @dataclass(frozen=True)
@@ -72,15 +77,25 @@ class PullLedger:
         )
         return rows[0] if rows else None
 
+    def _statuses(self, key: PullKey) -> list[str]:
+        """Statuses of this source file: the exact row, or every robot row for a robot file."""
+        if key.source_kind != ROBOT_KIND:
+            row = self.get(key)
+            return [] if row is None else [row["status"]]
+        rows = self.query(
+            "SELECT status FROM pulls WHERE source_kind = ? AND remote_path = ? AND size = ?"
+            " AND mtime_ns = ?",
+            (ROBOT_KIND, key.remote_path, key.size, key.mtime_ns),
+        )
+        return [r["status"] for r in rows]
+
     def is_pulled(self, key: PullKey) -> bool:
-        """True if this exact source file already has a `verified` or `size-verified` pull."""
-        row = self.get(key)
-        return row is not None and row["status"] in _DONE
+        """True if this source file already has a `verified` or `size-verified` pull."""
+        return any(s in _DONE for s in self._statuses(key))
 
     def should_pull(self, key: PullKey) -> bool:
         """False once the file is pulled, or has failed for good (no automatic retries)."""
-        row = self.get(key)
-        return row is None or row["status"] == PullStatus.PENDING
+        return all(s == PullStatus.PENDING for s in self._statuses(key))
 
     def record_failure(self, key: PullKey, reason: str) -> PullStatus:
         """Count a failed attempt. The third one makes the pull `failed`.

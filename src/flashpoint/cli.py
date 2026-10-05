@@ -9,7 +9,7 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import flashpoint
 from flashpoint import config
@@ -188,12 +188,12 @@ def _backup(lake: LakePaths) -> int:
             try:
                 summary = run_backup(lake, remote)
             except (BackupError, OSError, sqlite3.Error) as exc:
-                record_backup(lake.status, {"last_time": started, "result": f"error: {exc}",
-                                            "pending": True})  # fmt: skip
+                _record_backup(lake, {"last_time": started, "result": f"error: {exc}",
+                                      "pending": True})  # fmt: skip
                 print(f"backup failed: {exc}", file=sys.stderr)
                 return EXIT_FAILED
-            record_backup(lake.status, {"last_time": started, "result": f"ok: {summary}",
-                                        "pending": False})  # fmt: skip
+            _record_backup(lake, {"last_time": started, "result": f"ok: {summary}",
+                                  "pending": False})  # fmt: skip
             print(summary)
     except LockHeldError as exc:
         print(f"{exc}; a running watch backs up on its own", file=sys.stderr)
@@ -202,6 +202,14 @@ def _backup(lake: LakePaths) -> int:
         print(f"backup failed: {exc}", file=sys.stderr)
         return EXIT_FAILED
     return 0
+
+
+def _record_backup(lake: LakePaths, backup: dict[str, Any]) -> None:
+    """Record the outcome in the status; a status that cannot be written only warns."""
+    try:
+        record_backup(lake.status, backup)
+    except OSError as exc:
+        print(f"warning: cannot update the acquire status {lake.status}: {exc}", file=sys.stderr)
 
 
 def _restore(lake: LakePaths, remote: str | None, force: bool) -> int:

@@ -7,7 +7,7 @@ import shutil
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 import pytest
 
@@ -515,3 +515,42 @@ def test_no_safe_to_eject_while_a_file_is_unstable(
     with caplog.at_level(logging.INFO, logger=LOGGER):
         _media(pull_ledger, inbox, Detector(stick), sleep=sleep).cycle(stop=threading.Event())
     assert _notices(caplog) == []
+
+
+def _unreadable(directory: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    real_scandir = os.scandir
+
+    def scandir(path: Any) -> Any:
+        if Path(path) == directory:
+            raise PermissionError(13, "Permission denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", scandir)
+
+
+def test_unreadable_directory_is_recorded_and_withholds_safe_to_eject(
+    stick: Volume,
+    pull_ledger: PullLedger,
+    inbox: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    hidden = stick.mount / "more-logs"
+    _put(stick.mount, "more-logs/FRC_9.wpilog", b"unseen")
+    _unreadable(hidden, monkeypatch)
+    media = _media(pull_ledger, inbox, Detector(stick))
+    with caplog.at_level(logging.INFO, logger=LOGGER):
+        (selection,) = media.select()
+        assert len(selection.scan_errors) == 1 and "more-logs" in selection.scan_errors[0]
+        media.pull([selection], stop=threading.Event())
+        media.cycle(stop=threading.Event())
+    assert _notices(caplog) == []
+    assert any(
+        r.levelno == logging.WARNING and "more-logs" in r.getMessage() for r in caplog.records
+    )
+    assert len(_inbox_files(inbox)) == 2  # the readable logs are still copied
+
+    monkeypatch.undo()  # readable again: everything is accounted for
+    with caplog.at_level(logging.INFO, logger=LOGGER):
+        media.cycle(stop=threading.Event())
+    assert len(_notices(caplog)) == 1
