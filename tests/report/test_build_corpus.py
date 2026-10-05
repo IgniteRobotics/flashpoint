@@ -10,8 +10,9 @@ import duckdb
 import pytest
 
 from flashpoint import config
-from flashpoint.report.build import BUDGET_BYTES, ReportBuilder, data_dir
+from flashpoint.report.build import BUDGET_BYTES, ReportBuilder
 from flashpoint.report.envelope import round_sig
+from flashpoint.report.paths import data_dir
 
 pytestmark = pytest.mark.corpus
 

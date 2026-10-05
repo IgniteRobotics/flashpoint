@@ -6,14 +6,9 @@ import polars as pl
 import pytest
 
 from flashpoint import config
-from flashpoint.report.build import (
-    ReportBuilder,
-    data_dir,
-    download_name,
-    match_label,
-    state_path,
-    to_script,
-)
+from flashpoint.report.build import ReportBuilder, match_label, to_script
+from flashpoint.report.names import download_name
+from flashpoint.report.paths import data_dir, state_path
 from tests.report.lake import COMP_SLOTS, MatchLake, quiet_rows
 from tests.report.silver import S, series
 
