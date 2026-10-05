@@ -73,7 +73,7 @@
 - [x] 10.2 `notebooks/README.md` and one example marimo notebook using `views/queries.py`
 - [x] 10.3 Update the `docs/rewrite/06-roadmap.md` P4 status and add a Live/Pit follow-up change to the roadmap; README usage for `report` and `serve`
 - [x] 10.4 File GitHub issues: `DeviceEnable` dropped by silver; no battery-voltage signal; rio TalonFX status signals at 4 Hz; hoot-only sessions missing from odometry; design metrics without data (faults, firmware, spin test, batteries) — #18–#22
-- [ ] 10.5 Full gate: ruff, mypy --strict, pytest, corpus e2e, browser tests, and perf; then open the PR into `rewrite`
+- [x] 10.5 Full gate: ruff, mypy --strict, pytest, corpus e2e, browser tests, and perf; then open the PR into `rewrite`
 
 ## 11. [HUMAN] Field check
 
