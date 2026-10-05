@@ -31,7 +31,7 @@ Decisions:
 | Stall threshold decision | `stall_current_fraction` 0.4 → **0.2**, in the empty gap between transients and limited stalls. Caveat: a Kraken (476 A stall) limited to 80 A reads 0.17, so it doesn't count. A rule relative to the configured current limit needs limits in robot config (a later change) |
 | Battery voltage | Not logged anywhere. Proxy: the lowest or median device `supply_voltage` |
 | Powered-on time | Not computed anywhere. Gold only exists for match-keyed sessions |
-| Bug found | `DeviceEnable` is a string in bronze, and the silver COALESCE drops it. Issue filed, not fixed here |
+| Bug found | `DeviceEnable` is a string in bronze, and the silver COALESCE drops it. Issue #18, not fixed here |
 
 ## Goals / Non-Goals
 
@@ -227,8 +227,8 @@ uPlot (about 50 KB, MIT) is vendored. It replaces the old site's Plotly 2.35.2 (
   - the History API answers for Q7 and E10.
 
 ## Risks / Trade-offs
-- **Hoot-only time is missing from odometry** (reboots without a new wpilog, and the 2025 hoots). This undercounts real wear. Mitigation: the device panel shows "sessions without aligned samples: N" from the ledger. A future change can derive hoot-clock silver.
-- **Rio TalonFX log at 4 Hz.** Rio-slot currents are coarse, and spikes between samples are invisible whatever the envelope. This is a robot-side SignalLogger setting: it gets a Replay header note and an issue.
+- **Hoot-only time is missing from odometry** (reboots without a new wpilog, and the 2025 hoots). This undercounts real wear. Mitigation: the device panel shows "sessions without aligned samples: N" from the ledger. A future change can derive hoot-clock silver (issue #21).
+- **Rio TalonFX log at 4 Hz.** Rio-slot currents are coarse, and spikes between samples are invisible whatever the envelope. This is a robot-side SignalLogger setting: it gets a Replay header note and issue #20.
 - **Plain-JS front end**, the area Josh likes least. It is kept small: no framework, no build step, one DOM helper, and uPlot for charts.
 - **The design is ahead of the data** (see Non-Goals). The shell and the API whitelist make each missing metric a data task, not a UI rewrite.
 - **`--host 0.0.0.0` exposes read-only lake data and raw logs to the pit network**, with no auth (a proposal non-goal). The default binding is local, and the flag prints a warning.
