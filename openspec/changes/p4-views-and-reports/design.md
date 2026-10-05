@@ -84,8 +84,9 @@ notebooks/                  README + one example marimo notebook for students (n
   - `h(tag, attrs, ...children)` builds DOM through textContent only.
   - `track(el, opts)` wraps uPlot with the shell theme.
 
-  Live, Pit, and Anomalies later become one file in `views/` plus one `register` call each.
-- **No build step:** plain ES modules and vendored files. The front end needs no Node or bun.
+  Live, Pit, and Anomalies later become one file in `views/` plus one `FP.view` call each.
+- *Implementation note (tokens):* the handoff's `design/tokens.json` (Ignite tokens shared with Mnemosyne) arrived with the canvas, so `tokens.css` and `shell.css` lift its `prototype/css` verbatim. Its values differ slightly from the list above (`--amber-mid` is #E0A12A, and there are separate `--surface-*` and `--line-*` steps); the handoff wins.
+- **No build step:** plain scripts and vendored files. The front end needs no Node or bun. *Implementation note:* classic scripts under one `FP` global, not ES modules. Chromium refuses module scripts from `file://` (origin `null`), and the static export must open by double-click. Views register with `FP.view(...)`; data files keep `FP.register(...)`.
 - **Fonts:** vendored woff2 (SIL OFL) with `@font-face`. The canvas loads them from Google Fonts, which breaks offline use.
 
 ### Charts: uPlot
@@ -126,7 +127,7 @@ uPlot (about 50 KB, MIT) is vendored. It replaces the old site's Plotly 2.35.2 (
   - battery proxy: FAULT below 6.75 V held ≥ 20 ms, WARN below 8.0 V;
   - stall intervals from physics;
   - sample gaps over 1 s during the match.
-- **Escaping (fixes #56):** views build the DOM only through `h()`. A lint test greps `web/static/**/*.js` for `innerHTML`, `outerHTML`, `insertAdjacentHTML`, inline `on*=`, `eval`, and `new Function`. A CSP `<meta>` limits scripts to the app (`script-src 'self'`), which the browser test verifies. File-origin CSP differs between browsers: if Chromium rejects `'self'` on file://, the static export drops `script-src`, and the `h()` rule stays the actual guard.
+- **Escaping (fixes #56):** views build the DOM only through `h()`. A lint test greps `web/static/**/*.js` for `innerHTML`, `outerHTML`, `insertAdjacentHTML`, inline `on*=`, `eval`, and `new Function`. A CSP `<meta>` limits scripts to the app (`script-src 'self'`), which the browser test verifies. File-origin CSP differs between browsers: if Chromium rejects `'self'` on file://, the static export drops `script-src`, and the `h()` rule stays the actual guard. *Recorded (browser test `test_csp_holds_on_file`):* Chromium accepts `script-src 'self'` on file:// (the app's scripts load) and still enforces it (an injected inline script is refused), so no fallback was needed. `frame-ancestors` is sent only as a server header, because browsers ignore it in a `<meta>`.
 
 ### Incremental builds (fixes #37)
 - `<lake>/report/site-state.json` maps each match key to:
