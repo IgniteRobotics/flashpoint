@@ -38,6 +38,14 @@ def test_constant_draw_energy() -> None:
     )
     features = motor_features(frame, 0, 60 * S)
     assert features["supply_energy_wh"] == pytest.approx(2.0, rel=1e-3)
+    assert features["supply_voltage_min"] == 12.0
+
+
+def test_supply_voltage_min_and_absent() -> None:
+    volts = _series("supply_voltage", [(0.0, 12.4), (1.0, 7.1), (2.0, 11.8), (9.0, 6.0)])
+    assert motor_features(_frame(volts), 0, 5 * S)["supply_voltage_min"] == 7.1  # 9 s is out
+    currents = _series("supply_current", [(0.0, 1.0)])
+    assert motor_features(_frame(currents), 0, 5 * S)["supply_voltage_min"] is None
 
 
 def _motor_constants(t_end: float) -> list[tuple[str, int, float]]:

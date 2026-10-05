@@ -7,7 +7,7 @@ from pathlib import Path
 PIPELINE_VERSION = 2  # v2: health profile adds DriveState/Pose, RotorVelocity, motor constants
 # Bump whenever silver or gold output changes; `flashpoint derive` recomputes every session
 # (bronze is untouched, so no re-ingest).
-DERIVE_VERSION = 2  # v2: gold/unit_usage; stall threshold 0.4 -> 0.2 of stall current
+DERIVE_VERSION = 2  # v2: gold/unit_usage, supply_voltage_min; stall threshold 0.4 -> 0.2
 
 LAKE_ENV = "FLASHPOINT_LAKE"
 CACHE_ENV = "FLASHPOINT_CACHE"
