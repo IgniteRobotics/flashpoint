@@ -33,11 +33,11 @@
 
 ## 5. Server and API (spec: match-reports, lifetime-trends)
 
-- [ ] 5.1 Tests first for `web/server.py`: routes (`/`, `/static`, `/data`, `/raw/<sha256>/<name>` for ledger hashes only, `/api`), 404 for everything else including traversal, `--host` warning, clean exit on interrupt, lazy DuckDB (idle RSS < 150 MB)
-- [ ] 5.2 Implement the server; `serve` runs an incremental report build on start (`--no-build` skips it)
-- [ ] 5.3 Tests first for `web/api.py`: each endpoint's JSON shape, 400 on unknown parameters, empty-lake message, the lake is byte-identical after exercising every endpoint
-- [ ] 5.4 Implement the API over `views/queries.py`
-- [ ] 5.5 Corpus test: the API answers for Q7 and E10, and raw download hashes equal the ledger hashes
+- [x] 5.1 Tests first for `web/server.py`: routes (`/`, `/static`, `/data`, `/raw/<sha256>/<name>` for ledger hashes only, `/api`), 404 for everything else including traversal, `--host` warning, clean exit on interrupt, lazy DuckDB (idle RSS < 150 MB)
+- [x] 5.2 Implement the server; `serve` runs an incremental report build on start (`--no-build` skips it)
+- [x] 5.3 Tests first for `web/api.py`: each endpoint's JSON shape, 400 on unknown parameters, empty-lake message, the lake is byte-identical after exercising every endpoint
+- [x] 5.4 Implement the API over `views/queries.py`
+- [x] 5.5 Corpus test: the API answers for Q7 and E10, and raw download hashes equal the ledger hashes
 
 ## 6. App shell and design tokens (spec: match-reports "Shared app shell")
 

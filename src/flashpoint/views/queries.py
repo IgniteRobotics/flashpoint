@@ -15,6 +15,7 @@ from typing import Any
 import duckdb
 
 from flashpoint.lake.paths import LakePaths
+from flashpoint.report.names import download_name
 from flashpoint.report.settings import ReportConfig
 from flashpoint.semantics.robot_config import RobotConfig
 
@@ -77,7 +78,7 @@ _META_COLUMNS = {
         "robot": "VARCHAR",
         "match_key": "VARCHAR",
     },
-    "logs": {"log_id": "VARCHAR", "utc_start": "VARCHAR"},
+    "logs": {"log_id": "VARCHAR", "kind": "VARCHAR", "filename": "VARCHAR", "utc_start": "VARCHAR"},
     "slot_observations": {
         "session_id": "VARCHAR",
         "slot_id": "VARCHAR",
@@ -85,6 +86,8 @@ _META_COLUMNS = {
         "source": "VARCHAR",
         "from_ts_us": "BIGINT",
     },
+    "session_hoots": {"log_id": "VARCHAR", "session_id": "VARCHAR", "bus": "VARCHAR"},
+    "files": {"sha256": "VARCHAR", "kind": "VARCHAR", "size": "BIGINT"},
 }
 
 
@@ -385,6 +388,42 @@ class HistoryQueries:
             "powered_h": hours,
             "units_warn_hot": len(flagged),
         }
+
+    # --- raw logs ------------------------------------------------------------------------
+
+    def sources(self, match_key: str) -> list[dict[str, Any]]:
+        """Raw logs of every session with this match key (for AdvantageScope downloads)."""
+        rows = self._rows(
+            """
+            WITH ids AS (
+                SELECT s.session_id, s.wpilog_id AS log_id, 'wpilog' AS part
+                FROM meta_sessions s WHERE s.match_key = ? AND s.wpilog_id IS NOT NULL
+                UNION ALL
+                SELECT s.session_id, h.log_id, coalesce(h.bus, 'hoot') AS part
+                FROM meta_sessions s JOIN meta_session_hoots h USING (session_id)
+                WHERE s.match_key = ?
+            )
+            SELECT ids.session_id, ids.log_id AS sha256, ids.part,
+                coalesce(l.kind, f.kind) AS kind, l.filename AS name, f.size
+            FROM ids LEFT JOIN meta_logs l USING (log_id)
+            LEFT JOIN meta_files f ON f.sha256 = ids.log_id
+            ORDER BY ids.session_id, ids.part = 'wpilog' DESC, ids.log_id
+            """,
+            [match_key, match_key],
+        )
+        for row in rows:
+            row["kind"] = row["kind"] or "hoot"
+            row["name"] = row["name"] or f"{row['sha256']}.{row['kind']}"
+            row["download"] = download_name(match_key, row["part"], row["name"])
+        return rows
+
+    def raw_hashes(self) -> set[str]:
+        """Every file hash the ledger snapshot knows (the only raw files served)."""
+        return {r["sha256"] for r in self._rows("SELECT sha256 FROM meta_files", [])}
+
+    def raw_kind(self, sha256: str) -> str | None:
+        rows = self._rows("SELECT kind FROM meta_files WHERE sha256 = ?", [sha256])
+        return rows[0]["kind"] if rows else None
 
     # --- units ---------------------------------------------------------------------------
 

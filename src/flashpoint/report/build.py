@@ -22,6 +22,8 @@ import duckdb
 
 from flashpoint.lake.paths import LakePaths
 from flashpoint.report import envelope, markers
+from flashpoint.report.names import download_name
+from flashpoint.report.paths import data_dir, file_stem, state_path
 from flashpoint.report.settings import ReportConfig, load_report_config
 from flashpoint.semantics.robot_config import RobotConfig, load_robots
 from flashpoint.semantics.silver import silver_dir
@@ -33,7 +35,6 @@ DUCKDB_MEMORY_LIMIT = "256MB"
 DUCKDB_THREADS = 2
 SLOW_HZ = 20.0  # a slot whose current logs slower than this gets a header note
 ALIGNMENT_RANK = {"high": 0, "low": 1, "very-low": 2}
-_KEY = re.compile(r"^[0-9a-z_]+$")
 _LABELS = {"qm": "Q", "pm": "P", "e": "E", "sf": "SF", "f": "F"}
 _FEATURES = (
     "temp_max_c",
@@ -44,22 +45,6 @@ _FEATURES = (
     "stall_s",
     "supply_voltage_min",
 )
-
-
-def report_dir(lake: LakePaths) -> Path:
-    return lake.root / "report"
-
-
-def data_dir(lake: LakePaths) -> Path:
-    return report_dir(lake) / "data"
-
-
-def state_path(lake: LakePaths) -> Path:
-    return report_dir(lake) / "site-state.json"
-
-
-def file_stem(match_key: str) -> str:
-    return match_key if _KEY.match(match_key) else re.sub(r"[^0-9a-z_]", "_", match_key.lower())
 
 
 def match_label(match_key: str) -> str:
@@ -73,16 +58,6 @@ def match_label(match_key: str) -> str:
 
 def event_of(match_key: str) -> str:
     return match_key.split("_", 1)[0]
-
-
-def safe_name(name: str) -> str:
-    """A file name safe on every OS (the original name is shown as text, not used as a path)."""
-    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._") or "file"
-    return cleaned[:150]
-
-
-def download_name(match_key: str, part: str, original: str) -> str:
-    return safe_name(f"{match_key}__{part}__{original}")
 
 
 def to_script(call: str, payload: Any) -> str:
