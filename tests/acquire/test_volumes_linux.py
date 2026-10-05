@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,11 @@ MOUNTINFO = (
 
 USB_PATH = "devices/pci0000:00/0000:00:14.0/usb1/1-2/1-2:1.0/host6/target6:0:0/6:0:0:0/block"
 NVME_PATH = "devices/pci0000:00/0000:00:1d.0/0000:3d:00.0/nvme/nvme0/nvme0n1"
+
+# The fake /sys tree mirrors real sysfs names, which contain ':' and can't exist on NTFS.
+fake_sysfs = pytest.mark.skipif(
+    sys.platform == "win32", reason="fake /sys tree needs ':' in directory names"
+)
 
 
 def _symlink(target: Path, link: Path) -> None:
@@ -75,26 +81,31 @@ def test_candidates_limited_to_media_roots_and_block_devices() -> None:
     assert got == {"/dev/nvme0n1p3", "/dev/sdb1", "/dev/sdc1", "/dev/sdd1"}
 
 
+@fake_sysfs
 def test_stick_removable_flag_accepted(fake_sys: tuple[Path, Path]) -> None:
     sys, _ = fake_sys
     assert linux.is_removable_device("sdb1", sys) is True
 
 
+@fake_sysfs
 def test_usb_ssd_with_removable_zero_accepted_by_bus_path(fake_sys: tuple[Path, Path]) -> None:
     sys, _ = fake_sys
     assert linux.is_removable_device("sdc1", sys) is True
 
 
+@fake_sysfs
 def test_internal_nvme_rejected(fake_sys: tuple[Path, Path]) -> None:
     sys, _ = fake_sys
     assert linux.is_removable_device("nvme0n1p3", sys) is False
 
 
+@fake_sysfs
 def test_unknown_device_rejected(fake_sys: tuple[Path, Path]) -> None:
     sys, _ = fake_sys
     assert linux.is_removable_device("sdz9", sys) is False
 
 
+@fake_sysfs
 def test_detect_end_to_end(fake_sys: tuple[Path, Path], tmp_path: Path) -> None:
     sys, by_uuid = fake_sys
     mountinfo = tmp_path / "mountinfo"
@@ -108,6 +119,7 @@ def test_detect_end_to_end(fake_sys: tuple[Path, Path], tmp_path: Path) -> None:
     }
 
 
+@fake_sysfs
 def test_detect_missing_by_uuid_dir_falls_back_to_label(
     fake_sys: tuple[Path, Path], tmp_path: Path
 ) -> None:
