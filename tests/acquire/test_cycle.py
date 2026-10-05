@@ -514,6 +514,9 @@ subprocess.run(json.loads(real), check=True, stdout=subprocess.DEVNULL)
 pulse = "import pathlib, sys, time\\nwhile True:\\n"
 pulse += "    pathlib.Path(sys.argv[1]).write_text(str(time.monotonic_ns()))\\n    time.sleep(0.05)"
 subprocess.Popen([sys.executable, "-c", pulse, beat])
+# Signal "ingested" only once the grandchild is beating, or a stop can end it before it starts.
+while not pathlib.Path(beat).exists():
+    time.sleep(0.01)
 pathlib.Path(marker).write_text("done")
 time.sleep(30)
 """

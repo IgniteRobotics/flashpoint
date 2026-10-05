@@ -308,13 +308,16 @@ def test_watch_polls_threads_derive_pending_and_stops_promptly(lake: LakePaths) 
     stop = threading.Event()
     codes: list[int] = []
     thread = threading.Thread(
-        target=lambda: codes.append(run_acquire(config, lake, watch=True, stop=stop, cycle=fake))
+        target=lambda: codes.append(run_acquire(config, lake, watch=True, stop=stop, cycle=fake)),
+        daemon=True,
     )
     thread.start()
-    _wait_for(lambda: len(fake.calls) >= 3)
-    stopped_at = time.monotonic()
-    stop.set()
-    thread.join(5)
+    try:
+        _wait_for(lambda: len(fake.calls) >= 3)
+    finally:  # a failed wait must not leave the watch running (pytest would hang at exit)
+        stopped_at = time.monotonic()
+        stop.set()
+        thread.join(5)
 
     assert not thread.is_alive() and codes == [0]
     assert time.monotonic() - stopped_at < 0.5  # the poll sleep is interrupted
@@ -336,12 +339,15 @@ def test_unwritable_status_is_logged_and_the_watch_continues(
         target=run_acquire,
         args=(config, lake),
         kwargs={"watch": True, "stop": stop, "cycle": fake},
+        daemon=True,
     )
     with caplog.at_level(logging.ERROR, logger="flashpoint.acquire.watch"):
         thread.start()
-        _wait_for(lambda: len(fake.calls) >= 2)
-        stop.set()
-        thread.join(5)
+        try:
+            _wait_for(lambda: len(fake.calls) >= 2)
+        finally:  # a failed wait must not leave the watch running (pytest would hang at exit)
+            stop.set()
+            thread.join(5)
 
     assert "cannot write acquire status" in caplog.text
     assert [p.name for p in lake.meta.iterdir() if p.name.startswith(".")] == []  # no temp left

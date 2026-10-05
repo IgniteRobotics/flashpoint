@@ -22,6 +22,8 @@ HOOT_ROOT = "/u/logs"
 SESSION_DIR = "session-2026-04-09_21-51-06"
 
 
+# Above the global 300 s timeout so a slow run fails on its own budget assertion, not a kill.
+@pytest.mark.timeout(BUDGET_S * 2)
 def test_q7_match_reaches_the_derived_tables_within_5_minutes(
     corpus_group: Callable[[str], list[Path]],
     fake_robot: FakeRobot,
