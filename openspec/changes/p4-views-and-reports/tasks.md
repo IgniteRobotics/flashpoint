@@ -14,12 +14,12 @@
 
 ## 3. History queries (spec: lifetime-trends, unit-odometry)
 
-- [ ] 3.1 Synthetic gold fixture builder: one season (60 matches × 3 phases × 23 slots) of match features and usage, plus slot observations covering a swap, a robot move, and a gap
-- [ ] 3.2 Tests first for `views/queries.py`: each filter (range, robot, event, match type, phase, subsystem, slot, unit) binds as a parameter and returns only matching rows; a hostile value is treated as data; the metric whitelist rejects unknown names
-- [ ] 3.3 Implement the trend queries: per unit with slot changes marked and gaps where the unit was not installed; per slot; low-alignment flag
-- [ ] 3.4 Implement the device table (current slot, serial, in-service span, latest value, change, sparkline, temperature health) and the summary tiles
-- [ ] 3.5 Implement the unit queries: odometry totals (filterable by season and robot), lifeline events (first seen, moved, replaced by, last seen) with identity source, closest-match lookup for unknown units, and sessions without aligned samples
-- [ ] 3.6 Perf test (`perf` marker): each query on the synthetic season returns in < 2 s
+- [x] 3.1 Synthetic gold fixture builder: one season (60 matches × 3 phases × 23 slots) of match features and usage, plus slot observations covering a swap, a robot move, and a gap
+- [x] 3.2 Tests first for `views/queries.py`: each filter (range, robot, event, match type, phase, subsystem, slot, unit) binds as a parameter and returns only matching rows; a hostile value is treated as data; the metric whitelist rejects unknown names
+- [x] 3.3 Implement the trend queries: per unit with slot changes marked and gaps where the unit was not installed; per slot; low-alignment flag
+- [x] 3.4 Implement the device table (current slot, serial, in-service span, latest value, change, sparkline, temperature health) and the summary tiles
+- [x] 3.5 Implement the unit queries: odometry totals (filterable by season and robot), lifeline events (first seen, moved, replaced by, last seen) with identity source, closest-match lookup for unknown units, and sessions without aligned samples
+- [x] 3.6 Perf test (`perf` marker): each query on the synthetic season returns in < 2 s
 
 ## 4. Replay data, envelopes, and markers (spec: match-reports)
 

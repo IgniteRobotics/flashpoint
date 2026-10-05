@@ -123,6 +123,8 @@ def motor_features(
     out["supply_current_mean"], out["supply_current_p95"] = stats("supply_current")
     out["stator_current_mean"], out["stator_current_p95"] = stats("stator_current")
     out["rotor_velocity_mean_rps"], _ = stats("rotor_velocity_rps")
+    volts = get("supply_voltage")
+    out["supply_voltage_min"] = float(volts.get_column("value").min()) if volts.height else None  # type: ignore[arg-type]
 
     temp = get("temp_c")
     out["temp_mean_c"], _ = stats("temp_c")
