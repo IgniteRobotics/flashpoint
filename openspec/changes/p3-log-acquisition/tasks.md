@@ -62,9 +62,9 @@
 
 ## 10. Docs
 
-- [ ] 10.1 Amend ADR-0009: container deferred, Linux user unit plus Windows scheduled task, Windows supported
-- [ ] 10.2 Update `docs/rewrite/05-target-architecture.md` (acquire layout, USB source, argparse not typer) and `06-roadmap.md` P3 (status, USB, Windows, container moved out)
-- [ ] 10.3 README: the acquire quick start
+- [x] 10.1 Amend ADR-0009: container deferred, Linux user unit plus Windows scheduled task, Windows supported
+- [x] 10.2 Update `docs/rewrite/05-target-architecture.md` (acquire layout, USB source, argparse not typer) and `06-roadmap.md` P3 (status, USB, Windows, container moved out)
+- [x] 10.3 README: the acquire quick start
 
 ## 11. Human verification
 

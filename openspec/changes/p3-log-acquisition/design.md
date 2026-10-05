@@ -42,7 +42,7 @@ deploy/windows/flashpoint-acquire.xml
 - The roadmap offered paramiko or asyncssh. paramiko wins, because the code base is sync end to end and only one robot is reachable at a time. Shelling out to `ssh` and `scp` repeats the legacy mistake (no rsync on the rio, no `sshpass` on Windows).
 - **Auth:** `lvuser` with an empty password by default. Try `auth_none`, then a password (configurable), with `look_for_keys=False` and `allow_agent=False`, so a laptop's SSH agent never prompts.
 - **Host keys:** a custom policy. Fingerprints are stored in `<cache_root>/known-robots.json`, a new one is recorded, and a changed one is logged as a warning and replaced. A reimaged rio changes its key, and this is a LAN-only threat model. It's documented in the operations notes.
-- **Throughput:** read with `SFTPFile.prefetch()` and 32 KiB requests. The plain paramiko `get` is known to run 3–10× slower without prefetch.
+- **Throughput:** read with a bounded reader (32 parallel 32 KiB requests per 1 MiB chunk) instead of whole-file `prefetch()`, which would leave the file queued and make a stop wait on `close()`. The plain paramiko `get` is known to run 3–10× slower without pipelining.
 - **Remote checks** use exec with `shlex.quote` paths: `sha256sum -- <path>` and `df -Pk -- <root>`. If `sha256sum` is missing (exit 127), the file is `size-verified`. If `df` fails, fall back to SFTP `statvfs`.
 - **Connect:** go through the candidates in order with a 2 s TCP timeout each, then a 10 s banner and auth timeout. Defaults are `10.68.29.2`, `roborio-6829-frc.local`, and `172.22.11.2`.
 
@@ -68,7 +68,7 @@ pulls(source_kind, source_id, remote_path, size, mtime_ns, sha256, status, attem
 
 ### Removable volume backends
 Each backend is a pure parser (unit-tested on captured output) plus a runner that calls the OS. It returns `Volume(id, label, mount)`.
-- **macOS:** list `/Volumes/*` (skip the symlink to `/`). For each entry, `diskutil info -plist <mount>` is parsed with `plistlib`. Accept when `(Ejectable or RemovableMedia or not Internal)` and `VirtualOrPhysical != "Virtual"`, and the filesystem is not `smbfs`, `afpfs`, `nfs`, or `webdav`. The ID is `VolumeUUID`.
+- **macOS:** list `/Volumes/*` (skip the symlink to `/`). For each entry, `diskutil info -plist <mount>` is parsed with `plistlib`. Accept when `(Ejectable or RemovableMedia or not Internal)`, `VirtualOrPhysical != "Virtual"`, and `BusProtocol != "Disk Image"` (a real mounted .dmg has no `VirtualOrPhysical` and reports Ejectable and External, so the first rule alone would accept it), and the filesystem is not `smbfs`, `afpfs`, `nfs`, or `webdav`. The ID is `VolumeUUID`.
 - **Linux:** parse `/proc/self/mountinfo` and keep block devices under `/media`, `/run/media`, or `/mnt`. Resolve the partition to its disk through `/sys/class/block/<dev>`. Accept when `/sys/block/<disk>/removable == 1`, or when the resolved device path contains `/usb`. The ID is the filesystem UUID from `/dev/disk/by-uuid`.
 - **Windows:** one `powershell -NoProfile -Command` call that emits JSON with `DriveLetter`, `BusType`, `UniqueId`, and `FileSystemLabel` from `Get-Partition`, `Get-Disk`, and `Get-Volume`. Accept `BusType` values `USB`, `SD`, or `MMC`. The ID is the volume `UniqueId` GUID.
 - **Scan:** walk to depth 4 with `os.scandir`, skipping dot-directories, `System Volume Information`, `$RECYCLE.BIN`, `.Spotlight-V100`, `.Trashes`, and `.fseventsd`.
@@ -77,22 +77,26 @@ Each backend is a pure parser (unit-tested on captured output) plus a runner tha
 
 ### The cycle and ingest handoff
 1. Robot pulls and volume copies land in the inbox. A failure in one source never stops the others.
-2. If the inbox has any non-`.part` stable files, run `[sys.executable, "-m", "flashpoint", "ingest", inbox, "--lake", L]` as a subprocess. `ingest` already starts `derive` in a further subprocess. The watch process itself stays small.
+2. If the inbox has any non-`.part` stable files, run `[sys.executable, "-m", "flashpoint", "ingest", <settled paths>, "--no-derive", "--lake", L]` as a subprocess, in batches of 200 paths. It gets the explicit settled inbox paths, never the inbox directory, so a manual drop landing mid-cycle can't be ingested half-written. Then one `derive` subprocess runs and its exit is checked. A derive failure is recorded in status, and derive re-runs on later cycles until it succeeds. Ingest and derive each run in their own process group, which is ended on stop. The watch process itself stays small.
 3. Read each inbox file's SHA (from `pulls`, or hash it for manual drops). Remove the file if the ledger stage is `success` or `quarantined`, or if it was skipped because it's already in the ledger. On a non-zero exit with no ledger change, keep everything.
-4. `incomplete-read` for include-active pulls: the cycle calls a new `Ledger.add_warning(sha, "incomplete-read")` after ingest. Hoots truncated by power loss already get this from owlet.
-5. Backup runs if raw or the ledger changed and 15 minutes have passed since the last one.
-6. Status is written atomically (temp file plus `os.replace`).
+4. An include-active file that grows during the pull is copied to its listed size and recorded `size-verified`. The same relpath under two roots waits as `inbox-occupied` until the inbox clears.
+5. `incomplete-read` for include-active pulls: the cycle calls a new `Ledger.add_warning(sha, "incomplete-read")` after ingest. Hoots truncated by power loss already get this from owlet.
+6. Backup runs if raw or the ledger changed and 15 minutes have passed since the last one.
+7. Status is written atomically (temp file plus `os.replace`).
 
 ### Locking
 `<lake>/meta/acquire.lock` is held with `fcntl.flock(LOCK_EX | LOCK_NB)` on POSIX and `msvcrt.locking(LK_NBLCK)` on Windows. The holder's PID, host, and start time are written into the file so the error message can name it. The OS releases the lock when the process dies, which is the stale-lock takeover. There are no PID liveness checks (`os.kill(pid, 0)` terminates the process on Windows).
 
 ### Signals
+`acquire` exit codes: 0 ok (also when a watch is stopped), 1 source or step errors, 2 config error, 3 lock held, 130 a one-shot cycle stopped.
+
 SIGINT and SIGTERM (and Ctrl-C/Ctrl-Break on Windows) set a stop flag. The transfer loop checks it between 1 MiB chunks, unlinks the `.part`, and exits. Worst case is 5 s or less, since one chunk takes well under a second.
 
 ### Backup (rclone)
 - `rclone copy --immutable <lake>/raw <remote>/raw`. `--immutable` makes rclone refuse to overwrite a remote file that differs, so raw on the remote is append-only.
-- **Meta:** use `sqlite3.Connection.backup` to `<lake>/tmp/meta-snapshot/flashpoint.sqlite`, alongside the Parquet snapshots and status, then `rclone sync` that folder to `<remote>/meta/latest`. Snapshots are consistent because the SQLite online backup API copies a transactionally consistent image.
-- **Restore:** refuse if the target ledger exists, unless `--force`. Copy remote raw into `lake/raw` and `meta/latest` into `lake/meta`. Set `pipeline_version = NULL` on every file, so `needs_processing` is true. Then print `run: flashpoint rebuild`. `rebuild` reprocesses from raw because the version differs, then runs `derive --all` itself.
+- Raw backup excludes `*.part`. `flashpoint backup` and `flashpoint restore` take the acquire lock, and a manual backup updates the status backup slot.
+- **Meta:** use `sqlite3.Connection.backup` to `<lake>/tmp/meta-snapshot/flashpoint.sqlite`, alongside the existing `meta/*.parquet` snapshots copied as files (not re-exported, to keep pyarrow out of the watch and inside the RSS budget) and the status, then `rclone sync` that folder to `<remote>/meta/latest`. Snapshots are consistent because the SQLite online backup API copies a transactionally consistent image.
+- **Restore:** refuse if the target ledger exists, unless `--force`. Copy remote raw into `lake/raw` and `meta/latest` into `lake/meta`. Don't import the source's `acquire-status.json`. Set `pipeline_version = NULL` on every file, so `needs_processing` is true. Then print `run: flashpoint rebuild`. `rebuild` reprocesses from raw because the version differs, then runs `derive --all` itself.
 - Settings are `backup.remote` (for example `gdrive:flashpoint`) and `backup.interval_min` (default 15). Flashpoint never reads rclone credentials. If `rclone` isn't on `PATH`, that's a status error, not a crash.
 
 ### Configuration (`<config_root>/acquire.toml`)
@@ -133,6 +137,8 @@ A `windows-latest` job runs `ruff`, `mypy`, and `pytest -m "not corpus"` on Pyth
 | Transfer | ≥ 3 MB/s over the radio, ≥ 10 MB/s over the tether | paramiko with prefetch; measured in the `[HUMAN]` live-rio task |
 | Time to lake, one match (~100 MB of logs) | ≤ 5 min | pull ~35 s + ingest ~6 s + derive ~30 s, well inside |
 | Remote `sha256sum` on the rio | ~1–2 s per 100 MB | rio ARM; measured in the live task |
+
+Heavy imports (polars, duckdb, pyarrow) are deferred off the acquire path, and a guard test (`tests/acquire/test_acquire_imports.py`) enforces it. Measured: watch RSS ~55 MB on macOS; time to lake for corpus q7 ~16 s.
 
 The idle-cycle and watch-RSS budgets get perf tests against the fake SFTP server. Transfer and remote-hash numbers come from the live task.
 
