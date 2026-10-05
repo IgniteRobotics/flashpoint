@@ -11,7 +11,12 @@ from pathlib import Path
 import flashpoint
 from flashpoint import config
 from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
-from flashpoint.acquire.watch import describe_status, read_status, run_acquire
+from flashpoint.acquire.watch import (
+    StatusFormatError,
+    describe_status,
+    read_status,
+    run_acquire,
+)
 from flashpoint.ingest import Ingestor, IngestReport
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
@@ -127,6 +132,18 @@ def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
     )
 
 
+def _acquire_status(lake: LakePaths) -> list[str]:
+    if not lake.status.exists():
+        return ["no acquire status yet"]
+    status = read_status(lake.status)
+    try:
+        if status is None:
+            raise StatusFormatError("not a JSON object")
+        return describe_status(status)
+    except StatusFormatError as exc:
+        return [f"unreadable acquire status {lake.status}: {exc}"]
+
+
 def _doctor(lake: LakePaths) -> int:
     print(f"flashpoint {flashpoint.__version__} (pipeline v{config.PIPELINE_VERSION})")
     print(f"python     {platform.python_version()} on {hoot.platform_key()}")
@@ -164,8 +181,7 @@ def _doctor(lake: LakePaths) -> int:
             state = exc.reason
         print(f"  C{compliancy:<3} owlet {registry.version_for(compliancy):<10} {state}")
     print("acquire")
-    status = read_status(lake.status)
-    for line in describe_status(status) if status else ["no acquire status yet"]:
+    for line in _acquire_status(lake):
         print(f"  {line}")
     return 0
 

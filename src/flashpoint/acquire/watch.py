@@ -106,7 +106,10 @@ class AcquireLock:
         return self
 
     def __exit__(
-        self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
         self.release()
 
@@ -137,7 +140,7 @@ else:
 
 @contextlib.contextmanager
 def stop_on_signals(stop: threading.Event) -> Iterator[None]:
-    """SIGINT, SIGTERM (and SIGBREAK on Windows) set `stop`; a second one aborts at once.
+    """SIGINT, SIGTERM (and SIGBREAK on Windows) set `stop`; later ones are only logged.
 
     Ingest and derive run in their own process groups, so a terminal's Ctrl-C reaches only
     this process; the cycle ends them when it sees the flag. Main thread only.
@@ -147,9 +150,11 @@ def stop_on_signals(stop: threading.Event) -> Iterator[None]:
         return
 
     def handler(signum: int, _frame: FrameType | None) -> None:
+        name = signal.Signals(signum).name
         if stop.is_set():
-            raise KeyboardInterrupt
-        log.info("received %s: stopping", signal.Signals(signum).name)
+            log.info("received %s: already stopping", name)
+            return
+        log.info("received %s: stopping", name)
         stop.set()
 
     signums = [signal.SIGINT, signal.SIGTERM]
@@ -176,24 +181,38 @@ class StatusTracker:
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        previous = read_status(path) or {}
-        self._low_space: list[dict[str, Any]] = [
-            w for w in previous.get("warnings", []) if w.get("kind") == "low-space"
-        ]
-        self.backup: dict[str, Any] = previous.get("backup") or {"last_time": None, "result": None}
-        derive = previous.get("derive") or {}
-        self._derive_error: str | None = derive.get("error")
-        self.derive_pending = bool(derive.get("pending"))  # owed by an earlier run
+        self._low_space: list[dict[str, Any]] = []
+        self.backup: dict[str, Any] = {"last_time": None, "result": None}
+        self._derive_error: str | None = None
+        self.derive_pending = False  # owed by an earlier run
+        previous = read_status(path)
+        if previous is not None and previous.get("version") == STATUS_VERSION:
+            try:
+                self._restore(previous)
+            except (AttributeError, KeyError, TypeError):
+                log.warning("ignoring malformed acquire status %s", path)
         self.status: dict[str, Any] = {}
 
+    def _restore(self, previous: dict[str, Any]) -> None:
+        low_space = [
+            {"kind": "low-space", "host": str(w["host"]), "root": str(w["root"]),
+             "free_bytes": int(w["free_bytes"])}
+            for w in previous.get("warnings") or []
+            if w.get("kind") == "low-space"
+        ]  # fmt: skip
+        backup = previous.get("backup") or {}
+        derive = previous.get("derive") or {}
+        error = derive.get("error")
+        self._low_space = low_space
+        self.backup = {"last_time": backup.get("last_time"), "result": backup.get("result")}
+        self._derive_error = None if error is None else str(error)
+        self.derive_pending = bool(derive.get("pending"))
+
     def record(self, result: CycleResult) -> dict[str, Any]:
-        warned = {w.host for w in result.low_space}
-        read = {
-            s.id
-            for s in result.sources
-            if s.kind == "robot" and s.id and s.status != SourceStatus.ERROR
-        } | warned
-        self._low_space = [w for w in self._low_space if w["host"] not in read] + [
+        # A warning clears only when that host and root got a fresh reading.
+        read = {(r.host, r.root) for r in result.space_readings}
+        read |= {(w.host, w.root) for w in result.low_space}
+        self._low_space = [w for w in self._low_space if (w["host"], w["root"]) not in read] + [
             {"kind": "low-space", "host": w.host, "root": w.root, "free_bytes": w.free_bytes}
             for w in result.low_space
         ]
@@ -299,30 +318,55 @@ def _source_name(kind: str, name: str | None) -> str:
     return f"{kind} {name}" if name else kind
 
 
+class StatusFormatError(ValueError):
+    """The status file is from another version or not in the expected shape."""
+
+
+def _dicts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or not all(isinstance(v, dict) for v in value):
+        raise StatusFormatError(f"expected a list of objects, got {value!r:.60}")
+    return value
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise StatusFormatError(f"expected an object, got {value!r:.60}")
+    return value
+
+
 def describe_status(status: dict[str, Any]) -> list[str]:
-    """Lines for `flashpoint doctor`."""
-    cycle = status.get("last_cycle") or {}
+    """Lines for `flashpoint doctor`; `StatusFormatError` for an unknown or malformed file."""
+    if status.get("version") != STATUS_VERSION:
+        raise StatusFormatError(
+            f"status version {status.get('version')!r}, expected {STATUS_VERSION}"
+        )
+    cycle = _dict(status.get("last_cycle"))
     stopped = " (stopped)" if cycle.get("stopped") else ""
-    lines = [f"last cycle {cycle.get('finished') or cycle.get('started')}{stopped}"]
-    for s in status.get("sources", []):
-        name = _source_name(s["kind"], s.get("label") or s.get("id"))
+    lines = [f"last cycle {cycle.get('finished') or cycle.get('started') or '?'}{stopped}"]
+    for s in _dicts(status.get("sources", [])):
+        name = _source_name(str(s.get("kind", "?")), s.get("label") or s.get("id"))
         error = f" ({s['error']})" if s.get("error") else ""
-        moved = ", ".join(f"{n} {k}" for k, n in sorted((s.get("transfers") or {}).items()))
-        lines.append(f"{name}: {s['status']}{error}{f'; {moved}' if moved else ''}")
-    for w in status.get("warnings", []):
+        moved = ", ".join(f"{n} {k}" for k, n in sorted(_dict(s.get("transfers")).items()))
+        lines.append(f"{name}: {s.get('status', '?')}{error}{f'; {moved}' if moved else ''}")
+    for w in _dicts(status.get("warnings", [])):
         if w.get("kind") == "low-space":
-            lines.append(f"low-space {w['host']} {w['root']}: {w['free_bytes']} bytes free")
+            free = w.get("free_bytes", "?")
+            lines.append(f"low-space {w.get('host', '?')} {w.get('root', '?')}: {free} bytes free")
         else:
-            lines.append(f"{w.get('kind')} {w.get('host', '')}".rstrip())
-    for f in status.get("failed_files", []):
-        lines.append(f"failed {f['source_kind']} {f['source']} {f['path']}: {f['reason']}")
-    derive = status.get("derive") or {}
+            lines.append(f"{w.get('kind', '?')} {w.get('host', '')}".rstrip())
+    for f in _dicts(status.get("failed_files", [])):
+        where = f"{f.get('source_kind', '?')} {f.get('source', '?')} {f.get('path', '?')}"
+        lines.append(f"failed {where}: {f.get('reason')}")
+    derive = _dict(status.get("derive"))
     if derive.get("error"):
         lines.append(f"derive error: {derive['error']}")
     elif derive.get("pending"):
         lines.append("derive pending")
-    lines += [f"error: {e}" for e in status.get("errors", [])]
-    backup = status.get("backup") or {}
+    errors = status.get("errors", [])
+    lines += [f"error: {e}" for e in (errors if isinstance(errors, list) else [errors])]
+    backup = _dict(status.get("backup"))
     if backup.get("last_time"):
         lines.append(f"last backup {backup['last_time']}: {backup.get('result')}")
     else:

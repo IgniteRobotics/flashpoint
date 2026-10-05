@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import json
 import logging
@@ -14,11 +15,18 @@ from typing import Any
 import pytest
 
 from flashpoint.acquire.config import AcquireConfig
-from flashpoint.acquire.cycle import CycleResult, DeriveOutcome, SourceOutcome, SourceStatus
+from flashpoint.acquire.cycle import (
+    CycleResult,
+    DeriveOutcome,
+    SourceOutcome,
+    SourceStatus,
+    run_cycle,
+)
 from flashpoint.acquire.pulls import PullLedger, PullStatus
-from flashpoint.acquire.robot import LowSpaceWarning, RemoteFile
+from flashpoint.acquire.robot import LowSpaceWarning, RemoteFile, SpaceReading
 from flashpoint.acquire.transfer import PART_SUFFIX, robot_key
 from flashpoint.acquire.watch import (
+    EXIT_INTERRUPTED,
     EXIT_LOCKED,
     AcquireLock,
     LockHeldError,
@@ -351,10 +359,20 @@ def _robot(host: str, status: SourceStatus = SourceStatus.OK) -> SourceOutcome:
     return SourceOutcome("robot", host, host, status)
 
 
+def _read(host: str, root: str, free: int) -> SpaceReading:
+    return SpaceReading(host, root, free)
+
+
 def test_status_low_space_persists_until_a_later_reading_recovers(lake: LakePaths) -> None:
     tracker = StatusTracker(lake.status)
-    warning = LowSpaceWarning("rio", "/u/logs", 1234)
-    tracker.record(CycleResult(started="t1", sources=[_robot("rio")], low_space=[warning]))
+    tracker.record(
+        CycleResult(
+            started="t1",
+            sources=[_robot("rio")],
+            space_readings=[_read("rio", "/u/logs", 1234), _read("rio", ROOT, 10**9)],
+            low_space=[LowSpaceWarning("rio", "/u/logs", 1234)],
+        )
+    )
     assert tracker.write()
     low = [w for w in json.loads(lake.status.read_text())["warnings"] if w["kind"] == "low-space"]
     assert low == [{"kind": "low-space", "host": "rio", "root": "/u/logs", "free_bytes": 1234}]
@@ -367,8 +385,19 @@ def test_status_low_space_persists_until_a_later_reading_recovers(lake: LakePath
     restarted.write()
     assert [w["kind"] for w in json.loads(lake.status.read_text())["warnings"]] == ["low-space"]
 
-    # A reading above the threshold clears it.
-    restarted.record(CycleResult(started="t4", sources=[_robot("rio")]))
+    # Robot reachable but df failed for that root (only the other root was read): it stays.
+    restarted.record(
+        CycleResult(started="t4", sources=[_robot("rio")], space_readings=[_read("rio", ROOT, 1)])
+    )
+    restarted.write()
+    assert [w["root"] for w in json.loads(lake.status.read_text())["warnings"]] == ["/u/logs"]
+
+    # A reading of that root above the threshold clears it.
+    restarted.record(
+        CycleResult(
+            started="t5", sources=[_robot("rio")], space_readings=[_read("rio", "/u/logs", 10**9)]
+        )
+    )
     restarted.write()
     assert json.loads(lake.status.read_text())["warnings"] == []
 
@@ -447,3 +476,91 @@ def test_doctor_shows_the_acquire_status(
     assert "failed volume VOL-1 logs/y.hoot: read-error" in out
     assert "derive error" in out and "ValueError: bad slot" in out
     assert "last backup never" in out
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "{not json",
+        "[1, 2]",
+        json.dumps({"version": 99, "last_cycle": "future"}),
+        json.dumps({"version": 1, "sources": [{"kind": "robot"}], "warnings": "low"}),
+        json.dumps({"version": 1, "last_cycle": [], "failed_files": [{}]}),
+    ],
+)
+def test_doctor_reports_an_unreadable_status_instead_of_crashing(
+    lake: LakePaths, config_dir: Path, capsys: pytest.CaptureFixture[str], content: str
+) -> None:
+    lake.meta.mkdir(parents=True)
+    lake.status.write_text(content)
+
+    assert main(["doctor", "--lake", str(lake.root)]) == 0
+    assert "unreadable acquire status" in capsys.readouterr().out
+    tracker = StatusTracker(lake.status)  # a watch starting on it starts fresh
+    tracker.record(CycleResult(started="t"))
+    assert tracker.write()
+
+
+def test_doctor_tolerates_missing_optional_fields(
+    lake: LakePaths, config_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lake.meta.mkdir(parents=True)
+    lake.status.write_text(json.dumps({"version": 1, "sources": [{"kind": "robot"}],
+                                       "failed_files": [{"path": "x.hoot"}]}))  # fmt: skip
+
+    assert main(["doctor", "--lake", str(lake.root)]) == 0
+    out = capsys.readouterr().out
+    assert "robot: ?" in out and "x.hoot" in out and "last backup never" in out
+
+
+SLOW_INGEST = """
+import sys, time
+from pathlib import Path
+Path(sys.argv[1]).write_text(str(__import__("os").getpid()))
+time.sleep(60)
+"""
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pid liveness via os.kill(pid, 0) is POSIX")
+def test_second_signal_during_ingest_keeps_stopping_and_ends_the_ingest(
+    lake: LakePaths, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    pid_file = tmp_path / "ingest.pid"
+    drop = _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", b"log" * 10, 100)
+
+    def slow_ingest(_paths: Any, _lake: LakePaths) -> list[str]:
+        return [sys.executable, "-c", SLOW_INGEST, str(pid_file)]
+
+    def signal_twice() -> None:
+        _wait_for(pid_file.exists)
+        time.sleep(0.2)
+        # Back to back: both are pending before the main thread runs a handler, so both reach
+        # the acquire handlers (not the restored defaults).
+        signal.raise_signal(signal.SIGINT)
+        signal.raise_signal(signal.SIGTERM)
+
+    config = AcquireConfig(settle_s=0, removable_media=False)
+    sender = threading.Thread(target=signal_twice)
+    sender.start()
+    with caplog.at_level(logging.INFO, logger="flashpoint.acquire.watch"):
+        code = run_acquire(
+            config,
+            lake,
+            connect=lambda _c: None,
+            cycle=functools.partial(run_cycle, ingest_command=slow_ingest),
+        )
+    sender.join()
+
+    assert code == EXIT_INTERRUPTED
+    assert "already stopping" in caplog.text
+    assert not _alive(int(pid_file.read_text()))
+    assert drop.exists()
+    assert json.loads(lake.status.read_text())["last_cycle"]["stopped"] is True

@@ -58,6 +58,15 @@ class LowSpaceWarning:
     free_bytes: int
 
 
+@dataclass(frozen=True)
+class SpaceReading:
+    """Free space read for one configured root (unreadable roots have no reading)."""
+
+    host: str
+    root: str
+    free_bytes: int
+
+
 def low_space_warning(
     host: str, root: str, free_bytes: int, threshold_mb: int
 ) -> LowSpaceWarning | None:
@@ -65,6 +74,11 @@ def low_space_warning(
     if free_bytes < threshold_mb * _BYTES_PER_MB:
         return LowSpaceWarning(host, root, free_bytes)
     return None
+
+
+def low_space_warnings(readings: list[SpaceReading], threshold_mb: int) -> list[LowSpaceWarning]:
+    found = (low_space_warning(r.host, r.root, r.free_bytes, threshold_mb) for r in readings)
+    return [w for w in found if w is not None]
 
 
 def split_address(candidate: str) -> tuple[str, int]:
@@ -309,17 +323,18 @@ class RobotClient:
             return None
         return int(fields[1] * fields[4])
 
-    def low_space_warnings(self) -> list[LowSpaceWarning]:
-        """One warning per configured root below `low_space_mb`; unreadable roots are skipped."""
-        warnings: list[LowSpaceWarning] = []
+    def free_space(self) -> list[SpaceReading]:
+        """Free space of every configured root that could be read; unreadable roots are skipped."""
+        readings: list[SpaceReading] = []
         for root in self._config.roots:
             free = self.free_bytes(root)
-            if free is None:
-                continue
-            warning = low_space_warning(self.host, root, free, self._config.low_space_mb)
-            if warning is not None:
-                warnings.append(warning)
-        return warnings
+            if free is not None:
+                readings.append(SpaceReading(self.host, root, free))
+        return readings
+
+    def low_space_warnings(self) -> list[LowSpaceWarning]:
+        """One warning per configured root below `low_space_mb`; unreadable roots are skipped."""
+        return low_space_warnings(self.free_space(), self._config.low_space_mb)
 
     def _exec(self, command: str) -> tuple[int, str, str]:
         channel = self._transport.open_session(timeout=AUTH_TIMEOUT_S)
