@@ -24,6 +24,7 @@ from types import FrameType, TracebackType
 from typing import Any, Self, TextIO
 
 from flashpoint.acquire import volumes
+from flashpoint.acquire.backup import BackupSchedule
 from flashpoint.acquire.config import AcquireConfig
 from flashpoint.acquire.cycle import Connect, CycleResult, SourceStatus, run_cycle
 from flashpoint.acquire.pulls import PullLedger
@@ -176,13 +177,14 @@ class StatusTracker:
 
     A low-space warning stays active until a later reading of the same robot recovers, also
     across restarts (it is read back from the previous file), as does the backup slot.
-    `backup` is filled by the backup step: `{"last_time": iso | None, "result": str | None}`.
+    `backup` is filled by the backup step: `{"last_time": iso | None, "result": str | None,
+    "pending": bool}` (the last attempt, its outcome, and whether a backup is still owed).
     """
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self._low_space: list[dict[str, Any]] = []
-        self.backup: dict[str, Any] = {"last_time": None, "result": None}
+        self.backup: dict[str, Any] = {"last_time": None, "result": None, "pending": False}
         self._derive_error: str | None = None
         self.derive_pending = False  # owed by an earlier run
         previous = read_status(path)
@@ -204,7 +206,11 @@ class StatusTracker:
         derive = previous.get("derive") or {}
         error = derive.get("error")
         self._low_space = low_space
-        self.backup = {"last_time": backup.get("last_time"), "result": backup.get("result")}
+        self.backup = {
+            "last_time": backup.get("last_time"),
+            "result": backup.get("result"),
+            "pending": bool(backup.get("pending")),
+        }
         self._derive_error = None if error is None else str(error)
         self.derive_pending = bool(derive.get("pending"))
 
@@ -430,12 +436,14 @@ def _loop(
     media = RemovableMedia.from_config(config, pulls, lake.inbox, sleep=sleep, detect=detect)
     tracker = StatusTracker(lake.status)
     derive_pending = tracker.derive_pending
+    # Backup belongs to the watch; a one-shot acquire leaves it to `flashpoint backup`.
+    backup = BackupSchedule(config.backup, lake, tracker, stop) if watch else None
     try:
         while True:
             started = time.monotonic()
             result = cycle(
                 config, lake, pulls, media, stop=stop, include_active=include_active,
-                sleep=sleep, connect=connect, derive_pending=derive_pending,
+                sleep=sleep, connect=connect, derive_pending=derive_pending, backup=backup,
             )  # fmt: skip
             derive_pending = result.derive_pending
             tracker.record(result)

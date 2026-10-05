@@ -44,10 +44,10 @@
 
 ## 7. Backup and restore (spec: lake-backup)
 
-- [ ] 7.1 Tests first (fake `rclone` on `PATH`): raw copied with `--immutable`, never deleted; meta snapshot opens while a writer holds a transaction; no remote is skipped with a message; missing rclone is a status error and the cycle continues; nothing changed means no backup; 15 min interval respected
-- [ ] 7.2 Implement `acquire/backup.py` and `flashpoint backup`; wire it into the cycle
-- [ ] 7.3 Tests first: restore refuses an existing ledger without `--force`; restore resets `pipeline_version`
-- [ ] 7.4 Implement `flashpoint restore`; corpus restore drill with real rclone and a `:local:` remote (backup → restore → `rebuild` → equal hashes and gold features); add rclone to the CI corpus job
+- [x] 7.1 Tests first (fake `rclone` on `PATH`): raw copied with `--immutable`, never deleted; meta snapshot opens while a writer holds a transaction; no remote is skipped with a message; missing rclone is a status error and the cycle continues; nothing changed means no backup; 15 min interval respected
+- [x] 7.2 Implement `acquire/backup.py` and `flashpoint backup`; wire it into the cycle
+- [x] 7.3 Tests first: restore refuses an existing ledger without `--force`; restore resets `pipeline_version`
+- [x] 7.4 Implement `flashpoint restore`; corpus restore drill with real rclone and a `:local:` remote (backup → restore → `rebuild` → equal hashes and gold features); add rclone to the CI corpus job
 
 ## 8. Packaging
 

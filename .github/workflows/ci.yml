@@ -52,6 +52,8 @@ jobs:
           path: ~/.cache/flashpoint/owlet
           key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
       - run: poetry run python tools/fetch-corpus.py
+      - name: Install rclone (restore drill)
+        run: sudo apt-get update && sudo apt-get install -y rclone
       - run: poetry run pytest -m "corpus and not perf"
 
   perf:

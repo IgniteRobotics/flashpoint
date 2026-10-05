@@ -1,4 +1,4 @@
-"""`flashpoint` command line: ingest, rebuild, derive, acquire, doctor."""
+"""`flashpoint` command line: ingest, rebuild, derive, acquire, backup, restore, doctor."""
 
 import argparse
 import logging
@@ -11,8 +11,13 @@ from typing import TYPE_CHECKING
 
 import flashpoint
 from flashpoint import config
+from flashpoint.acquire.backup import BackupError, RestoreRefusedError, restore, run_backup
 from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
 from flashpoint.acquire.watch import (
+    EXIT_LOCKED,
+    LOCK_FILE,
+    AcquireLock,
+    LockHeldError,
     StatusFormatError,
     describe_status,
     read_status,
@@ -28,6 +33,7 @@ if TYPE_CHECKING:
 
 # The ingest, derive and robot-config modules pull in polars, duckdb and pyarrow; they are
 # imported inside the handlers that need them to keep `flashpoint acquire` small (watch RSS budget).
+EXIT_FAILED = 1
 EXIT_USAGE = 2
 
 
@@ -83,6 +89,22 @@ def _parser() -> argparse.ArgumentParser:
     acquire.add_argument("--no-usb", action="store_true", help="do not scan removable volumes")
     lake_arg(acquire)
 
+    backup = sub.add_parser(
+        "backup", help="copy raw files and a metadata snapshot to backup.remote now"
+    )
+    lake_arg(backup)
+
+    restore_cmd = sub.add_parser(
+        "restore", help="copy raw files and metadata from the backup remote into a new lake"
+    )
+    restore_cmd.add_argument(
+        "--force", action="store_true", help="restore over a lake that already has a ledger"
+    )
+    restore_cmd.add_argument(
+        "--remote", help="rclone remote:path to restore from (default: backup.remote)"
+    )
+    lake_arg(restore_cmd)
+
     doctor = sub.add_parser("doctor", help="report environment and lake health")
     lake_arg(doctor)
     return parser
@@ -136,6 +158,63 @@ def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
         include_active=args.include_active,
         dry_run=args.dry_run,
     )
+
+
+def _load_acquire_config() -> AcquireConfig | None:
+    try:
+        return AcquireConfig.load(config.config_root())
+    except AcquireConfigError as exc:
+        print(f"acquire configuration error: {exc}", file=sys.stderr)
+        return None
+
+
+def _backup(lake: LakePaths) -> int:
+    settings = _load_acquire_config()
+    if settings is None:
+        return EXIT_USAGE
+    remote = settings.backup.remote
+    if not remote:
+        print(f"backup not configured: set backup.remote in {config.config_root()}/acquire.toml")
+        return 0
+    try:
+        with AcquireLock(lake.meta / LOCK_FILE):
+            print(run_backup(lake, remote))
+    except LockHeldError as exc:
+        print(f"{exc}; a running watch backs up on its own", file=sys.stderr)
+        return EXIT_LOCKED
+    except (BackupError, OSError) as exc:
+        print(f"backup failed: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    return 0
+
+
+def _restore(lake: LakePaths, remote: str | None, force: bool) -> int:
+    settings = _load_acquire_config()
+    if settings is None:
+        return EXIT_USAGE
+    remote = remote or settings.backup.remote
+    if not remote:
+        print("no remote: pass --remote or set backup.remote in acquire.toml", file=sys.stderr)
+        return EXIT_USAGE
+    if lake.ledger.exists() and not force:  # checked before the lock file is created
+        print(f"{lake.ledger} already exists; restore into a new lake, or pass --force",
+              file=sys.stderr)  # fmt: skip
+        return EXIT_FAILED
+    try:
+        with AcquireLock(lake.meta / LOCK_FILE):
+            count = restore(lake, remote, force=force)
+    except LockHeldError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_LOCKED
+    except RestoreRefusedError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_FAILED
+    except (BackupError, OSError) as exc:
+        print(f"restore failed: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"restored {count} file(s) from {remote}; bronze, silver and gold must be rebuilt")
+    print("run: flashpoint rebuild")
+    return 0
 
 
 def _acquire_status(lake: LakePaths) -> list[str]:
@@ -204,6 +283,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _doctor(lake)
     if args.command == "derive":
         return _derive(lake, force=args.all)
+    if args.command == "backup":
+        return _backup(lake)
+    if args.command == "restore":
+        return _restore(lake, args.remote, args.force)
     if args.command == "acquire":
         if args.watch and args.dry_run:
             print("--dry-run runs a single cycle; drop --watch", file=sys.stderr)
