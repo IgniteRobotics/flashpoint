@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pit check · Flashpoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+<div id="app-header" data-active="pit"></div>
+
+<section class="band verdict-band" aria-label="Verdict">
+  <div class="verdict" id="verdict"><span class="group__label">READY FOR QUEUE?</span><span class="verdict__word" aria-live="polite">NOT CHECKED</span></div>
+  <div class="verdict-text">
+    <div class="meta" style="letter-spacing:.14em">NEXT · QUAL 47 · BLUE 1 · QUEUE [TIME]</div>
+    <p class="prose prose--article" id="verdict-text" style="margin-top:8px"></p>
+  </div>
+  <button type="button" class="btn btn--primary btn--lg" id="run" style="padding:0 24px">RUN CHECKS</button>
+</section>
+
+<div class="layout">
+  <main class="main pad" id="main">
+    <h2 class="h-section">Pre-match checks <span class="h-section__aside" id="progress">not run</span></h2>
+    <div id="checks"></div>
+    <p class="meta muted" style="margin-top:16px">GO needs zero faults and every warning acknowledged. Warnings never block you silently; they make you decide.</p>
+  </main>
+  <aside class="rail-r panel panel--rail-r" aria-label="Battery fleet" style="flex-basis:400px">
+    <h2 class="label">Battery fleet</h2>
+    <p class="meta" style="line-height:1.6;margin-bottom:14px">Resting voltage and internal resistance from the last battery test. Pick the one going in the robot.</p>
+    <div class="table-wrap"><table class="table" style="min-width:360px">
+      <thead><tr><th scope="col">ID</th><th scope="col" style="text-align:right">Rest V</th><th scope="col" style="text-align:right">mΩ</th><th scope="col" style="text-align:right">Cycles</th><th scope="col" style="text-align:right">Use</th></tr></thead>
+      <tbody id="fleet"></tbody>
+    </table></div>
+    <div class="legend" style="margin-top:12px"><span>● ≤ 15 mΩ healthy</span><span style="color:var(--amber-hi)">▲ 16–20 mΩ worn</span><span class="hot">✕ &gt; 20 mΩ retire</span></div>
+  </aside>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/pit.js"></script>
+</body>
+</html>

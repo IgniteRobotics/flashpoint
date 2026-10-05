@@ -1,0 +1,369 @@
+{
+  "serial": "…3B44",
+  "rows": [
+    {
+      "match": "2026 · DIST 1 · M1",
+      "slot": "drive_br",
+      "peakTempC": 53.25,
+      "spinTestA": 2.09,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M2",
+      "slot": "drive_br",
+      "peakTempC": 53.38,
+      "spinTestA": 2.11,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M3",
+      "slot": "drive_br",
+      "peakTempC": 51.04,
+      "spinTestA": 2.09,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M4",
+      "slot": "drive_br",
+      "peakTempC": 53.25,
+      "spinTestA": 2.06,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M5",
+      "slot": "drive_br",
+      "peakTempC": 51.69,
+      "spinTestA": 2.11,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M6",
+      "slot": "drive_br",
+      "peakTempC": 52.57,
+      "spinTestA": 2.05,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M7",
+      "slot": "drive_br",
+      "peakTempC": 49.93,
+      "spinTestA": 2.05,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M8",
+      "slot": "drive_br",
+      "peakTempC": 53.19,
+      "spinTestA": 2.07,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M9",
+      "slot": "drive_br",
+      "peakTempC": 49.99,
+      "spinTestA": 2.06,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M10",
+      "slot": "drive_br",
+      "peakTempC": 53.62,
+      "spinTestA": 2.11,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M11",
+      "slot": "drive_br",
+      "peakTempC": 49.14,
+      "spinTestA": 2.06,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M12",
+      "slot": "drive_br",
+      "peakTempC": 51.85,
+      "spinTestA": 2.08,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 1 · M13",
+      "slot": "drive_br",
+      "peakTempC": 51.07,
+      "spinTestA": 2.09,
+      "faultCount": 1
+    },
+    {
+      "match": "2026 · DIST 1 · M14",
+      "slot": "drive_br",
+      "peakTempC": 50.75,
+      "spinTestA": 2.1,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M1",
+      "slot": "drive_br",
+      "peakTempC": 53.82,
+      "spinTestA": 2.1,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M2",
+      "slot": "drive_br",
+      "peakTempC": 52.92,
+      "spinTestA": 2.05,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M3",
+      "slot": "drive_br",
+      "peakTempC": 53,
+      "spinTestA": 2.05,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M4",
+      "slot": "drive_br",
+      "peakTempC": 51.84,
+      "spinTestA": 2.08,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M5",
+      "slot": "drive_br",
+      "peakTempC": 50.56,
+      "spinTestA": 2.06,
+      "faultCount": 1
+    },
+    {
+      "match": "2026 · DIST 2 · M6",
+      "slot": "drive_br",
+      "peakTempC": 51.65,
+      "spinTestA": 2.08,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M7",
+      "slot": "drive_br",
+      "peakTempC": 50.1,
+      "spinTestA": 2.05,
+      "faultCount": 1
+    },
+    {
+      "match": "2026 · DIST 2 · M8",
+      "slot": "drive_br",
+      "peakTempC": 50.73,
+      "spinTestA": 2.11,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M9",
+      "slot": "drive_br",
+      "peakTempC": 53.49,
+      "spinTestA": 2.1,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M10",
+      "slot": "drive_br",
+      "peakTempC": 52.6,
+      "spinTestA": 2.09,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M11",
+      "slot": "drive_br",
+      "peakTempC": 53.47,
+      "spinTestA": 2.06,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M12",
+      "slot": "drive_br",
+      "peakTempC": 54.37,
+      "spinTestA": 2.1,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M13",
+      "slot": "drive_br",
+      "peakTempC": 54.19,
+      "spinTestA": 2.06,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DIST 2 · M14",
+      "slot": "drive_br",
+      "peakTempC": 51.97,
+      "spinTestA": 2.05,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M1",
+      "slot": "drive_br",
+      "peakTempC": 51.49,
+      "spinTestA": 2.11,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M2",
+      "slot": "drive_br",
+      "peakTempC": 51.8,
+      "spinTestA": 2.11,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M3",
+      "slot": "drive_br",
+      "peakTempC": 53.43,
+      "spinTestA": 2.13,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M4",
+      "slot": "drive_br",
+      "peakTempC": 51.66,
+      "spinTestA": 2.16,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M5",
+      "slot": "drive_br",
+      "peakTempC": 51.91,
+      "spinTestA": 2.21,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M6",
+      "slot": "drive_br",
+      "peakTempC": 49.87,
+      "spinTestA": 2.22,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M7",
+      "slot": "drive_br",
+      "peakTempC": 52.47,
+      "spinTestA": 2.27,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M8",
+      "slot": "drive_br",
+      "peakTempC": 53.62,
+      "spinTestA": 2.28,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M9",
+      "slot": "drive_br",
+      "peakTempC": 54.02,
+      "spinTestA": 2.33,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M10",
+      "slot": "drive_br",
+      "peakTempC": 51.84,
+      "spinTestA": 2.34,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M11",
+      "slot": "drive_br",
+      "peakTempC": 50.65,
+      "spinTestA": 2.36,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M12",
+      "slot": "drive_br",
+      "peakTempC": 53.44,
+      "spinTestA": 2.36,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M13",
+      "slot": "drive_br",
+      "peakTempC": 51.36,
+      "spinTestA": 2.42,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M14",
+      "slot": "drive_br",
+      "peakTempC": 54.42,
+      "spinTestA": 2.46,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M15",
+      "slot": "drive_br",
+      "peakTempC": 53.08,
+      "spinTestA": 2.43,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · DCMP · M16",
+      "slot": "drive_br",
+      "peakTempC": 51.28,
+      "spinTestA": 2.45,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · OFF · M1",
+      "slot": "drive_br",
+      "peakTempC": 46.3,
+      "spinTestA": 2.52,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · OFF · M2",
+      "slot": "drive_br",
+      "peakTempC": 49.39,
+      "spinTestA": 2.55,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · OFF · M3",
+      "slot": "drive_br",
+      "peakTempC": 46.48,
+      "spinTestA": 2.59,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · OFF · M4",
+      "slot": "drive_br",
+      "peakTempC": 46.61,
+      "spinTestA": 2.57,
+      "faultCount": 1
+    },
+    {
+      "match": "2026 · OFF · M5",
+      "slot": "drive_br",
+      "peakTempC": 47.53,
+      "spinTestA": 2.58,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · OFF · M6",
+      "slot": "drive_br",
+      "peakTempC": 50.26,
+      "spinTestA": 2.64,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · OFF · M7",
+      "slot": "drive_br",
+      "peakTempC": 47.95,
+      "spinTestA": 2.66,
+      "faultCount": 0
+    },
+    {
+      "match": "2026 · OFF · M8",
+      "slot": "drive_br",
+      "peakTempC": 49.58,
+      "spinTestA": 2.69,
+      "faultCount": 0
+    }
+  ]
+}

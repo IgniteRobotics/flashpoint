@@ -9,6 +9,7 @@ MotorKV in rpm/V and MotorStallCurrent in A):
     expected stator current = (motor voltage - rotor speed * 60 / KV) * stall current / 12 V
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,19 +23,30 @@ US_PER_S = 1_000_000
 class PhysicsConfig:
     hold_cap_us: int = 1_000_000
     asof_tolerance_us: int = 50_000
-    stall_current_fraction: float = 0.4
+    stall_current_fraction: float = 0.2  # P4 corpus spike: limited stalls read 0.20-0.30
     stall_velocity_rps: float = 0.5
     nominal_voltage: float = 12.0
     current_p: float = 0.95
+    thermal_rise_c: float = 10.0  # a thermal cycle arms this far above the low since the last
+    thermal_fall_c: float = 3.0  # and counts once the reading falls this far from its peak
 
 
 DEFAULT_CONFIG = PhysicsConfig()
 
 
 def _held(
-    frame: pl.DataFrame, metric: str, start_us: int, end_us: int, cap_us: int
+    frame: pl.DataFrame,
+    metric: str,
+    start_us: int,
+    end_us: int,
+    cap_us: int,
+    breaks: Sequence[int] = (),
 ) -> pl.DataFrame:
-    """Samples of `metric` within [start, end) with `w_s`, the seconds each value is held."""
+    """Samples of `metric` within [start, end) with `w_s`, the seconds each value is held.
+
+    A value never holds past the next of `breaks` (e.g. the start of the disabled gap between
+    auto and teleop, whose samples the caller excluded).
+    """
     rows = (
         frame.filter(
             (pl.col("metric") == metric) & (pl.col("t_us") >= start_us) & (pl.col("t_us") < end_us)
@@ -42,13 +54,13 @@ def _held(
         .select("t_us", "value")
         .sort("t_us")
     )
+    t = rows.get_column("t_us").to_numpy()
+    following = rows.get_column("t_us").shift(-1).fill_null(end_us).to_numpy()
+    if len(breaks):
+        bounds = np.array([*sorted(breaks), end_us], dtype=np.int64)
+        following = np.minimum(following, bounds[np.searchsorted(bounds, t, side="right")])
     return rows.with_columns(
-        (
-            pl.min_horizontal(
-                pl.col("t_us").shift(-1).fill_null(end_us) - pl.col("t_us"), pl.lit(cap_us)
-            )
-            / US_PER_S
-        ).alias("w_s")
+        pl.Series("w_s", np.minimum(following - t, cap_us) / US_PER_S, dtype=pl.Float64)
     )
 
 
@@ -82,11 +94,20 @@ def _constant(frame: pl.DataFrame, metric: str) -> float | None:
 
 
 def motor_features(
-    frame: pl.DataFrame, start_us: int, end_us: int, config: PhysicsConfig = DEFAULT_CONFIG
+    frame: pl.DataFrame,
+    start_us: int,
+    end_us: int,
+    config: PhysicsConfig = DEFAULT_CONFIG,
+    breaks: Sequence[int] = (),
 ) -> dict[str, Any]:
-    """Features for one motor over [start, end). `frame` has columns metric, t_us, value."""
+    """Features for one motor over [start, end). `frame` has columns metric, t_us, value.
+
+    `breaks` are times no sample holds past (see `_held`)."""
     cap, tol = config.hold_cap_us, config.asof_tolerance_us
-    held = {m: _held(frame, m, start_us, end_us, cap) for m in frame.get_column("metric").unique()}
+    held = {
+        m: _held(frame, m, start_us, end_us, cap, breaks)
+        for m in frame.get_column("metric").unique()
+    }
     empty = pl.DataFrame(schema={"t_us": pl.Int64, "value": pl.Float64, "w_s": pl.Float64})
 
     def get(metric: str) -> pl.DataFrame:
@@ -102,6 +123,8 @@ def motor_features(
     out["supply_current_mean"], out["supply_current_p95"] = stats("supply_current")
     out["stator_current_mean"], out["stator_current_p95"] = stats("stator_current")
     out["rotor_velocity_mean_rps"], _ = stats("rotor_velocity_rps")
+    volts = get("supply_voltage")
+    out["supply_voltage_min"] = float(volts.get_column("value").min()) if volts.height else None  # type: ignore[arg-type]
 
     temp = get("temp_c")
     out["temp_mean_c"], _ = stats("temp_c")

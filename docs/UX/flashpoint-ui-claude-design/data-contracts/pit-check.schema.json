@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flashpoint.local/schemas/pit-check.schema.json",
+  "title": "PitCheckRun",
+  "type": "object",
+  "required": [
+    "runId",
+    "battery",
+    "checks",
+    "verdict"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "battery": {
+      "type": "string"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "state",
+          "detail"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "warn",
+              "fault"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "ack",
+              "clear",
+              null
+            ]
+          },
+          "ackedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ackedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "verdict": {
+      "enum": [
+        "NOT_CHECKED",
+        "CHECKING",
+        "NO_GO",
+        "DECIDE",
+        "GO"
+      ],
+      "description": "any fault → NO_GO; else unacked warn → DECIDE; else GO"
+    }
+  }
+}

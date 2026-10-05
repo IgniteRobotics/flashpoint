@@ -1,0 +1,80 @@
+{
+  "runId": "pit_demo_0001",
+  "startedAt": null,
+  "battery": "B04",
+  "checks": [
+    {
+      "id": "can",
+      "name": "CAN bus",
+      "state": "ok",
+      "detail": "24 of 24 devices responding · 0 bus-off events",
+      "action": null,
+      "ackedBy": null,
+      "ackedAt": null
+    },
+    {
+      "id": "fw",
+      "name": "Firmware",
+      "state": "warn",
+      "detail": "Shooter R on 26.1.0.0; all other TalonFX on 26.1.1.1",
+      "action": "ack",
+      "ackedBy": null,
+      "ackedAt": null
+    },
+    {
+      "id": "sticky",
+      "name": "Sticky faults",
+      "state": "fault",
+      "detail": "Indexer: stator current limit (from Qual 42). Review in Replay, then clear.",
+      "action": "clear",
+      "ackedBy": null,
+      "ackedAt": null
+    },
+    {
+      "id": "battery",
+      "name": "Battery B04",
+      "state": "ok",
+      "detail": "12.94 V resting · 14 mΩ · 22 cycles",
+      "action": null,
+      "ackedBy": null,
+      "ackedAt": null
+    },
+    {
+      "id": "temps",
+      "name": "Motor temps",
+      "state": "ok",
+      "detail": "All motors under 45 °C · hottest Shooter L at 43 °C",
+      "action": null,
+      "ackedBy": null,
+      "ackedAt": null
+    },
+    {
+      "id": "radio",
+      "name": "Radio + driver station",
+      "state": "ok",
+      "detail": "Link 2.1 ms · 0 dropped packets · firmware current",
+      "action": null,
+      "ackedBy": null,
+      "ackedAt": null
+    },
+    {
+      "id": "vision",
+      "name": "Vision",
+      "state": "ok",
+      "detail": "2 cameras · pipelines loaded · 30 fps",
+      "action": null,
+      "ackedBy": null,
+      "ackedAt": null
+    },
+    {
+      "id": "homing",
+      "name": "Mechanism homing",
+      "state": "ok",
+      "detail": "Climber and intake at home position",
+      "action": null,
+      "ackedBy": null,
+      "ackedAt": null
+    }
+  ],
+  "verdict": "NO_GO"
+}

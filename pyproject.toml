@@ -20,13 +20,14 @@ mypy = "^1.18"
 robotpy-wpiutil = "^2026.2.2"
 types-paramiko = "^5.0.0.20260724"
 pytest-timeout = "^2.4.0"
+pytest-playwright = "^0.9.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers -q -m \"not corpus and not perf\""
+addopts = "--strict-markers -q -m \"not corpus and not perf and not browser\""
 testpaths = ["tests"]
 # A hang dumps every thread's stack and aborts the whole run (the "thread" method cannot fail
 # just the one test); it also works on Windows.
@@ -35,6 +36,7 @@ timeout_method = "thread"
 markers = [
     "corpus: tests that need the golden log corpus (run tools/fetch-corpus.py first)",
     "perf: timing/memory budget tests (need the corpus; run on demand or in the perf CI job)",
+    "browser: Chromium tests of the web app (playwright install chromium; the browser CI job)",
 ]
 
 [tool.ruff]

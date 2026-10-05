@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device history · Flashpoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+<div id="app-header" data-active="history"></div>
+
+<section class="band" aria-label="Range and filters">
+  <div class="group"><span class="group__label">RANGE</span><span class="seg" id="ranges"></span></div>
+  <div class="group"><span class="group__label">DEVICES</span><span class="seg" id="types"></span></div>
+  <div class="band__spacer"></div>
+  <div class="group" id="stats" style="gap:24px"></div>
+</section>
+
+<div class="layout">
+  <main class="main pad" id="main">
+    <div class="title-row" style="align-items:center">
+      <h2 class="h-section" style="border:0;margin:0;padding:0" id="metric-title"></h2>
+      <span class="seg" id="metrics"></span>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-y"><span style="top:18px" id="yhi"></span><span style="bottom:0" id="ylo"></span></div>
+      <div class="chart" id="chart" role="img"></div>
+    </div>
+    <div class="legend" id="chart-legend" style="margin:8px 0 0 44px"></div>
+    <h2 class="section-label" style="margin-top:28px"><span id="table-title"></span></h2>
+    <div class="table-wrap"><table class="table" style="min-width:760px">
+      <thead><tr><th scope="col">Device</th><th scope="col">Serial</th><th scope="col">In service</th><th scope="col" style="text-align:right" id="col1">Matches</th><th scope="col" style="text-align:right" id="col2">Faults</th><th scope="col">Trend</th><th scope="col">Health</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </main>
+  <aside class="rail-r panel panel--rail-r" aria-label="Device lifeline" id="device"></aside>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/history.js"></script>
+</body>
+</html>

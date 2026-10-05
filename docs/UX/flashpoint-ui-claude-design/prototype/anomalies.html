@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anomalies · Flashpoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+<div id="app-header" data-active="anomalies"></div>
+
+<section class="band" aria-label="Summary">
+  <div class="clock"><span class="clock__time" id="open-count" style="font-size:56px">0</span><span style="font-size:13px;line-height:1.4;color:var(--amber-hi)">open anomalies<br><span class="meta" id="open-sub"></span></span></div>
+  <div class="group"><span class="group__label">SHOW</span><span class="seg" id="tabs"></span></div>
+  <div class="band__spacer"></div>
+  <div class="group"><span class="group__label">SENSITIVITY</span><span class="seg" id="sens"></span></div>
+</section>
+
+<div class="layout">
+  <nav class="rail-l panel panel--rail-l" aria-label="Anomaly queue" style="flex-basis:380px">
+    <h2 class="label" id="list-title"></h2>
+    <div id="list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <h2 class="label label--spaced">How Flashpoint flags things</h2>
+    <div class="syntax" id="methods" style="display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--amber-dim)"></div>
+  </nav>
+  <main class="main pad" id="main" aria-live="polite"></main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/anomalies.js"></script>
+</body>
+</html>

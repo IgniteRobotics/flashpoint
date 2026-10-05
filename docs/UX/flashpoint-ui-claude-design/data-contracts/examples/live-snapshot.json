@@ -1,0 +1,156 @@
+{
+  "t": 100,
+  "match": {
+    "label": "Qual 42",
+    "alliance": "Blue 2",
+    "phase": "TELEOP",
+    "remaining": 50,
+    "recording": "Q42.wpilog"
+  },
+  "vitals": {
+    "batteryV": 8.56,
+    "minBatteryV": 5.94,
+    "totalCurrentA": 330.56,
+    "canUtilPct": 61.92,
+    "loopMs": 12.13,
+    "overruns": 13,
+    "brownout": true
+  },
+  "mechanisms": [
+    {
+      "slot": "drive_fl",
+      "serial": "…3A17",
+      "currentA": 48.79,
+      "tempC": 44,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "drive_fr",
+      "serial": "…3A52",
+      "currentA": 58.76,
+      "tempC": 44,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "drive_bl",
+      "serial": "…3B09",
+      "currentA": 49.72,
+      "tempC": 43,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "drive_br",
+      "serial": "…3B44",
+      "currentA": 40.52,
+      "tempC": 45,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "intake",
+      "serial": "…5C11",
+      "currentA": 1.2,
+      "tempC": 36,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "indexer",
+      "serial": "…0EC8",
+      "currentA": 35.86,
+      "tempC": 39,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "shooter_l",
+      "serial": "…7B42",
+      "currentA": 45.57,
+      "tempC": 62,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "shooter_r",
+      "serial": "…7B90",
+      "currentA": 44.15,
+      "tempC": 51,
+      "status": "ok",
+      "faults": []
+    },
+    {
+      "slot": "climber",
+      "serial": "…6D73",
+      "currentA": 0,
+      "tempC": 24,
+      "status": "ok",
+      "faults": []
+    }
+  ],
+  "events": [
+    {
+      "id": "start",
+      "time": 0,
+      "level": "INFO",
+      "src": "fms",
+      "msg": "Match start · AUTO"
+    },
+    {
+      "id": "auto1",
+      "time": 3.2,
+      "level": "INFO",
+      "src": "auto",
+      "msg": "Routine \"Center-4\" started"
+    },
+    {
+      "id": "auto2",
+      "time": 14.8,
+      "level": "INFO",
+      "src": "auto",
+      "msg": "Routine complete · 4 of 4 segments"
+    },
+    {
+      "id": "tele",
+      "time": 15,
+      "level": "INFO",
+      "src": "fms",
+      "msg": "TELEOP"
+    },
+    {
+      "id": "can",
+      "time": 41.6,
+      "level": "WARN",
+      "src": "can",
+      "msg": "CAN utilization peaked at 78%"
+    },
+    {
+      "id": "loop",
+      "time": 63,
+      "level": "WARN",
+      "src": "loop",
+      "msg": "Loop overrun: 26.4 ms"
+    },
+    {
+      "id": "jam",
+      "time": 88,
+      "level": "FAULT",
+      "src": "indexer",
+      "msg": "Stator current limit held for 1.5 s"
+    },
+    {
+      "id": "brownout",
+      "time": 97,
+      "level": "FAULT",
+      "src": "power",
+      "msg": "Brownout: outputs disabled 0.21 s"
+    }
+  ],
+  "link": {
+    "rxMs": 3.1,
+    "dropped": 0,
+    "rateHz": 50
+  }
+}

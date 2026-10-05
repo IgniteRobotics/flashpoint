@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flashpoint.local/schemas/device.schema.json",
+  "title": "Device",
+  "description": "Registry entry. Devices are identified by serial; slots are install spans.",
+  "type": "object",
+  "required": [
+    "serial",
+    "kind",
+    "model",
+    "installs",
+    "life"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "serial": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name (usually current slot)"
+    },
+    "kind": {
+      "enum": [
+        "motor",
+        "battery",
+        "controller",
+        "sensor"
+      ]
+    },
+    "model": {
+      "type": "string"
+    },
+    "retired": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "installs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "robot",
+          "slot",
+          "fromMatch"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "robot": {
+            "type": "string"
+          },
+          "slot": {
+            "type": "string"
+          },
+          "fromMatch": {
+            "type": "string"
+          },
+          "toMatch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "life": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "when",
+          "kind",
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "when": {
+            "type": "string",
+            "description": "Match reference, e.g. '2026 · DCMP · M12'"
+          },
+          "kind": {
+            "enum": [
+              "install",
+              "move",
+              "repair",
+              "firmware",
+              "threshold",
+              "anomaly",
+              "retire",
+              "note"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "author": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "anomaly": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
