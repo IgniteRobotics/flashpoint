@@ -2,6 +2,7 @@ import hashlib
 import io
 import logging
 import os
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -349,6 +350,10 @@ def test_stop_mid_file_returns_promptly_without_draining_the_file(
     assert pull_ledger.query("SELECT * FROM pulls") == []  # a stop is not an attempt
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the fake robot serves a host directory, and NTFS can't hold a name with '\\'",
+)
 def test_robot_path_with_backslash_or_colon_is_skipped(
     fake_robot: FakeRobot,
     connect_robot: Callable[[], RobotClient],
