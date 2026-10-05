@@ -1,6 +1,6 @@
 # 0007. Lifetime UI: marimo apps over DuckDB
 
-- Status: Proposed
+- Status: Superseded by [0013](0013-views-one-local-app.md) (2026-10-05)
 - Date: 2026-10-04
 - Refs: 04 §3, D7
 

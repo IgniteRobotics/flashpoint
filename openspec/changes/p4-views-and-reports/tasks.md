@@ -69,9 +69,9 @@
 
 ## 10. Docs and wrap-up
 
-- [ ] 10.1 ADR-0013 "Views: one local app in the canvas shell" (supersedes ADR-0007; mark 0007 Superseded); amend ADR-0006 (Replay static export, about 1000-bucket envelopes, script-tag data, uPlot); update `docs/rewrite/05-target-architecture.md` (D7 row, §7, layout)
-- [ ] 10.2 `notebooks/README.md` and one example marimo notebook using `views/queries.py`
-- [ ] 10.3 Update the `docs/rewrite/06-roadmap.md` P4 status and add a Live/Pit follow-up change to the roadmap; README usage for `report` and `serve`
+- [x] 10.1 ADR-0013 "Views: one local app in the canvas shell" (supersedes ADR-0007; mark 0007 Superseded); amend ADR-0006 (Replay static export, about 1000-bucket envelopes, script-tag data, uPlot); update `docs/rewrite/05-target-architecture.md` (D7 row, §7, layout)
+- [x] 10.2 `notebooks/README.md` and one example marimo notebook using `views/queries.py`
+- [x] 10.3 Update the `docs/rewrite/06-roadmap.md` P4 status and add a Live/Pit follow-up change to the roadmap; README usage for `report` and `serve`
 - [ ] 10.4 File GitHub issues: `DeviceEnable` dropped by silver; no battery-voltage signal; rio TalonFX status signals at 4 Hz; hoot-only sessions missing from odometry; design metrics without data (faults, firmware, spin test, batteries)
 - [ ] 10.5 Full gate: ruff, mypy --strict, pytest, corpus e2e, browser tests, and perf; then open the PR into `rewrite`
 
