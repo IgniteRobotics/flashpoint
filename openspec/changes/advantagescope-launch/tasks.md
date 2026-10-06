@@ -29,7 +29,7 @@
 
 - [x] 5.1 Windows CI: discovery against the fake `C:\Users\Public\wpilib\<year>` tree, staging by hard link and by copy, and the guard; these all pass on `windows-latest`
 - [ ] 5.2 [HUMAN] On a Linux laptop with WPILib 2026, record the AdvantageScope executable's path under `~/wpilib/2026/advantagescope/` and the standalone install path, then correct the design table and the discovery rule if they differ
-- [ ] 5.3 [HUMAN] On the Windows pit machine, confirm the WPILib and standalone AdvantageScope paths and whether the lake and `%TEMP%` share a volume (link or copy), and record the results in design.md
+- [ ] 5.3 [HUMAN] On the Windows pit machine, confirm the WPILib and standalone AdvantageScope paths (staging always copies on Windows), and record the results in design.md
 
 ## 6. Docs
 
