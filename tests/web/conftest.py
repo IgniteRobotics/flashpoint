@@ -25,8 +25,11 @@ class Running:
     server: FlashpointServer
     base: str
 
-    def get(self, path: str, method: str = "GET") -> Reply:
-        request = Request(self.base + path, method=method)  # noqa: S310 - local test server
+    def get(
+        self, path: str, method: str = "GET", body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Reply:  # fmt: skip
+        request = Request(self.base + path, data=body, headers=headers or {}, method=method)  # noqa: S310 - local test server
         try:
             with urlopen(request) as response:  # noqa: S310
                 return Reply(response.status, dict(response.headers), response.read())
@@ -44,8 +47,12 @@ class Running:
 def serve() -> Iterator[Any]:
     started: list[FlashpointServer] = []
 
-    def start(lake: LakePaths, static_dir: Path | None = None, robots: Any = None) -> Running:
-        kwargs = {"static_dir": static_dir} if static_dir else {}
+    def start(
+        lake: LakePaths, static_dir: Path | None = None, robots: Any = None, launcher: Any = None
+    ) -> Running:
+        kwargs: dict[str, Any] = {"static_dir": static_dir} if static_dir else {}
+        if launcher is not None:
+            kwargs["launcher"] = launcher
         server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake, robots), **kwargs)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
