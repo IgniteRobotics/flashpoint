@@ -35,7 +35,7 @@
 
 - [x] 6.1 Write ADR-0014 "Guarded local AdvantageScope launch" (amends 0013, refines D8, cites #54), and add it to `docs/adr/README.md`
 - [x] 6.2 Update `docs/rewrite/05-target-architecture.md` D8 (mechanism: launch when local, otherwise download), the P4 follow-up note in `docs/rewrite/06-roadmap.md`, and the README's `serve` section; `openspec validate advantagescope-launch` passes
-- [ ] 6.3 Full gate: ruff, mypy --strict, pytest (unit, corpus, browser), then open the PR into `rewrite`
+- [x] 6.3 Full gate: ruff, mypy --strict, pytest (unit, corpus, browser), then open the PR into `rewrite`
 
 ## 7. [HUMAN] Field check
 
