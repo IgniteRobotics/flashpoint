@@ -28,7 +28,7 @@
 
 - [x] 4.1 Verify the gate, and confirm the new acquirer has run unattended at least once against a robot. **Gate overridden** (Josh, 2026-10-06): P3 is merged but not archived (human 11.x tasks open), and the unattended robot run is not confirmed. The legacy stack was already non-functional, and it stays recoverable from `legacy-2025`
 - [x] 4.2 Delete `docker-services/`, `docker-compose.yml`, `.dockerignore`, `drive-backup.py`
-- [ ] 4.3 CI passes. Merge through a PR
+- [x] 4.3 CI passes. Merge through a PR (#28)
 
 ## 5. Stage 2d: viewer (gate: p4-views-and-reports archived)
 
