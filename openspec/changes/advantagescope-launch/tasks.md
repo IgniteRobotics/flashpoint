@@ -1,23 +1,23 @@
 ## 1. Locating AdvantageScope (spec: advantagescope-launch, "Locating AdvantageScope")
 
-- [ ] 1.1 Tests first: build fake install trees for each platform key (WPILib 2025 and 2026, standalone, nothing) and an explicit config path that is present or missing. Assert the chosen path and `found_by` for each, and that a missing explicit path is an error with no fallback; tests fail
-- [ ] 1.2 Implement discovery in a new launcher module, and add the `[advantagescope] path` key (empty by default) to `config/report.toml`; 1.1 passes on macOS, Linux and Windows CI
-- [ ] 1.3 `flashpoint doctor` prints the AdvantageScope path and the rule that found it (or "not found"), and the staging mode (link or copy); test the output for each case and verify by hand with `flashpoint doctor` on this laptop (it should show WPILib 2026)
+- [x] 1.1 Tests first: build fake install trees for each platform key (WPILib 2025 and 2026, standalone, nothing) and an explicit config path that is present or missing. Assert the chosen path and `found_by` for each, and that a missing explicit path is an error with no fallback; tests fail
+- [x] 1.2 Implement discovery in a new launcher module, and add the `[advantagescope] path` key (empty by default) to `config/report.toml`; 1.1 passes on macOS, Linux and Windows CI
+- [x] 1.3 `flashpoint doctor` prints the AdvantageScope path and the rule that found it (or "not found"), and the staging mode (link or copy); test the output for each case and verify by hand with `flashpoint doctor` on this laptop (it should show WPILib 2026)
 
 ## 2. Staging (spec: advantagescope-launch, "Raw logs staged under readable names")
 
-- [ ] 2.1 Tests first on the corpus lake: staging a match yields one folder of `<match_key>__…` files whose SHA-256 equals the ledger hash; the raw store is byte-identical afterwards; a repeat run reuses the folder with no duplicates; a size-mismatched leftover is replaced
-- [ ] 2.2 Tests first: when the hard link fails (forced through the seam), staging falls back to a copy and the result is the same; a missing raw file stages nothing and names the hash; an `incomplete-read` hoot is staged and flagged
-- [ ] 2.3 Tests first: the start-up cleanup removes only `flashpoint-as/*` folders older than 24 h, leaves newer folders, sibling temp files and symlink targets alone, and never follows symlinks
+- [x] 2.1 Tests first on the corpus lake: staging a match yields one folder of `<match_key>__…` files whose SHA-256 equals the ledger hash; the raw store is byte-identical afterwards; a repeat run reuses the folder with no duplicates; a size-mismatched leftover is replaced
+- [x] 2.2 Tests first: when the hard link fails (forced through the seam), staging falls back to a copy and the result is the same; a missing raw file stages nothing and names the hash; an `incomplete-read` hoot is staged and flagged
+- [x] 2.3 Tests first: the start-up cleanup removes only `flashpoint-as/*` folders older than 24 h, leaves newer folders, sibling temp files and symlink targets alone, and never follows symlinks
 - [ ] 2.4 Implement staging (hard link, then a streaming copy with a 1 MiB buffer) and the cleanup; 2.1–2.3 pass, including on Windows CI
 
 ## 3. Launch and request guard (spec: advantagescope-launch, "Guarded launch request", "Launch is local only", "AdvantageScope opened on the match's wpilog")
 
-- [ ] 3.1 Tests first for the guard matrix (bound host × client address × `Host` × `Origin` × `X-Flashpoint` × content type): only the all-local row reaches the spawn seam, every other row gets 403 with a reason, and GET, OPTIONS and other methods never spawn
-- [ ] 3.2 Tests first for the request body: hostile and unknown match keys give 404 and an unchanged lake; extra `path`/`args` fields have no effect; a hoot-only match gives 409 "no wpilog" and spawns nothing; a spawn `OSError` gives 500 with a reason
-- [ ] 3.3 Implement `GET /api/launch` (availability) and `POST /api/launch` in `web/server.py` and `web/api.py`; every other non-GET route still answers 405. Update the existing read-only test; 3.1–3.2 pass
-- [ ] 3.4 Implement the spawn function: `open -a` for a macOS `.app`, a direct executable otherwise; `shell=False`, detached, all I/O to `DEVNULL`, never waited on. POSIX test with a stand-in script that records its argv: exactly one argument (the staged wpilog), a name with spaces and a quote arrives intact, and the server answers another request while the stand-in is still running
-- [ ] 3.5 Run the start-up cleanup in `flashpoint serve`, and run discovery once at start. A serve test shows the launch is reported unavailable with `--host 0.0.0.0`
+- [x] 3.1 Tests first for the guard matrix (bound host × client address × `Host` × `Origin` × `X-Flashpoint` × content type): only the all-local row reaches the spawn seam, every other row gets 403 with a reason, and GET, OPTIONS and other methods never spawn
+- [x] 3.2 Tests first for the request body: hostile and unknown match keys give 404 and an unchanged lake; extra `path`/`args` fields have no effect; a hoot-only match gives 409 "no wpilog" and spawns nothing; a spawn `OSError` gives 500 with a reason
+- [x] 3.3 Implement `GET /api/launch` (availability) and `POST /api/launch` in `web/server.py` and `web/api.py`; every other non-GET route still answers 405. Update the existing read-only test; 3.1–3.2 pass
+- [x] 3.4 Implement the spawn function: `open -a` for a macOS `.app`, a direct executable otherwise; `shell=False`, detached, all I/O to `DEVNULL`, never waited on. POSIX test with a stand-in script that records its argv: exactly one argument (the staged wpilog), a staging path with spaces and a quote arrives intact, and the server answers another request while the stand-in is still running
+- [x] 3.5 Run the start-up cleanup in `flashpoint serve`, and run discovery once at start. A serve test shows the launch is reported unavailable with `--host 0.0.0.0`
 
 ## 4. Front end (spec: match-reports, "Open in AdvantageScope"; lifetime-trends, "Drill-through to Replay and raw logs")
 

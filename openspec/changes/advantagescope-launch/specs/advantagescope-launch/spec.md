@@ -83,9 +83,9 @@ The launch SHALL start AdvantageScope with exactly one argument: the staged wpil
 - **WHEN** the launch runs for `2026johnson_qm15` with a stand-in program configured as AdvantageScope
 - **THEN** the stand-in is started once with a single argument, the staged `2026johnson_qm15__wpilog__…wpilog` path; the result lists the two staged hoots; and the server answers other requests while the stand-in is still running
 
-#### Scenario: File names with spaces and quotes
-- **WHEN** a match's original wpilog name contains spaces and a quote character
-- **THEN** the stand-in receives the staged path as one intact argument
+#### Scenario: Paths with spaces and quotes
+- **WHEN** the staging folder's path contains spaces and a quote character (as a Windows user folder can)
+- **THEN** the stand-in receives the staged wpilog path as one intact argument
 
 #### Scenario: Hoot-only match
 - **WHEN** the launch is requested for a match that has hoots but no wpilog

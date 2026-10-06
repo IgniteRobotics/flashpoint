@@ -9,3 +9,6 @@ brownout_hold_s = 0.02    # ... for at least this long: FAULT
 sag_v = 8.0               # battery proxy below this: WARN
 voltage_danger_v = 7.0    # History min-voltage reference line
 sample_gap_s = 1.0        # a slot's samples stop this long during the match: WARN
+
+[advantagescope]
+path = ""                 # empty: find the newest WPILib install, then a standalone install

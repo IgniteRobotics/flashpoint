@@ -50,6 +50,7 @@ The match key is checked against `^[0-9a-z_]+$`, then looked up through the same
 - **Reuse:** an existing staged file is kept if its size matches the raw file, and replaced otherwise. The folder's mtime is touched on each launch.
 - **Cleanup at server start:** delete `flashpoint-as/*` directories whose mtime is more than 24 h old. Use `os.scandir`, never follow symlinks, and only touch entries directly under `flashpoint-as/`. Removing a hard link never affects the raw store.
 - The raw store is never opened for writing: `os.link` reads metadata only, and the copy opens the source `rb`.
+- **Windows always copies** (found in implementation). Raw-store files are read-only, a hard link shares that flag, and Windows refuses to delete a read-only file. Removing a staged link would therefore mean clearing the raw file's protection. This still meets the spec ("link where the OS allows"), and `doctor` prints "copy" on Windows.
 
 ### 4. Starting AdvantageScope
 - **macOS, `.app` bundle:** `["open", "-a", <bundle>, <staged wpilog>]`. If AdvantageScope is running, this sends `open-file`, which opens a new hub window for that match. Otherwise it starts AdvantageScope on the file. Running the bundle's binary directly would start a second Electron process instead.
@@ -69,7 +70,7 @@ The first match wins. `found_by` is one of `config`, `wpilib <year>` or `standal
 | Rule | macOS | Windows | Linux |
 |---|---|---|---|
 | config | `[advantagescope] path` in `config/report.toml` (a missing path is an error, with no fallback) | same | same |
-| WPILib, newest numeric year | `~/wpilib/<year>/advantagescope/AdvantageScope (WPILib).app` | `C:\Users\Public\wpilib\<year>\advantagescope\AdvantageScope (WPILib).exe` | `~/wpilib/<year>/advantagescope/` executable (verify, task 5.2) |
+| WPILib, newest numeric year | `~/wpilib/<year>/advantagescope/AdvantageScope (WPILib).app` | `%PUBLIC%\wpilib\<year>\advantagescope\AdvantageScope (WPILib).exe` | `~/wpilib/<year>/advantagescope/AdvantageScope (WPILib)` (verify, task 5.2) |
 | standalone | `/Applications/AdvantageScope.app` | `%LOCALAPPDATA%\Programs\AdvantageScope\AdvantageScope.exe` (verify) | `advantagescope` on `PATH` (verify) |
 
 Discovery runs once at server start and on `doctor`. Restart `serve` after installing AdvantageScope.

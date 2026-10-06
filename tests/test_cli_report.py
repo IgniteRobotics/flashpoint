@@ -100,3 +100,40 @@ def test_serve_host_warning_and_bad_port(
     captured = capsys.readouterr()
     assert "pit network" in captured.err and "no password" in captured.err
     assert main(["serve", "--lake", str(lake.root), "--no-build", "--port", "-1"]) == EXIT_FAILED
+
+
+def test_serve_wires_the_launcher(
+    lake: MatchLake, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+    import time
+
+    import flashpoint.web.advantagescope as advantagescope
+    import flashpoint.web.server as server
+
+    root = tmp_path / "flashpoint-as"
+    old = root / "2026gacmp_qm1"
+    old.mkdir(parents=True)
+    then = time.time() - advantagescope.MAX_AGE_S - 60
+    os.utime(old, (then, then))
+    monkeypatch.setattr(advantagescope, "staging_root", lambda: root)
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    app = tmp_path / "AdvantageScope.app"
+    app.mkdir()
+    (config_dir / "report.toml").write_text(f'[advantagescope]\npath = "{app}"\n')
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(config_dir))
+    seen: list[dict[str, object]] = []
+
+    def capture(s: server.FlashpointServer) -> int:
+        seen.append(s.launcher.availability(s.bound_local, "127.0.0.1"))
+        s.server_close()
+        return 0
+
+    monkeypatch.setattr(server, "run", capture)
+    assert main(["serve", "--lake", str(lake.root), "--no-build", "--port", "0"]) == 0
+    assert seen[-1] == {"available": True, "reason": None, "app": str(app), "found_by": "config"}
+    assert not old.exists()  # stale staging removed at start
+    assert main(["serve", "--lake", str(lake.root), "--no-build", "--host", "0.0.0.0",  # noqa: S104
+                 "--port", "0"]) == 0  # fmt: skip
+    assert seen[-1]["available"] is False and seen[-1]["reason"] == "shared on the network"
