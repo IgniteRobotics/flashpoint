@@ -9,7 +9,7 @@
 - [x] 2.1 Tests first on the corpus lake: staging a match yields one folder of `<match_key>__…` files whose SHA-256 equals the ledger hash; the raw store is byte-identical afterwards; a repeat run reuses the folder with no duplicates; a size-mismatched leftover is replaced
 - [x] 2.2 Tests first: when the hard link fails (forced through the seam), staging falls back to a copy and the result is the same; a missing raw file stages nothing and names the hash; an `incomplete-read` hoot is staged and flagged
 - [x] 2.3 Tests first: the start-up cleanup removes only `flashpoint-as/*` folders older than 24 h, leaves newer folders, sibling temp files and symlink targets alone, and never follows symlinks
-- [ ] 2.4 Implement staging (hard link, then a streaming copy with a 1 MiB buffer) and the cleanup; 2.1–2.3 pass, including on Windows CI
+- [x] 2.4 Implement staging (hard link, then a streaming copy with a 1 MiB buffer) and the cleanup; 2.1–2.3 pass, including on Windows CI
 
 ## 3. Launch and request guard (spec: advantagescope-launch, "Guarded launch request", "Launch is local only", "AdvantageScope opened on the match's wpilog")
 
@@ -27,7 +27,7 @@
 
 ## 5. Platform checks
 
-- [ ] 5.1 Windows CI: discovery against the fake `C:\Users\Public\wpilib\<year>` tree, staging by hard link and by copy, and the guard; these all pass on `windows-latest`
+- [x] 5.1 Windows CI: discovery against the fake `C:\Users\Public\wpilib\<year>` tree, staging by hard link and by copy, and the guard; these all pass on `windows-latest`
 - [ ] 5.2 [HUMAN] On a Linux laptop with WPILib 2026, record the AdvantageScope executable's path under `~/wpilib/2026/advantagescope/` and the standalone install path, then correct the design table and the discovery rule if they differ
 - [ ] 5.3 [HUMAN] On the Windows pit machine, confirm the WPILib and standalone AdvantageScope paths and whether the lake and `%TEMP%` share a volume (link or copy), and record the results in design.md
 
