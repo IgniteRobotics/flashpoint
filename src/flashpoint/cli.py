@@ -221,6 +221,7 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     from flashpoint.report.settings import ReportConfigError, load_report_config
     from flashpoint.semantics.robot_config import ConfigError, load_robots
     from flashpoint.views.queries import HistoryQueries
+    from flashpoint.web import advantagescope
     from flashpoint.web.server import FlashpointServer, host_warning, run
 
     if not args.no_build and (lake.meta / "sessions.parquet").is_file():
@@ -234,9 +235,18 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     except (ConfigError, ReportConfigError) as exc:
         print(f"configuration error: {exc}", file=sys.stderr)
         return EXIT_USAGE
+    install, problem = advantagescope.find(config.config_root())
+    root = advantagescope.staging_root()
+    try:
+        advantagescope.cleanup(root)
+    except OSError as exc:  # a locked file must not stop the app from starting
+        print(f"warning: could not clean {root}: {exc}", file=sys.stderr)
     try:
         server = FlashpointServer(
-            (args.host, args.port), lake, HistoryQueries(lake, robots, report_config)
+            (args.host, args.port),
+            lake,
+            HistoryQueries(lake, robots, report_config),
+            launcher=advantagescope.Launcher(install, problem, root),
         )
     except (OSError, OverflowError) as exc:
         print(f"cannot listen on {args.host}:{args.port}: {exc}", file=sys.stderr)
@@ -361,6 +371,7 @@ def _acquire_status(lake: LakePaths) -> list[str]:
 
 def _doctor(lake: LakePaths) -> int:
     from flashpoint.semantics.robot_config import ConfigError, load_robots
+    from flashpoint.web import advantagescope
 
     print(f"flashpoint {flashpoint.__version__} (pipeline v{config.PIPELINE_VERSION})")
     print(f"python     {platform.python_version()} on {hoot.platform_key()}")
@@ -400,6 +411,11 @@ def _doctor(lake: LakePaths) -> int:
     print("acquire")
     for line in _acquire_status(lake):
         print(f"  {line}")
+    install, problem = advantagescope.find(config.config_root())
+    for line in advantagescope.doctor_lines(
+        install, problem, advantagescope.staging_root(), lake.raw
+    ):
+        print(line)
     return 0
 
 

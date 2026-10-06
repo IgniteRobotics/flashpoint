@@ -95,6 +95,8 @@ def test_read_only_methods(serve: Any, site: tuple[MatchLake, Path]) -> None:
     app = serve(lake.lake, static)
     assert app.get("/api/filters", "POST").status == 405
     assert app.get("/data/matches.js", "DELETE").status == 405
+    # The only non-GET route is the guarded launch; unguarded, it refuses (403), never 405.
+    assert app.get("/api/launch", "POST", b"{}").status == 403
 
 
 def test_contained(tmp_path: Path) -> None:

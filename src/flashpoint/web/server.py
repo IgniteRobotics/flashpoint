@@ -2,8 +2,10 @@
 
 Routes: `/` and `/static/*` from the package, `/data/*` from `<lake>/report/data/`,
 `/raw/<sha256>/<name>` for ledger hashes only, and `/api/*`. Everything else is 404.
+The one non-GET route is the guarded `POST /api/launch` (ADR-0014); the lake stays read-only.
 """
 
+import contextlib
 import ipaddress
 import json
 import re
@@ -20,12 +22,17 @@ from flashpoint.lake.raw import raw_path
 from flashpoint.report.names import safe_name
 from flashpoint.report.paths import data_dir
 from flashpoint.views.queries import HistoryQueries
+from flashpoint.web.advantagescope import Launcher
+from flashpoint.web.advantagescope import refusal as launch_refusal
 from flashpoint.web.api import Api
 
 STATIC_DIR = Path(__file__).parent / "static"
 DEFAULT_HOST, DEFAULT_PORT = "127.0.0.1", 8000
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _DATA_NAME = re.compile(r"^[A-Za-z0-9_.-]+\.js$")
+LAUNCH_PATH = "/api/launch"
+MAX_LAUNCH_BODY = 4096
+GUARD_HEADERS = ("Host", "Origin", "X-Flashpoint", "Content-Type")
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
@@ -65,12 +72,18 @@ class FlashpointServer(ThreadingHTTPServer):
         lake: LakePaths,
         queries: HistoryQueries,
         static_dir: Path = STATIC_DIR,
+        launcher: Launcher | None = None,
     ) -> None:
         super().__init__(address, Handler)
         self.lake = lake
         self.queries = queries
         self.api = Api(queries)
         self.static_dir = static_dir
+        self.launcher = launcher or Launcher(None)
+
+    @property
+    def bound_local(self) -> bool:
+        return is_local(str(self.server_address[0]))
 
     @property
     def url(self) -> str:
@@ -140,6 +153,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._data(path.removeprefix("/data/"))
             elif path.startswith("/raw/"):
                 self._raw(path.removeprefix("/raw/"))
+            elif url.path == LAUNCH_PATH:
+                self._send_json(
+                    HTTPStatus.OK,
+                    self.server.launcher.availability(
+                        self.server.bound_local, self.client_address[0]
+                    ),
+                )
             elif url.path.startswith("/api/"):
                 status, payload = self.server.api.handle(
                     url.path.removeprefix("/api/"), parse_qs(url.query, keep_blank_values=True)
@@ -155,7 +175,47 @@ class Handler(BaseHTTPRequestHandler):
             HTTPStatus.METHOD_NOT_ALLOWED, b"read-only\n", "text/plain", {"Allow": "GET, HEAD"}
         )
 
-    do_POST = do_PUT = do_DELETE = do_PATCH = _method_not_allowed  # noqa: N815
+    do_PUT = do_DELETE = do_PATCH = _method_not_allowed  # noqa: N815
+
+    def do_POST(self) -> None:  # noqa: N802 - stdlib naming
+        if urlsplit(self.path).path != LAUNCH_PATH:
+            self._method_not_allowed()
+            return
+        with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+            self._launch()
+
+    def _launch(self) -> None:
+        server = self.server
+        # Header names are case-insensitive; look each one up through the message.
+        headers = {name: self.headers.get(name, "") for name in GUARD_HEADERS}
+        reason = launch_refusal(
+            server.bound_local, server.server_address[1], self.client_address[0], headers
+        )
+        if reason is not None:
+            self._send_json(HTTPStatus.FORBIDDEN, {"started": False, "reason": reason})
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0 or length > MAX_LAUNCH_BODY:
+            self.close_connection = True
+            self._send_json(
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"started": False, "reason": "body too large"}
+            )
+            return
+        try:
+            body = json.loads(self.rfile.read(length) or b"null")
+        except (ValueError, UnicodeDecodeError):
+            self._send_json(HTTPStatus.BAD_REQUEST, {"started": False, "reason": "invalid JSON"})
+            return
+        if not isinstance(body, dict):
+            self._send_json(
+                HTTPStatus.BAD_REQUEST, {"started": False, "reason": 'expected {"match_key": ...}'}
+            )
+            return
+        status, payload = server.launcher.launch(server.lake, server.queries, body.get("match_key"))
+        self._send_json(status, payload)
 
     def _data(self, name: str) -> None:
         found = contained(data_dir(self.server.lake), name) if _DATA_NAME.match(name) else None
