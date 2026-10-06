@@ -1,4 +1,4 @@
-# Flashpoint Robot Telemtry Platform
+# Flashpoint Robot Telemetry Platform
 
 > ## flashpoint
 > *also flash point.*
@@ -8,10 +8,14 @@
 > 2: a critical point or stage at which something or someone suddenly causes or creates some significant action:
 
 
-The Flashpoint Robot Telemtry Platform is designed to analyze FRC logging and telemtry over they life of a robot in order to detect anomalies and hopefully predict failures before they happen.
-## Getting started (rewrite)
+The Flashpoint Robot Telemetry Platform analyzes FRC logs and telemetry over the life of a robot, to detect anomalies and eventually predict failures before they happen. It reads WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.hoot`) into a local Parquet lake and works offline on a pit laptop.
 
-> The repo is mid-rewrite. The new package lives in `src/flashpoint/`. The top-level scripts (`ingest_*.py`, `viz.py`, `docker-services/`) are legacy, and are removed stage by stage (`openspec/changes/retire-legacy-code`). Plan and research: [`docs/rewrite/`](docs/rewrite/README.md). Decisions: [`docs/adr/`](docs/adr/README.md).
+- **Code:** the `flashpoint` package in `src/flashpoint/`, with the `flashpoint` CLI.
+- **Plan and research:** [`docs/rewrite/`](docs/rewrite/README.md). **Decisions:** [`docs/adr/`](docs/adr/README.md).
+- **Specs and changes:** [`openspec/`](openspec/). Current behavior is in `openspec/specs/`, and work in progress is in `openspec/changes/`.
+- **Legacy:** the pre-rewrite tree is preserved at the `legacy-2025` tag. The remaining legacy pieces (`datamaps/`, `log_configs/`) are removed stage by stage (`openspec/changes/retire-legacy-code`).
+
+## Getting started
 
 Requires Python 3.11–3.13 and [Poetry](https://python-poetry.org/).
 
