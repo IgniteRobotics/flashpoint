@@ -227,3 +227,89 @@ def test_timeout_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(HootError, match="owlet-timeout"):
         hoot._run(["owlet", "x.hoot", "--scan"])
     assert len(calls) == 1
+
+
+# --- tail loss (#17): owlet drops the end of the export at random, exit 0, no marker ---
+
+
+def _export_sizes(monkeypatch: pytest.MonkeyPatch, *sizes: int | HootError) -> list[Path]:
+    """Fake _run: each export writes the next size in bytes (or raises); returns the outputs."""
+    exports: list[Path] = []
+    plan = list(sizes)
+
+    def fake(args: list[str]) -> hoot._OwletOutput:
+        if "--scan" in args:
+            return hoot._OwletOutput("TalonFX-1/SupplyCurrent: 6f40c00\n", False)
+        if "--check-pro" in args:
+            return hoot._OwletOutput("", False)
+        outcome = plan.pop(0)
+        if isinstance(outcome, HootError):
+            raise outcome
+        out = Path(args[2])
+        out.write_bytes(b"x" * outcome)
+        exports.append(out)
+        return hoot._OwletOutput("", False)
+
+    monkeypatch.setattr(hoot, "_run", fake)
+    return exports
+
+
+def test_export_stops_after_two_matching_runs(
+    fake_registry: OwletRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    exports = _export_sizes(monkeypatch, 100, 100)
+    src = tmp_path / "x.hoot"
+    src.write_bytes(_hoot_bytes(19))
+    result = hoot.convert(src, tmp_path / "out", fake_registry)
+
+    assert len(exports) == 2
+    assert result.wpilog.stat().st_size == 100
+    assert list((tmp_path / "out").iterdir()) == [result.wpilog]
+
+
+def test_export_keeps_the_largest_when_runs_differ(
+    fake_registry: OwletRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    exports = _export_sizes(monkeypatch, 90, 100, 95)
+    src = tmp_path / "x.hoot"
+    src.write_bytes(_hoot_bytes(19))
+    result = hoot.convert(src, tmp_path / "out", fake_registry)
+
+    assert len(exports) == hoot.OWLET_EXPORT_RUNS_MAX == 3
+    assert result.wpilog.stat().st_size == 100
+    assert list((tmp_path / "out").iterdir()) == [result.wpilog]
+
+
+def test_failed_extra_export_keeps_the_earlier_output(
+    fake_registry: OwletRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export_sizes(monkeypatch, 100, HootError("owlet-failed", "exit 1: boom"), 100)
+    src = tmp_path / "x.hoot"
+    src.write_bytes(_hoot_bytes(19))
+    result = hoot.convert(src, tmp_path / "out", fake_registry)
+
+    assert result.wpilog.stat().st_size == 100
+    assert list((tmp_path / "out").iterdir()) == [result.wpilog]
+
+
+def test_first_export_failure_still_fails(
+    fake_registry: OwletRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export_sizes(monkeypatch, HootError("owlet-failed", "exit 1: boom"))
+    src = tmp_path / "x.hoot"
+    src.write_bytes(_hoot_bytes(19))
+    with pytest.raises(HootError, match="owlet-failed"):
+        hoot.convert(src, tmp_path / "out", fake_registry)
+
+
+def test_extra_exports_are_bounded_when_owlet_keeps_failing(
+    fake_registry: OwletRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    boom = HootError("owlet-failed", "exit 1: boom")
+    exports = _export_sizes(monkeypatch, 100, boom, boom)
+    src = tmp_path / "x.hoot"
+    src.write_bytes(_hoot_bytes(19))
+    result = hoot.convert(src, tmp_path / "out", fake_registry)
+
+    assert len(exports) == 1
+    assert result.wpilog.stat().st_size == 100
