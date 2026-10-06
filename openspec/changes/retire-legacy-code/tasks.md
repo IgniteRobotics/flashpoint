@@ -26,8 +26,8 @@
 
 ## 4. Stage 2c: deployment and backup (gate: p3-log-acquisition archived)
 
-- [ ] 4.1 Verify the gate, and confirm the new acquirer has run unattended at least once against a robot
-- [ ] 4.2 Delete `docker-services/`, `docker-compose.yml`, `.dockerignore`, `drive-backup.py`
+- [x] 4.1 Verify the gate, and confirm the new acquirer has run unattended at least once against a robot. **Gate overridden** (Josh, 2026-10-06): P3 is merged but not archived (human 11.x tasks open), and the unattended robot run is not confirmed. The legacy stack was already non-functional, and it stays recoverable from `legacy-2025`
+- [x] 4.2 Delete `docker-services/`, `docker-compose.yml`, `.dockerignore`, `drive-backup.py`
 - [ ] 4.3 CI passes. Merge through a PR
 
 ## 5. Stage 2d: viewer (gate: p4-views-and-reports archived)
@@ -35,5 +35,5 @@
 - [x] 5.1 Verify the gate
 - [x] 5.2 Delete `viz.py`, `viz-requirements.txt`, `gw_config.json`
 - [ ] 5.3 Rewrite `README.md` for the new package (install, `flashpoint` CLI, links to docs and openspec)
-- [ ] 5.4 Confirm that no tracked files remain at the repo root except `README.md`, `.gitignore`, `pyproject.toml`, `poetry.lock`, and the tool dirs (`src/`, `tests/`, `config/`, `docs/`, `openspec/`, `media/`, `.github/`, `.claude/`)
+- [ ] 5.4 Confirm that no tracked files remain at the repo root except `README.md`, `.gitignore`, `.gitattributes`, `pyproject.toml`, `poetry.lock`, and the tool dirs (`src/`, `tests/`, `config/`, `deploy/`, `docs/`, `notebooks/`, `tools/`, `openspec/`, `media/`, `.github/`, `.claude/`)
 - [ ] 5.5 CI passes. Merge through a PR, then archive this change
