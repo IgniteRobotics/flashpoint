@@ -128,7 +128,7 @@ gantt
 - **Exit:** a drive coach can answer "is FL-drive running hotter than last event?" in two clicks, offline.
 
 ### AdvantageScope launch (S, follow-up to P4)
-> **Status: implemented; human checks pending** (change `advantagescope-launch`, ADR-0014). In local `serve`, Replay and History open a match's wpilog in AdvantageScope with one click, from hard-linked readable names, with the hoots staged for File › Insert log. Shared on the network and in static exports, it is download only. Field-checked on macOS 2026-10-06: one-click open works, and Insert log lines the hoots up with the wpilog. Open: Linux and Windows install paths.
+> **Status: done; archived 2026-10-06** (change `archive/2026-10-06-advantagescope-launch`, merged as #25, ADR-0014). In local `serve`, Replay and History open a match's wpilog in AdvantageScope with one click, from hard-linked readable names, with the hoots staged for File › Insert log. Shared on the network and in static exports, it is download only. Field-checked on macOS 2026-10-06: one-click open works, and Insert log lines the hoots up with the wpilog. Install paths confirmed on Linux and Windows.
 
 ### Live & Pit views (M, follow-up to P4)
 The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 left them out. They become one change after P4 and P3:

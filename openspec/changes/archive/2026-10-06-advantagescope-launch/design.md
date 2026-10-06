@@ -67,11 +67,13 @@ The match key is checked against `^[0-9a-z_]+$`, then looked up through the same
 ### 5. Locating AdvantageScope
 The first match wins. `found_by` is one of `config`, `wpilib <year>` or `standalone`.
 
+Install paths confirmed on Linux and the Windows pit machine (Josh, 2026-10-06).
+
 | Rule | macOS | Windows | Linux |
 |---|---|---|---|
 | config | `[advantagescope] path` in `config/report.toml` (a missing path is an error, with no fallback) | same | same |
-| WPILib, newest numeric year | `~/wpilib/<year>/advantagescope/AdvantageScope (WPILib).app` | `%PUBLIC%\wpilib\<year>\advantagescope\AdvantageScope (WPILib).exe` | `~/wpilib/<year>/advantagescope/AdvantageScope (WPILib)` (verify, task 5.2) |
-| standalone | `/Applications/AdvantageScope.app` | `%LOCALAPPDATA%\Programs\AdvantageScope\AdvantageScope.exe` (verify) | `advantagescope` on `PATH` (verify) |
+| WPILib, newest numeric year | `~/wpilib/<year>/advantagescope/AdvantageScope (WPILib).app` | `%PUBLIC%\wpilib\<year>\advantagescope\AdvantageScope (WPILib).exe` | `~/wpilib/<year>/advantagescope/AdvantageScope (WPILib)` |
+| standalone | `/Applications/AdvantageScope.app` | `%LOCALAPPDATA%\Programs\AdvantageScope\AdvantageScope.exe` | `advantagescope` on `PATH` |
 
 Discovery runs once at server start and on `doctor`. Restart `serve` after installing AdvantageScope.
 
@@ -106,7 +108,7 @@ A new ADR records that the local app may start exactly one program, AdvantageSco
 - [AdvantageScope's Insert-log alignment of the hoots may be off] → **Checked 2026-10-06 (task 7.2): aligned.** Josh inserted both Q15 hoots into the launched window, and the hoot TalonFX currents line up with the wpilog. The merged pre-aligned wpilog is not needed.
 - [A future AdvantageScope adds a single-instance lock or changes its argv handling] → The launch still passes one file. The macOS path already uses `open-file`. The manual check (7.1) is re-run on each WPILib year.
 - [The staged hard link outlives a lake `rebuild` that removes a raw file] → The link keeps the old bytes until cleanup. That is harmless, because staged files are never read back by Flashpoint.
-- [Windows or Linux install paths are guesses] → Each is marked "verify", and an explicit config path always works.
+- [Windows or Linux install paths were guesses] → Confirmed by Josh on 2026-10-06. An explicit config path always works.
 - [Local malware could call the endpoint] → Out of scope. It can already start any program.
 
 ## Migration Plan
