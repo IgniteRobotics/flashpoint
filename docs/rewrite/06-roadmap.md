@@ -109,11 +109,11 @@ gantt
 
 ### NetworkTables signal mapping (S–M, follow-up to P2)
 P2 mapped CAN devices (slots and units) into robot config, and deliberately left out signals that only exist in NetworkTables: subsystem telemetry the robot code publishes, and vision. They are still described only by legacy files, which is the last thing blocking `retire-legacy-code` stage 2b-ii.
-- **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config{2024,2025}.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
-- **Robot config:** NT entries get the same labels as CAN slots (subsystem, assembly, subassembly, component, metric), from `datamaps/{2024,2025}/metrics_map.csv` (87 and 28 rows). Cameras and their metrics come from `vision_map.csv` (36 rows each).
-- **Migration:** extend `tools/migrate-legacy-config.py`, which reads from the `legacy-2025` tag. There is no 2024 robot config yet, so the 2024 maps need one written, or a season-level mapping instead.
+- **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config2025.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
+- **Robot config:** NT entries get the same labels as CAN slots (subsystem, assembly, subassembly, component, metric), from `datamaps/2025/metrics_map.csv` (28 rows). Cameras and their metrics come from `datamaps/2025/vision_map.csv` (36 rows).
+- **Migration:** extend `tools/migrate-legacy-config.py`, which reads from the `legacy-2025` tag. **2024 is out of scope** (decided 2026-10-06): there is no 2024 robot config, and the 2024 maps and log config stay recoverable from the tag.
 - **Derive:** label NT signals in silver alongside slot signals, so Replay tracks, History, and P5 rules can use subsystem telemetry (for example the 2025 corraler motor current and voltage).
-- **Exit:** every row of the four maps and every prefix in both log configs is covered by config, verified by a test against the tag. `retire-legacy-code` 3b can then delete `datamaps/` and `log_configs/`.
+- **Exit:** every row of the two 2025 maps and every prefix in `config2025.json` is covered by config, verified by a test against the tag. `retire-legacy-code` 3b can then delete `datamaps/` and `log_configs/`.
 
 ### P3 — Acquire & automate (S)
 > **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on Linux and Windows (macOS passed 2026-10-05), the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
