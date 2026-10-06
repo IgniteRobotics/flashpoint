@@ -14,6 +14,7 @@ from typing import Any
 
 import duckdb
 
+from flashpoint.lake.ledger import INCOMPLETE_READ
 from flashpoint.lake.paths import LakePaths
 from flashpoint.report.names import download_name
 from flashpoint.report.settings import ReportConfig
@@ -87,7 +88,7 @@ _META_COLUMNS = {
         "from_ts_us": "BIGINT",
     },
     "session_hoots": {"log_id": "VARCHAR", "session_id": "VARCHAR", "bus": "VARCHAR"},
-    "files": {"sha256": "VARCHAR", "kind": "VARCHAR", "size": "BIGINT"},
+    "files": {"sha256": "VARCHAR", "kind": "VARCHAR", "size": "BIGINT", "stage": "VARCHAR"},
 }
 
 
@@ -404,7 +405,7 @@ class HistoryQueries:
                 WHERE s.match_key = ?
             )
             SELECT ids.session_id, ids.log_id AS sha256, ids.part,
-                coalesce(l.kind, f.kind) AS kind, l.filename AS name, f.size
+                coalesce(l.kind, f.kind) AS kind, l.filename AS name, f.size, f.stage
             FROM ids LEFT JOIN meta_logs l USING (log_id)
             LEFT JOIN meta_files f ON f.sha256 = ids.log_id
             ORDER BY ids.session_id, ids.part = 'wpilog' DESC, ids.log_id
@@ -415,6 +416,7 @@ class HistoryQueries:
             row["kind"] = row["kind"] or "hoot"
             row["name"] = row["name"] or f"{row['sha256']}.{row['kind']}"
             row["download"] = download_name(match_key, row["part"], row["name"])
+            row["incomplete"] = row.pop("stage") == INCOMPLETE_READ
         return rows
 
     def raw_hashes(self) -> set[str]:
