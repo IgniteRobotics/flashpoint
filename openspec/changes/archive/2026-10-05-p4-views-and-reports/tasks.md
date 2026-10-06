@@ -77,6 +77,6 @@
 
 ## 11. [HUMAN] Field check
 
-- [ ] 11.1 Open a static export from a USB stick on a pit laptop with Wi-Fi off; a student finds the hottest motor in Q7 in two clicks
-- [ ] 11.2 Run `flashpoint serve` on a mentor laptop; History drill-through opens Replay, and the downloaded wpilog opens in AdvantageScope
-- [ ] 11.3 Josh compares the built Replay and History against the canvas boards and signs off on the look
+- [x] 11.1 Open a static export from a USB stick on a pit laptop with Wi-Fi off; a student finds the hottest motor in Q7 in two clicks — done 2026-10-05 with the Johnson stick (Q15/Q53/Q76/Q105; no Q7 on it), 681 MB export incl. raw
+- [x] 11.2 Run `flashpoint serve` on a mentor laptop; History drill-through opens Replay, and the downloaded wpilog opens in AdvantageScope
+- [x] 11.3 Josh compares the built Replay and History against the canvas boards and signs off on the look
