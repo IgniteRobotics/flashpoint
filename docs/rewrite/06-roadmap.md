@@ -14,6 +14,9 @@ flowchart LR
     P4 --> P5
     P4 --> P4b[Live & Pit views]
     P3 --> P4b
+    P3 --> P4c[Import status view]
+    P4 --> P4c
+    P4 --> P4d[Replay UX]
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
 
@@ -30,6 +33,8 @@ gantt
     P3 Acquire & automate         :p3, after p2, 3w
     P4 Views                      :p4, after p2, 4w
     Live & Pit views              :p4b, after p4, 3w
+    Import status view            :p4c, after p4, 2w
+    Replay UX                     :p4d, after p4, 2w
     section Insight
     P5 Anomaly detection          :p5, after p4, 6w
     P6 Prediction & fleet         :p6, after p5, 8w
@@ -136,6 +141,33 @@ The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 lef
 - the Pit board's checks and GO / DECIDE / NO-GO verdict;
 - both as views in the P4 shell: one file in `web/static/views/` and one `FP.view` call each, no restyling.
 - **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.
+
+### Import status view (S–M, follow-up to P3 and P4)
+A view in the P4 shell that answers three questions about the lake: **are we missing logs, did they all import clean, and do the clocks line up?** Most of the data is already in the ledger. Little of it is visible today outside `flashpoint doctor` and SQL.
+- **Missing logs:**
+  - per session: expected buses (from the robot config) against the hoots actually grouped in `session_hoots`, so a session with a wpilog but no CANivore hoot stands out;
+  - per event: gaps in the match sequence (Q1…Qn from FMS info or filenames). The Blue Alliance schedule fills in the expected list when online, which stays optional;
+  - files seen by `acquire` (`pulls`) that never reached `success`.
+- **Clean import:**
+  - `files.stage`, `reason` and `warnings` (quarantined, `incomplete-read`, `short-coverage`);
+  - `logs.truncated_bytes` and `orphan_records`, `hoot_logs.read_status` and `integrity`;
+  - `unmapped_devices` and logs with no CAN inventory (legacy epochs);
+  - **new:** record when owlet exports of a hoot differed in size (#17 tail loss). Today that is only a log line, so it can't be counted.
+- **Timing:**
+  - per hoot: `session_hoots.offset_us`, `method`, `confidence`, `spread_us`, `bus_agreement_us`, with low-confidence or disagreeing alignments flagged;
+  - per wpilog: `anchor_source` and `utc_offset_us`, flagging logs anchored by fallback instead of `systemTime`;
+  - framing: matches whose `match_phases` came from a fallback source.
+- **Shape:** a table per event, one row per match, a status light per check, and drill-through to Replay and AdvantageScope. It is read-only, like the other P4 views. Re-ingest or re-derive stays on the CLI.
+- **Exit:** after an event, a student can see in one screen which matches are missing logs, which imported with warnings, and which have suspect clock alignment, without SQL.
+
+### Replay UX (S, follow-up to P4)
+Two improvements to the Replay board:
+- **Match list filters:** filter the left match list by season (year), robot, and competition (event). The filters combine, live in the URL like the rest of Replay's state, and default to the most recent event. The static export filters the same way over the matches it contains.
+- **Timeline zoom:** zoom in and out on the Replay timeline (buttons, scroll or pinch, and drag to select a range), with every track and marker following the same window. Envelopes are about 1000 buckets per match (about 0.15 s each for a full match), so:
+  - zooming within that resolution works everywhere, including the static export;
+  - finer detail needs `serve` to fetch higher-resolution envelopes for the visible window from silver. Static exports stop at bucket resolution and say so;
+  - single-sample detail stays in AdvantageScope (D8: link, don't rebuild).
+- **Exit:** a drive coach finds a match by year, robot, and event in two clicks, and can zoom to a two-second brownout without leaving Replay.
 
 ### P5 — Anomaly detection (L)
 - **Tier 1, rules:**
