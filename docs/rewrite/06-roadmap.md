@@ -11,9 +11,14 @@ flowchart LR
     P2 --> P3[P3 Acquire<br>& automate]
     P2 --> P4[P4 Views]
     P3 --> P5[P5 Anomaly<br>detection]
+    P2 --> P2b[NT signal<br>mapping]
+    P2b --> P5
     P4 --> P5
     P4 --> P4b[Live & Pit views]
     P3 --> P4b
+    P3 --> P4c[Import status view]
+    P4 --> P4c
+    P4 --> P4d[Replay UX]
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
 
@@ -26,10 +31,13 @@ gantt
     P0 Stabilize & decide         :p0, 2026-10-12, 2w
     P1 Core readers & lake        :p1, after p0, 5w
     P2 Semantics & physics        :p2, after p1, 4w
+    NT signal mapping             :p2b, after p2, 2w
     section Usable
     P3 Acquire & automate         :p3, after p2, 3w
     P4 Views                      :p4, after p2, 4w
     Live & Pit views              :p4b, after p4, 3w
+    Import status view            :p4c, after p4, 2w
+    Replay UX                     :p4d, after p4, 2w
     section Insight
     P5 Anomaly detection          :p5, after p4, 6w
     P6 Prediction & fleet         :p6, after p5, 8w
@@ -99,6 +107,14 @@ gantt
 - **Gold:** the `match_slot_features` table, keyed by match, slot, and unit.
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
+### NetworkTables signal mapping (S–M, follow-up to P2)
+P2 mapped CAN devices (slots and units) into robot config, and deliberately left out signals that only exist in NetworkTables: subsystem telemetry the robot code publishes, and vision. They are still described only by legacy files, which is the last thing blocking `retire-legacy-code` stage 2b-ii.
+- **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config2025.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
+- **Robot config:** NT entries get the same labels as CAN slots (subsystem, assembly, subassembly, component, metric), from `datamaps/2025/metrics_map.csv` (28 rows). Cameras and their metrics come from `datamaps/2025/vision_map.csv` (36 rows).
+- **Migration:** extend `tools/migrate-legacy-config.py`, which reads from the `legacy-2025` tag. **2024 is out of scope** (decided 2026-10-06): there is no 2024 robot config, and the 2024 maps and log config stay recoverable from the tag.
+- **Derive:** label NT signals in silver alongside slot signals, so Replay tracks, History, and P5 rules can use subsystem telemetry (for example the 2025 corraler motor current and voltage).
+- **Exit:** every row of the two 2025 maps and every prefix in `config2025.json` is covered by config, verified by a test against the tag. `retire-legacy-code` 3b can then delete `datamaps/` and `log_configs/`.
+
 ### P3 — Acquire & automate (S)
 > **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on Linux and Windows (macOS passed 2026-10-05), the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
 
@@ -137,6 +153,33 @@ The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 lef
 - both as views in the P4 shell: one file in `web/static/views/` and one `FP.view` call each, no restyling.
 - **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.
 
+### Import status view (S–M, follow-up to P3 and P4)
+A view in the P4 shell that answers three questions about the lake: **are we missing logs, did they all import clean, and do the clocks line up?** Most of the data is already in the ledger. Little of it is visible today outside `flashpoint doctor` and SQL.
+- **Missing logs:**
+  - per session: expected buses (from the robot config) against the hoots actually grouped in `session_hoots`, so a session with a wpilog but no CANivore hoot stands out;
+  - per event: gaps in the match sequence (Q1…Qn from FMS info or filenames). The Blue Alliance schedule fills in the expected list when online, which stays optional;
+  - files seen by `acquire` (`pulls`) that never reached `success`.
+- **Clean import:**
+  - `files.stage`, `reason` and `warnings` (quarantined, `incomplete-read`, `short-coverage`);
+  - `logs.truncated_bytes` and `orphan_records`, `hoot_logs.read_status` and `integrity`;
+  - `unmapped_devices` and logs with no CAN inventory (legacy epochs);
+  - **new:** record when owlet exports of a hoot differed in size (#17 tail loss). Today that is only a log line, so it can't be counted.
+- **Timing:**
+  - per hoot: `session_hoots.offset_us`, `method`, `confidence`, `spread_us`, `bus_agreement_us`, with low-confidence or disagreeing alignments flagged;
+  - per wpilog: `anchor_source` and `utc_offset_us`, flagging logs anchored by fallback instead of `systemTime`;
+  - framing: matches whose `match_phases` came from a fallback source.
+- **Shape:** a table per event, one row per match, a status light per check, and drill-through to Replay and AdvantageScope. It is read-only, like the other P4 views. Re-ingest or re-derive stays on the CLI.
+- **Exit:** after an event, a student can see in one screen which matches are missing logs, which imported with warnings, and which have suspect clock alignment, without SQL.
+
+### Replay UX (S, follow-up to P4)
+Two improvements to the Replay board:
+- **Match list filters:** filter the left match list by season (year), robot, and competition (event). The filters combine, live in the URL like the rest of Replay's state, and default to the most recent event. The static export filters the same way over the matches it contains.
+- **Timeline zoom:** zoom in and out on the Replay timeline (buttons, scroll or pinch, and drag to select a range), with every track and marker following the same window. Envelopes are about 1000 buckets per match (about 0.15 s each for a full match), so:
+  - zooming within that resolution works everywhere, including the static export;
+  - finer detail needs `serve` to fetch higher-resolution envelopes for the visible window from silver. Static exports stop at bucket resolution and say so;
+  - single-sample detail stays in AdvantageScope (D8: link, don't rebuild).
+- **Exit:** a drive coach finds a match by year, robot, and event in two clicks, and can zoom to a two-second brownout without leaving Replay.
+
 ### P5 — Anomaly detection (L)
 - **Tier 1, rules:**
   - temperature thresholds (port 55 °C avg / 65 °C max);
@@ -166,7 +209,7 @@ The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 lef
 |---|---|---|
 | Raw logs on Drive / `telemetry/` | Bulk `flashpoint ingest` into `lake/raw` (dedup by hash) | P1 |
 | `db/robot.db`, GRITS.db | **Don't migrate.** Rebuild from raw. Keep as a read-only archive | P1 |
-| `datamaps/*.csv`, `log_configs/*.json`, `utils/motors.toml` | Script → `config/seasons/*.toml`, `config/robots/*.toml` | P2 |
+| `datamaps/*.csv`, `log_configs/*.json`, `utils/motors.toml` | Script → `config/seasons/*.toml`, `config/robots/*.toml` | P2 (device maps); NT signal mapping (NT maps, log configs) |
 | power-tracking `analyzer.py` + tests | Port to Polars; keep the test cases as golden expectations | P2 |
 | power-tracking SPA + specs | Reference only; the canvas sets the UX (Replay + History, ADR-0013) | P4 |
 | `development` match regex | Becomes the single filename-fallback parser | P2 |
