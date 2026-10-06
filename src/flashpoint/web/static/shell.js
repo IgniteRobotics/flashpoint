@@ -141,6 +141,66 @@
     if (!response.ok) throw new Error(body.error || response.statusText);
     return body;
   };
+  /* ---------- Open in AdvantageScope (served on this machine only; ADR-0014) ---------- */
+  let launchState = null;
+  FP.launchAvailability = () => {
+    if (!launchState) {
+      launchState = fetch('api/launch', { headers: { Accept: 'application/json' } })
+        .then((response) => response.json())
+        .catch(() => ({ available: false, reason: 'the app could not be reached' }));
+    }
+    return launchState;
+  };
+  const NOT_HERE = new Set(['shared on the network', 'the request is not from this machine']);
+  function launchResult(box, r) {
+    if (!r.started) {
+      FP.fill(box, h('p', { class: 'callout mt-2' }, 'AdvantageScope did not open: ', r.reason || 'unknown error', '. Use the downloads below.'));
+      return;
+    }
+    FP.fill(box,
+      h('p', { class: 'meta mt-2' }, 'Opened ', h('b', { class: 'hi' }, r.wpilog), ' in AdvantageScope.'),
+      r.hoots.length ? [
+        h('p', { class: 'meta mt-2' }, 'To add the hoots, use File › Insert log in AdvantageScope and pick them from:'),
+        h('p', { class: 'mt-2' }, h('code', { class: 'code', id: 'as-folder' }, r.folder)),
+        h('ul', { class: 'meta mt-2', id: 'as-hoots' }, r.hoots.map((x) => h('li', null, x.name,
+          x.incomplete ? h('span', { class: 'badge badge--low' }, 'INCOMPLETE') : null))),
+      ] : null);
+  }
+  async function launch(key, button, result) {
+    button.disabled = true;
+    FP.fill(result, h('p', { class: 'meta mt-2' }, 'Opening…'));
+    try {
+      const response = await fetch('api/launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Flashpoint': 'launch', Accept: 'application/json' },
+        body: JSON.stringify({ match_key: key }),
+      });
+      launchResult(result, await response.json());
+    } catch (err) {
+      launchResult(result, { started: false, reason: String(err.message) });
+    } finally {
+      button.disabled = false;
+    }
+  }
+  /* The launch action for one match, or null in a static export (the downloads stay). */
+  FP.launchPanel = (key) => {
+    if (MODE.static) return null;
+    const box = h('div', { class: 'mb-3', id: 'as-launch-panel' });
+    FP.launchAvailability().then((a) => {
+      if (!a.available) {
+        const why = NOT_HERE.has(a.reason)
+          ? 'Open in AdvantageScope is only available on the machine running Flashpoint'
+          : (a.reason || 'Open in AdvantageScope is not available');
+        FP.fill(box, h('p', { class: 'meta', id: 'as-unavailable' }, why, '. Use the downloads below.'));
+        return;
+      }
+      const result = h('div', { id: 'as-result', 'aria-live': 'polite' });
+      const button = h('button', { type: 'button', class: 'btn btn--primary', id: 'as-launch',
+        on: { click: () => launch(key, button, result) } }, 'OPEN IN ADVANTAGESCOPE');
+      FP.fill(box, button, result);
+    });
+    return box;
+  };
   FP.rawHref = (source) => (MODE.static
     ? 'raw/' + encodeURIComponent(source.download)
     : 'raw/' + encodeURIComponent(source.sha256) + '/' + encodeURIComponent(source.download));

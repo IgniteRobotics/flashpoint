@@ -162,10 +162,12 @@
       h('span', { class: 'download__hash' }, s.name))));
   }
 
-  function asideDownloads(sources) {
+  function asideDownloads(sources, key) {
+    const launchable = sources && sources.length && FP.mode.raw !== false;
     return h('section', { 'aria-label': 'Open in AdvantageScope' },
       h('h2', { class: 'section-label' }, h('span', null, 'Open in AdvantageScope')),
-      h('p', { class: 'meta mb-3' }, 'Download the raw logs, then open them in AdvantageScope for a full-rate deep dive.'),
+      h('p', { class: 'meta mb-3' }, 'Open the raw logs in AdvantageScope for a full-rate deep dive, or download them.'),
+      launchable ? FP.launchPanel(key) : null,
       downloads(sources));
   }
 
@@ -200,7 +202,7 @@
       if (!FP.mode.static) {
         try {
           const info = await FP.api('match/' + encodeURIComponent(key));
-          FP.fill(aside, asideDownloads(info.sources));
+          FP.fill(aside, asideDownloads(info.sources, key));
         } catch (err) { FP.fill(aside, h('p', { class: 'meta' }, String(err.message))); }
       }
       return;
@@ -208,7 +210,7 @@
     if (entry.status !== 'ok') {
       const d = await FP.loadMatch(entry);
       FP.fill(main, notice(entry.label + ' · no aligned samples', h('p', { class: 'prose' }, d.reason), h('p', { class: 'meta mt-3' }, d.match_key, ' · ', d.robot)));
-      FP.fill(aside, asideDownloads(d.sources));
+      FP.fill(aside, asideDownloads(d.sources, d.match_key));
       return;
     }
     const mine = ui;
@@ -397,7 +399,7 @@
           h('th', { scope: 'col' }, 'Slot'), h('th', { scope: 'col', class: 'num' }, 'A'), h('th', { scope: 'col', class: 'num' }, '°C'), h('th', { scope: 'col' }, h('span', { class: 'sr-only' }, 'Status')),
           ui.overlay ? [h('th', { scope: 'col', class: 'num' }, ui.overlay.label + ' A'), h('th', { scope: 'col', class: 'num' }, ui.overlay.label + ' °C')] : null)),
         h('tbody', { id: 'readout' }))));
-    FP.fill(ui.aside, event, readout, asideDownloads(d.sources));
+    FP.fill(ui.aside, event, readout, asideDownloads(d.sources, d.match_key));
     renderEvent();
   }
 
