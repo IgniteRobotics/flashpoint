@@ -11,6 +11,8 @@ flowchart LR
     P2 --> P3[P3 Acquire<br>& automate]
     P2 --> P4[P4 Views]
     P3 --> P5[P5 Anomaly<br>detection]
+    P2 --> P2b[NT signal<br>mapping]
+    P2b --> P5
     P4 --> P5
     P4 --> P4b[Live & Pit views]
     P3 --> P4b
@@ -29,6 +31,7 @@ gantt
     P0 Stabilize & decide         :p0, 2026-10-12, 2w
     P1 Core readers & lake        :p1, after p0, 5w
     P2 Semantics & physics        :p2, after p1, 4w
+    NT signal mapping             :p2b, after p2, 2w
     section Usable
     P3 Acquire & automate         :p3, after p2, 3w
     P4 Views                      :p4, after p2, 4w
@@ -103,6 +106,14 @@ gantt
 - **DCMotor residuals:** expected current from motor constants (WPILib, n.d.-c) and the configured gear ratio.
 - **Gold:** the `match_slot_features` table, keyed by match, slot, and unit.
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
+
+### NetworkTables signal mapping (S–M, follow-up to P2)
+P2 mapped CAN devices (slots and units) into robot config, and deliberately left out signals that only exist in NetworkTables: subsystem telemetry the robot code publishes, and vision. They are still described only by legacy files, which is the last thing blocking `retire-legacy-code` stage 2b-ii.
+- **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config{2024,2025}.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
+- **Robot config:** NT entries get the same labels as CAN slots (subsystem, assembly, subassembly, component, metric), from `datamaps/{2024,2025}/metrics_map.csv` (87 and 28 rows). Cameras and their metrics come from `vision_map.csv` (36 rows each).
+- **Migration:** extend `tools/migrate-legacy-config.py`, which reads from the `legacy-2025` tag. There is no 2024 robot config yet, so the 2024 maps need one written, or a season-level mapping instead.
+- **Derive:** label NT signals in silver alongside slot signals, so Replay tracks, History, and P5 rules can use subsystem telemetry (for example the 2025 corraler motor current and voltage).
+- **Exit:** every row of the four maps and every prefix in both log configs is covered by config, verified by a test against the tag. `retire-legacy-code` 3b can then delete `datamaps/` and `log_configs/`.
 
 ### P3 — Acquire & automate (S)
 > **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on Linux and Windows (macOS passed 2026-10-05), the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
@@ -198,7 +209,7 @@ Two improvements to the Replay board:
 |---|---|---|
 | Raw logs on Drive / `telemetry/` | Bulk `flashpoint ingest` into `lake/raw` (dedup by hash) | P1 |
 | `db/robot.db`, GRITS.db | **Don't migrate.** Rebuild from raw. Keep as a read-only archive | P1 |
-| `datamaps/*.csv`, `log_configs/*.json`, `utils/motors.toml` | Script → `config/seasons/*.toml`, `config/robots/*.toml` | P2 |
+| `datamaps/*.csv`, `log_configs/*.json`, `utils/motors.toml` | Script → `config/seasons/*.toml`, `config/robots/*.toml` | P2 (device maps); NT signal mapping (NT maps, log configs) |
 | power-tracking `analyzer.py` + tests | Port to Polars; keep the test cases as golden expectations | P2 |
 | power-tracking SPA + specs | Reference only; the canvas sets the UX (Replay + History, ADR-0013) | P4 |
 | `development` match regex | Becomes the single filename-fallback parser | P2 |
