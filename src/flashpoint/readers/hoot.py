@@ -32,6 +32,9 @@ COMPLIANCY_OFFSET = 70
 MIN_COMPLIANCY = 6  # Phoenix 2024; older hoots cannot be decoded
 OWLET_TIMEOUT_S = 600
 OWLET_ATTEMPTS = 2  # one retry: the Linux owlet fails at random on healthy hoots (#17)
+# owlet also drops the tail of an export at random, with exit 0 and no marker (#17). Export
+# twice, a third time if the two differ, and keep the largest output.
+OWLET_EXPORT_RUNS_MAX = 3
 # owlet prints this when a hoot ends mid-record (e.g. the robot lost power). It still
 # writes everything it could read, so the partial data is kept and flagged.
 INCOMPLETE_READ_MARKER = "Could not read to end of input file"
@@ -227,6 +230,50 @@ def check_pro(owlet: Path, hoot_path: Path) -> bool:
     return "is pro-licensed" in _run([str(owlet), str(hoot_path), "--check-pro"]).stdout.lower()
 
 
+def _export_once(
+    owlet: Path, hoot_path: Path, out_dir: Path, selected: list[str] | None
+) -> tuple[Path, _OwletOutput]:
+    with tempfile.NamedTemporaryFile(dir=out_dir, suffix=".wpilog", delete=False) as tmp:
+        wpilog = Path(tmp.name)
+    args = [str(owlet), str(hoot_path), str(wpilog), "-f", "wpilog"]
+    if selected is not None:
+        args += ["-s", ",".join(selected)]
+    try:
+        output = _run(args)
+        if not wpilog.is_file() or wpilog.stat().st_size == 0:
+            raise HootError("owlet-failed", "no output written")
+    except HootError:
+        wpilog.unlink(missing_ok=True)
+        raise
+    return wpilog, output
+
+
+def _export(
+    owlet: Path, hoot_path: Path, out_dir: Path, selected: list[str] | None
+) -> tuple[Path, _OwletOutput]:
+    """Export until two runs match in size (at most OWLET_EXPORT_RUNS_MAX); keep the largest."""
+    runs = [_export_once(owlet, hoot_path, out_dir, selected)]
+    for _ in range(OWLET_EXPORT_RUNS_MAX - 1):
+        try:
+            runs.append(_export_once(owlet, hoot_path, out_dir, selected))
+        except HootError as exc:
+            LOG.warning(
+                "extra owlet export of %s failed (%s); keeping earlier output", hoot_path, exc
+            )
+            continue
+        sizes = sorted(p.stat().st_size for p, _ in runs)
+        if sizes[-1] == sizes[-2]:
+            break
+    sizes = [p.stat().st_size for p, _ in runs]
+    if len(set(sizes)) > 1:
+        LOG.info("owlet exports of %s differed in size %s; keeping the largest", hoot_path, sizes)
+    best = max(runs, key=lambda run: run[0].stat().st_size)
+    for path, _ in runs:
+        if path != best[0]:
+            path.unlink(missing_ok=True)
+    return best
+
+
 def convert(
     hoot_path: Path, out_dir: Path, registry: OwletRegistry, profile: str = "health"
 ) -> HootConversion:
@@ -237,17 +284,10 @@ def convert(
     owlet = registry.binary_for(header.compliancy)
     signals = scan_signals(owlet, hoot_path)
     selected = select_signals(signals, profile)
+    if selected is not None and not selected:
+        raise HootError("no-signals-for-profile", profile)
     out_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=out_dir, suffix=".wpilog", delete=False) as tmp:
-        wpilog = Path(tmp.name)
-    args = [str(owlet), str(hoot_path), str(wpilog), "-f", "wpilog"]
-    if selected is not None:
-        if not selected:
-            raise HootError("no-signals-for-profile", profile)
-        args += ["-s", ",".join(selected)]
-    output = _run(args)
-    if not wpilog.is_file() or wpilog.stat().st_size == 0:
-        raise HootError("owlet-failed", "no output written")
+    wpilog, output = _export(owlet, hoot_path, out_dir, selected)
     return HootConversion(
         wpilog=wpilog,
         compliancy=header.compliancy,
