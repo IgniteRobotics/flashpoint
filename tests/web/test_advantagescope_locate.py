@@ -145,7 +145,7 @@ def test_config_path_invalid(tmp_path: Path, text: str) -> None:
 
 
 def test_find_reports_problems_instead_of_raising(tmp_path: Path) -> None:
-    (tmp_path / "report.toml").write_text(f'[advantagescope]\npath = "{tmp_path / "gone.app"}"\n')
+    (tmp_path / "report.toml").write_text(f"[advantagescope]\npath = '{tmp_path / 'gone.app'}'\n")
     install, problem = find(tmp_path)
     assert install is None and problem is not None and "gone.app" in problem
     (tmp_path / "report.toml").write_text("[advantagescope]\npath = 3\n")
@@ -184,13 +184,15 @@ def test_doctor_prints_advantagescope(
     config_dir.mkdir()
     app = tmp_path / "Custom AS.app"
     app.mkdir()
-    (config_dir / "report.toml").write_text(f'[advantagescope]\npath = "{app}"\n')
+    (config_dir / "report.toml").write_text(
+        f"[advantagescope]\npath = '{app}'\n"
+    )  # literal: Windows paths
     monkeypatch.setenv("FLASHPOINT_CONFIG", str(config_dir))
     assert main(["doctor", "--lake", str(tmp_path / "lake")]) == 0
     out = capsys.readouterr().out
     assert f"AdvantageScope: {app} (config)" in out
     assert "  staging " in out
-    (config_dir / "report.toml").write_text(f'[advantagescope]\npath = "{tmp_path / "x.app"}"\n')
+    (config_dir / "report.toml").write_text(f"[advantagescope]\npath = '{tmp_path / 'x.app'}'\n")
     assert main(["doctor", "--lake", str(tmp_path / "lake")]) == 0
     assert (
         "AdvantageScope: ERROR configured AdvantageScope path not found" in capsys.readouterr().out

@@ -121,7 +121,9 @@ def test_serve_wires_the_launcher(
     config_dir.mkdir()
     app = tmp_path / "AdvantageScope.app"
     app.mkdir()
-    (config_dir / "report.toml").write_text(f'[advantagescope]\npath = "{app}"\n')
+    (config_dir / "report.toml").write_text(
+        f"[advantagescope]\npath = '{app}'\n"
+    )  # literal: Windows paths
     monkeypatch.setenv("FLASHPOINT_CONFIG", str(config_dir))
     seen: list[dict[str, object]] = []
 
