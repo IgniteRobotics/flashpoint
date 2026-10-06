@@ -100,7 +100,7 @@ gantt
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
 ### P3 — Acquire & automate (S)
-> **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on each OS, the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
+> **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on Linux and Windows (macOS passed 2026-10-05), the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
 
 - **SFTP puller** (paramiko or asyncssh, [Background]):
   - copies to the inbox, verifies size and hash, and **never deletes on the robot by default**;
@@ -112,7 +112,7 @@ gantt
 - **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.
 
 ### P4 — Views (M)
-> **Status: implemented; human verification pending** (change `p4-views-and-reports`, branch `feature/p4-views-and-reports`). Built to Josh's canvas "Flashpoint UI Prototypes": one local app (`flashpoint serve`, ADR-0013 supersedes the marimo plan) with **Replay** (≈1000-bucket envelopes, Q7 = 1.07 MB, rule markers, compare overlay, static export via `flashpoint report --static`) and **History** (per-unit and per-slot trends, odometry from the new `gold/unit_usage`, lifelines). Stall threshold moved to 0.2 of stall current on corpus evidence. Open: [HUMAN] pit-laptop USB check, mentor-laptop serve and AdvantageScope round-trip, Josh's sign-off on the look. The plan below is the original scope.
+> **Status: done; archived 2026-10-05** (change `archive/2026-10-05-p4-views-and-reports`, merged into `rewrite` as #23). Built to Josh's canvas "Flashpoint UI Prototypes": one local app (`flashpoint serve`, ADR-0013 supersedes the marimo plan) with **Replay** (≈1000-bucket envelopes, Q7 = 1.07 MB, rule markers, compare overlay, static export via `flashpoint report --static`) and **History** (per-unit and per-slot trends, odometry from the new `gold/unit_usage`, lifelines). Stall threshold moved to 0.2 of stall current on corpus evidence. Human checks passed 2026-10-05: static export from a USB stick with Wi-Fi off, serve with History-to-Replay drill-through and the AdvantageScope round-trip, and Josh's sign-off on the look. The plan below is the original scope.
 
 - **Per-match static site:**
   - Rebuild the power-tracking SPA on silver and gold.
