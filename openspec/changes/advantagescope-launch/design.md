@@ -103,7 +103,7 @@ A new ADR records that the local app may start exactly one program, AdvantageSco
 ## Risks / Trade-offs
 
 - [The pit machine keeps the lake on another volume from temp, so every launch copies about 200 MB] → Correct but slower. `doctor` prints "staging: link" or "staging: copy" so the cost is visible. A setting for the staging root is a later option if this matters.
-- [AdvantageScope's Insert-log alignment of the hoots may be off] → Not checked yet. Task 7.2 checks it by hand. If it is wrong, the merged pre-aligned wpilog (proposal non-goal) becomes its own change.
+- [AdvantageScope's Insert-log alignment of the hoots may be off] → **Checked 2026-10-06 (task 7.2): aligned.** Josh inserted both Q15 hoots into the launched window, and the hoot TalonFX currents line up with the wpilog. The merged pre-aligned wpilog is not needed.
 - [A future AdvantageScope adds a single-instance lock or changes its argv handling] → The launch still passes one file. The macOS path already uses `open-file`. The manual check (7.1) is re-run on each WPILib year.
 - [The staged hard link outlives a lake `rebuild` that removes a raw file] → The link keeps the old bytes until cleanup. That is harmless, because staged files are never read back by Flashpoint.
 - [Windows or Linux install paths are guesses] → Each is marked "verify", and an explicit config path always works.

@@ -39,5 +39,5 @@
 
 ## 7. [HUMAN] Field check
 
-- [ ] 7.1 Josh, on this laptop: `flashpoint serve`, Replay Q15, then "Open in AdvantageScope". AdvantageScope opens one window titled with the readable Q15 name. Repeat while AdvantageScope is already open, and a second window opens
-- [ ] 7.2 In that window, File › Insert log, then select both staged Q15 hoots: they merge, and a TalonFX current from a hoot lines up with the same motor in the wpilog around enable. Record aligned or offset (and by how much) in design.md
+- [x] 7.1 Josh, on this laptop: `flashpoint serve`, Replay Q15, then "Open in AdvantageScope". AdvantageScope opens one window titled with the readable Q15 name. Repeat while AdvantageScope is already open, and a second window opens
+- [x] 7.2 In that window, File › Insert log, then select both staged Q15 hoots: they merge, and a TalonFX current from a hoot lines up with the same motor in the wpilog around enable. Record aligned or offset (and by how much) in design.md — aligned (2026-10-06)
