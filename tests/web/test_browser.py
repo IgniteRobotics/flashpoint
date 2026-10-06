@@ -16,9 +16,11 @@ import pytest
 
 from flashpoint import config
 from flashpoint.lake.paths import LakePaths
+from flashpoint.lake.raw import raw_path
 from flashpoint.report.build import ReportBuilder
 from flashpoint.report.export import export_static
 from flashpoint.views.queries import HistoryQueries
+from flashpoint.web.advantagescope import Install, Launcher
 from flashpoint.web.server import FlashpointServer
 from tests.report.lake import MatchLake, quiet_rows
 from tests.report.silver import points
@@ -64,8 +66,9 @@ def _watch(page: Any) -> Watch:
     return watch
 
 
-def _serve(lake: LakePaths, robots: Any = None) -> FlashpointServer:
-    server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake, robots))
+def _serve(lake: LakePaths, robots: Any = None, launcher: Any = None) -> FlashpointServer:
+    queries = HistoryQueries(lake, robots)
+    server = FlashpointServer(("127.0.0.1", 0), lake, queries, launcher=launcher)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
@@ -420,6 +423,125 @@ def test_corpus_lake_served(page: Any, derived_corpus_lake: Any) -> None:
         _open(page, url, "#view=history&unit=legacy%3A2026-comp%3Aintake-extension%3A0")
         page.wait_for_selector("#device .lifeline__item")
         assert "2026gacmp_qm7" in page.inner_text("#device")
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
+
+
+# --- Open in AdvantageScope (spec: advantagescope-launch) ---------------------------------
+
+
+class Recorder:
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv: list[str]) -> None:
+        self.calls.append(argv)
+
+
+class NetworkServer(FlashpointServer):
+    """Reports itself as shared on the pit network (no all-interface bind in tests)."""
+
+    @property
+    def bound_local(self) -> bool:
+        return False
+
+
+@pytest.fixture(scope="module")
+def launch_site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Any]]:
+    root = tmp_path_factory.mktemp("launch")
+    lake = MatchLake(root / "lake")
+    lake.add_match("2026gacmp_qm7", "q7", quiet_rows(), wpilog_name=HOSTILE_LOG)
+    builder = ReportBuilder(lake.write_meta(), config.config_root())
+    builder.build()
+    builder.close()
+    app_path = root / "AdvantageScope stand-in"
+    app_path.write_text("")
+    recorder = Recorder()
+    found = _serve(lake.lake, launcher=Launcher(Install(app_path, "config"), root=root / "stage",
+                                                spawn=recorder))  # fmt: skip
+    missing = _serve(lake.lake)
+    network = NetworkServer(("127.0.0.1", 0), lake.lake, HistoryQueries(lake.lake),
+                            launcher=Launcher(Install(app_path, "config"), root=root / "stage",
+                                              spawn=recorder))  # fmt: skip
+    threading.Thread(target=network.serve_forever, daemon=True).start()
+    export = root / "export"
+    export_static(lake.lake, export)
+    yield {
+        "found": f"http://127.0.0.1:{found.server_address[1]}/",
+        "missing": f"http://127.0.0.1:{missing.server_address[1]}/",
+        "network": f"http://127.0.0.1:{network.server_address[1]}/",
+        "static": (export / "index.html").as_uri(),
+        "recorder": recorder,
+        "stage": root / "stage",
+    }
+    for server in (found, missing, network):
+        _stop(server)
+
+
+def test_launch_from_replay(page: Any, launch_site: dict[str, Any]) -> None:
+    recorder = launch_site["recorder"]
+    recorder.calls.clear()
+    watch = _open(page, launch_site["found"], "#view=replay&m=2026gacmp_qm7")
+    page.click("#as-launch")
+    page.wait_for_selector("#as-hoots li")
+    folder = launch_site["stage"] / "2026gacmp_qm7"
+    assert page.inner_text("#as-folder") == str(folder)
+    assert "Insert log" in page.inner_text("#as-result")
+    assert page.locator("#as-hoots li").count() == 2
+    assert len(recorder.calls) == 1
+    assert recorder.calls[0][-1] == str(folder / "2026gacmp_qm7__wpilog__x_alert_1_.wpilog")
+    assert page.locator("a.download").count() == 3  # the downloads stay
+    assert watch.clean(), watch
+
+
+def test_launch_unavailable_on_the_network(page: Any, launch_site: dict[str, Any]) -> None:
+    recorder = launch_site["recorder"]
+    recorder.calls.clear()
+    watch = _open(page, launch_site["network"], "#view=replay&m=2026gacmp_qm7")
+    page.wait_for_selector("#as-unavailable")
+    assert "only available on the machine running Flashpoint" in page.inner_text("#as-unavailable")
+    assert page.locator("#as-launch").count() == 0
+    assert page.locator("a.download").count() == 3
+    assert recorder.calls == [] and watch.clean(), watch
+
+
+def test_launch_unavailable_without_advantagescope(page: Any, launch_site: dict[str, Any]) -> None:
+    watch = _open(page, launch_site["missing"], "#view=replay&m=2026gacmp_qm7")
+    page.wait_for_selector("#as-unavailable")
+    assert "AdvantageScope not found" in page.inner_text("#as-unavailable")
+    assert page.locator("#as-launch").count() == 0
+    assert page.locator("a.download").count() == 3
+    assert watch.clean(), watch
+
+
+def test_no_launch_in_a_static_export(page: Any, launch_site: dict[str, Any]) -> None:
+    watch = _open(page, launch_site["static"], "#view=replay&m=2026gacmp_qm7")
+    page.wait_for_selector("a.download")
+    assert page.locator("#as-launch, #as-unavailable").count() == 0
+    assert watch.clean(), watch
+
+
+def test_launch_from_history(page: Any, tmp_path: Path) -> None:
+    season = build_season(tmp_path / "lake")
+    wpilog = raw_path(season.lake, "ws059", ".wpilog")  # the season's ids, no raw files by default
+    wpilog.parent.mkdir(parents=True)
+    wpilog.write_bytes(b"wpilog 59")
+    recorder = Recorder()
+    app_path = tmp_path / "AdvantageScope stand-in"
+    app_path.write_text("")
+    launcher = Launcher(Install(app_path, "config"), root=tmp_path / "stage", spawn=recorder)
+    server = _serve(season.lake, season.robots, launcher)
+    try:
+        watch = _open(page, f"http://127.0.0.1:{server.server_address[1]}/",
+                      "#view=history&unit=ctre%3ADRIVE-FL")  # fmt: skip
+        page.wait_for_selector("#unit-matches button")
+        page.click("#unit-matches button >> nth=0")
+        page.click("#unit-logs #as-launch")
+        page.wait_for_selector("#as-result >> text=/Opened|did not open/")
+        assert len(recorder.calls) == 1, page.inner_text("#as-result")
+        assert recorder.calls[0][-1].endswith(".wpilog")
+        assert page.locator("#unit-logs a.download").count() >= 1
         assert watch.clean(), watch
     finally:
         _stop(server)

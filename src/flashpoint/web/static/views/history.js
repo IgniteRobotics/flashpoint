@@ -272,6 +272,7 @@
     const info = await FP.api('match/' + encodeURIComponent(key));
     FP.fill(box, h('h3', { class: 'label' }, 'Raw logs · ' + key),
       info.built ? null : h('p', { class: 'callout callout--quiet' }, 'Replay data for this match is not built: run ', h('code', { class: 'code' }, info.build_command)),
+      info.sources.length ? FP.launchPanel(key) : null,
       h('div', { class: 'downloads' }, info.sources.map((s) => h('a', { class: 'download', href: FP.rawHref(s), download: s.download },
         h('span', null, '⇩ ', s.part === 'wpilog' ? 'wpilog' : 'hoot · ' + s.part), h('span', { class: 'download__hash' }, s.name)))));
   }

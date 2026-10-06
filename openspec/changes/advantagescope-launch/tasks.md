@@ -21,9 +21,9 @@
 
 ## 4. Front end (spec: match-reports, "Open in AdvantageScope"; lifetime-trends, "Drill-through to Replay and raw logs")
 
-- [ ] 4.1 Browser tests first (served, with the stand-in configured): the Replay aside shows "Open in AdvantageScope"; choosing it starts the stand-in and shows the staged folder and the hoots to insert; the downloads stay. History's raw-log list offers the same action
-- [ ] 4.2 Browser tests first: no launch action with `--host 0.0.0.0` (the page shows the "only on the machine running Flashpoint" reason) or on `file://`; when AdvantageScope is not found, the reason is shown and the downloads work
-- [ ] 4.3 Implement it: `shell.js` reads `GET /api/launch` once in served mode; `replay.js` and `history.js` render the action and its result with `h()` only (no `innerHTML`). The request sends `X-Flashpoint: launch` and JSON; 4.1–4.2 pass in Chromium
+- [x] 4.1 Browser tests first (served, with the stand-in configured): the Replay aside shows "Open in AdvantageScope"; choosing it starts the stand-in and shows the staged folder and the hoots to insert; the downloads stay. History's raw-log list offers the same action
+- [x] 4.2 Browser tests first: no launch action with `--host 0.0.0.0` (the page shows the "only on the machine running Flashpoint" reason) or on `file://`; when AdvantageScope is not found, the reason is shown and the downloads work
+- [x] 4.3 Implement it: `shell.js` reads `GET /api/launch` once in served mode; `replay.js` and `history.js` render the action and its result with `h()` only (no `innerHTML`). The request sends `X-Flashpoint: launch` and JSON; 4.1–4.2 pass in Chromium
 
 ## 5. Platform checks
 
@@ -33,8 +33,8 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Write ADR-0014 "Guarded local AdvantageScope launch" (amends 0013, refines D8, cites #54), and add it to `docs/adr/README.md`
-- [ ] 6.2 Update `docs/rewrite/05-target-architecture.md` D8 (mechanism: launch when local, otherwise download), the P4 follow-up note in `docs/rewrite/06-roadmap.md`, and the README's `serve` section; `openspec validate advantagescope-launch` passes
+- [x] 6.1 Write ADR-0014 "Guarded local AdvantageScope launch" (amends 0013, refines D8, cites #54), and add it to `docs/adr/README.md`
+- [x] 6.2 Update `docs/rewrite/05-target-architecture.md` D8 (mechanism: launch when local, otherwise download), the P4 follow-up note in `docs/rewrite/06-roadmap.md`, and the README's `serve` section; `openspec validate advantagescope-launch` passes
 - [ ] 6.3 Full gate: ruff, mypy --strict, pytest (unit, corpus, browser), then open the PR into `rewrite`
 
 ## 7. [HUMAN] Field check
