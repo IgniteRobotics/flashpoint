@@ -7,6 +7,7 @@ come from a committed manifest generated from CTRE's redist index
 """
 
 import hashlib
+import logging
 import os
 import platform
 import re
@@ -21,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+LOG = logging.getLogger(__name__)
+
 MANIFEST_PATH = Path(__file__).with_name("owlet-manifest.toml")
 PLATFORMS = ("macosuniversal", "linuxx86-64", "linuxarm64", "windowsx86-64")
 
@@ -28,6 +31,7 @@ HEADER_SIZE = 72
 COMPLIANCY_OFFSET = 70
 MIN_COMPLIANCY = 6  # Phoenix 2024; older hoots cannot be decoded
 OWLET_TIMEOUT_S = 600
+OWLET_ATTEMPTS = 2  # one retry: the Linux owlet fails at random on healthy hoots (#17)
 # owlet prints this when a hoot ends mid-record (e.g. the robot lost power). It still
 # writes everything it could read, so the partial data is kept and flagged.
 INCOMPLETE_READ_MARKER = "Could not read to end of input file"
@@ -178,15 +182,26 @@ class _OwletOutput:
 
 
 def _run(args: list[str]) -> _OwletOutput:
-    try:
-        done = subprocess.run(args, capture_output=True, text=True, timeout=OWLET_TIMEOUT_S)
-    except subprocess.TimeoutExpired as exc:
-        raise HootError("owlet-timeout", " ".join(args[:2])) from exc
-    incomplete = INCOMPLETE_READ_MARKER in done.stderr or INCOMPLETE_READ_MARKER in done.stdout
-    if done.returncode != 0 and not incomplete:
-        detail = (done.stderr or done.stdout).strip().splitlines()[-1:] or [""]
-        raise HootError("owlet-failed", detail[0])
-    return _OwletOutput(done.stdout, incomplete)
+    """Run owlet; a failed run is retried once (#17: the Linux owlet fails at random).
+
+    An incomplete read is a result, not a failure, and a timeout is not retried.
+    """
+    detail = ""
+    for attempt in range(1, OWLET_ATTEMPTS + 1):
+        try:
+            done = subprocess.run(args, capture_output=True, text=True, timeout=OWLET_TIMEOUT_S)
+        except subprocess.TimeoutExpired as exc:
+            raise HootError("owlet-timeout", " ".join(args[:2])) from exc
+        incomplete = INCOMPLETE_READ_MARKER in done.stderr or INCOMPLETE_READ_MARKER in done.stdout
+        if done.returncode == 0 or incomplete:
+            return _OwletOutput(done.stdout, incomplete)
+        last = (done.stderr or done.stdout).strip().splitlines()[-1:] or ["no output"]
+        detail = f"exit {done.returncode}: {last[0]}"
+        if attempt < OWLET_ATTEMPTS:
+            LOG.warning(
+                "owlet failed on %s (%s); retrying", args[1] if len(args) > 1 else "", detail
+            )
+    raise HootError("owlet-failed", detail)
 
 
 def scan_signals(owlet: Path, hoot_path: Path) -> dict[str, str]:
