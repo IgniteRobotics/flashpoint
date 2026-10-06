@@ -16,7 +16,7 @@
 
 - [x] 3.1 Verify the gate: P2 archived; `config/robots/2025-comp.toml` covers every row of the two device CSVs (14 slots, `Pheonix6` corrected). The NetworkTables maps and `log_configs/` are **not** covered (P2 non-goal), so they move to stage 2b-ii (team decision, 2026-10-04)
 - [x] 3.2 Delete `datamaps/drivetrain_devices_map.csv` and `datamaps/rio_devices_map.csv`; `tools/migrate-legacy-config.py` now reads them from the `legacy-2025` tag
-- [ ] 3.3 CI passes. Merge through a PR
+- [x] 3.3 CI passes. Merge through a PR
 
 ## 3b. Stage 2b-ii: NetworkTables maps (gate: a future NT-mapping change is archived)
 
@@ -32,8 +32,8 @@
 
 ## 5. Stage 2d: viewer (gate: p4-views-and-reports archived)
 
-- [ ] 5.1 Verify the gate
-- [ ] 5.2 Delete `viz.py`, `viz-requirements.txt`, `gw_config.json`
+- [x] 5.1 Verify the gate
+- [x] 5.2 Delete `viz.py`, `viz-requirements.txt`, `gw_config.json`
 - [ ] 5.3 Rewrite `README.md` for the new package (install, `flashpoint` CLI, links to docs and openspec)
 - [ ] 5.4 Confirm that no tracked files remain at the repo root except `README.md`, `.gitignore`, `pyproject.toml`, `poetry.lock`, and the tool dirs (`src/`, `tests/`, `config/`, `docs/`, `openspec/`, `media/`, `.github/`, `.claude/`)
 - [ ] 5.5 CI passes. Merge through a PR, then archive this change
