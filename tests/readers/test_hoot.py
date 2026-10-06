@@ -1,7 +1,9 @@
 import hashlib
 import stat
+import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -164,3 +166,64 @@ def test_health_profile_includes_alignment_and_physics_signals() -> None:
         "TalonFX-1/PIDVelocity_Reference": "g",
     }
     assert set(hoot.select_signals(signals, "health") or []) == {"a", "c", "d", "e", "f"}
+
+
+class FakeOwlet:
+    """Stands in for subprocess.run: plays back (exit code, stdout, stderr) per call."""
+
+    def __init__(self, *results: tuple[int, str, str]) -> None:
+        self.results = list(results)
+        self.calls = 0
+
+    def __call__(self, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        code, out, err = self.results[min(self.calls, len(self.results) - 1)]
+        self.calls += 1
+        return subprocess.CompletedProcess(args, code, out, err)
+
+
+def test_owlet_retried_once_after_a_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    fake = FakeOwlet((1, "", "Error: something odd\n"), (0, "ok\n", ""))
+    monkeypatch.setattr(subprocess, "run", fake)
+    assert hoot._run(["owlet", "x.hoot", "--scan"]).stdout == "ok\n"
+    assert fake.calls == 2
+    assert "exit 1: Error: something odd" in caplog.text and "x.hoot" in caplog.text
+
+
+def test_owlet_failing_twice_reports_exit_code_and_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeOwlet((139, "partial\n", "line one\nSegmentation fault\n"))
+    monkeypatch.setattr(subprocess, "run", fake)
+    with pytest.raises(HootError) as error:
+        hoot._run(["owlet", "x.hoot", "--scan"])
+    assert error.value.reason == "owlet-failed"
+    assert "exit 139: Segmentation fault" in str(error.value)
+    assert fake.calls == hoot.OWLET_ATTEMPTS == 2
+
+
+def test_owlet_failure_without_output_still_names_the_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(subprocess, "run", FakeOwlet((-9, "", "")))
+    with pytest.raises(HootError, match="exit -9: no output"):
+        hoot._run(["owlet", "x.hoot", "--scan"])
+
+
+def test_incomplete_read_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeOwlet((1, "", f"{hoot.INCOMPLETE_READ_MARKER}\n"))
+    monkeypatch.setattr(subprocess, "run", fake)
+    assert hoot._run(["owlet", "x.hoot", "y.wpilog"]).incomplete is True
+    assert fake.calls == 1
+
+
+def test_timeout_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
+    def slow(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        raise subprocess.TimeoutExpired(args, hoot.OWLET_TIMEOUT_S)
+
+    monkeypatch.setattr(subprocess, "run", slow)
+    with pytest.raises(HootError, match="owlet-timeout"):
+        hoot._run(["owlet", "x.hoot", "--scan"])
+    assert len(calls) == 1
