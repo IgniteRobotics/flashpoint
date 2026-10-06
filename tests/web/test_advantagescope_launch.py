@@ -101,7 +101,7 @@ def test_refusal_accepts_only_the_all_local_row() -> None:
     assert refusal(True, port, "127.0.0.1", named) is None
     assert refusal(True, port, "127.0.0.1",
                    {**good, "Content-Type": "application/json; charset=utf-8"}) is None  # fmt: skip
-    variants = {
+    variants: dict[str, list[Any]] = {
         "bound": [True, False],
         "client": ["127.0.0.1", "10.68.29.5"],
         "host": [f"127.0.0.1:{port}", f"evil.example:{port}", "127.0.0.1:9999", None],
