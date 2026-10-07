@@ -52,6 +52,7 @@ Signal samples go to `silver/signals/season=<s>/session_id=<id>/part-N.parquet`,
 For each session whose robot declares signals, derive runs one query:
 - **Read:** bronze rows for the session's wpilog, filtered to the declared names (`signal IN (...)`).
 - **Join:** the declared-signals table, plus an as-of join to the session's framing for match time and phase. Framing is the same source silver uses.
+- **Match framing:** match time and phase are set only for a match session, meaning it has a match identity and a match start. A practice session such as `2025-nofms` is DS-framed but has no match key, so both stay empty. (Slot silver keeps its own phases.)
 - **Value:** `COALESCE(v_f64, v_i64, v_bool::int)`. Rows of any other type are excluded and the signal is reported as `non-numeric`.
 - **Missing signals:** found as declared names absent from the session's distinct signals in bronze. They are written to a new ledger table, `missing_signals(session_id, signal_id, reason)`, which is exposed as a meta table.
 - **Staging:** writes go through the same staging-then-rename path as silver (atomic visibility).
@@ -59,7 +60,7 @@ For each session whose robot declares signals, derive runs one query:
 
 ### 5. Migration checks against a reference log
 `tools/migrate-legacy-config.py --reference-log <wpilog>` loads the log's entry names and types through the existing wpilog reader (D3), then puts each legacy row through these checks in order:
-1. A motor V/I/T row of a subsystem that has CAN slots becomes *superseded by CAN slot `<id>`*.
+1. A motor voltage, current, temperature, position, or velocity row of a subsystem that has CAN slots (the slot's Phoenix 6 signals carry it) becomes *superseded by CAN slot `<id>`*.
 2. An entry absent from the log becomes *not in reference log*.
 3. A non-numeric entry becomes *non-numeric in reference log*.
 4. Anything else is mapped.

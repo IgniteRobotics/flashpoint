@@ -1,0 +1,9 @@
+# Migrated from legacy config2025.json by tools/migrate-legacy-config.py.
+season = 2025
+
+[roots]
+robot = "NT:Robot/m_robotContainer/"
+preferences = "NT:/Preferences/"
+fms = "NT:/FMSInfo/"
+photonvision = "NT:/photonvision/"
+camera_publisher = "NT:/CameraPublisher/"

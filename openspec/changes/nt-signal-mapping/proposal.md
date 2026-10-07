@@ -11,7 +11,7 @@ Roadmap: **NetworkTables signal mapping** (`docs/rewrite/06-roadmap.md`, follow-
 - **Silver signal samples:** derive writes mapped NT samples to a new silver dataset (`silver/signals/`). Each sample carries session, signal id, labels, wpilog time, match time, phase, and numeric value (booleans become 0/1). Slot-keyed `silver/samples/` is unchanged, so gold, Replay, and History are untouched.
 - **Missing signals reported:** for each session, declared signals that are absent from its wpilog are listed in the ledger. A renamed entry in robot code shows up instead of quietly vanishing.
 - **2025 migration:** `tools/migrate-legacy-config.py` also emits `config/seasons/2025.toml` and `[[signal]]` tables for `2025-comp`. Every legacy row ends up either mapped or listed with a reason:
-  - the 18 motor voltage, current, and temperature rows are listed as *superseded by CAN slot `<id>`*;
+  - the 18 motor rows (17 voltage, current, and temperature rows plus the wrist motor position) are listed as *superseded by CAN slot `<id>`*;
   - non-numeric vision keys (pose and raw-bytes values) are listed as *non-numeric, stays in bronze*.
 - **2026 mapping:** a hand-written `config/seasons/2026.toml` and `[[signal]]` tables in `2026-comp.toml` for the current robot. They cover the Intake, Shooter, Indexer, Hunter, and Drivetrain telemetry plus the three PhotonVision cameras, chosen from the entries in corpus `2026-gacmp-q7`.
 

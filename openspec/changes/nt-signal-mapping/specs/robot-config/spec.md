@@ -43,7 +43,7 @@ Configuration SHALL be validated on load. The following SHALL be rejected with a
 A one-time migration SHALL convert the legacy per-season CSV datamaps, the 2025 log configuration, and the power-tracking motor names into robot and season configuration files.
 
 It SHALL account for every legacy row of the 2025 device maps, metrics map, and vision map, and every prefix of the 2025 log configuration. Each one SHALL be either mapped or listed in the migration report with one of these reasons:
-- *superseded by CAN slot `<id>`*, for motor voltage, current, or temperature rows of a subsystem that has CAN slots;
+- *superseded by CAN slot `<id>`*, for motor voltage, current, temperature, position, or velocity rows of a subsystem that has CAN slots (its Phoenix 6 signals carry them);
 - *not in reference log*;
 - *non-numeric in reference log*.
 
