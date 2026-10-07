@@ -61,12 +61,12 @@
 
 ## 6. Corpus end-to-end and budgets
 
-- [ ] 6.1 Corpus tests:
+- [x] 6.1 Corpus tests:
   - every declared 2026 signal matches in `2026-gacmp-q7`, and every declared 2025 signal matches in `2025-gadal-q30`;
   - `2026-gacmp-p2` (no hoots) gets signal samples;
   - `2025-nofms` gets samples with empty match time;
   - `missing_signals` is empty for Q7 and Q30.
-- [ ] 6.2 Extend `tests/test_ingest_perf.py`:
+- [x] 6.2 Extend `tests/test_ingest_perf.py`:
   - Q7 ingest, including signals, still meets 30 s and 1 GB;
   - print the time and size of the signal step, and assert it adds at most 2 s and 150 MB against a run with no signals declared;
   - record the Q7 `silver/signals/` partition size in the PR.
