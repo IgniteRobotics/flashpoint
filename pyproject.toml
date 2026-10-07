@@ -42,7 +42,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# Legacy top-level scripts are never edited (retire-legacy-code); lint new code only.
+# Lint the package, its tests, and the tools.
 include = ["src/**/*.py", "tests/**/*.py", "tools/**/*.py"]
 
 [tool.ruff.lint]

@@ -34,6 +34,6 @@
 
 - [x] 5.1 Verify the gate
 - [x] 5.2 Delete `viz.py`, `viz-requirements.txt`, `gw_config.json`
-- [ ] 5.3 Rewrite `README.md` for the new package (install, `flashpoint` CLI, links to docs and openspec)
-- [ ] 5.4 Confirm that no tracked files remain at the repo root except `README.md`, `.gitignore`, `.gitattributes`, `pyproject.toml`, `poetry.lock`, and the tool dirs (`src/`, `tests/`, `config/`, `deploy/`, `docs/`, `notebooks/`, `tools/`, `openspec/`, `media/`, `.github/`, `.claude/`)
+- [x] 5.3 Rewrite `README.md` for the new package (install, `flashpoint` CLI, links to docs and openspec)
+- [x] 5.4 Confirm that no tracked files remain at the repo root except `README.md`, `.gitignore`, `.gitattributes`, `pyproject.toml`, `poetry.lock`, and the tool dirs (`src/`, `tests/`, `config/`, `deploy/`, `docs/`, `notebooks/`, `tools/`, `openspec/`, `media/`, `.github/`, `.claude/`)
 - [ ] 5.5 CI passes. Merge through a PR, then archive this change
