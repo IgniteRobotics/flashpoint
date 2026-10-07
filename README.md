@@ -13,7 +13,7 @@ The Flashpoint Robot Telemetry Platform analyzes FRC logs and telemetry over the
 - **Code:** the `flashpoint` package in `src/flashpoint/`, with the `flashpoint` CLI.
 - **Plan and research:** [`docs/rewrite/`](docs/rewrite/README.md). **Decisions:** [`docs/adr/`](docs/adr/README.md).
 - **Specs and changes:** [`openspec/`](openspec/). Current behavior is in `openspec/specs/`, and work in progress is in `openspec/changes/`.
-- **Legacy:** the pre-rewrite tree is preserved at the `legacy-2025` tag. The remaining legacy pieces (`datamaps/`, `log_configs/`) are removed stage by stage (`openspec/changes/retire-legacy-code`).
+- **Legacy:** the pre-rewrite tree is preserved at the `legacy-2025` tag. All legacy code has been removed from this branch (`openspec/changes/retire-legacy-code`).
 
 ## Getting started
 
@@ -25,6 +25,8 @@ poetry run flashpoint doctor                      # environment, lake, owlet cac
 poetry run flashpoint ingest path/to/logs/        # .wpilog and .hoot files or folders
 poetry run flashpoint ingest --profile all FILE   # export every hoot signal (about 3x larger)
 ```
+
+Run `flashpoint <command> --help` for options. The commands are: `ingest`, `derive`, `report`, `serve`, `acquire`, `backup`, `restore`, `rebuild` (reprocess files ingested by an older pipeline version, or after a `restore`), and `doctor`.
 
 - **Lake location:** `~/flashpoint-lake`, or set `$FLASHPOINT_LAKE` / `--lake`.
 - **What ingest does:** every file is copied to `raw/` (content-addressed). Samples go to `bronze/` as Parquet, and log metadata goes to `meta/`. Re-running ingest skips files it has already seen.
@@ -100,6 +102,7 @@ poetry run flashpoint acquire --dry-run   # list what would be copied; changes n
 poetry run flashpoint acquire             # one cycle
 poetry run flashpoint acquire --watch     # keep going (Ctrl-C to stop)
 poetry run flashpoint backup              # rclone backup, if backup.remote is set
+poetry run flashpoint restore --lake NEW  # copy the backup into a new lake (then run rebuild on it)
 ```
 
 Settings live in `acquire.toml` (hosts, roots, poll interval, rclone remote). Running it as a service (systemd user unit on Linux, scheduled task on Windows) and the full config are in [`deploy/README.md`](deploy/README.md).

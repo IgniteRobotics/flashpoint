@@ -20,8 +20,8 @@
 
 ## 3b. Stage 2b-ii: NetworkTables maps (gate: a future NT-mapping change is archived)
 
-- [ ] 3b.1 Verify the gate: a change that maps NetworkTables-only signals (subsystem telemetry, vision) into robot configuration is archived, and it covers every row of `datamaps/2025/{metrics,vision}_map.csv` and the prefixes in `log_configs/config2025.json`. 2024 is out of scope (decided 2026-10-06); its maps and log config are deleted with the rest and stay recoverable from `legacy-2025`
-- [ ] 3b.2 Delete `datamaps/` and `log_configs/`
+- [x] 3b.1 Verify the gate: a change that maps NetworkTables-only signals (subsystem telemetry, vision) into robot configuration is archived, and it covers every row of `datamaps/2025/{metrics,vision}_map.csv` and the prefixes in `log_configs/config2025.json`. 2024 is out of scope (decided 2026-10-06); its maps and log config are deleted with the rest and stay recoverable from `legacy-2025`
+- [x] 3b.2 Delete `datamaps/` and `log_configs/`
 - [ ] 3b.3 CI passes. Merge through a PR
 
 ## 4. Stage 2c: deployment and backup (gate: p3-log-acquisition archived)
@@ -34,6 +34,6 @@
 
 - [x] 5.1 Verify the gate
 - [x] 5.2 Delete `viz.py`, `viz-requirements.txt`, `gw_config.json`
-- [ ] 5.3 Rewrite `README.md` for the new package (install, `flashpoint` CLI, links to docs and openspec)
-- [ ] 5.4 Confirm that no tracked files remain at the repo root except `README.md`, `.gitignore`, `.gitattributes`, `pyproject.toml`, `poetry.lock`, and the tool dirs (`src/`, `tests/`, `config/`, `deploy/`, `docs/`, `notebooks/`, `tools/`, `openspec/`, `media/`, `.github/`, `.claude/`)
+- [x] 5.3 Rewrite `README.md` for the new package (install, `flashpoint` CLI, links to docs and openspec)
+- [x] 5.4 Confirm that no tracked files remain at the repo root except `README.md`, `.gitignore`, `.gitattributes`, `pyproject.toml`, `poetry.lock`, and the tool dirs (`src/`, `tests/`, `config/`, `deploy/`, `docs/`, `notebooks/`, `tools/`, `openspec/`, `media/`, `.github/`, `.claude/`)
 - [ ] 5.5 CI passes. Merge through a PR, then archive this change
