@@ -6,10 +6,9 @@ context: |
   and tracks motor and robot health across a robot's whole life. The goal is
   to detect anomalies and eventually predict failures before they happen.
 
-  Status: ground-up rewrite. The only legacy left on `rewrite` is
-  datamaps/ and log_configs/. It is reference-only: never edited, only
-  deleted through the retire-legacy-code change (staged, one gate per
-  phase). The pre-rewrite tree is preserved at the legacy-2025 tag. The research
+  Status: ground-up rewrite. All legacy code has been removed from
+  `rewrite` through the retire-legacy-code change. The pre-rewrite tree is
+  preserved at the legacy-2025 tag. The research
   and roadmap live in docs/rewrite/ and are the source of truth for these
   changes:
     - 01-current-capabilities.md   what exists today on every branch
