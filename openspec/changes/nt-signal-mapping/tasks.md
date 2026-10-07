@@ -1,38 +1,38 @@
 ## 1. Season config and signal declarations (spec: robot-config, "Season configuration file", "Robot configuration file")
 
-- [ ] 1.1 Write the tests first, and confirm they fail:
+- [x] 1.1 Write the tests first, and confirm they fail:
   - a valid season file loads its five roots;
   - an unknown key, a missing season, or an empty root is rejected, with the file and the key named;
   - a robot config with `[[signal]]` tables loads;
   - each of these is rejected with both entries or the root named: a duplicate signal id, a duplicate (root, entry), a root the season doesn't define, and signals with no season file;
   - a non-snake_case metric is rejected;
   - the existing configs without signals still load unchanged.
-- [ ] 1.2 Implement the `Signal` model and the season loader in `semantics/robot_config.py`, plus `load_seasons(config_dir/"seasons")`. 1.1 passes, and so does the existing robot-config test suite.
-- [ ] 1.3 `flashpoint doctor` lists each season's roots and the number of signals per robot. Test the output, and check it by hand on this laptop.
+- [x] 1.2 Implement the `Signal` model and the season loader in `semantics/robot_config.py`, plus `load_seasons(config_dir/"seasons")`. 1.1 passes, and so does the existing robot-config test suite.
+- [x] 1.3 `flashpoint doctor` lists each season's roots and the number of signals per robot. Test the output, and check it by hand on this laptop.
 
 ## 2. Silver signal samples (spec: nt-signals, "Declared signals matched by name", "Signal samples in silver"; telemetry-lake, "Silver and gold layers")
 
-- [ ] 2.1 Write tests first against a synthetic wpilog fixture and a fixture config:
+- [x] 2.1 Write tests first against a synthetic wpilog fixture and a fixture config:
   - a double entry and an int64 entry produce numeric samples with the right labels;
   - a boolean beam break that turns true twice yields 1 at those times and 0 elsewhere;
   - an undeclared SmartDashboard entry yields no signal samples but is still in bronze;
   - a session marked `robot = unknown` yields none;
   - match time and phase come from framing, and are empty for an unframed session;
   - the tests fail before step 2.2.
-- [ ] 2.2 Implement `semantics/signals.py` (one DuckDB query per session over the wpilog's bronze partition) and write `silver/signals/` through the staging-then-rename path. 2.1 passes.
-- [ ] 2.3 Wire it into `Deriver.run()` for every session with a robot, including sessions with no hoots.
+- [x] 2.2 Implement `semantics/signals.py` (one DuckDB query per session over the wpilog's bronze partition) and write `silver/signals/` through the staging-then-rename path. 2.1 passes.
+- [x] 2.3 Wire it into `Deriver.run()` for every session with a robot, including sessions with no hoots.
   - Add the signal declarations and season roots to the derive fingerprint.
   - When a session's robot declares no signals, re-derive removes that session's old `silver/signals/` partition.
   - Tests: editing one signal re-derives only that robot's sessions; deleting all signals leaves no partitions behind.
-- [ ] 2.4 Expose `silver/signals` as a DuckDB view in `lake/query.py`, next to `samples`. A test queries it.
+- [x] 2.4 Expose `silver/signals` as a DuckDB view in `lake/query.py`, next to `samples`. A test queries it.
 
 ## 3. Missing and unusable signals (spec: nt-signals, "Missing and unusable signals reported")
 
-- [ ] 3.1 Write tests first, and confirm they fail:
+- [x] 3.1 Write tests first, and confirm they fail:
   - a declared entry absent from the wpilog is recorded as `missing`, derive succeeds, and the other signals are written;
   - a string or array entry is recorded as `non-numeric`, with no samples;
   - a fixture wpilog truncated mid-record keeps the samples before the truncation, and the session isn't quarantined.
-- [ ] 3.2 Add the `missing_signals(session_id, signal_id, reason)` ledger table and write it during derive. Expose it as a `meta_missing_signals` view, and log one derive warning per session that has missing signals. 3.1 passes.
+- [x] 3.2 Add the `missing_signals(session_id, signal_id, reason)` ledger table and write it during derive. Expose it as a `meta_missing_signals` view, and log one derive warning per session that has missing signals. 3.1 passes.
 
 ## 4. 2025 legacy migration (spec: robot-config, "Legacy configuration migration")
 

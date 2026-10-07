@@ -1,4 +1,5 @@
-"""Derived layers from bronze + configuration: sessions, alignment, identity, framing, silver, gold.
+"""Derived layers from bronze + configuration: sessions, alignment, identity, framing, silver
+(slot samples and NetworkTables signals), gold.
 
 Everything here is rebuildable without raw logs or network access.
 """
@@ -21,7 +22,7 @@ from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.query import connect
 from flashpoint.meta.extract import parse_hoot_filename
-from flashpoint.semantics import gold, usage
+from flashpoint.semantics import gold, signals, usage
 from flashpoint.semantics.alignment import (
     HOOT_ENABLE,
     WPILOG_ENABLE,
@@ -38,7 +39,13 @@ from flashpoint.semantics.identity import (
     resolve_identity,
 )
 from flashpoint.semantics.match_identity import identify
-from flashpoint.semantics.robot_config import RobotConfig, load_robots, select_robot
+from flashpoint.semantics.robot_config import (
+    RobotConfig,
+    SeasonConfig,
+    load_robots,
+    load_seasons,
+    select_robot,
+)
 from flashpoint.semantics.sessions import HootGroup, HootLog, Session, WpilogLog, group_sessions
 from flashpoint.semantics.silver import HootInSession, write_session
 
@@ -62,8 +69,11 @@ class Deriver:
     def __init__(self, lake: LakePaths, config_dir: Path) -> None:
         self.lake = lake
         self.ledger = Ledger(lake.ledger)
+        self.seasons: dict[int, SeasonConfig] = load_seasons(config_dir / "seasons")
         self.robots: list[RobotConfig] = (
-            load_robots(config_dir / "robots") if (config_dir / "robots").is_dir() else []
+            load_robots(config_dir / "robots", self.seasons)
+            if (config_dir / "robots").is_dir()
+            else []
         )
         self._con: duckdb.DuckDBPyConnection | None = None
 
@@ -418,15 +428,59 @@ class Deriver:
             )  # fmt: skip
         return counts
 
+    # --- silver signals -------------------------------------------------------------------
+
+    def derive_signals(
+        self, framings: dict[str, Framing], run_id: str, only: set[str]
+    ) -> dict[str, int]:
+        """Signal samples for the `only` sessions; the unusable-signal report for every session."""
+        robots = {r.robot: r for r in self.robots}
+        counts: dict[str, int] = {}
+        report = []
+        for session in self.ledger.query("SELECT * FROM sessions"):
+            sid = session["session_id"]
+            robot = robots.get(session["robot"])
+            declared = (
+                robot.signal_names(self.seasons[robot.season])
+                if robot is not None and robot.signals and session["wpilog_id"]
+                else {}
+            )
+            if declared:
+                entry_types: dict[str, set[str]] = {}
+                for row in self.ledger.query(
+                    "SELECT name, type FROM entries WHERE log_id = ?", (session["wpilog_id"],)
+                ):
+                    entry_types.setdefault(row["name"], set()).add(row["type"])
+                problems = signals.unusable(declared, entry_types)
+                report += [
+                    {"session_id": sid, "signal_id": signal_id, "reason": reason}
+                    for signal_id, reason in problems
+                ]
+            if sid not in only:
+                continue
+            if not declared:
+                signals.remove_session(self.lake, sid)
+                continue
+            signals.warn_unusable(sid, problems)
+            framing = framings[sid]
+            matched = session["match_key"] is not None and framing.match_start_us is not None
+            counts[sid] = signals.write_session(
+                self.con, self.lake, sid, session["season"], session["wpilog_id"], declared,
+                framing if matched else None, run_id,
+            )  # fmt: skip
+        self.ledger.replace_rows("missing_signals", report)
+        return counts
+
     # --- full run ------------------------------------------------------------------------
 
     def _fingerprint(self, session_id: str, framing: Framing) -> str:
+        session = self.ledger.query("SELECT * FROM sessions WHERE session_id = ?", (session_id,))
+        robot = next((r for r in self.robots if session and r.robot == session[0]["robot"]), None)
+        season = self.seasons.get(robot.season) if robot is not None else None
         parts = {
             "pipeline": fp_config.PIPELINE_VERSION,
             "derive": fp_config.DERIVE_VERSION,
-            "session": self.ledger.query(
-                "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
-            ),
+            "session": session,
             "hoots": self.ledger.query(
                 "SELECT * FROM session_hoots WHERE session_id = ? ORDER BY log_id", (session_id,)
             ),
@@ -435,7 +489,9 @@ class Deriver:
                 (session_id,),
             ),
             "phases": [p.__dict__ for p in framing.phases],
-            "robots": [r.model_dump(mode="json") for r in self.robots],
+            # Only this session's robot and season: editing one robot re-derives only its sessions.
+            "robot": robot.model_dump(mode="json") if robot is not None else None,
+            "season_roots": season.root_names() if season is not None else None,
         }
         return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -458,6 +514,7 @@ class Deriver:
         silver_counts = self.derive_silver(
             {sid: framings[sid] for sid in stale}, run_id, only=stale
         )
+        self.derive_signals(framings, run_id, only=stale)
         robots = {r.robot: r for r in self.robots}
         state = {
             sid: r
