@@ -81,13 +81,15 @@ lake/
   raw/<sha256>.{wpilog,hoot}                       # immutable originals
   bronze/samples/season=2026/log_id=<sha>/part-0.parquet   # sorted per row group (P1)
   silver/samples/season=2026/session_id=<id>/part-*.parquet          # P2: one per hoot in the session
+  silver/signals/season=2026/session_id=<id>/part-0.parquet          # declared NT signals (wpilog only)
   gold/match_features/season=2026/session_id=<id>/part-0.parquet      # P2
   gold/anomalies/season=2026/part-0.parquet
   meta/flashpoint.sqlite (ledger, WAL)  meta/*.parquet (snapshots: files, logs, hoot_logs, entries, inventory)
   meta/units.parquet   meta/device_observations.parquet   # physical-device registry
 config/
-  seasons/2026.toml        # NT prefixes, owlet version, match framing rules
-  robots/2026-comp.toml    # slots: (bus, model, CAN id) → subsystem/role, gear ratio, motor model
+  seasons/2026.toml        # NT roots: robot, photonvision, camera_publisher, preferences, fms
+  robots/2026-comp.toml    # slots: (bus, model, CAN id) → subsystem/role, gear ratio, motor model;
+                           # signals: (season root, NT entry) → id, subsystem, component, metric
 ```
 
 ```mermaid
