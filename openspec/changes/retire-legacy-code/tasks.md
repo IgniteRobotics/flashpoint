@@ -20,8 +20,8 @@
 
 ## 3b. Stage 2b-ii: NetworkTables maps (gate: a future NT-mapping change is archived)
 
-- [ ] 3b.1 Verify the gate: a change that maps NetworkTables-only signals (subsystem telemetry, vision) into robot configuration is archived, and it covers every row of `datamaps/2025/{metrics,vision}_map.csv` and the prefixes in `log_configs/config2025.json`. 2024 is out of scope (decided 2026-10-06); its maps and log config are deleted with the rest and stay recoverable from `legacy-2025`
-- [ ] 3b.2 Delete `datamaps/` and `log_configs/`
+- [x] 3b.1 Verify the gate: a change that maps NetworkTables-only signals (subsystem telemetry, vision) into robot configuration is archived, and it covers every row of `datamaps/2025/{metrics,vision}_map.csv` and the prefixes in `log_configs/config2025.json`. 2024 is out of scope (decided 2026-10-06); its maps and log config are deleted with the rest and stay recoverable from `legacy-2025`
+- [x] 3b.2 Delete `datamaps/` and `log_configs/`
 - [ ] 3b.3 CI passes. Merge through a PR
 
 ## 4. Stage 2c: deployment and backup (gate: p3-log-acquisition archived)

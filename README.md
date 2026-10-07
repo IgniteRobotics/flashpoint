@@ -13,7 +13,7 @@ The Flashpoint Robot Telemetry Platform analyzes FRC logs and telemetry over the
 - **Code:** the `flashpoint` package in `src/flashpoint/`, with the `flashpoint` CLI.
 - **Plan and research:** [`docs/rewrite/`](docs/rewrite/README.md). **Decisions:** [`docs/adr/`](docs/adr/README.md).
 - **Specs and changes:** [`openspec/`](openspec/). Current behavior is in `openspec/specs/`, and work in progress is in `openspec/changes/`.
-- **Legacy:** the pre-rewrite tree is preserved at the `legacy-2025` tag. The remaining legacy pieces (`datamaps/`, `log_configs/`) are removed stage by stage (`openspec/changes/retire-legacy-code`).
+- **Legacy:** the pre-rewrite tree is preserved at the `legacy-2025` tag. All legacy code has been removed from this branch (`openspec/changes/retire-legacy-code`).
 
 ## Getting started
 
