@@ -108,6 +108,9 @@ gantt
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
 ### NetworkTables signal mapping (S–M, follow-up to P2)
+> **Status: implemented; 2026 signal list awaiting sign-off** (change `nt-signal-mapping`, branch `feature/nt-signal-mapping`).
+> - **Built:** `config/seasons/<year>.toml` (five NT roots) and `[[signal]]` tables in robot configs. Derive writes `silver/signals/` and lists declarations that are absent or non-numeric in `meta_missing_signals`.
+> - **2025:** migrated from the `legacy-2025` tag against corpus Q30. Of 24 metrics rows (not 28), 6 are mapped and 18 motor rows are superseded by CAN slots. 33 of 36 vision rows are mapped; the 3 `targetPose` structs are non-numeric. Of the `config2025.json` prefixes, 5 become roots and `MetaData` is reported.
 P2 mapped CAN devices (slots and units) into robot config, and deliberately left out signals that only exist in NetworkTables: subsystem telemetry the robot code publishes, and vision. They are still described only by legacy files, which is the last thing blocking `retire-legacy-code` stage 2b-ii.
 - **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config2025.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
 - **Robot config:** NT entries get the same labels as CAN slots (subsystem, assembly, subassembly, component, metric), from `datamaps/2025/metrics_map.csv` (28 rows). Cameras and their metrics come from `datamaps/2025/vision_map.csv` (36 rows).

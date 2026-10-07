@@ -74,7 +74,7 @@
 
 ## 7. Docs
 
-- [ ] 7.1 Update the docs, then check the links:
+- [x] 7.1 Update the docs, then check the links:
   - `docs/rewrite/06-roadmap.md`: set the NetworkTables signal mapping status;
   - `docs/rewrite/05-target-architecture.md`: config layout, `seasons/<year>.toml` contents, and `silver/signals` in the lake layout;
   - `README.md`: a short "Signals" section showing how to declare one, and `derive --all`.
