@@ -370,7 +370,7 @@ def _acquire_status(lake: LakePaths) -> list[str]:
 
 
 def _doctor(lake: LakePaths) -> int:
-    from flashpoint.semantics.robot_config import ConfigError, load_robots
+    from flashpoint.semantics.robot_config import ConfigError, load_robots, load_seasons
     from flashpoint.web import advantagescope
 
     print(f"flashpoint {flashpoint.__version__} (pipeline v{config.PIPELINE_VERSION})")
@@ -389,14 +389,22 @@ def _doctor(lake: LakePaths) -> int:
         if stale:
             print(f"  {stale} file(s) from an older pipeline version: run `flashpoint rebuild`")
         ledger.close()
+    seasons_dir = config.config_root() / "seasons"
+    print(f"seasons    {seasons_dir}")
+    try:
+        seasons = load_seasons(seasons_dir)
+        for season in seasons.values():
+            roots = " ".join(f"{k}={v}" for k, v in season.root_names().items())
+            print(f"  {season.season}  {roots}")
+    except ConfigError as exc:
+        seasons = None
+        print(f"  INVALID: {exc}")
     robots_dir = config.config_root() / "robots"
     print(f"robots     {robots_dir}")
     try:
-        for robot in load_robots(robots_dir):
-            slots = len(robot.slots)
-            print(
-                f"  {robot.robot:<14} season {robot.season} project {robot.project}: {slots} slots"
-            )
+        for robot in load_robots(robots_dir, seasons):
+            counts = f"{len(robot.slots)} slots, {len(robot.signals)} signals"
+            print(f"  {robot.robot:<14} season {robot.season} project {robot.project}: {counts}")
     except ConfigError as exc:
         print(f"  INVALID: {exc}")
     registry = hoot.default_registry(config.cache_root())
