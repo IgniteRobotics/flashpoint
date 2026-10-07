@@ -108,6 +108,10 @@ gantt
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
 ### NetworkTables signal mapping (S–M, follow-up to P2)
+> **Status: ✅ done** (2026-10-07). PR #32 into `rewrite`; archived as `openspec/changes/archive/2026-10-07-nt-signal-mapping`. Its specs (`nt-signals`, `robot-config`, `telemetry-lake`) are now the baseline in `openspec/specs/`. The `retire-legacy-code` 3b gate is met.
+> - **Built:** `config/seasons/<year>.toml` (five NT roots) and `[[signal]]` tables in robot configs. Derive writes `silver/signals/` and lists declarations that are absent or non-numeric in `meta_missing_signals`.
+> - **2026:** 42 signals for Intake, Indexer, Shooter, Hunter and Drivetrain, plus the FRONT, LEFT and RIGHT cameras. Josh signed off on the list on 2026-10-07. CI: Q7 ingest takes 26.0 s; the signal step adds noise-level time and +29 MB.
+> - **2025:** migrated from the `legacy-2025` tag against corpus Q30. Of 24 metrics rows (not 28), 6 are mapped and 18 motor rows are superseded by CAN slots. 33 of 36 vision rows are mapped; the 3 `targetPose` structs are non-numeric. Of the `config2025.json` prefixes, 5 become roots and `MetaData` is reported.
 P2 mapped CAN devices (slots and units) into robot config, and deliberately left out signals that only exist in NetworkTables: subsystem telemetry the robot code publishes, and vision. They are still described only by legacy files, which is the last thing blocking `retire-legacy-code` stage 2b-ii.
 - **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config2025.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
 - **Robot config:** NT entries get the same labels as CAN slots (subsystem, assembly, subassembly, component, metric), from `datamaps/2025/metrics_map.csv` (28 rows). Cameras and their metrics come from `datamaps/2025/vision_map.csv` (36 rows).

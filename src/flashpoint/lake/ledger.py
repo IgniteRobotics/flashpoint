@@ -70,6 +70,9 @@ CREATE TABLE IF NOT EXISTS derived_state (
 CREATE TABLE IF NOT EXISTS unmapped_devices (
     session_id TEXT NOT NULL, bus TEXT, model TEXT, can_id INTEGER, source TEXT
 );
+CREATE TABLE IF NOT EXISTS missing_signals (
+    session_id TEXT NOT NULL, signal_id TEXT NOT NULL, reason TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS inventory (
     log_id TEXT NOT NULL, ts_us INTEGER NOT NULL, payload TEXT NOT NULL,
     valid INTEGER NOT NULL, error TEXT
@@ -84,6 +87,7 @@ DERIVED_TABLES = (
     "slot_observations",
     "unit_swaps",
     "unmapped_devices",
+    "missing_signals",
     "match_phases",
     "derived_state",
 )
