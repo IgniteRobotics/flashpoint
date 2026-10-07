@@ -56,8 +56,8 @@
 ## 5. 2026 mapping (spec: robot-config, "Robot configuration file"; nt-signals, "Declared signals matched by name")
 
 - [x] 5.1 Write a throwaway script, not committed, that lists the numeric and boolean NT entries in corpus `2026-gacmp-q7` under the robot and PhotonVision roots, with type and sample rate. Draft `config/seasons/2026.toml` and the candidate `[[signal]]` list following design §6.
-- [ ] 5.2 **[HUMAN]** Josh reviews the candidate 2026 signal list and labels, and signs off. Record the decision in the PR.
-- [ ] 5.3 Commit the 2026 season file and signals. The `Valid 2026 configuration` test asserts signals for Intake, Shooter, Indexer, Hunter, Drivetrain, and each of the three cameras. The 23-slot assertions are unchanged.
+- [x] 5.2 **[HUMAN]** Josh reviews the candidate 2026 signal list and labels, and signs off. Record the decision in the PR.
+- [x] 5.3 Commit the 2026 season file and signals. The `Valid 2026 configuration` test asserts signals for Intake, Shooter, Indexer, Hunter, Drivetrain, and each of the three cameras. The 23-slot assertions are unchanged.
 
 ## 6. Corpus end-to-end and budgets
 

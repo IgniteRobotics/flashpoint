@@ -34,6 +34,10 @@ def test_repo_2026_config_is_valid() -> None:
     assert robot.slot_for("rio", "TalonFX", 10).id == "intake-roller-follower"  # type: ignore[union-attr]
     assert robot.slot_for(CANIVORE, "TalonFX", 11).id == "drive-fl"  # type: ignore[union-attr]
     assert robot.slot_for("rio", "TalonFX", 11) is None
+    subsystems = {s.subsystem for s in robot.signals}
+    assert {"intake", "shooter", "indexer", "hunter", "drivetrain"} <= subsystems
+    cameras = {s.component for s in robot.signals if s.subsystem == "vision"}
+    assert cameras == {"front-camera", "left-camera", "right-camera"}
 
 
 def test_unknown_key_rejected(tmp_path: Path) -> None:

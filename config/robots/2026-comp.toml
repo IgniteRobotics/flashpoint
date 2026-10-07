@@ -201,3 +201,353 @@ model = "CANcoder"
 can_id = 43
 subsystem = "drivetrain"
 role = "back-right steer encoder"
+
+# --- NetworkTables signals (roots: config/seasons/2026.toml) ------------------------
+
+# intake
+[[signal]]
+id = "intake-extension-output"
+root = "robot"
+entry = "Intake/extensionMotor/Value"
+subsystem = "intake"
+component = "intake-extension"
+metric = "output"
+
+[[signal]]
+id = "intake-roller-output"
+root = "robot"
+entry = "Intake/rollerLeader/Value"
+subsystem = "intake"
+component = "intake-roller"
+metric = "output"
+
+[[signal]]
+id = "intake-roller-follower-output"
+root = "robot"
+entry = "Intake/rollerFollower/Value"
+subsystem = "intake"
+component = "intake-roller-follower"
+metric = "output"
+
+[[signal]]
+id = "intake-extension-target"
+root = "robot"
+entry = "Intake/Extension Target"
+subsystem = "intake"
+component = "extension"
+metric = "target"
+
+[[signal]]
+id = "intake-at-extension-setpoint"
+root = "robot"
+entry = "Intake/At Extension Setpoint"
+subsystem = "intake"
+component = "extension"
+metric = "at_setpoint"
+
+[[signal]]
+id = "intake-beyond-roller-setpoint"
+root = "robot"
+entry = "Intake/Beyond Roller Setpoint"
+subsystem = "intake"
+component = "roller"
+metric = "beyond_setpoint"
+
+[[signal]]
+id = "intake-compliant-mode"
+root = "robot"
+entry = "Intake/Compliant Mode Enabled"
+subsystem = "intake"
+component = "extension"
+metric = "compliant_mode"
+
+[[signal]]
+id = "intake-below-compliant-current-limit"
+root = "robot"
+entry = "Intake/Below Complaint Current Limit"
+subsystem = "intake"
+component = "extension"
+metric = "below_compliant_current_limit"
+
+
+# indexer
+[[signal]]
+id = "indexer-main-output"
+root = "robot"
+entry = "Indexer/indexerMotor/Value"
+subsystem = "indexer"
+component = "indexer-main"
+metric = "output"
+
+[[signal]]
+id = "indexer-accelerator-output"
+root = "robot"
+entry = "Indexer/acceleratorMotor/Value"
+subsystem = "indexer"
+component = "indexer-accelerator"
+metric = "output"
+
+
+# shooter
+[[signal]]
+id = "flywheel-left-leader-output"
+root = "robot"
+entry = "Shooter/flywheelMotorLeftLeader/Value"
+subsystem = "shooter"
+component = "flywheel-left-leader"
+metric = "output"
+
+[[signal]]
+id = "flywheel-left-follower-output"
+root = "robot"
+entry = "Shooter/flywheelMotorLeftFollower/Value"
+subsystem = "shooter"
+component = "flywheel-left-follower"
+metric = "output"
+
+[[signal]]
+id = "flywheel-right-output"
+root = "robot"
+entry = "Shooter/flywheelMotorRight/Value"
+subsystem = "shooter"
+component = "flywheel-right"
+metric = "output"
+
+[[signal]]
+id = "hood-output"
+root = "robot"
+entry = "Shooter/hoodMotor/Value"
+subsystem = "shooter"
+component = "hood"
+metric = "output"
+
+[[signal]]
+id = "shooter-velocity-target"
+root = "robot"
+entry = "Shooter/Velocity Target RPS"
+subsystem = "shooter"
+component = "flywheel"
+metric = "velocity_target_rps"
+
+[[signal]]
+id = "shooter-hood-target"
+root = "robot"
+entry = "Shooter/Hood Target (radians)"
+subsystem = "shooter"
+component = "hood"
+metric = "angle_target_rad"
+
+[[signal]]
+id = "shooter-hood-angle"
+root = "robot"
+entry = "Shooter/Hood Angle Rotations"
+subsystem = "shooter"
+component = "hood"
+metric = "angle_rot"
+
+[[signal]]
+id = "shooter-at-hood-setpoint"
+root = "robot"
+entry = "Shooter/At Hood Setpoint"
+subsystem = "shooter"
+component = "hood"
+metric = "at_setpoint"
+
+
+# hunter
+[[signal]]
+id = "hunter-lemons-found"
+root = "robot"
+entry = "Hunter/Lemon Hunter/Lemons Found This Cycle"
+subsystem = "hunter"
+component = "lemon-hunter"
+metric = "lemons_found"
+
+[[signal]]
+id = "hunter-best-cluster-size"
+root = "robot"
+entry = "Hunter/Lemon Hunter/Best Cluster Size"
+subsystem = "hunter"
+component = "lemon-hunter"
+metric = "best_cluster_size"
+
+
+# drivetrain
+[[signal]]
+id = "drivetrain-rotation-pid-error"
+root = "robot"
+entry = "Drivetrain/getRotationPIDController/error"
+subsystem = "drivetrain"
+component = "rotation-pid"
+metric = "error"
+
+[[signal]]
+id = "drivetrain-rotation-pid-setpoint"
+root = "robot"
+entry = "Drivetrain/getRotationPIDController/setpoint"
+subsystem = "drivetrain"
+component = "rotation-pid"
+metric = "setpoint"
+
+[[signal]]
+id = "drivetrain-translation-pid-error"
+root = "robot"
+entry = "Drivetrain/getTranslationPIDController/error"
+subsystem = "drivetrain"
+component = "translation-pid"
+metric = "error"
+
+[[signal]]
+id = "drivetrain-translation-pid-setpoint"
+root = "robot"
+entry = "Drivetrain/getTranslationPIDController/setpoint"
+subsystem = "drivetrain"
+component = "translation-pid"
+metric = "setpoint"
+
+
+# vision (PhotonVision)
+[[signal]]
+id = "vision-front-camera-has-target"
+root = "photonvision"
+entry = "FRONT-CAMERA/hasTarget"
+subsystem = "vision"
+component = "front-camera"
+metric = "has_target"
+
+[[signal]]
+id = "vision-front-camera-latency-ms"
+root = "photonvision"
+entry = "FRONT-CAMERA/latencyMillis"
+subsystem = "vision"
+component = "front-camera"
+metric = "latency_ms"
+
+[[signal]]
+id = "vision-front-camera-fps"
+root = "photonvision"
+entry = "FRONT-CAMERA/fps"
+subsystem = "vision"
+component = "front-camera"
+metric = "fps"
+
+[[signal]]
+id = "vision-front-camera-target-yaw"
+root = "photonvision"
+entry = "FRONT-CAMERA/targetYaw"
+subsystem = "vision"
+component = "front-camera"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-front-camera-target-pitch"
+root = "photonvision"
+entry = "FRONT-CAMERA/targetPitch"
+subsystem = "vision"
+component = "front-camera"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-front-camera-target-area"
+root = "photonvision"
+entry = "FRONT-CAMERA/targetArea"
+subsystem = "vision"
+component = "front-camera"
+metric = "target_area"
+
+[[signal]]
+id = "vision-left-camera-has-target"
+root = "photonvision"
+entry = "LEFT-CAMERA/hasTarget"
+subsystem = "vision"
+component = "left-camera"
+metric = "has_target"
+
+[[signal]]
+id = "vision-left-camera-latency-ms"
+root = "photonvision"
+entry = "LEFT-CAMERA/latencyMillis"
+subsystem = "vision"
+component = "left-camera"
+metric = "latency_ms"
+
+[[signal]]
+id = "vision-left-camera-fps"
+root = "photonvision"
+entry = "LEFT-CAMERA/fps"
+subsystem = "vision"
+component = "left-camera"
+metric = "fps"
+
+[[signal]]
+id = "vision-left-camera-target-yaw"
+root = "photonvision"
+entry = "LEFT-CAMERA/targetYaw"
+subsystem = "vision"
+component = "left-camera"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-left-camera-target-pitch"
+root = "photonvision"
+entry = "LEFT-CAMERA/targetPitch"
+subsystem = "vision"
+component = "left-camera"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-left-camera-target-area"
+root = "photonvision"
+entry = "LEFT-CAMERA/targetArea"
+subsystem = "vision"
+component = "left-camera"
+metric = "target_area"
+
+[[signal]]
+id = "vision-right-camera-has-target"
+root = "photonvision"
+entry = "RIGHT-CAMERA/hasTarget"
+subsystem = "vision"
+component = "right-camera"
+metric = "has_target"
+
+[[signal]]
+id = "vision-right-camera-latency-ms"
+root = "photonvision"
+entry = "RIGHT-CAMERA/latencyMillis"
+subsystem = "vision"
+component = "right-camera"
+metric = "latency_ms"
+
+[[signal]]
+id = "vision-right-camera-fps"
+root = "photonvision"
+entry = "RIGHT-CAMERA/fps"
+subsystem = "vision"
+component = "right-camera"
+metric = "fps"
+
+[[signal]]
+id = "vision-right-camera-target-yaw"
+root = "photonvision"
+entry = "RIGHT-CAMERA/targetYaw"
+subsystem = "vision"
+component = "right-camera"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-right-camera-target-pitch"
+root = "photonvision"
+entry = "RIGHT-CAMERA/targetPitch"
+subsystem = "vision"
+component = "right-camera"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-right-camera-target-area"
+root = "photonvision"
+entry = "RIGHT-CAMERA/targetArea"
+subsystem = "vision"
+component = "right-camera"
+metric = "target_area"
+
