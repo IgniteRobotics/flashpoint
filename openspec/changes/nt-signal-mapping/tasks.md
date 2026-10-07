@@ -70,7 +70,7 @@
   - Q7 ingest, including signals, still meets 30 s and 1 GB;
   - print the time and size of the signal step, and assert it adds at most 2 s and 150 MB against a run with no signals declared;
   - record the Q7 `silver/signals/` partition size in the PR.
-- [ ] 6.3 Run the full suite locally (unit, `corpus and not perf`, `perf`, `browser`), and check that the gold, Replay, and History outputs for Q7 are byte-identical before and after this change. CI is green on all jobs.
+- [x] 6.3 Run the full suite locally (unit, `corpus and not perf`, `perf`, `browser`), and check that the gold, Replay, and History outputs for Q7 are byte-identical before and after this change. CI is green on all jobs.
 
 ## 7. Docs
 
