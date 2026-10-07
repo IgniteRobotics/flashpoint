@@ -1,4 +1,30 @@
 # Migrated from legacy datamaps by tools/migrate-legacy-config.py (14 slots).
+# Reference log: FRC_20250307_213719_GADAL_Q30.wpilog (39 signals).
+# Migration report (legacy rows and prefixes not mapped, with the reason):
+#   corrected rio_devices_map.csv: Pheonix6/TalonFX-15/Position (Pheonix6 -> Phoenix6)
+#   corrected rio_devices_map.csv: Pheonix6/TalonFX-15/DeviceTemp (Pheonix6 -> Phoenix6)
+#   unmapped config2025.json: metadata_prefix = MetaData (non-numeric in reference log)
+#   superseded metrics_map.csv: corraler/Motor Current (superseded by CAN slot corraler-motor-2)
+#   superseded metrics_map.csv: corraler/Motor Voltage (superseded by CAN slot corraler-motor-2)
+#   superseded metrics_map.csv: corraler/Motor Temperature (superseded by CAN slot corraler-motor-2)
+#   superseded metrics_map.csv: climber/Leader Motor Voltage (superseded by CAN slot climber-motor-15)
+#   superseded metrics_map.csv: climber/Leader Motor Current (superseded by CAN slot climber-motor-15)
+#   superseded metrics_map.csv: climber/Leader Motor Temperature (superseded by CAN slot climber-motor-15)
+#   superseded metrics_map.csv: collector/Wrist Motor Position (superseded by CAN slot algae-collector-wrist-motor-4)
+#   superseded metrics_map.csv: collector/Wrist Motor Voltage (superseded by CAN slot algae-collector-wrist-motor-4)
+#   superseded metrics_map.csv: collector/Wrist Motor Temperature (superseded by CAN slot algae-collector-wrist-motor-4)
+#   superseded metrics_map.csv: collector/Algae Motor Voltage (superseded by CAN slot algae-collector-intake-motor-3)
+#   superseded metrics_map.csv: collector/Algae Motor Current (superseded by CAN slot algae-collector-intake-motor-3)
+#   superseded metrics_map.csv: collector/Algae Motor Temperature (superseded by CAN slot algae-collector-intake-motor-3)
+#   superseded metrics_map.csv: elevator/Leader Motor Voltage (superseded by CAN slot elevator-lead-motor-6)
+#   superseded metrics_map.csv: elevator/Leader Motor Current (superseded by CAN slot elevator-lead-motor-6)
+#   superseded metrics_map.csv: elevator/Leader Motor Temperature (superseded by CAN slot elevator-lead-motor-6)
+#   superseded metrics_map.csv: elevator/Follower Motor Voltage (superseded by CAN slot elevator-follow-motor-7)
+#   superseded metrics_map.csv: elevator/Follower Motor Current (superseded by CAN slot elevator-follow-motor-7)
+#   superseded metrics_map.csv: elevator/Follower Motor Temperature (superseded by CAN slot elevator-follow-motor-7)
+#   unmapped vision_map.csv: INTAKE/targetPose (non-numeric in reference log)
+#   unmapped vision_map.csv: OUTTAKE_RIGHT/targetPose (non-numeric in reference log)
+#   unmapped vision_map.csv: OUTTAKE_LEFT/targetPose (non-numeric in reference log)
 robot = "2025-comp"
 season = 2025
 project = "Robot-2025"
@@ -114,3 +140,313 @@ model = "TalonFX"
 can_id = 15
 subsystem = "climber"
 role = "motor"
+
+[[signal]]
+id = "corraler-top-beambreak-is-detected"
+root = "robot"
+entry = "corraler/m_beambreak_enter/Is Detected"
+subsystem = "corraler"
+component = "top-beambreak"
+metric = "is_detected"
+
+[[signal]]
+id = "corraler-bottom-beambreak-is-detected"
+root = "robot"
+entry = "corraler/m_beambreak_prep/Is Detected"
+subsystem = "corraler"
+component = "bottom-beambreak"
+metric = "is_detected"
+
+[[signal]]
+id = "climber-position"
+root = "robot"
+entry = "climber/getPosition"
+subsystem = "climber"
+metric = "position"
+
+[[signal]]
+id = "climber-right-servo-position"
+root = "robot"
+entry = "climber/Right Servo Position"
+subsystem = "climber"
+component = "right-servo"
+metric = "position"
+
+[[signal]]
+id = "climber-left-servo-position"
+root = "robot"
+entry = "climber/Left Servo Position"
+subsystem = "climber"
+component = "left-servo"
+metric = "position"
+
+[[signal]]
+id = "elevator-position"
+root = "robot"
+entry = "elevator/getPosition"
+subsystem = "elevator"
+metric = "position"
+
+[[signal]]
+id = "vision-intake-pipeline-index-state"
+root = "photonvision"
+entry = "INTAKE/pipelineIndexState"
+subsystem = "vision"
+component = "intake"
+metric = "pipeline_index_state"
+
+[[signal]]
+id = "vision-intake-driver-mode"
+root = "photonvision"
+entry = "INTAKE/driverMode"
+subsystem = "vision"
+component = "intake"
+metric = "driver_mode"
+
+[[signal]]
+id = "vision-intake-latency"
+root = "photonvision"
+entry = "INTAKE/latencyMillis"
+subsystem = "vision"
+component = "intake"
+metric = "latency"
+
+[[signal]]
+id = "vision-intake-has-target"
+root = "photonvision"
+entry = "INTAKE/hasTarget"
+subsystem = "vision"
+component = "intake"
+metric = "has_target"
+
+[[signal]]
+id = "vision-intake-target-pitch"
+root = "photonvision"
+entry = "INTAKE/targetPitch"
+subsystem = "vision"
+component = "intake"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-intake-target-yaw"
+root = "photonvision"
+entry = "INTAKE/targetYaw"
+subsystem = "vision"
+component = "intake"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-intake-target-area"
+root = "photonvision"
+entry = "INTAKE/targetArea"
+subsystem = "vision"
+component = "intake"
+metric = "target_area"
+
+[[signal]]
+id = "vision-intake-target-skew"
+root = "photonvision"
+entry = "INTAKE/targetSkew"
+subsystem = "vision"
+component = "intake"
+metric = "target_skew"
+
+[[signal]]
+id = "vision-intake-target-pixels-x"
+root = "photonvision"
+entry = "INTAKE/targetPixelsX"
+subsystem = "vision"
+component = "intake"
+metric = "target_pixels_x"
+
+[[signal]]
+id = "vision-intake-target-pixels-y"
+root = "photonvision"
+entry = "INTAKE/targetPixelsY"
+subsystem = "vision"
+component = "intake"
+metric = "target_pixels_y"
+
+[[signal]]
+id = "vision-intake-heartbeat"
+root = "photonvision"
+entry = "INTAKE/heartbeat"
+subsystem = "vision"
+component = "intake"
+metric = "heartbeat"
+
+[[signal]]
+id = "vision-outtake-right-pipeline-index-state"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/pipelineIndexState"
+subsystem = "vision"
+component = "outtake-right"
+metric = "pipeline_index_state"
+
+[[signal]]
+id = "vision-outtake-right-driver-mode"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/driverMode"
+subsystem = "vision"
+component = "outtake-right"
+metric = "driver_mode"
+
+[[signal]]
+id = "vision-outtake-right-latency"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/latencyMillis"
+subsystem = "vision"
+component = "outtake-right"
+metric = "latency"
+
+[[signal]]
+id = "vision-outtake-right-has-target"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/hasTarget"
+subsystem = "vision"
+component = "outtake-right"
+metric = "has_target"
+
+[[signal]]
+id = "vision-outtake-right-target-pitch"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/targetPitch"
+subsystem = "vision"
+component = "outtake-right"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-outtake-right-target-yaw"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/targetYaw"
+subsystem = "vision"
+component = "outtake-right"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-outtake-right-target-area"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/targetArea"
+subsystem = "vision"
+component = "outtake-right"
+metric = "target_area"
+
+[[signal]]
+id = "vision-outtake-right-target-skew"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/targetSkew"
+subsystem = "vision"
+component = "outtake-right"
+metric = "target_skew"
+
+[[signal]]
+id = "vision-outtake-right-target-pixels-x"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/targetPixelsX"
+subsystem = "vision"
+component = "outtake-right"
+metric = "target_pixels_x"
+
+[[signal]]
+id = "vision-outtake-right-target-pixels-y"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/targetPixelsY"
+subsystem = "vision"
+component = "outtake-right"
+metric = "target_pixels_y"
+
+[[signal]]
+id = "vision-outtake-right-heartbeat"
+root = "photonvision"
+entry = "OUTTAKE_RIGHT/heartbeat"
+subsystem = "vision"
+component = "outtake-right"
+metric = "heartbeat"
+
+[[signal]]
+id = "vision-outtake-left-pipeline-index-state"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/pipelineIndexState"
+subsystem = "vision"
+component = "outtake-left"
+metric = "pipeline_index_state"
+
+[[signal]]
+id = "vision-outtake-left-driver-mode"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/driverMode"
+subsystem = "vision"
+component = "outtake-left"
+metric = "driver_mode"
+
+[[signal]]
+id = "vision-outtake-left-latency"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/latencyMillis"
+subsystem = "vision"
+component = "outtake-left"
+metric = "latency"
+
+[[signal]]
+id = "vision-outtake-left-has-target"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/hasTarget"
+subsystem = "vision"
+component = "outtake-left"
+metric = "has_target"
+
+[[signal]]
+id = "vision-outtake-left-target-pitch"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/targetPitch"
+subsystem = "vision"
+component = "outtake-left"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-outtake-left-target-yaw"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/targetYaw"
+subsystem = "vision"
+component = "outtake-left"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-outtake-left-target-area"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/targetArea"
+subsystem = "vision"
+component = "outtake-left"
+metric = "target_area"
+
+[[signal]]
+id = "vision-outtake-left-target-skew"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/targetSkew"
+subsystem = "vision"
+component = "outtake-left"
+metric = "target_skew"
+
+[[signal]]
+id = "vision-outtake-left-target-pixels-x"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/targetPixelsX"
+subsystem = "vision"
+component = "outtake-left"
+metric = "target_pixels_x"
+
+[[signal]]
+id = "vision-outtake-left-target-pixels-y"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/targetPixelsY"
+subsystem = "vision"
+component = "outtake-left"
+metric = "target_pixels_y"
+
+[[signal]]
+id = "vision-outtake-left-heartbeat"
+root = "photonvision"
+entry = "OUTTAKE_LEFT/heartbeat"
+subsystem = "vision"
+component = "outtake-left"
+metric = "heartbeat"

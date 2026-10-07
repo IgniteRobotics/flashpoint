@@ -1,6 +1,8 @@
 """Ingest budget (spec: telemetry-lake / Ingest budget): one qual match < 30 s and < 1 GB."""
 
 import json
+import re
+import shutil
 import subprocess
 import sys
 import time
@@ -13,6 +15,8 @@ pytestmark = [pytest.mark.corpus, pytest.mark.perf]
 
 BUDGET_S = 30.0
 BUDGET_RSS_BYTES = 1 << 30
+SIGNALS_BUDGET_S = 2.0  # nt-signal-mapping design: signals add at most 2 s and 150 MB
+SIGNALS_BUDGET_RSS_BYTES = 150 << 20
 
 
 # Runs the CLI in a fresh process and reports its own peak RSS.
@@ -86,3 +90,50 @@ def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_p
     assert peaks["flashpoint_peak_bytes"] < BUDGET_RSS_BYTES
     if sys.platform == "darwin":
         assert peaks["children_peak_bytes"] < BUDGET_RSS_BYTES
+
+
+def _measure(args: list[str], env: dict[str, str] | None = None) -> tuple[float, dict[str, int]]:
+    started = time.perf_counter()
+    done = subprocess.run(
+        [sys.executable, "-c", _MEASURE, *args], capture_output=True, text=True, env=env
+    )
+    elapsed = time.perf_counter() - started
+    assert done.returncode == 0, done.stdout + done.stderr
+    return elapsed, json.loads(done.stdout.strip().splitlines()[-1])
+
+
+def test_q7_signal_step_budget(corpus_group: Callable[[str], list[Path]], tmp_path: Path) -> None:
+    """Derive Q7 with and without the declared signals; the difference is the signal step."""
+    import os
+
+    from flashpoint import config
+
+    match_dir = tmp_path / "q7"
+    match_dir.mkdir()
+    for path in corpus_group("2026-gacmp-q7"):
+        (match_dir / path.name).symlink_to(path)
+    subprocess.run([sys.executable, "-c", _WARM_UP], check=True, capture_output=True)
+    lake = tmp_path / "lake"
+    _measure(["ingest", "--no-derive", "--lake", str(lake), str(match_dir)])
+
+    bare = tmp_path / "config-no-signals"
+    shutil.copytree(config.config_root(), bare)
+    for robot in (bare / "robots").glob("*.toml"):
+        robot.write_text(re.split(r"^\[\[signal\]\]", robot.read_text(), maxsplit=1, flags=re.M)[0])
+    shutil.rmtree(bare / "seasons")
+
+    runs = {}
+    for name, root in (("without", bare), ("with", config.config_root())):
+        env = {**os.environ, "FLASHPOINT_CONFIG": str(root)}
+        runs[name] = _measure(["derive", "--all", "--lake", str(lake)], env)
+    partition = sum(f.stat().st_size for f in (lake / "silver" / "signals").rglob("*.parquet"))
+    added_s = runs["with"][0] - runs["without"][0]
+    added_mb = (
+        runs["with"][1]["flashpoint_peak_bytes"] - runs["without"][1]["flashpoint_peak_bytes"]
+    ) / 2**20
+    print(json.dumps({"signal_step_s": round(added_s, 2), "signal_step_peak_mb": round(added_mb),
+                      "derive_s": round(runs["with"][0], 2),
+                      "q7_signals_partition_kb": round(partition / 1024)}))  # fmt: skip
+    assert partition > 0
+    assert added_s < SIGNALS_BUDGET_S
+    assert added_mb < SIGNALS_BUDGET_RSS_BYTES / 2**20

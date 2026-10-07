@@ -1,0 +1,9 @@
+# 2026 NetworkTables roots (Robot-2026), checked against corpus 2026-gacmp-q7.
+season = 2026
+
+[roots]
+robot = "NT:Robot/m_robotContainer/"
+photonvision = "NT:/photonvision/"
+camera_publisher = "NT:/CameraPublisher/"
+preferences = "NT:/Preferences/"
+fms = "NT:/FMSInfo/"

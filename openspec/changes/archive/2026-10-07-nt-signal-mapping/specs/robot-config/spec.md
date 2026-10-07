@@ -1,9 +1,17 @@
-# robot-config Specification
+## ADDED Requirements
 
-## Purpose
-Describe each robot and season as validated data: which motor fills which role, through which gearing, and when hardware was swapped. Mapping never depends on hard-coded years or hand-edited CSVs.
+### Requirement: Season configuration file
+Each season that has declared signals SHALL have one season configuration file. It names the season's NetworkTables roots: robot telemetry, PhotonVision, CameraPublisher, Preferences, and FMS. Each root SHALL be written out in full, including the `NT:` prefix and any slash, and never inferred. The file SHALL be validated on load. Unknown keys, a missing season number, or an empty root SHALL be rejected with a message naming the file and the offending key.
 
-## Requirements
+#### Scenario: Valid 2025 season
+- **WHEN** the 2025 season configuration is loaded
+- **THEN** it yields the robot telemetry root `NT:Robot/m_robotContainer/` and the PhotonVision root `NT:/photonvision/`, matching the legacy 2025 log configuration
+
+#### Scenario: Unknown key
+- **WHEN** a season configuration contains a key that is not defined
+- **THEN** loading fails with an error naming the file and the key
+
+## MODIFIED Requirements
 
 ### Requirement: Robot configuration file
 Each robot SHALL be described by one configuration file declaring:
@@ -30,28 +38,6 @@ Configuration SHALL be validated on load. The following SHALL be rejected with a
 #### Scenario: Undefined root
 - **WHEN** a signal names a root that its season configuration does not define
 - **THEN** loading fails with an error naming the signal and the root
-
-### Requirement: Season configuration file
-Each season that has declared signals SHALL have one season configuration file. It names the season's NetworkTables roots: robot telemetry, PhotonVision, CameraPublisher, Preferences, and FMS. Each root SHALL be written out in full, including the `NT:` prefix and any slash, and never inferred. The file SHALL be validated on load. Unknown keys, a missing season number, or an empty root SHALL be rejected with a message naming the file and the offending key.
-
-#### Scenario: Valid 2025 season
-- **WHEN** the 2025 season configuration is loaded
-- **THEN** it yields the robot telemetry root `NT:Robot/m_robotContainer/` and the PhotonVision root `NT:/photonvision/`, matching the legacy 2025 log configuration
-
-#### Scenario: Unknown key
-- **WHEN** a season configuration contains a key that is not defined
-- **THEN** loading fails with an error naming the file and the key
-
-### Requirement: Robot selection for a log
-The system SHALL decide which robot configuration applies to a log from the log's build project name and the season of its wall-clock anchor. If no configuration matches, the log SHALL be marked `robot = unknown`, and its samples SHALL remain queryable unmapped.
-
-#### Scenario: 2026 log selects the 2026 robot
-- **WHEN** corpus `2026-gacmp-q7` is processed
-- **THEN** it is mapped with the 2026 competition robot configuration
-
-#### Scenario: No configuration
-- **WHEN** a log's project and season match no configuration
-- **THEN** processing succeeds, and the log is marked `robot = unknown` with no slot mapping
 
 ### Requirement: Legacy configuration migration
 A one-time migration SHALL convert the legacy per-season CSV datamaps, the 2025 log configuration, and the power-tracking motor names into robot and season configuration files.

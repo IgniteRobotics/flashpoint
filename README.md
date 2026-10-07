@@ -71,6 +71,26 @@ duckdb.sql(f"""
 """).show()
 ```
 
+### NetworkTables signals
+
+Signals that exist only in NetworkTables, such as subsystem telemetry and PhotonVision, are declared in the robot config. Each one names an entry under a root that `config/seasons/<year>.toml` defines; the full wpilog name is the root followed by the entry, matched exactly. To declare a signal, add one table and re-derive:
+
+```toml
+[[signal]]
+id = "intake-at-extension-setpoint"
+root = "robot"                      # NT:Robot/m_robotContainer/ in seasons/2026.toml
+entry = "Intake/At Extension Setpoint"
+subsystem = "intake"
+component = "extension"             # optional
+metric = "at_setpoint"              # snake_case
+```
+
+```bash
+poetry run flashpoint derive --all  # rewrites silver/signals/ from bronze; no re-ingest
+```
+
+Numeric values are stored as numbers and booleans as 1/0, in `silver/signals/` (the DuckDB view `signals`). Declared entries that a log lacks or that are not numeric are listed in `meta_missing_signals` and logged as a derive warning. `flashpoint doctor` shows each season's roots and how many signals each robot declares.
+
 ### Acquiring logs (P3)
 
 `flashpoint acquire` pulls new logs from the roboRIO (SFTP) and from removable USB volumes into the lake's `inbox/`, verifies them by hash, then runs ingest and derive. It never writes to the robot or a stick.

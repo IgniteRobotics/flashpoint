@@ -77,6 +77,8 @@ jobs:
           path: ~/.cache/flashpoint/owlet
           key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
       - run: poetry run python tools/fetch-corpus.py
+      - name: Fetch the legacy-2025 tag (legacy migration corpus test)
+        run: git fetch --depth=1 origin +refs/tags/legacy-2025:refs/tags/legacy-2025
       - name: Install rclone (restore drill)
         run: sudo apt-get update && sudo apt-get install -y rclone
       - run: poetry run pytest -m "corpus and not perf and not browser"
