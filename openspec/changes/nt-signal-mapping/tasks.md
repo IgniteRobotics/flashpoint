@@ -36,7 +36,7 @@
 
 ## 4. 2025 legacy migration (spec: robot-config, "Legacy configuration migration")
 
-- [ ] 4.1 Write tests first using small in-test CSVs, JSON, and a fixture reference wpilog, and confirm they fail:
+- [x] 4.1 Write tests first using small in-test CSVs, JSON, and a fixture reference wpilog, and confirm they fail:
   - `corraler/Motor Current` is reported as superseded by the corraler CAN slot;
   - an entry absent from the log is reported as *not in reference log*;
   - an array entry is reported as *non-numeric in reference log*;
@@ -44,14 +44,14 @@
   - a vision row with an empty metric gets its key snake-cased (`targetPitch` becomes `target_pitch`);
   - every prefix in the log config becomes a season root or is reported;
   - the existing `Pheonix6` test still passes.
-- [ ] 4.2 Extend `semantics/legacy_migration.py` and `tools/migrate-legacy-config.py`:
+- [x] 4.2 Extend `semantics/legacy_migration.py` and `tools/migrate-legacy-config.py`:
   - add `--reference-log`, and read `log_configs/config2025.json` from the `legacy-2025` tag;
   - write `config/seasons/2025.toml`, plus the `[[signal]]` tables and the report head comment into `config/robots/2025-comp.toml`.
 
   4.1 passes.
-- [ ] 4.3 Run the migration against corpus `2025-gadal-q30` and commit the generated files.
+- [x] 4.3 Run the migration against corpus `2025-gadal-q30` and commit the generated files.
   - Corpus test: every row of `datamaps/2025/{metrics,vision}_map.csv` and every prefix of `config2025.json` (read from the tag) is either mapped or reported with a reason.
-  - Expect 6 metrics rows and the numeric vision rows mapped, and the 18 motor V/I/T rows superseded.
+  - Expect 6 metrics rows and the numeric vision rows mapped, and the 18 motor rows (17 V/I/T plus the wrist motor position) superseded.
 
 ## 5. 2026 mapping (spec: robot-config, "Robot configuration file"; nt-signals, "Declared signals matched by name")
 
