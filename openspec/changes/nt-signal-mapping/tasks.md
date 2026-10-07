@@ -78,4 +78,4 @@
   - `docs/rewrite/06-roadmap.md`: set the NetworkTables signal mapping status;
   - `docs/rewrite/05-target-architecture.md`: config layout, `seasons/<year>.toml` contents, and `silver/signals` in the lake layout;
   - `README.md`: a short "Signals" section showing how to declare one, and `derive --all`.
-- [ ] 7.2 Add a note in the PR that `retire-legacy-code` 3b.1's gate is met once this change is archived. Do not delete `datamaps/` or `log_configs/` here.
+- [x] 7.2 Add a note in the PR that `retire-legacy-code` 3b.1's gate is met once this change is archived. Do not delete `datamaps/` or `log_configs/` here.
