@@ -4,6 +4,7 @@ Specs: match-reports (shell, Replay, compare, links, escaping, offline) and life
 unit-odometry (History). Run with `pytest -m browser` after `playwright install chromium`.
 """
 
+import json
 import shutil
 import threading
 from collections.abc import Iterator
@@ -24,7 +25,7 @@ from flashpoint.web.advantagescope import Install, Launcher
 from flashpoint.web.server import FlashpointServer
 from tests.report.lake import MatchLake, quiet_rows
 from tests.report.silver import points
-from tests.views.season import HOSTILE_ROLE, build_season, match_key
+from tests.views.season import HOSTILE_ROLE, build_replay_season, build_season, match_key
 
 pytestmark = pytest.mark.browser
 playwright = pytest.importorskip("playwright.sync_api")
@@ -181,7 +182,9 @@ TRACK_VIEW = """
 document.addEventListener('DOMContentLoaded', () => {
   FP.view({ id: 'tracktest', label: 'Track', needsApi: false, mount(el) {
     const x = []; const v = [];
-    for (let i = 0; i <= 1000; i += 1) { x.push(i / 10); v.push(i < 500 ? 1 + (i % 2) : 10 + (i % 2)); }
+    for (let i = 0; i <= 1000; i += 1) {
+      x.push(i / 10); v.push(i < 500 ? 1 + (i % 2) : 10 + (i % 2));
+    }
     const plot = FP.h('div', { id: 'plot', style: { width: '800px' } });
     FP.fill(el, plot, FP.h('div', { style: { height: '3000px' } }));
     window.__ev = { pick: [], select: [], zoom: [] };
@@ -420,6 +423,177 @@ def test_csp_holds_on_file(page: Any, replay_site: dict[str, Any]) -> None:
     assert len(refused) == 1 and not watch.dialogs and not watch.remote
 
 
+# --- Replay match list filters (spec: Match list filters) ---------------------------------
+
+
+@pytest.fixture(scope="module")
+def season_site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Any]]:
+    root = tmp_path_factory.mktemp("replay-season")
+    lake = build_replay_season(root / "lake")
+    export = root / "export"
+    export_static(lake, export)
+    server = _serve(lake)
+    yield {
+        "served": f"http://127.0.0.1:{server.server_address[1]}/",
+        "static": (export / "index.html").as_uri(),
+        "lake": lake,
+    }
+    _stop(server)
+
+
+@pytest.fixture(params=["served", "static"])
+def season_app(request: pytest.FixtureRequest, season_site: dict[str, Any]) -> str:
+    return str(season_site[request.param])
+
+
+def _listed(page: Any) -> list[str]:
+    keys = page.eval_on_selector_all("nav.rail-l a.match-btn", "as => as.map(a => a.dataset.match)")
+    return sorted(str(k) for k in keys)
+
+
+def _filters(page: Any) -> tuple[str, str, str]:
+    return (
+        page.input_value("#f-season"),
+        page.input_value("#f-robot"),
+        page.input_value("#f-event"),
+    )
+
+
+def _options(page: Any, select: str) -> list[str]:
+    return [
+        str(v) for v in page.eval_on_selector_all(f"{select} option", "os => os.map(o => o.value)")
+    ]
+
+
+def test_filters_default_to_most_recent_event(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay")
+    page.wait_for_selector("#f-event")
+    assert _filters(page) == ("2026", "all", "2026gacmp")
+    assert _listed(page) == ["2026gacmp_qm7", "2026gacmp_qm8"]
+    assert _options(page, "#f-season") == ["all", "2026", "2025"]
+    assert "event=2026gacmp" in page.url and "season=2026" in page.url
+    assert watch.clean(), watch
+
+
+def test_filters_combine_and_season_narrows_events(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay")
+    page.wait_for_selector("#f-event")
+    page.select_option("#f-event", "all")
+    page.select_option("#f-robot", "practice")
+    assert _listed(page) == ["2026gadal_qm2"]
+    assert _options(page, "#f-event") == ["all", "2026gacmp", "2026gadal"]
+    page.select_option("#f-season", "all")
+    assert _listed(page) == ["2025gaalb_qm2", "2026gadal_qm2"]
+    assert _options(page, "#f-event") == ["all", "2026gacmp", "2026gadal", "2025gaalb"]
+    assert "robot=practice" in page.url and "season=all" in page.url
+    assert watch.clean(), watch
+
+
+def test_filters_nothing_matches_and_clear(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay")
+    page.wait_for_selector("#f-event")
+    page.select_option("#f-robot", "practice")  # practice played no 2026gacmp match
+    assert _listed(page) == []
+    assert "No matches for these filters" in page.inner_text("#filter-note")
+    page.click("#filters-clear")
+    assert _filters(page) == ("all", "all", "all") and len(_listed(page)) == 7
+    assert watch.clean(), watch
+
+
+def test_filters_hide_the_selected_match(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay&m=2026gacmp_qm7&event=2026gadal")
+    page.wait_for_selector("#readout tr")
+    assert page.inner_text("h1.title-d3") == "Q7"
+    assert _listed(page) == ["2026gadal_qm1", "2026gadal_qm2", "2026gadal_qm3"]
+    assert "Q7 is hidden by the filters" in page.inner_text("#filter-note")
+    assert watch.clean(), watch
+
+
+def test_filters_selected_match_sets_the_default_event(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay&m=2026gadal_qm1")
+    page.wait_for_selector("#readout tr")
+    assert _filters(page) == ("2026", "all", "2026gadal")
+    assert watch.clean(), watch
+
+
+def test_filters_unknown_value_named(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay&event=2019zzzz")
+    page.wait_for_selector("#f-event")
+    assert _listed(page) == [] and page.input_value("#f-event") == "2019zzzz"
+    note = page.inner_text("#filter-note")
+    assert "No matches for these filters" in note and "2019zzzz" in note
+    page.click("#filters-clear")
+    assert len(_listed(page)) == 7
+    assert watch.clean(), watch
+
+
+def test_filters_old_index_disables_season(page: Any, season_site: dict[str, Any]) -> None:
+    def old_index(route: Any) -> None:
+        body = route.fetch().text()
+        payload = json.loads(body[len("FP.index(") : -3])
+        payload["version"] = 1
+        for entry in payload["matches"]:
+            del entry["season"]
+        route.fulfill(body="FP.index(" + json.dumps(payload) + ");\n",
+                      content_type="text/javascript")  # fmt: skip
+
+    watch = _watch(page)
+    page.route("**/data/matches.js*", old_index)  # registered after the watch, so it wins
+    page.goto(season_site["served"] + "#view=replay")
+    page.wait_for_selector("#f-event")
+    assert page.is_disabled("#f-season") and page.input_value("#f-season") == "all"
+    assert "Rebuild with flashpoint report to filter by season" in page.inner_text("nav.rail-l")
+    assert _listed(page) == ["2026gacmp_qm7", "2026gacmp_qm8"]
+    page.select_option("#f-event", "all")
+    page.select_option("#f-robot", "practice")
+    assert _listed(page) == ["2025gaalb_qm2", "2026gadal_qm2"]
+    assert watch.clean(), watch
+
+
+def test_filters_from_a_history_link(page: Any, season_app: str) -> None:
+    watch = _open(
+        page, season_app, "#view=replay&m=2026gadal_qm1&season=2026&robot=comp&track=hood"
+    )
+    page.wait_for_selector("#readout tr")
+    assert _filters(page) == ("2026", "comp", "all")
+    assert _listed(page) == ["2026gacmp_qm7", "2026gacmp_qm8", "2026gadal_qm1", "2026gadal_qm3"]
+    assert watch.clean(), watch
+
+
+def test_static_export_filters_offline(page: Any, tmp_path: Path) -> None:
+    lake = build_replay_season(tmp_path / "lake", events=("2026gadal", "2026gacmp"))
+    export_static(lake, tmp_path / "export")
+    page.context.set_offline(True)
+    watch = _open(page, (tmp_path / "export" / "index.html").as_uri(), "#view=replay")
+    page.wait_for_selector("#readout tr")
+    assert _filters(page) == ("2026", "all", "2026gacmp")
+    requests: list[str] = []
+    page.on("request", lambda r: requests.append(r.url))
+    page.select_option("#f-event", "2026gadal")  # the older event
+    assert _listed(page) == ["2026gadal_qm1", "2026gadal_qm2", "2026gadal_qm3"]
+    assert requests == [] and watch.clean(), (requests, watch)
+
+
+def test_filters_keyboard_reaches_every_match(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open(page, season_site["served"], "#view=replay&season=all&robot=all&event=all")
+    page.wait_for_selector("#f-season")
+    page.focus("#f-season")
+    seen: set[str] = set()
+    ring: set[str] = set()
+    for _ in range(20):
+        page.keyboard.press("Tab")
+        found = page.evaluate(
+            "() => { const a = document.activeElement; const s = getComputedStyle(a);"
+            " return [a.closest('nav.rail-l') !== null, a.dataset.match || null, s.outlineStyle]; }"
+        )
+        if found[0]:
+            ring.add(found[2])
+        if found[1]:
+            seen.add(found[1])
+    assert len(seen) == 7 and ring == {"solid"}
+    assert watch.clean(), watch
+
+
 # --- History ------------------------------------------------------------------------------
 
 
@@ -473,11 +647,14 @@ def test_unknown_unit_suggestions(page: Any, history_site: str) -> None:
 
 
 def test_drill_through_to_replay_not_built(page: Any, history_site: str) -> None:
-    watch = _open(page, history_site, "#view=history&unit=ctre%3ADRIVE-FL")
+    watch = _open(
+        page, history_site, "#view=history&season=2026&robot=2026-comp&unit=ctre%3ADRIVE-FL"
+    )
     page.wait_for_selector("#unit-matches a")
     page.click("#unit-matches a >> nth=0")
     page.wait_for_selector("text=not built")
     assert f"m={match_key(59)}" in page.url and "track=drive-fl" in page.url
+    assert "season=2026" in page.url and "robot=2026-comp" in page.url  # carried to Replay
     assert f"flashpoint report --match {match_key(59)}" in page.inner_text("main")
     page.wait_for_selector("a.download")
     assert page.locator("a.download").count() == 1  # the season's synthetic wpilog only
