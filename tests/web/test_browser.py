@@ -749,6 +749,115 @@ def test_zoom_static_bucket_resolution(page: Any, season_site: dict[str, Any]) -
     assert watch.clean(), watch
 
 
+# --- Served detail on zoom (spec: Windowed detail in served mode) --------------------------
+
+
+def _envelope_requests(page: Any) -> list[str]:
+    requests: list[str] = []
+    page.on("request", lambda r: requests.append(r.url) if "/api/envelope/" in r.url else None)
+    return requests
+
+
+def _spacing(page: Any) -> list[float]:
+    spacing = page.evaluate("() => FP.replay.charts().map(u => u.data[0][1] - u.data[0][0])")
+    return [round(float(x), 3) for x in spacing]
+
+
+def test_detail_fetched_once_after_zoom(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open_q7(page, season_site["served"])
+    requests = _envelope_requests(page)
+    _drag(page, 96.0, 98.0)
+    page.wait_for_function("() => FP.replay.detail() !== null")
+    page.wait_for_timeout(300)
+    assert len(requests) == 1 and "from=96" in requests[0] and "to=98" in requests[0]
+    assert _spacing(page) == [0.01] * 4
+    assert "10 ms" in page.inner_text("#resolution")
+    for lo, hi in _scales(page):
+        assert lo == pytest.approx(96.0, abs=0.05) and hi == pytest.approx(98.0, abs=0.05)
+    spike = page.evaluate(
+        "() => { const u = FP.replay.charts()[3];"
+        " return Math.max(...u.data[1].filter(v => v != null)); }"
+    )  # the hood supply current track's band max: the 4 ms 150 A spike at T+97
+    assert spike == 150.0
+    assert watch.clean(), watch
+
+
+def test_detail_burst_applies_only_the_last(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open_q7(page, season_site["served"])
+    requests = _envelope_requests(page)
+    page.evaluate(
+        "() => { const o = FP.replay.charts()[0].over; const r = o.getBoundingClientRect();"
+        " for (let i = 0; i < 5; i += 1) o.dispatchEvent(new WheelEvent('wheel', { deltaY: -150,"
+        " ctrlKey: true, clientX: r.left + r.width / 2, clientY: r.top + 10, bubbles: true,"
+        " cancelable: true })); }"
+    )
+    page.wait_for_function("() => FP.replay.detail() !== null")
+    page.wait_for_timeout(300)
+    assert len(requests) == 1  # debounced
+    held: list[Any] = []
+    page.route("**/api/envelope/**", lambda r: held.append(r))
+    page.click("#zoom-reset")
+    _drag(page, 96.0, 98.0)
+    for _ in range(40):
+        if held:
+            break
+        page.wait_for_timeout(50)
+    page.click("#zoom-in")  # 96.5-97.5 s, before the first answer arrives
+    for _ in range(40):
+        if len(held) == 2:
+            break
+        page.wait_for_timeout(50)
+    assert len(held) == 2
+    held[1].continue_()
+    page.wait_for_function("() => FP.replay.detail() && FP.replay.detail().t0 > 96.4")
+    held[0].continue_()
+    page.wait_for_timeout(400)
+    assert page.evaluate("() => FP.replay.detail().t0") == pytest.approx(96.5, abs=0.01)
+    assert _view(page) == pytest.approx((96.5, 97.5), abs=0.01)
+    assert watch.clean(), watch
+
+
+def test_detail_unavailable_without_silver(page: Any, tmp_path: Path) -> None:
+    lake = build_replay_season(tmp_path / "lake", events=("2026gacmp",))
+    shutil.rmtree(lake.silver)
+    server = _serve(lake)
+    try:
+        watch = _open_q7(page, f"http://127.0.0.1:{server.server_address[1]}/")
+        requests = _envelope_requests(page)
+        _drag(page, 96.0, 98.0)
+        page.wait_for_function(
+            "() => document.getElementById('resolution').textContent.includes('unavailable')"
+        )
+        note = page.inner_text("#resolution")
+        assert note.startswith("bucket resolution (170 ms)") and "finer data unavailable" in note
+        assert len(requests) == 1 and _spacing(page) == [0.17] * 4
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
+
+
+def test_detail_dropped_when_zoomed_out(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open_q7(page, season_site["served"])
+    requests = _envelope_requests(page)
+    _drag(page, 96.0, 98.0)
+    page.wait_for_function("() => FP.replay.detail() !== null")
+    page.click("#zoom-reset")
+    page.wait_for_timeout(300)
+    assert page.evaluate("() => FP.replay.detail()") is None
+    assert len(requests) == 1 and _spacing(page) == [0.17] * 4
+    assert page.inner_text("#resolution") == ""
+    assert watch.clean(), watch
+
+
+def test_detail_header_names_overlay_resolution(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open_q7(page, season_site["served"], "&o=2026gacmp_qm8")
+    _drag(page, 96.0, 98.0)
+    page.wait_for_function("() => FP.replay.detail() !== null")
+    note = page.inner_text("#resolution")
+    assert "10 ms" in note and "Q8" in note and "170 ms" in note
+    assert watch.clean(), watch
+
+
 # --- History ------------------------------------------------------------------------------
 
 
