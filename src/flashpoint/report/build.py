@@ -28,7 +28,7 @@ from flashpoint.report.settings import ReportConfig, load_report_config
 from flashpoint.semantics.robot_config import RobotConfig, load_robots
 from flashpoint.semantics.silver import silver_dir
 
-REPORT_VERSION = 1
+REPORT_VERSION = 2
 BUDGET_BYTES = 2_000_000
 MIN_BUCKETS = 100
 DUCKDB_MEMORY_LIMIT = "256MB"
@@ -273,6 +273,7 @@ class ReportBuilder:
             "label": payload["label"],
             "event": payload["event"],
             "robot": payload["robot"],
+            "season": payload["season"],
             "start_utc": payload["start_utc"],
             "status": payload["status"],
             "reason": payload["reason"],
@@ -354,6 +355,7 @@ class ReportBuilder:
                 "label": match_label(key),
                 "event": event_of(key),
                 "robot": primary["robot"],
+                "season": primary["season"],
                 "start_utc": log.get("utc_start"),
                 "status": "no-aligned-samples",
                 "reason": "No aligned samples: this match has no wpilog-aligned device data"
@@ -422,7 +424,7 @@ class ReportBuilder:
         buckets = self.buckets
         while True:
             window = envelope.window_for(match_start, match_end, buckets)
-            payload = self._series_payload(silver, window, temps, match_end)
+            payload = envelope.series_payload(self.con, silver, window, temps, match_end)
             payload.update(
                 {
                     "version": REPORT_VERSION,
@@ -432,6 +434,7 @@ class ReportBuilder:
                     "robot": primary["robot"],
                     "season": primary["season"],
                     "session_id": primary["session_id"],
+                    "t0_us": window.t0_us,
                     "start_utc": log.get("utc_start"),
                     "duration_s": round((match_end - match_start) / envelope.US_PER_S, 3),
                     "framed": framed,
@@ -512,72 +515,6 @@ class ReportBuilder:
                 value = _finite(record.get(name))
                 phase[name] = envelope.round_sig([value])[0] if value is not None else None
         return out
-
-    def _series_payload(
-        self,
-        silver: Path,
-        window: envelope.Window,
-        temps: dict[str, list[list[float]]],
-        match_end: int,
-    ) -> dict[str, Any]:
-        envelopes = envelope.slot_envelopes(self.con, silver, window)
-        battery = envelope.battery_envelope(self.con, silver, window)
-        rates = dict(
-            self.con.execute(
-                "SELECT slot_id, count(*) / ? FROM read_parquet(?)"
-                " WHERE metric = 'stator_current' AND t_us >= ? AND t_us < ? GROUP BY slot_id",
-                [
-                    (window.end_us - window.t0_us) / envelope.US_PER_S,
-                    str(silver / "*.parquet"),
-                    window.t0_us,
-                    window.end_us,
-                ],
-            ).fetchall()
-        )
-        series: dict[str, dict[str, Any]] = {}
-        maxima: dict[str, dict[str, Any]] = {}
-        first = max(0, (window.match_start_us - window.t0_us) // window.width_us)
-        last = min(window.n - 1, (match_end - window.t0_us) // window.width_us)
-        for slot, metrics_ in envelopes.items():
-            series[slot] = {m: envelope.to_payload(env) for m, env in metrics_.items()}
-            for metric, env in metrics_.items():
-                peaks = [v for v in env["max"][first : last + 1] if v is not None]
-                if peaks and metric in ("supply_current", "stator_current"):
-                    maxima.setdefault(slot, {})[f"{metric}_max"] = envelope.round_sig([max(peaks)])[
-                        0
-                    ]
-        start_s, end_s = window.seconds(window.match_start_us), window.seconds(match_end)
-        for slot, changes in temps.items():
-            # the reading in effect at match start, then every change up to match end
-            at_start = [v for t, v in changes if t <= start_s][-1:]
-            during = [v for t, v in changes if start_s < t <= end_s]
-            if at_start or during:
-                maxima.setdefault(slot, {})["temp_max_c"] = max(at_start + during)
-        has_temp = bool(temps)
-        all_slots = sorted(set(envelopes) | set(temps))
-        not_logged = {
-            slot: [
-                m
-                for m in (*envelope.TRACK_METRICS, "temp_c")
-                if (m == "temp_c" and slot not in temps)
-                or (m != "temp_c" and m not in envelopes.get(slot, {}))
-            ]
-            for slot in all_slots
-        }
-        return {
-            "window": {
-                "t0": round(window.time_s(0), 3),
-                "width": window.width_us / envelope.US_PER_S,
-                "n": window.n,
-            },
-            "series": series,
-            "battery": envelope.to_payload(battery),
-            "temps": temps,
-            "maxima": maxima,
-            "rates": {k: round(v, 1) for k, v in rates.items()},
-            "not_logged": not_logged,
-            "temperature": {"available": has_temp, "reason": None},
-        }
 
 
 def build_reports(

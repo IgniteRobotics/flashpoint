@@ -17,6 +17,10 @@ class LakePaths:
         return self.root / "bronze" / "samples"
 
     @property
+    def silver(self) -> Path:
+        return self.root / "silver" / "samples"
+
+    @property
     def staging(self) -> Path:
         return self.root / "bronze" / "_staging"
 

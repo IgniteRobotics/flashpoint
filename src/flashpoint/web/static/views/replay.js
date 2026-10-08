@@ -2,6 +2,8 @@
    Replay: one match from its precomputed envelopes (report/build.py).
    URL: #view=replay&m=<match key>&o=<overlay key>&t=<cursor s>&ev=<marker>
         &tr=<track,track,track,track>&track=<slot from a History drill-through>
+        &season=&robot=&event=<match list filters, 'all' or a value; shared with History>
+        &z=<from s>,<to s> (the visible window; omitted at the full match window)
    Tracks: battery | total | <metric>:<slot>, metric one of METRICS below.
    ========================================================================== */
 (function () {
@@ -17,6 +19,11 @@
     temp_c: { label: 'temperature', unit: '°C', digits: 0 },
   };
   const HOLD_S = 1.0; // a value carries forward this long across empty buckets (4 Hz signals)
+  const MIN_SPAN_S = 0.5; // the narrowest visible window
+  const ZOOM_STEP = 2; // buttons and +/- keys
+  const DETAIL_DEBOUNCE_MS = 150;
+  const DETAIL_BELOW = 0.5; // served: fetch finer envelopes when the window is under half the match
+  const WIDTH_STEP_S = 0.01; // envelope bucket widths are whole 10 ms (report/envelope.py)
 
   let ui = null;
 
@@ -124,7 +131,7 @@
     return options;
   }
 
-  function matchList(entries, selected) {
+  function matchList(entries, selected, filters) {
     const events = {};
     for (const e of entries) (events[e.event] = events[e.event] || []).push(e);
     return Object.keys(events).sort().reverse().map((event) => h('section', { class: 'match-list__event', 'aria-label': 'Event ' + event },
@@ -139,7 +146,7 @@
             !counts.FAULT && !counts.WARN ? FP.status('ok', '0 MARKERS') : null);
         return h('a', {
           class: 'match-btn' + (e.low_alignment && e.status === 'ok' ? ' is-low' : ''),
-          href: FP.link({ view: 'replay', m: e.key }),
+          href: FP.link({ view: 'replay', m: e.key, ...filters }),
           'aria-current': e.key === selected ? 'page' : null,
           dataset: { match: e.key },
         },
@@ -147,6 +154,83 @@
         h('span', { class: 'meta' }, e.robot, ' · ', FP.when(e.start_utc)),
         e.low_alignment && e.status === 'ok' ? h('span', { class: 'badge badge--low' }, '▲ LOW ALIGNMENT · ' + e.alignment) : null);
       }))));
+  }
+
+  /* ---------- match list filters ---------- */
+  const ALL = 'all';
+  const FILTERS = [['season', 'SEASON', 'All seasons'], ['robot', 'ROBOT', 'All robots'], ['event', 'EVENT', 'All events']];
+
+  /* Entries that pass every chosen filter ('all' passes everything). */
+  function filterEntries(entries, f) {
+    return entries.filter((e) => FILTERS.every(([key]) => f[key] === ALL || e[key] === f[key]));
+  }
+  const startKey = (e) => (e.start_utc ? '1' + e.start_utc : '0') + '|' + e.key; // no start sorts by key
+  const latest = (entries) => entries.reduce((best, e) => (best == null || startKey(e) > startKey(best) ? e : best), null);
+  /* Distinct values of `key`, newest first (seasons by value, the rest by their latest match). */
+  function newestValues(entries, key) {
+    const last = {};
+    for (const e of entries) if (e[key] != null && (last[e[key]] == null || startKey(e) > last[e[key]])) last[e[key]] = startKey(e);
+    const values = Object.keys(last);
+    return key === 'season' ? values.sort().reverse() : values.sort((a, b) => (last[b] > last[a] ? 1 : last[b] < last[a] ? -1 : 0));
+  }
+  // An index built before REPORT_VERSION 2 has no season; an empty one has nothing to rebuild.
+  const seasonsKnown = (index) => Boolean(index) && (!index.matches.length || (index.version >= 2 && index.matches.every((e) => e.season != null)));
+
+  function initialFilters(state, entries, selected, seasons) {
+    if (FILTERS.every(([key]) => state[key] == null || state[key] === '')) {
+      const base = selected || latest(entries);
+      return { season: base && seasons ? base.season : ALL, robot: ALL, event: base ? base.event : ALL };
+    }
+    const f = {};
+    for (const [key] of FILTERS) f[key] = state[key] || ALL;
+    if (!seasons) f.season = ALL;
+    return f;
+  }
+
+  function renderRail() {
+    const f = ui.filters;
+    const entries = ui.entries;
+    const shown = filterEntries(entries, f);
+    const inSeason = f.season === ALL ? entries : entries.filter((e) => e.season === f.season);
+    const values = { season: newestValues(entries, 'season'), robot: newestValues(inSeason, 'robot'), event: newestValues(inSeason, 'event') };
+    const unknown = FILTERS.filter(([key]) => f[key] !== ALL && !entries.some((e) => e[key] === f[key])).map(([key]) => key + ' ' + f[key]);
+    const bar = h('div', { class: 'filters stack', role: 'group', 'aria-label': 'Filter matches' }, FILTERS.map(([key, label, allLabel]) => {
+      const options = values[key].includes(f[key]) || f[key] === ALL ? values[key] : [f[key], ...values[key]];
+      const disabled = key === 'season' && !ui.seasons;
+      return h('div', { class: 'filter' },
+        h('label', { class: 'group__label', for: 'f-' + key }, label),
+        h('select', { class: 'select', id: 'f-' + key, disabled, on: { change: (event) => setFilter(key, event.target.value) } },
+          h('option', { value: ALL, selected: f[key] === ALL }, allLabel),
+          options.map((v) => h('option', { value: v, selected: f[key] === v }, v + (unknown.includes(key + ' ' + v) ? ' (not in this index)' : '')))),
+        disabled ? h('p', { class: 'meta' }, 'Rebuild with ', h('code', { class: 'code' }, 'flashpoint report'), ' to filter by season.') : null);
+    }), h('button', { type: 'button', class: 'btn btn--sm', id: 'filters-clear', disabled: FILTERS.every(([key]) => f[key] === ALL), on: { click: clearFilters } }, 'CLEAR FILTERS'));
+    const hidden = ui.key && !shown.some((e) => e.key === ui.key) ? entries.find((e) => e.key === ui.key) : null;
+    const note = h('div', { id: 'filter-note', 'aria-live': 'polite' },
+      !shown.length ? h('div', { class: 'callout callout--quiet' },
+        h('p', null, 'No matches for these filters.'),
+        unknown.length ? h('p', null, 'No match in this index has ', unknown.join(', '), '.') : null,
+        h('p', null, 'Use CLEAR FILTERS above to list every match.')) : null,
+      shown.length && hidden ? h('p', { class: 'meta' }, 'Selected match ' + hidden.label + ' is hidden by the filters.') : null);
+    FP.fill(ui.rail, h('h2', { class: 'label' }, 'Matches'), bar, note, matchList(shown, ui.key, f));
+  }
+
+  function setFilter(key, value) {
+    ui.filters[key] = value;
+    if (key === 'season' && value !== ALL) {
+      // The robot and event lists narrow to the season; a choice outside it goes back to all.
+      for (const other of ['robot', 'event']) {
+        if (ui.filters[other] !== ALL && !ui.entries.some((e) => e.season === value && e[other] === ui.filters[other])) ui.filters[other] = ALL;
+      }
+    }
+    FP.setState({ ...ui.filters });
+    renderRail();
+  }
+  function clearFilters() {
+    ui.filters = { season: ALL, robot: ALL, event: ALL };
+    FP.setState({ ...ui.filters });
+    renderRail();
+    const first = ui.rail.querySelector('select:not([disabled])');
+    if (first) first.focus();
   }
 
   function downloads(sources) {
@@ -187,14 +271,20 @@
         index && index.sessions_without_match_key ? h('p', { class: 'meta mt-3' }, index.sessions_without_match_key + ' session(s) without a match key have no Replay entry.') : null));
       return;
     }
-    const key = state.m || (entries.find((e) => e.status === 'ok') || entries[0]).key; // state.m may be unbuilt
+    ui.entries = entries;
+    ui.seasons = seasonsKnown(index);
+    ui.filters = initialFilters(state, entries, entries.find((e) => e.key === state.m), ui.seasons);
+    const shown = filterEntries(entries, ui.filters);
+    const key = state.m || (shown.find((e) => e.status === 'ok') || shown[0] || entries.find((e) => e.status === 'ok') || entries[0]).key; // state.m may be unbuilt
     const entry = entries.find((e) => e.key === key);
     const layout = h('div', { class: 'layout' });
-    const rail = h('nav', { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' }, h('h2', { class: 'label' }, 'Matches'), matchList(entries, key));
+    const rail = h('nav', { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' });
     const main = h('div', { class: 'main pad', id: 'replay-main' });
     const aside = h('aside', { class: 'rail-r panel panel--rail-r stack', 'aria-label': 'Marker, readout, and raw logs' });
     FP.fill(el, FP.fill(layout, rail, main, aside));
-    ui.main = main; ui.aside = aside; ui.entries = entries;
+    ui.main = main; ui.aside = aside; ui.rail = rail; ui.key = key;
+    renderRail();
+    FP.setState({ ...ui.filters });
 
     if (!entry) {
       FP.fill(main, notice(key, h('p', { class: 'prose' }, 'Replay data for this match is not built.'),
@@ -220,6 +310,9 @@
     ui.overlay = overlayEntry ? await FP.loadMatch(overlayEntry) : null;
     if (ui !== mine || !el.isConnected) return;
     ui.specs = parseTracks(state, ui.data);
+    ui.full = { from: ui.data.window.t0, to: +(ui.data.window.t0 + ui.data.window.n * ui.data.window.width).toFixed(3) };
+    ui.view = parseView(state.z);
+    ui.detail = null; ui.detailSeq = 0; ui.detailError = null;
     ui.cursor = state.t != null && state.t !== '' && !Number.isNaN(+state.t) ? +state.t : null;
     ui.marker = state.ev != null && state.ev !== '' ? +state.ev : null;
     render();
@@ -258,6 +351,14 @@
       d.temperature && !d.temperature.available ? h('p', { class: 'callout' }, 'Temperature not logged. ' + (d.temperature.reason || '')) : null,
       (d.notes || []).map((n) => h('p', { class: 'callout callout--quiet' }, n)));
     const markers = h('section', { class: 'markers', id: 'markers', 'aria-label': 'Markers on the timeline' });
+    const zoomBar = h('div', { class: 'zoom-bar' },
+      h('span', { class: 'group__label' }, 'WINDOW'),
+      h('span', { class: 'zoom-bar__window', id: 'view-window', 'aria-live': 'polite' }),
+      h('span', { class: 'meta', id: 'resolution' }),
+      h('span', { class: 'app-header__spacer' }),
+      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-out', 'aria-label': 'Zoom out', title: 'Zoom out (-)', on: { click: () => zoomBy(1 / ZOOM_STEP) } }, '−'),
+      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-in', 'aria-label': 'Zoom in', title: 'Zoom in (+), Ctrl/⌘ + scroll, or shift-drag a track', on: { click: () => zoomBy(ZOOM_STEP) } }, '+'),
+      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-reset', title: 'Full match (0)', on: { click: () => setView(ui.full.from, ui.full.to) } }, 'FULL MATCH'));
     const tracks = h('div', { class: 'tracks', id: 'tracks' });
     const scrub = h('input', {
       id: 'scrub', type: 'range', min: String(d.window.t0), max: String(+(d.window.t0 + d.window.n * d.window.width).toFixed(3)),
@@ -274,32 +375,64 @@
         h('option', { value: '' }, 'no overlay'),
         entries.map((e) => h('option', { value: e.key, selected: o && o.match_key === e.key }, e.label + ' · ' + e.key))),
       o ? h('p', { class: 'meta' }, 'Overlay ', h('b', null, o.label), ' drawn dashed, aligned on match time.') : null);
-    FP.fill(main, header, meta, notes, markers, tracks, scrubRow, compare);
+    const timeline = h('div', { class: 'timeline', id: 'timeline', on: { keydown: timelineKey } }, zoomBar, markers, tracks, scrubRow);
+    FP.fill(main, header, meta, notes, timeline, compare);
     renderMarkers(markers);
+    if (ui.resize) ui.resize.disconnect();
+    ui.resize = new ResizeObserver(placeMarkers);
+    ui.resize.observe(markers);
     renderTracks(tracks);
     renderAside();
     updateCursor();
-    placeMarkers();
-    ui.resize = new ResizeObserver(placeMarkers);
-    ui.resize.observe(markers);
+    setView(ui.view.from, ui.view.to);
   }
 
   /* Markers sit over the plots' own x scale (the first charted track's plot area). */
+  /* Markers outside the visible window are hidden and counted on their side. */
   function placeMarkers() {
     const strip = document.getElementById('markers');
     const chart = ui && ui.tracks.find((t) => t.chart);
     if (!strip || !chart) return;
-    const u = chart.chart.u;
-    const offset = u.over.getBoundingClientRect().left - strip.getBoundingClientRect().left;
+    // From ui.view, not u.valToPos: uPlot commits a new scale in a microtask after setX.
+    const over = chart.chart.u.over.getBoundingClientRect();
+    const offset = over.left - strip.getBoundingClientRect().left;
+    const toPx = (t) => ((t - ui.view.from) / (ui.view.to - ui.view.from)) * over.width;
+    let left = 0; let right = 0;
     strip.querySelectorAll('[data-marker]').forEach((b) => {
       const m = ui.data.markers[+b.dataset.marker];
-      b.style.left = (offset + u.valToPos(m.t, 'x')).toFixed(1) + 'px';
+      const before = m.t < ui.view.from; const after = m.t > ui.view.to;
+      left += before; right += after;
+      b.hidden = before || after;
+      b.style.left = (offset + toPx(m.t)).toFixed(1) + 'px';
     });
+    const side = (id, n, text) => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.hidden = n === 0;
+      b.textContent = text;
+      b.setAttribute('aria-label', n + ' hidden marker' + (n === 1 ? '' : 's') + (id === 'markers-left' ? ' before' : ' after') + ' the window; select the nearest');
+    };
+    side('markers-left', left, '◂ ' + left);
+    side('markers-right', right, right + ' ▸');
+  }
+  /* The nearest marker hidden on one side of the window (-1 left, +1 right). */
+  function nearestHidden(dir) {
+    let best = null;
+    (ui.data.markers || []).forEach((m, i) => {
+      if (dir < 0 ? m.t < ui.view.from : m.t > ui.view.to) {
+        if (best == null || (dir < 0 ? m.t > ui.data.markers[best].t : m.t < ui.data.markers[best].t)) best = i;
+      }
+    });
+    return best;
   }
 
   function renderMarkers(strip) {
     const d = ui.data;
     const span = d.window.n * d.window.width;
+    for (const [id, dir] of [['markers-left', -1], ['markers-right', 1]]) {
+      strip.appendChild(h('button', { type: 'button', class: 'marker-count marker-count--' + (dir < 0 ? 'left' : 'right'), id, hidden: true,
+        on: { click: () => { const i = nearestHidden(dir); if (i != null) selectMarker(i); } } }));
+    }
     (d.markers || []).forEach((m, i) => {
       const left = ((m.t - d.window.t0) / span) * 100;
       strip.appendChild(h('button', {
@@ -315,10 +448,14 @@
     });
   }
 
+  /* The primary match as drawn: stored, or with the served detail merged over it. Same shape, so
+     trackData() and valueAt() work on either. */
+  const shown = () => ui.detail ? ui.detail.merged : ui.data;
+
   function renderTracks(container) {
     for (const t of ui.tracks) t.chart && t.chart.destroy();
     ui.tracks = [];
-    const d = ui.data;
+    const d = shown();
     const xs = grid(d);
     const tokens = FP.tokens();
     const phases = (d.phases || []).filter((p) => p.name === 'auto' || p.name === 'teleop');
@@ -347,8 +484,7 @@
           const ov = trackData(ui.overlay, spec);
           if (ov && !ov.missing) series.push({ label: ui.overlay.label, values: overlayValues(d, ui.overlay, spec), stroke: tokens.amberDim, width: 1.5, dash: [5, 3] });
         }
-        const nums = td.values.filter((v) => v != null);
-        entry.range.textContent = nums.length ? FP.fmt(Math.min(...nums), td.digits) + ' – ' + FP.fmt(Math.max(...nums), td.digits) + ' ' + td.unit : 'no samples';
+        entry.xs = xs;
         entry.chart = FP.track(plot, {
           height: 120,
           x: xs,
@@ -358,13 +494,18 @@
           gapX: HOLD_S,
           cursor: () => ui.cursor,
           onPick: (x) => setCursor(Math.max(xs[0], Math.min(xs[xs.length - 1], x))),
-          xLabel: (v) => 'T+' + Math.round(v),
+          onSelect: (a, b) => setView(a, b),
+          onZoom: (factor, x) => zoomBy(factor, x),
+          xLabel: (v) => 'T+' + (ui.view.to - ui.view.from < 10 ? v.toFixed(1) : Math.round(v)),
           yLabel: (v) => FP.fmt(v, Math.abs(v) >= 100 ? 0 : 1),
-          ariaLabel: td.label + ' over the match, ' + entry.range.textContent + '. Values at the cursor are in the readout.',
+          ariaLabel: td.label + ' over the visible window. The range and the values at the cursor are in the track label and the readout.',
         });
       }
       ui.tracks.push(entry);
     });
+    // uPlot sizes a new plot in a microtask: place the markers again once the first one has its size.
+    const first = ui.tracks.find((t) => t.chart);
+    if (first && ui.resize) ui.resize.observe(first.chart.u.over);
   }
 
   function readoutRows() {
@@ -431,8 +572,9 @@
     if (scrub && t != null) scrub.value = String(t);
     const clear = document.getElementById('clear-cursor');
     if (clear) clear.disabled = t == null;
+    const covered = ui.detail && t != null && t >= ui.detail.from && t < ui.detail.to;
     for (const track of ui.tracks) {
-      const v = t == null ? null : valueAt(d, track.spec, t);
+      const v = t == null ? null : valueAt(covered ? ui.detail.merged : d, track.spec, t);
       track.now.textContent = track.td.missing ? 'not logged' : FP.fmt(v, track.td.digits);
       if (track.chart) track.chart.redraw();
     }
@@ -451,7 +593,139 @@
           ui.overlay ? (r.other ? [cell(r.other.amps, 1, true), cell(r.other.temp, 0, r.other.tempLogged)] : [h('td', { class: 'num absent' }, 'absent'), h('td', { class: 'num absent' }, 'absent')]) : null);
       }));
     }
-    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null });
+    writeState();
+  }
+  function writeState() {
+    const d = ui.data; const t = ui.cursor;
+    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null, ...ui.filters, z: isFull() ? null : ui.view.from.toFixed(2) + ',' + ui.view.to.toFixed(2) });
+  }
+
+  /* ---------- the shared x window ---------- */
+  const signed = (t) => (t < 0 ? 'T−' + (-t).toFixed(1) : 'T+' + t.toFixed(1));
+  function clampView(from, to) {
+    const full = ui.full;
+    const span = Math.min(full.to - full.from, Math.max(MIN_SPAN_S, to - from));
+    let lo = Math.max(full.from, Math.min(from, full.to - span));
+    if (to - from < MIN_SPAN_S) lo = Math.max(full.from, Math.min((from + to) / 2 - span / 2, full.to - span));
+    return { from: lo, to: lo + span };
+  }
+  /* `z=<from>,<to>` from the address; anything invalid or wholly outside the match is the full window. */
+  function parseView(z) {
+    const parts = String(z || '').split(',');
+    const [from, to] = parts.map(Number);
+    const valid = parts.length === 2 && parts.every((x) => x.trim() !== '') && Number.isFinite(from) && Number.isFinite(to)
+      && from < to && to > ui.full.from && from < ui.full.to;
+    return valid ? clampView(from, to) : { ...ui.full };
+  }
+  const isFull = () => ui.view.from <= ui.full.from + 1e-6 && ui.view.to >= ui.full.to - 1e-6;
+
+  /* Every time-positioned element reads ui.view: charts, markers, range readouts, the label. */
+  function setView(from, to) {
+    ui.view = clampView(from, to);
+    if (ui.detail && !detailFits()) dropDetail();
+    for (const track of ui.tracks) if (track.chart) track.chart.setX(ui.view.from, ui.view.to);
+    placeMarkers();
+    updateRanges();
+    const label = document.getElementById('view-window');
+    if (label) label.textContent = signed(ui.view.from) + ' – ' + signed(ui.view.to) + ' s';
+    updateResolution();
+    writeState();
+    scheduleDetail();
+  }
+  function zoomBy(factor, at) {
+    const anchor = at != null ? at : (ui.cursor != null && ui.cursor >= ui.view.from && ui.cursor <= ui.view.to ? ui.cursor : (ui.view.from + ui.view.to) / 2);
+    const from = anchor - (anchor - ui.view.from) / factor;
+    const to = anchor + (ui.view.to - anchor) / factor;
+    setView(from, to);
+  }
+  function panTo(t) {
+    if (t >= ui.view.from && t <= ui.view.to) return;
+    const half = (ui.view.to - ui.view.from) / 2;
+    setView(t - half, t + half);
+  }
+  function timelineKey(event) {
+    if (event.target.tagName === 'SELECT' || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === '+' || event.key === '=') zoomBy(ZOOM_STEP);
+    else if (event.key === '-' || event.key === '_') zoomBy(1 / ZOOM_STEP);
+    else if (event.key === '0') setView(ui.full.from, ui.full.to);
+    else return;
+    event.preventDefault();
+  }
+  function updateRanges() {
+    for (const track of ui.tracks) {
+      if (!track.chart) continue;
+      const nums = [];
+      track.xs.forEach((x, i) => { const v = track.td.values[i]; if (v != null && x >= ui.view.from && x <= ui.view.to) nums.push(v); });
+      track.range.textContent = nums.length ? FP.fmt(Math.min(...nums), track.td.digits) + ' – ' + FP.fmt(Math.max(...nums), track.td.digits) + ' ' + track.td.unit : 'no samples';
+    }
+  }
+  const zoomedIn = () => ui.view.to - ui.view.from < DETAIL_BELOW * (ui.full.to - ui.full.from);
+  const ms = (width) => Math.round(width * 1000) + ' ms';
+  /* The resolution the tracks are drawn at, once zoomed in past the stored buckets. */
+  function updateResolution() {
+    const note = document.getElementById('resolution');
+    if (!note) return;
+    if (ui.detail) {
+      const overlay = ui.overlay ? ' · overlay ' + ui.overlay.label + ' at ' + ms(ui.overlay.window.width) : '';
+      note.textContent = ms(ui.detail.merged.window.width) + ' buckets from the lake' + overlay;
+    } else if (zoomedIn()) {
+      note.textContent = 'bucket resolution (' + ms(ui.data.window.width) + ')' + (ui.detailError ? ' · finer data unavailable: ' + ui.detailError : '');
+    } else note.textContent = '';
+  }
+
+  /* ---------- served detail: finer envelopes for the visible window ---------- */
+  /* The detail still covers the window at no worse resolution than a fresh fetch would. */
+  function detailFits() {
+    const span = ui.view.to - ui.view.from;
+    const fresh = Math.max(WIDTH_STEP_S, Math.ceil(span / 1000 / WIDTH_STEP_S - 1e-9) * WIDTH_STEP_S);
+    return zoomedIn() && ui.detail.from <= ui.view.from + 1e-6 && ui.detail.to >= ui.view.to - 1e-6
+      && ui.detail.merged.window.width <= fresh + 1e-9;
+  }
+  function redrawTracks() {
+    const tracks = document.getElementById('tracks');
+    if (!tracks) return;
+    renderTracks(FP.clear(tracks));
+    for (const track of ui.tracks) if (track.chart) track.chart.setX(ui.view.from, ui.view.to);
+    updateRanges();
+    updateCursor();
+  }
+  function dropDetail() {
+    ui.detail = null;
+    redrawTracks();
+  }
+  function scheduleDetail() {
+    clearTimeout(ui.detailTimer);
+    if (FP.mode.static || !zoomedIn() || (ui.detail && detailFits())) {
+      ui.detailSeq += 1; // a response still in flight is stale now
+      return;
+    }
+    ui.detailTimer = setTimeout(fetchDetail, DETAIL_DEBOUNCE_MS);
+  }
+  async function fetchDetail() {
+    const mine = ui;
+    const seq = (ui.detailSeq += 1);
+    const view = { ...ui.view };
+    let body;
+    try {
+      body = await FP.api('envelope/' + encodeURIComponent(ui.data.match_key), { from: view.from.toFixed(3), to: view.to.toFixed(3) });
+    } catch (err) {
+      body = { available: false, reason: String(err.message) };
+    }
+    if (ui !== mine || seq !== ui.detailSeq) return; // stale: the window moved on
+    if (!body.available) {
+      ui.detailError = body.reason || 'unknown error';
+      updateResolution();
+      return;
+    }
+    ui.detailError = null;
+    const w = body.window;
+    ui.detail = {
+      from: w.t0, to: w.t0 + w.n * w.width,
+      merged: { ...ui.data, window: w, series: body.series, battery: body.battery, temps: body.temps, not_logged: body.not_logged },
+    };
+    redrawTracks();
+    placeMarkers();
+    updateResolution();
   }
 
   /* ---------- interactions ---------- */
@@ -461,6 +735,7 @@
   }
   function selectMarker(i) {
     ui.marker = i;
+    panTo(ui.data.markers[i].t);
     document.querySelectorAll('[data-marker]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.marker === i)));
     renderEvent();
     setCursor(ui.data.markers[i].t);
@@ -469,7 +744,7 @@
     ui.specs[index] = spec;
     renderTracks(FP.clear(document.getElementById('tracks')));
     updateCursor();
-    placeMarkers();
+    setView(ui.view.from, ui.view.to);
   }
   async function setOverlay(key) {
     const entry = ui.entries.find((e) => e.key === key);
@@ -490,11 +765,17 @@
     mount,
     unmount: () => {
       if (ui) {
+        clearTimeout(ui.detailTimer);
         for (const t of ui.tracks) if (t.chart) t.chart.destroy();
         if (ui.resize) ui.resize.disconnect();
       }
       ui = null;
     },
   });
-  FP.replay = { trackData, valueAt, defaultTracks }; // for tests
+  FP.replay = { // for tests
+    trackData, valueAt, defaultTracks, filterEntries,
+    charts: () => (ui ? ui.tracks.filter((t) => t.chart).map((t) => t.chart.u) : []),
+    view: () => (ui && ui.view ? { ...ui.view } : null),
+    detail: () => (ui && ui.detail ? { ...ui.detail.merged.window } : null),
+  };
 })();
