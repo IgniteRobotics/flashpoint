@@ -63,12 +63,12 @@
 
 ## 7. Served detail on zoom (spec: match-reports, "Windowed detail in served mode")
 
-- [ ] 7.1 Write the browser tests first against a served synthetic lake:
+- [x] 7.1 Write the browser tests first against a served synthetic lake:
   - zooming to 2 s triggers one envelope request after the debounce, and the tracks redraw with a narrower bucket width;
   - a burst of wheel zooms leaves only the last response applied;
   - with silver removed, the tracks keep the stored buckets and the header says finer data is unavailable;
   - zooming back out past half the match uses stored data with no request.
-- [ ] 7.2 Implement the fetch in `views/replay.js`: a 150 ms debounce, the stale-response counter, and a merged view object so that `trackData()` and `valueAt()` work unchanged. The overlay stays at stored resolution, and the header names both resolutions. 7.1 passes.
+- [x] 7.2 Implement the fetch in `views/replay.js`: a 150 ms debounce, the stale-response counter, and a merged view object so that `trackData()` and `valueAt()` work unchanged. The overlay stays at stored resolution, and the header names both resolutions. 7.1 passes.
 
 ## 8. Shareable links (spec: match-reports, "Shareable view links")
 

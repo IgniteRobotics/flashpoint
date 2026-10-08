@@ -21,6 +21,9 @@
   const HOLD_S = 1.0; // a value carries forward this long across empty buckets (4 Hz signals)
   const MIN_SPAN_S = 0.5; // the narrowest visible window
   const ZOOM_STEP = 2; // buttons and +/- keys
+  const DETAIL_DEBOUNCE_MS = 150;
+  const DETAIL_BELOW = 0.5; // served: fetch finer envelopes when the window is under half the match
+  const WIDTH_STEP_S = 0.01; // envelope bucket widths are whole 10 ms (report/envelope.py)
 
   let ui = null;
 
@@ -304,6 +307,7 @@
     ui.specs = parseTracks(state, ui.data);
     ui.full = { from: ui.data.window.t0, to: +(ui.data.window.t0 + ui.data.window.n * ui.data.window.width).toFixed(3) };
     ui.view = { ...ui.full };
+    ui.detail = null; ui.detailSeq = 0; ui.detailError = null;
     ui.cursor = state.t != null && state.t !== '' && !Number.isNaN(+state.t) ? +state.t : null;
     ui.marker = state.ev != null && state.ev !== '' ? +state.ev : null;
     render();
@@ -438,10 +442,14 @@
     });
   }
 
+  /* The primary match as drawn: stored, or with the served detail merged over it. Same shape, so
+     trackData() and valueAt() work on either. */
+  const shown = () => ui.detail ? ui.detail.merged : ui.data;
+
   function renderTracks(container) {
     for (const t of ui.tracks) t.chart && t.chart.destroy();
     ui.tracks = [];
-    const d = ui.data;
+    const d = shown();
     const xs = grid(d);
     const tokens = FP.tokens();
     const phases = (d.phases || []).filter((p) => p.name === 'auto' || p.name === 'teleop');
@@ -555,8 +563,9 @@
     if (scrub && t != null) scrub.value = String(t);
     const clear = document.getElementById('clear-cursor');
     if (clear) clear.disabled = t == null;
+    const covered = ui.detail && t != null && t >= ui.detail.from && t < ui.detail.to;
     for (const track of ui.tracks) {
-      const v = t == null ? null : valueAt(d, track.spec, t);
+      const v = t == null ? null : valueAt(covered ? ui.detail.merged : d, track.spec, t);
       track.now.textContent = track.td.missing ? 'not logged' : FP.fmt(v, track.td.digits);
       if (track.chart) track.chart.redraw();
     }
@@ -596,6 +605,7 @@
   /* Every time-positioned element reads ui.view: charts, markers, range readouts, the label. */
   function setView(from, to) {
     ui.view = clampView(from, to);
+    if (ui.detail && !detailFits()) dropDetail();
     for (const track of ui.tracks) if (track.chart) track.chart.setX(ui.view.from, ui.view.to);
     placeMarkers();
     updateRanges();
@@ -603,6 +613,7 @@
     if (label) label.textContent = signed(ui.view.from) + ' – ' + signed(ui.view.to) + ' s';
     updateResolution();
     writeState();
+    scheduleDetail();
   }
   function zoomBy(factor, at) {
     const anchor = at != null ? at : (ui.cursor != null && ui.cursor >= ui.view.from && ui.cursor <= ui.view.to ? ui.cursor : (ui.view.from + ui.view.to) / 2);
@@ -631,12 +642,73 @@
       track.range.textContent = nums.length ? FP.fmt(Math.min(...nums), track.td.digits) + ' – ' + FP.fmt(Math.max(...nums), track.td.digits) + ' ' + track.td.unit : 'no samples';
     }
   }
-  /* Zoomed in past the stored buckets: say so (finer data comes from the server when served). */
+  const zoomedIn = () => ui.view.to - ui.view.from < DETAIL_BELOW * (ui.full.to - ui.full.from);
+  const ms = (width) => Math.round(width * 1000) + ' ms';
+  /* The resolution the tracks are drawn at, once zoomed in past the stored buckets. */
   function updateResolution() {
     const note = document.getElementById('resolution');
     if (!note) return;
-    const zoomed = ui.view.to - ui.view.from < 0.5 * (ui.full.to - ui.full.from);
-    note.textContent = zoomed ? 'bucket resolution (' + Math.round(ui.data.window.width * 1000) + ' ms)' : '';
+    if (ui.detail) {
+      const overlay = ui.overlay ? ' · overlay ' + ui.overlay.label + ' at ' + ms(ui.overlay.window.width) : '';
+      note.textContent = ms(ui.detail.merged.window.width) + ' buckets from the lake' + overlay;
+    } else if (zoomedIn()) {
+      note.textContent = 'bucket resolution (' + ms(ui.data.window.width) + ')' + (ui.detailError ? ' · finer data unavailable: ' + ui.detailError : '');
+    } else note.textContent = '';
+  }
+
+  /* ---------- served detail: finer envelopes for the visible window ---------- */
+  /* The detail still covers the window at no worse resolution than a fresh fetch would. */
+  function detailFits() {
+    const span = ui.view.to - ui.view.from;
+    const fresh = Math.max(WIDTH_STEP_S, Math.ceil(span / 1000 / WIDTH_STEP_S - 1e-9) * WIDTH_STEP_S);
+    return zoomedIn() && ui.detail.from <= ui.view.from + 1e-6 && ui.detail.to >= ui.view.to - 1e-6
+      && ui.detail.merged.window.width <= fresh + 1e-9;
+  }
+  function redrawTracks() {
+    const tracks = document.getElementById('tracks');
+    if (!tracks) return;
+    renderTracks(FP.clear(tracks));
+    for (const track of ui.tracks) if (track.chart) track.chart.setX(ui.view.from, ui.view.to);
+    updateRanges();
+    updateCursor();
+  }
+  function dropDetail() {
+    ui.detail = null;
+    redrawTracks();
+  }
+  function scheduleDetail() {
+    clearTimeout(ui.detailTimer);
+    if (FP.mode.static || !zoomedIn() || (ui.detail && detailFits())) {
+      ui.detailSeq += 1; // a response still in flight is stale now
+      return;
+    }
+    ui.detailTimer = setTimeout(fetchDetail, DETAIL_DEBOUNCE_MS);
+  }
+  async function fetchDetail() {
+    const mine = ui;
+    const seq = (ui.detailSeq += 1);
+    const view = { ...ui.view };
+    let body;
+    try {
+      body = await FP.api('envelope/' + encodeURIComponent(ui.data.match_key), { from: view.from.toFixed(3), to: view.to.toFixed(3) });
+    } catch (err) {
+      body = { available: false, reason: String(err.message) };
+    }
+    if (ui !== mine || seq !== ui.detailSeq) return; // stale: the window moved on
+    if (!body.available) {
+      ui.detailError = body.reason || 'unknown error';
+      updateResolution();
+      return;
+    }
+    ui.detailError = null;
+    const w = body.window;
+    ui.detail = {
+      from: w.t0, to: w.t0 + w.n * w.width,
+      merged: { ...ui.data, window: w, series: body.series, battery: body.battery, temps: body.temps, not_logged: body.not_logged },
+    };
+    redrawTracks();
+    placeMarkers();
+    updateResolution();
   }
 
   /* ---------- interactions ---------- */
@@ -676,6 +748,7 @@
     mount,
     unmount: () => {
       if (ui) {
+        clearTimeout(ui.detailTimer);
         for (const t of ui.tracks) if (t.chart) t.chart.destroy();
         if (ui.resize) ui.resize.disconnect();
       }
@@ -686,5 +759,6 @@
     trackData, valueAt, defaultTracks, filterEntries,
     charts: () => (ui ? ui.tracks.filter((t) => t.chart).map((t) => t.chart.u) : []),
     view: () => (ui && ui.view ? { ...ui.view } : null),
+    detail: () => (ui && ui.detail ? { ...ui.detail.merged.window } : null),
   };
 })();
