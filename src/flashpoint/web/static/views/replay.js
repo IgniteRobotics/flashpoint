@@ -373,12 +373,13 @@
     const timeline = h('div', { class: 'timeline', id: 'timeline', on: { keydown: timelineKey } }, zoomBar, markers, tracks, scrubRow);
     FP.fill(main, header, meta, notes, timeline, compare);
     renderMarkers(markers);
+    if (ui.resize) ui.resize.disconnect();
+    ui.resize = new ResizeObserver(placeMarkers);
+    ui.resize.observe(markers);
     renderTracks(tracks);
     renderAside();
     updateCursor();
     setView(ui.view.from, ui.view.to);
-    ui.resize = new ResizeObserver(placeMarkers);
-    ui.resize.observe(markers);
   }
 
   /* Markers sit over the plots' own x scale (the first charted track's plot area). */
@@ -497,6 +498,9 @@
       }
       ui.tracks.push(entry);
     });
+    // uPlot sizes a new plot in a microtask: place the markers again once the first one has its size.
+    const first = ui.tracks.find((t) => t.chart);
+    if (first && ui.resize) ui.resize.observe(first.chart.u.over);
   }
 
   function readoutRows() {

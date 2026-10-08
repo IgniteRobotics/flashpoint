@@ -879,6 +879,22 @@ def test_link_restores_filters_and_window(page: Any, season_app: str, browser: A
     assert watch.clean() and watch2.clean(), (watch, watch2)
 
 
+def test_link_window_places_markers(page: Any, season_app: str) -> None:
+    """Opening on a window: markers are placed once the plots have their size."""
+    watch = _open_q7(page, season_app, "&z=95.00,99.00")
+    page.wait_for_timeout(200)
+    centre = page.evaluate(
+        "() => { const b = [...document.querySelectorAll('[data-marker]')].find(x => !x.hidden);"
+        " const r = b.getBoundingClientRect(); return r.left + r.width / 2; }"
+    )
+    under = page.evaluate(
+        "() => FP.replay.charts()"
+        ".map(u => u.over.getBoundingClientRect().left + u.valToPos(97, 'x'))"
+    )
+    assert all(abs(x - centre) < 1.5 for x in under), (centre, under)
+    assert watch.clean(), watch
+
+
 @pytest.mark.parametrize("z", ["300,20", "500,600", "x,4", "95", "nan,99"])
 def test_bad_window_in_link_opens_full(page: Any, season_app: str, z: str) -> None:
     watch = _open_q7(page, season_app, f"&z={z}")
