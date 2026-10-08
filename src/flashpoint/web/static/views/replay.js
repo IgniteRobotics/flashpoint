@@ -2,6 +2,7 @@
    Replay: one match from its precomputed envelopes (report/build.py).
    URL: #view=replay&m=<match key>&o=<overlay key>&t=<cursor s>&ev=<marker>
         &tr=<track,track,track,track>&track=<slot from a History drill-through>
+        &season=&robot=&event=<match list filters, 'all' or a value; shared with History>
    Tracks: battery | total | <metric>:<slot>, metric one of METRICS below.
    ========================================================================== */
 (function () {
@@ -124,7 +125,7 @@
     return options;
   }
 
-  function matchList(entries, selected) {
+  function matchList(entries, selected, filters) {
     const events = {};
     for (const e of entries) (events[e.event] = events[e.event] || []).push(e);
     return Object.keys(events).sort().reverse().map((event) => h('section', { class: 'match-list__event', 'aria-label': 'Event ' + event },
@@ -139,7 +140,7 @@
             !counts.FAULT && !counts.WARN ? FP.status('ok', '0 MARKERS') : null);
         return h('a', {
           class: 'match-btn' + (e.low_alignment && e.status === 'ok' ? ' is-low' : ''),
-          href: FP.link({ view: 'replay', m: e.key }),
+          href: FP.link({ view: 'replay', m: e.key, ...filters }),
           'aria-current': e.key === selected ? 'page' : null,
           dataset: { match: e.key },
         },
@@ -147,6 +148,78 @@
         h('span', { class: 'meta' }, e.robot, ' · ', FP.when(e.start_utc)),
         e.low_alignment && e.status === 'ok' ? h('span', { class: 'badge badge--low' }, '▲ LOW ALIGNMENT · ' + e.alignment) : null);
       }))));
+  }
+
+  /* ---------- match list filters ---------- */
+  const ALL = 'all';
+  const FILTERS = [['season', 'SEASON', 'All seasons'], ['robot', 'ROBOT', 'All robots'], ['event', 'EVENT', 'All events']];
+
+  /* Entries that pass every chosen filter ('all' passes everything). */
+  function filterEntries(entries, f) {
+    return entries.filter((e) => FILTERS.every(([key]) => f[key] === ALL || e[key] === f[key]));
+  }
+  const startKey = (e) => (e.start_utc ? '1' + e.start_utc : '0') + '|' + e.key; // no start sorts by key
+  const latest = (entries) => entries.reduce((best, e) => (best == null || startKey(e) > startKey(best) ? e : best), null);
+  /* Distinct values of `key`, newest first (seasons by value, the rest by their latest match). */
+  function newestValues(entries, key) {
+    const last = {};
+    for (const e of entries) if (e[key] != null && (last[e[key]] == null || startKey(e) > last[e[key]])) last[e[key]] = startKey(e);
+    const values = Object.keys(last);
+    return key === 'season' ? values.sort().reverse() : values.sort((a, b) => (last[b] > last[a] ? 1 : last[b] < last[a] ? -1 : 0));
+  }
+  // An index built before REPORT_VERSION 2 has no season; an empty one has nothing to rebuild.
+  const seasonsKnown = (index) => Boolean(index) && (!index.matches.length || (index.version >= 2 && index.matches.every((e) => e.season != null)));
+
+  function initialFilters(state, entries, selected, seasons) {
+    if (FILTERS.every(([key]) => state[key] == null || state[key] === '')) {
+      const base = selected || latest(entries);
+      return { season: base && seasons ? base.season : ALL, robot: ALL, event: base ? base.event : ALL };
+    }
+    const f = {};
+    for (const [key] of FILTERS) f[key] = state[key] || ALL;
+    if (!seasons) f.season = ALL;
+    return f;
+  }
+
+  function renderRail() {
+    const f = ui.filters;
+    const entries = ui.entries;
+    const shown = filterEntries(entries, f);
+    const inSeason = f.season === ALL ? entries : entries.filter((e) => e.season === f.season);
+    const values = { season: newestValues(entries, 'season'), robot: newestValues(entries, 'robot'), event: newestValues(inSeason, 'event') };
+    const unknown = FILTERS.filter(([key]) => f[key] !== ALL && !entries.some((e) => e[key] === f[key])).map(([key]) => key + ' ' + f[key]);
+    const bar = h('div', { class: 'filters stack', role: 'group', 'aria-label': 'Filter matches' }, FILTERS.map(([key, label, allLabel]) => {
+      const options = values[key].includes(f[key]) || f[key] === ALL ? values[key] : [f[key], ...values[key]];
+      const disabled = key === 'season' && !ui.seasons;
+      return h('div', { class: 'filter' },
+        h('label', { class: 'group__label', for: 'f-' + key }, label),
+        h('select', { class: 'select', id: 'f-' + key, disabled, on: { change: (event) => setFilter(key, event.target.value) } },
+          h('option', { value: ALL, selected: f[key] === ALL }, allLabel),
+          options.map((v) => h('option', { value: v, selected: f[key] === v }, v + (unknown.includes(key + ' ' + v) ? ' (not in this index)' : '')))),
+        disabled ? h('p', { class: 'meta' }, 'Rebuild with ', h('code', { class: 'code' }, 'flashpoint report'), ' to filter by season.') : null);
+    }));
+    const hidden = ui.key && !shown.some((e) => e.key === ui.key) ? entries.find((e) => e.key === ui.key) : null;
+    const note = h('div', { id: 'filter-note', 'aria-live': 'polite' },
+      !shown.length ? h('div', { class: 'callout callout--quiet' },
+        h('p', null, 'No matches for these filters.'),
+        unknown.length ? h('p', null, 'No match in this index has ', unknown.join(', '), '.') : null,
+        h('button', { type: 'button', class: 'btn btn--sm mt-2', id: 'filters-clear', on: { click: clearFilters } }, 'CLEAR FILTERS')) : null,
+      shown.length && hidden ? h('p', { class: 'meta' }, 'Selected match ' + hidden.label + ' is hidden by the filters.') : null);
+    FP.fill(ui.rail, h('h2', { class: 'label' }, 'Matches'), bar, note, matchList(shown, ui.key, f));
+  }
+
+  function setFilter(key, value) {
+    ui.filters[key] = value;
+    if (key === 'season' && value !== ALL && ui.filters.event !== ALL && !ui.entries.some((e) => e.season === value && e.event === ui.filters.event)) ui.filters.event = ALL;
+    FP.setState({ ...ui.filters });
+    renderRail();
+  }
+  function clearFilters() {
+    ui.filters = { season: ALL, robot: ALL, event: ALL };
+    FP.setState({ ...ui.filters });
+    renderRail();
+    const first = ui.rail.querySelector('select:not([disabled])');
+    if (first) first.focus();
   }
 
   function downloads(sources) {
@@ -187,14 +260,20 @@
         index && index.sessions_without_match_key ? h('p', { class: 'meta mt-3' }, index.sessions_without_match_key + ' session(s) without a match key have no Replay entry.') : null));
       return;
     }
-    const key = state.m || (entries.find((e) => e.status === 'ok') || entries[0]).key; // state.m may be unbuilt
+    ui.entries = entries;
+    ui.seasons = seasonsKnown(index);
+    ui.filters = initialFilters(state, entries, entries.find((e) => e.key === state.m), ui.seasons);
+    const shown = filterEntries(entries, ui.filters);
+    const key = state.m || (shown.find((e) => e.status === 'ok') || shown[0] || entries.find((e) => e.status === 'ok') || entries[0]).key; // state.m may be unbuilt
     const entry = entries.find((e) => e.key === key);
     const layout = h('div', { class: 'layout' });
-    const rail = h('nav', { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' }, h('h2', { class: 'label' }, 'Matches'), matchList(entries, key));
+    const rail = h('nav', { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' });
     const main = h('div', { class: 'main pad', id: 'replay-main' });
     const aside = h('aside', { class: 'rail-r panel panel--rail-r stack', 'aria-label': 'Marker, readout, and raw logs' });
     FP.fill(el, FP.fill(layout, rail, main, aside));
-    ui.main = main; ui.aside = aside; ui.entries = entries;
+    ui.main = main; ui.aside = aside; ui.rail = rail; ui.key = key;
+    renderRail();
+    FP.setState({ ...ui.filters });
 
     if (!entry) {
       FP.fill(main, notice(key, h('p', { class: 'prose' }, 'Replay data for this match is not built.'),
@@ -451,7 +530,7 @@
           ui.overlay ? (r.other ? [cell(r.other.amps, 1, true), cell(r.other.temp, 0, r.other.tempLogged)] : [h('td', { class: 'num absent' }, 'absent'), h('td', { class: 'num absent' }, 'absent')]) : null);
       }));
     }
-    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null });
+    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null, ...ui.filters });
   }
 
   /* ---------- interactions ---------- */
@@ -496,5 +575,5 @@
       ui = null;
     },
   });
-  FP.replay = { trackData, valueAt, defaultTracks }; // for tests
+  FP.replay = { trackData, valueAt, defaultTracks, filterEntries }; // for tests
 })();

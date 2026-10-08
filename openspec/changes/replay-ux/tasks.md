@@ -38,7 +38,7 @@
 
 ## 5. Match list filters (spec: match-reports, "Match list filters")
 
-- [ ] 5.1 Extend the synthetic season fixture (`tests/views/season.py`) to cover two seasons, two robots, and three events, with known start times. Then write the browser tests first, one per spec scenario:
+- [x] 5.1 Extend the synthetic season fixture (`tests/views/season.py`) to cover two seasons, two robots, and three events, with known start times. Then write the browser tests first, one per spec scenario:
   - the default is the most recent event;
   - filters combine, and the event list narrows by season;
   - nothing matches, and the clear control works;
@@ -46,8 +46,8 @@
   - an unknown value in the address is named;
   - an index older than version 2 disables the season filter with the rebuild note;
   - season and robot carry over from a History link.
-- [ ] 5.2 Implement the filter bar in `views/replay.js`: a pure `filterEntries()` function, the defaults, and the empty and hidden-selection notices. The controls are real `<select>`s and buttons, reachable by keyboard with a visible focus ring. 5.1 passes, and the keyboard-only test still reaches every match.
-- [ ] 5.3 Static export: extend `test_static_lint` / the export browser test so that filtering a two-event export from file://, with the network blocked, lists only the chosen event and makes no request. The test passes.
+- [x] 5.2 Implement the filter bar in `views/replay.js`: a pure `filterEntries()` function, the defaults, and the empty and hidden-selection notices. The controls are real `<select>`s and buttons, reachable by keyboard with a visible focus ring. 5.1 passes, and the keyboard-only test still reaches every match.
+- [x] 5.3 Static export: extend `test_static_lint` / the export browser test so that filtering a two-event export from file://, with the network blocked, lists only the chosen event and makes no request. The test passes.
 
 ## 6. Timeline zoom in Replay (spec: match-reports, "Timeline zoom")
 
