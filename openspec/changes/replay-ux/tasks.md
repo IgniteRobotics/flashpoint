@@ -18,14 +18,14 @@
 
 ## 3. `GET /api/envelope/<match_key>` (spec: match-reports, "Windowed detail in served mode")
 
-- [ ] 3.1 Write the tests first in `tests/web/test_api.py`:
+- [x] 3.1 Write the tests first in `tests/web/test_api.py`:
   - a valid window returns `{window, series, battery, temps, not_logged}`, with keys matching the stored payload;
   - each of these is a 400 with a one-line reason: `from >= to`, a window wholly outside the match, a non-finite value, an unknown or repeated parameter;
   - an unbuilt key is a 404;
   - a path-traversal key returns no file;
   - with the silver partition removed, the response is `available: false` with a reason.
-- [ ] 3.2 Implement the route in `web/api.py`. It reads the built data file header (contained path) and queries only that session's silver partition. 3.1 passes, and so does `tests/web/test_server.py`.
-- [ ] 3.3 Add a corpus budget test in `tests/web/test_api_corpus.py`: a 2 s Q7 window answers in under 1 s with peak memory under 500 MB, and its buckets match silver min and max. Run it with the golden-corpus marker, and record the measured numbers in the PR.
+- [x] 3.2 Implement the route in `web/api.py`. It reads the built data file header (contained path) and queries only that session's silver partition. 3.1 passes, and so does `tests/web/test_server.py`.
+- [x] 3.3 Add a corpus budget test in `tests/web/test_api_corpus.py`: a 2 s Q7 window answers in under 1 s with peak memory under 500 MB, and its buckets match silver min and max. Run it with the golden-corpus marker, and record the measured numbers in the PR.
 
 ## 4. `FP.track` range, select, and zoom gestures (spec: match-reports, "Timeline zoom"; design 3)
 

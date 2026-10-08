@@ -45,7 +45,7 @@ class HootInSession:
 
 
 def silver_dir(lake: LakePaths) -> Path:
-    return lake.root / "silver" / "samples"
+    return lake.silver
 
 
 def write_session(
