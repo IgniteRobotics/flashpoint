@@ -82,4 +82,4 @@
 ## 9. Docs and full verification
 
 - [x] 9.1 Update `docs/rewrite/06-roadmap.md`: mark Replay UX done, and note the windowed-detail endpoint and the overlay-at-stored-resolution limit. Add one paragraph to the ADR-0006 amendment on served-only windowed detail and `REPORT_VERSION` 2. Update the `05-target-architecture.md` §7 Replay notes if they describe the fixed x axis. Check that the docs render, and that their links resolve.
-- [ ] 9.2 Run the whole suite before the PR: `pytest`, `pytest -m browser`, the golden-corpus e2e, `ruff`, and `mypy --strict`. All must pass. Paste the summary into the PR. Then check by hand on the corpus lake: find Q7 by year, robot, and event in two clicks, and zoom to the T+97 s brownout.
+- [x] 9.2 Run the whole suite before the PR: `pytest`, `pytest -m browser`, the golden-corpus e2e, `ruff`, and `mypy --strict`. All must pass. Paste the summary into the PR. Then check by hand on the corpus lake: find Q7 by year, robot, and event in two clicks, and zoom to a two-second brownout (corpus Q7 has none at T+97 s; use the 0.25 s one at T+139.9 s).
