@@ -306,7 +306,7 @@
     if (ui !== mine || !el.isConnected) return;
     ui.specs = parseTracks(state, ui.data);
     ui.full = { from: ui.data.window.t0, to: +(ui.data.window.t0 + ui.data.window.n * ui.data.window.width).toFixed(3) };
-    ui.view = { ...ui.full };
+    ui.view = parseView(state.z);
     ui.detail = null; ui.detailSeq = 0; ui.detailError = null;
     ui.cursor = state.t != null && state.t !== '' && !Number.isNaN(+state.t) ? +state.t : null;
     ui.marker = state.ev != null && state.ev !== '' ? +state.ev : null;
@@ -588,7 +588,7 @@
   }
   function writeState() {
     const d = ui.data; const t = ui.cursor;
-    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null, ...ui.filters, z: null });
+    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null, ...ui.filters, z: isFull() ? null : ui.view.from.toFixed(2) + ',' + ui.view.to.toFixed(2) });
   }
 
   /* ---------- the shared x window ---------- */
@@ -599,6 +599,14 @@
     let lo = Math.max(full.from, Math.min(from, full.to - span));
     if (to - from < MIN_SPAN_S) lo = Math.max(full.from, Math.min((from + to) / 2 - span / 2, full.to - span));
     return { from: lo, to: lo + span };
+  }
+  /* `z=<from>,<to>` from the address; anything invalid or wholly outside the match is the full window. */
+  function parseView(z) {
+    const parts = String(z || '').split(',');
+    const [from, to] = parts.map(Number);
+    const valid = parts.length === 2 && parts.every((x) => x.trim() !== '') && Number.isFinite(from) && Number.isFinite(to)
+      && from < to && to > ui.full.from && from < ui.full.to;
+    return valid ? clampView(from, to) : { ...ui.full };
   }
   const isFull = () => ui.view.from <= ui.full.from + 1e-6 && ui.view.to >= ui.full.to - 1e-6;
 

@@ -858,6 +858,35 @@ def test_detail_header_names_overlay_resolution(page: Any, season_site: dict[str
     assert watch.clean(), watch
 
 
+# --- Shareable links: filters and window (spec: Shareable view links) ---------------------
+
+
+def test_link_restores_filters_and_window(page: Any, season_app: str, browser: Any) -> None:
+    watch = _open_q7(page, season_app)
+    page.select_option("#f-robot", "comp")
+    _drag(page, 95.0, 99.0)
+    assert "z=95.00%2C99.00" in page.url or "z=95.00,99.00" in page.url
+    copied = page.url
+    other = browser.new_page()
+    watch2 = _open(other, copied)
+    other.wait_for_function("() => FP.replay.charts().length === 4")
+    assert other.input_value("#f-robot") == "comp"
+    assert _listed(other) == ["2026gacmp_qm7", "2026gacmp_qm8"]
+    assert other.inner_text("#view-window") == "T+95.0 – T+99.0 s"
+    for lo, hi in _scales(other):
+        assert lo == pytest.approx(95.0, abs=0.01) and hi == pytest.approx(99.0, abs=0.01)
+    other.close()
+    assert watch.clean() and watch2.clean(), (watch, watch2)
+
+
+@pytest.mark.parametrize("z", ["300,20", "500,600", "x,4", "95", "nan,99"])
+def test_bad_window_in_link_opens_full(page: Any, season_app: str, z: str) -> None:
+    watch = _open_q7(page, season_app, f"&z={z}")
+    assert _view(page) == pytest.approx(FULL)
+    assert "z=" not in page.url  # omitted at the full window
+    assert watch.clean(), watch
+
+
 # --- History ------------------------------------------------------------------------------
 
 
