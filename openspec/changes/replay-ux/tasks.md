@@ -51,15 +51,15 @@
 
 ## 6. Timeline zoom in Replay (spec: match-reports, "Timeline zoom")
 
-- [ ] 6.1 Write the browser tests first:
+- [x] 6.1 Write the browser tests first:
   - shift-drag from T+95 to T+99 s puts every track and the marker strip on that window, the brownout marker has the same x position on each track, and the header reads "T+95.0 – T+99.0 s";
   - zoom-in, zoom-out, and reset work with the buttons and with the `+`, `-`, and `0` keys;
   - the window clamps to the full match window and to 0.5 s;
   - hidden markers are counted on each side, and selecting an off-window marker pans the window to it;
   - track range readouts describe the visible window;
   - the overlay follows the window.
-- [ ] 6.2 Implement `ui.view` and `setView()` in `views/replay.js`: charts, `placeMarkers()` with hidden counts, range readouts, the header label, and the zoom buttons. 6.1 passes, and the existing Replay browser tests (scrub, markers, compare) stay green.
-- [ ] 6.3 Add the static resolution note: when zoomed past the stored bucket width, the header reads "bucket resolution (N ms)". A browser test against a static export passes.
+- [x] 6.2 Implement `ui.view` and `setView()` in `views/replay.js`: charts, `placeMarkers()` with hidden counts, range readouts, the header label, and the zoom buttons. 6.1 passes, and the existing Replay browser tests (scrub, markers, compare) stay green.
+- [x] 6.3 Add the static resolution note: when zoomed past the stored bucket width, the header reads "bucket resolution (N ms)". A browser test against a static export passes.
 
 ## 7. Served detail on zoom (spec: match-reports, "Windowed detail in served mode")
 

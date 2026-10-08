@@ -3,6 +3,7 @@
    URL: #view=replay&m=<match key>&o=<overlay key>&t=<cursor s>&ev=<marker>
         &tr=<track,track,track,track>&track=<slot from a History drill-through>
         &season=&robot=&event=<match list filters, 'all' or a value; shared with History>
+        &z=<from s>,<to s> (the visible window; omitted at the full match window)
    Tracks: battery | total | <metric>:<slot>, metric one of METRICS below.
    ========================================================================== */
 (function () {
@@ -18,6 +19,8 @@
     temp_c: { label: 'temperature', unit: '°C', digits: 0 },
   };
   const HOLD_S = 1.0; // a value carries forward this long across empty buckets (4 Hz signals)
+  const MIN_SPAN_S = 0.5; // the narrowest visible window
+  const ZOOM_STEP = 2; // buttons and +/- keys
 
   let ui = null;
 
@@ -299,6 +302,8 @@
     ui.overlay = overlayEntry ? await FP.loadMatch(overlayEntry) : null;
     if (ui !== mine || !el.isConnected) return;
     ui.specs = parseTracks(state, ui.data);
+    ui.full = { from: ui.data.window.t0, to: +(ui.data.window.t0 + ui.data.window.n * ui.data.window.width).toFixed(3) };
+    ui.view = { ...ui.full };
     ui.cursor = state.t != null && state.t !== '' && !Number.isNaN(+state.t) ? +state.t : null;
     ui.marker = state.ev != null && state.ev !== '' ? +state.ev : null;
     render();
@@ -337,6 +342,14 @@
       d.temperature && !d.temperature.available ? h('p', { class: 'callout' }, 'Temperature not logged. ' + (d.temperature.reason || '')) : null,
       (d.notes || []).map((n) => h('p', { class: 'callout callout--quiet' }, n)));
     const markers = h('section', { class: 'markers', id: 'markers', 'aria-label': 'Markers on the timeline' });
+    const zoomBar = h('div', { class: 'zoom-bar' },
+      h('span', { class: 'group__label' }, 'WINDOW'),
+      h('span', { class: 'zoom-bar__window', id: 'view-window', 'aria-live': 'polite' }),
+      h('span', { class: 'meta', id: 'resolution' }),
+      h('span', { class: 'app-header__spacer' }),
+      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-out', 'aria-label': 'Zoom out', title: 'Zoom out (-)', on: { click: () => zoomBy(1 / ZOOM_STEP) } }, '−'),
+      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-in', 'aria-label': 'Zoom in', title: 'Zoom in (+), Ctrl/⌘ + scroll, or shift-drag a track', on: { click: () => zoomBy(ZOOM_STEP) } }, '+'),
+      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-reset', title: 'Full match (0)', on: { click: () => setView(ui.full.from, ui.full.to) } }, 'FULL MATCH'));
     const tracks = h('div', { class: 'tracks', id: 'tracks' });
     const scrub = h('input', {
       id: 'scrub', type: 'range', min: String(d.window.t0), max: String(+(d.window.t0 + d.window.n * d.window.width).toFixed(3)),
@@ -353,32 +366,63 @@
         h('option', { value: '' }, 'no overlay'),
         entries.map((e) => h('option', { value: e.key, selected: o && o.match_key === e.key }, e.label + ' · ' + e.key))),
       o ? h('p', { class: 'meta' }, 'Overlay ', h('b', null, o.label), ' drawn dashed, aligned on match time.') : null);
-    FP.fill(main, header, meta, notes, markers, tracks, scrubRow, compare);
+    const timeline = h('div', { class: 'timeline', id: 'timeline', on: { keydown: timelineKey } }, zoomBar, markers, tracks, scrubRow);
+    FP.fill(main, header, meta, notes, timeline, compare);
     renderMarkers(markers);
     renderTracks(tracks);
     renderAside();
     updateCursor();
-    placeMarkers();
+    setView(ui.view.from, ui.view.to);
     ui.resize = new ResizeObserver(placeMarkers);
     ui.resize.observe(markers);
   }
 
   /* Markers sit over the plots' own x scale (the first charted track's plot area). */
+  /* Markers outside the visible window are hidden and counted on their side. */
   function placeMarkers() {
     const strip = document.getElementById('markers');
     const chart = ui && ui.tracks.find((t) => t.chart);
     if (!strip || !chart) return;
-    const u = chart.chart.u;
-    const offset = u.over.getBoundingClientRect().left - strip.getBoundingClientRect().left;
+    // From ui.view, not u.valToPos: uPlot commits a new scale in a microtask after setX.
+    const over = chart.chart.u.over.getBoundingClientRect();
+    const offset = over.left - strip.getBoundingClientRect().left;
+    const toPx = (t) => ((t - ui.view.from) / (ui.view.to - ui.view.from)) * over.width;
+    let left = 0; let right = 0;
     strip.querySelectorAll('[data-marker]').forEach((b) => {
       const m = ui.data.markers[+b.dataset.marker];
-      b.style.left = (offset + u.valToPos(m.t, 'x')).toFixed(1) + 'px';
+      const before = m.t < ui.view.from; const after = m.t > ui.view.to;
+      left += before; right += after;
+      b.hidden = before || after;
+      b.style.left = (offset + toPx(m.t)).toFixed(1) + 'px';
     });
+    const side = (id, n, text) => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.hidden = n === 0;
+      b.textContent = text;
+      b.setAttribute('aria-label', n + ' hidden marker' + (n === 1 ? '' : 's') + (id === 'markers-left' ? ' before' : ' after') + ' the window; select the nearest');
+    };
+    side('markers-left', left, '◂ ' + left);
+    side('markers-right', right, right + ' ▸');
+  }
+  /* The nearest marker hidden on one side of the window (-1 left, +1 right). */
+  function nearestHidden(dir) {
+    let best = null;
+    (ui.data.markers || []).forEach((m, i) => {
+      if (dir < 0 ? m.t < ui.view.from : m.t > ui.view.to) {
+        if (best == null || (dir < 0 ? m.t > ui.data.markers[best].t : m.t < ui.data.markers[best].t)) best = i;
+      }
+    });
+    return best;
   }
 
   function renderMarkers(strip) {
     const d = ui.data;
     const span = d.window.n * d.window.width;
+    for (const [id, dir] of [['markers-left', -1], ['markers-right', 1]]) {
+      strip.appendChild(h('button', { type: 'button', class: 'marker-count marker-count--' + (dir < 0 ? 'left' : 'right'), id, hidden: true,
+        on: { click: () => { const i = nearestHidden(dir); if (i != null) selectMarker(i); } } }));
+    }
     (d.markers || []).forEach((m, i) => {
       const left = ((m.t - d.window.t0) / span) * 100;
       strip.appendChild(h('button', {
@@ -426,8 +470,7 @@
           const ov = trackData(ui.overlay, spec);
           if (ov && !ov.missing) series.push({ label: ui.overlay.label, values: overlayValues(d, ui.overlay, spec), stroke: tokens.amberDim, width: 1.5, dash: [5, 3] });
         }
-        const nums = td.values.filter((v) => v != null);
-        entry.range.textContent = nums.length ? FP.fmt(Math.min(...nums), td.digits) + ' – ' + FP.fmt(Math.max(...nums), td.digits) + ' ' + td.unit : 'no samples';
+        entry.xs = xs;
         entry.chart = FP.track(plot, {
           height: 120,
           x: xs,
@@ -437,9 +480,11 @@
           gapX: HOLD_S,
           cursor: () => ui.cursor,
           onPick: (x) => setCursor(Math.max(xs[0], Math.min(xs[xs.length - 1], x))),
-          xLabel: (v) => 'T+' + Math.round(v),
+          onSelect: (a, b) => setView(a, b),
+          onZoom: (factor, x) => zoomBy(factor, x),
+          xLabel: (v) => 'T+' + (ui.view.to - ui.view.from < 10 ? v.toFixed(1) : Math.round(v)),
           yLabel: (v) => FP.fmt(v, Math.abs(v) >= 100 ? 0 : 1),
-          ariaLabel: td.label + ' over the match, ' + entry.range.textContent + '. Values at the cursor are in the readout.',
+          ariaLabel: td.label + ' over the visible window. The range and the values at the cursor are in the track label and the readout.',
         });
       }
       ui.tracks.push(entry);
@@ -530,7 +575,68 @@
           ui.overlay ? (r.other ? [cell(r.other.amps, 1, true), cell(r.other.temp, 0, r.other.tempLogged)] : [h('td', { class: 'num absent' }, 'absent'), h('td', { class: 'num absent' }, 'absent')]) : null);
       }));
     }
-    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null, ...ui.filters });
+    writeState();
+  }
+  function writeState() {
+    const d = ui.data; const t = ui.cursor;
+    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null, ...ui.filters, z: null });
+  }
+
+  /* ---------- the shared x window ---------- */
+  const signed = (t) => (t < 0 ? 'T−' + (-t).toFixed(1) : 'T+' + t.toFixed(1));
+  function clampView(from, to) {
+    const full = ui.full;
+    const span = Math.min(full.to - full.from, Math.max(MIN_SPAN_S, to - from));
+    let lo = Math.max(full.from, Math.min(from, full.to - span));
+    if (to - from < MIN_SPAN_S) lo = Math.max(full.from, Math.min((from + to) / 2 - span / 2, full.to - span));
+    return { from: lo, to: lo + span };
+  }
+  const isFull = () => ui.view.from <= ui.full.from + 1e-6 && ui.view.to >= ui.full.to - 1e-6;
+
+  /* Every time-positioned element reads ui.view: charts, markers, range readouts, the label. */
+  function setView(from, to) {
+    ui.view = clampView(from, to);
+    for (const track of ui.tracks) if (track.chart) track.chart.setX(ui.view.from, ui.view.to);
+    placeMarkers();
+    updateRanges();
+    const label = document.getElementById('view-window');
+    if (label) label.textContent = signed(ui.view.from) + ' – ' + signed(ui.view.to) + ' s';
+    updateResolution();
+    writeState();
+  }
+  function zoomBy(factor, at) {
+    const anchor = at != null ? at : (ui.cursor != null && ui.cursor >= ui.view.from && ui.cursor <= ui.view.to ? ui.cursor : (ui.view.from + ui.view.to) / 2);
+    const from = anchor - (anchor - ui.view.from) / factor;
+    const to = anchor + (ui.view.to - anchor) / factor;
+    setView(from, to);
+  }
+  function panTo(t) {
+    if (t >= ui.view.from && t <= ui.view.to) return;
+    const half = (ui.view.to - ui.view.from) / 2;
+    setView(t - half, t + half);
+  }
+  function timelineKey(event) {
+    if (event.target.tagName === 'SELECT' || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === '+' || event.key === '=') zoomBy(ZOOM_STEP);
+    else if (event.key === '-' || event.key === '_') zoomBy(1 / ZOOM_STEP);
+    else if (event.key === '0') setView(ui.full.from, ui.full.to);
+    else return;
+    event.preventDefault();
+  }
+  function updateRanges() {
+    for (const track of ui.tracks) {
+      if (!track.chart) continue;
+      const nums = [];
+      track.xs.forEach((x, i) => { const v = track.td.values[i]; if (v != null && x >= ui.view.from && x <= ui.view.to) nums.push(v); });
+      track.range.textContent = nums.length ? FP.fmt(Math.min(...nums), track.td.digits) + ' – ' + FP.fmt(Math.max(...nums), track.td.digits) + ' ' + track.td.unit : 'no samples';
+    }
+  }
+  /* Zoomed in past the stored buckets: say so (finer data comes from the server when served). */
+  function updateResolution() {
+    const note = document.getElementById('resolution');
+    if (!note) return;
+    const zoomed = ui.view.to - ui.view.from < 0.5 * (ui.full.to - ui.full.from);
+    note.textContent = zoomed ? 'bucket resolution (' + Math.round(ui.data.window.width * 1000) + ' ms)' : '';
   }
 
   /* ---------- interactions ---------- */
@@ -540,6 +646,7 @@
   }
   function selectMarker(i) {
     ui.marker = i;
+    panTo(ui.data.markers[i].t);
     document.querySelectorAll('[data-marker]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.marker === i)));
     renderEvent();
     setCursor(ui.data.markers[i].t);
@@ -548,7 +655,7 @@
     ui.specs[index] = spec;
     renderTracks(FP.clear(document.getElementById('tracks')));
     updateCursor();
-    placeMarkers();
+    setView(ui.view.from, ui.view.to);
   }
   async function setOverlay(key) {
     const entry = ui.entries.find((e) => e.key === key);
@@ -575,5 +682,9 @@
       ui = null;
     },
   });
-  FP.replay = { trackData, valueAt, defaultTracks, filterEntries }; // for tests
+  FP.replay = { // for tests
+    trackData, valueAt, defaultTracks, filterEntries,
+    charts: () => (ui ? ui.tracks.filter((t) => t.chart).map((t) => t.chart.u) : []),
+    view: () => (ui && ui.view ? { ...ui.view } : null),
+  };
 })();

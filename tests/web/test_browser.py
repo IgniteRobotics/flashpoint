@@ -594,6 +594,161 @@ def test_filters_keyboard_reaches_every_match(page: Any, season_site: dict[str, 
     assert watch.clean(), watch
 
 
+# --- Replay timeline zoom (spec: Timeline zoom) -------------------------------------------
+
+FULL = (-2.0, 167.15)  # the zoom Q7 window: 165 s plus 2 s each side, 995 buckets of 170 ms
+FULL_SPAN = FULL[1] - FULL[0]
+
+
+def _drag(page: Any, a: float, b: float, track: int = 0) -> None:
+    x0, x1, y = page.evaluate(
+        "([a, b, i]) => { const u = FP.replay.charts()[i];"
+        " const r = u.over.getBoundingClientRect();"
+        " return [r.left + u.valToPos(a, 'x'), r.left + u.valToPos(b, 'x'),"
+        " r.top + r.height / 2]; }",
+        [a, b, track],
+    )
+    page.keyboard.down("Shift")
+    page.mouse.move(x0, y)
+    page.mouse.down()
+    page.mouse.move(x1, y, steps=4)
+    page.mouse.up()
+    page.keyboard.up("Shift")
+
+
+def _view(page: Any) -> tuple[float, float]:
+    view = page.evaluate("() => FP.replay.view()")
+    return float(view["from"]), float(view["to"])
+
+
+def _scales(page: Any) -> list[tuple[float, float]]:
+    scales = page.evaluate("() => FP.replay.charts().map(u => [u.scales.x.min, u.scales.x.max])")
+    return [(float(a), float(b)) for a, b in scales]
+
+
+def _open_q7(page: Any, url: str, extra: str = "") -> Watch:
+    watch = _open(page, url, "#view=replay&m=2026gacmp_qm7" + extra)
+    page.wait_for_selector("#readout tr")
+    page.wait_for_function("() => FP.replay.charts().length === 4")
+    return watch
+
+
+def test_zoom_to_a_brownout(page: Any, season_app: str) -> None:
+    watch = _open_q7(page, season_app)
+    _drag(page, 95.0, 99.0, track=1)
+    assert page.inner_text("#view-window") == "T+95.0 – T+99.0 s"
+    for lo, hi in _scales(page):
+        assert lo == pytest.approx(95.0, abs=0.05) and hi == pytest.approx(99.0, abs=0.05)
+    brownout = page.locator("[data-marker]:has-text('✕')")
+    assert brownout.is_visible()
+    centre = page.evaluate(
+        "(b) => { const r = b.getBoundingClientRect(); return r.left + r.width / 2; }",
+        brownout.element_handle(),
+    )
+    under = page.evaluate(
+        "() => FP.replay.charts()"
+        ".map(u => u.over.getBoundingClientRect().left + u.valToPos(97, 'x'))"
+    )
+    assert all(abs(x - centre) < 1.5 for x in under), (centre, under)
+    assert page.inner_text("#markers-left").startswith("◂ 1")
+    assert page.inner_text("#markers-right").startswith("1 ▸")
+    assert page.locator("[data-marker]:visible").count() == 1
+    assert watch.clean(), watch
+
+
+def test_zoom_buttons_keys_and_reset(page: Any, season_app: str) -> None:
+    watch = _open_q7(page, season_app, "&t=90")
+    page.click("#zoom-in")
+    lo, hi = _view(page)
+    assert hi - lo == pytest.approx(FULL_SPAN / 2) and lo < 90 < hi
+    page.click("#zoom-in")
+    lo, hi = _view(page)
+    assert hi - lo == pytest.approx(FULL_SPAN / 4) and lo < 90 < hi
+    page.click("#zoom-reset")
+    assert _view(page) == pytest.approx(FULL)
+    page.focus("#scrub")
+    page.keyboard.press("+")
+    page.keyboard.press("+")
+    assert _view(page)[1] - _view(page)[0] == pytest.approx(FULL_SPAN / 4)
+    page.keyboard.press("-")
+    assert _view(page)[1] - _view(page)[0] == pytest.approx(FULL_SPAN / 2)
+    page.keyboard.press("0")
+    assert _view(page) == pytest.approx(FULL)
+    assert page.inner_text("#scrub-label") == "T+90.00 s"  # zoom keys never move the cursor
+    assert watch.clean(), watch
+
+
+def test_zoom_without_cursor_centres_on_window(page: Any, season_app: str) -> None:
+    watch = _open_q7(page, season_app)
+    page.click("#zoom-in")
+    lo, hi = _view(page)
+    assert (lo + hi) / 2 == pytest.approx(sum(FULL) / 2) and hi - lo == pytest.approx(FULL_SPAN / 2)
+    assert watch.clean(), watch
+
+
+def test_zoom_window_clamps(page: Any, season_app: str) -> None:
+    watch = _open_q7(page, season_app, "&t=160")
+    for _ in range(3):
+        page.click("#zoom-out")
+    assert _view(page) == pytest.approx(FULL)
+    for _ in range(12):
+        page.click("#zoom-in")
+    lo, hi = _view(page)
+    assert hi - lo == pytest.approx(0.5) and lo >= FULL[0] and hi <= FULL[1]
+    _drag(page, 159.0, 159.1)
+    lo, hi = _view(page)
+    assert hi - lo == pytest.approx(0.5)
+    assert watch.clean(), watch
+
+
+def test_zoom_hidden_marker_selection_pans(page: Any, season_app: str) -> None:
+    watch = _open_q7(page, season_app)
+    _drag(page, 95.0, 99.0)
+    page.click("#markers-left")
+    lo, hi = _view(page)
+    assert lo < 20.0 < hi and hi - lo == pytest.approx(4.0, abs=0.1)
+    assert page.inner_text("#scrub-label") == "T+20.00 s"
+    assert "Temperature 66" in page.inner_text("#event")
+    assert page.locator("#markers-left").is_hidden()
+    assert page.inner_text("#markers-right").startswith("2 ▸")
+    assert watch.clean(), watch
+
+
+def test_zoom_range_readouts_follow_window(page: Any, season_app: str) -> None:
+    watch = _open_q7(page, season_app)
+    battery = "[data-range='0']"
+    assert page.inner_text(battery) == "6.00 – 12.00 V"
+    _drag(page, 40.0, 60.0)
+    assert page.inner_text(battery) == "12.00 – 12.00 V"
+    page.click("#zoom-reset")
+    _drag(page, 95.0, 99.0)
+    assert page.inner_text(battery) == "6.00 – 12.00 V"
+    assert watch.clean(), watch
+
+
+def test_zoom_overlay_follows_window(page: Any, season_app: str) -> None:
+    watch = _open_q7(page, season_app)
+    page.select_option("#compare", "2026gacmp_qm8")
+    page.wait_for_function(
+        "() => FP.replay.charts().length === 4"
+        " && document.querySelector('.readout-table th:nth-child(5)')"
+    )
+    _drag(page, 95.0, 99.0)
+    labels = page.evaluate("() => FP.replay.charts().map(u => u.series.map(s => s.label))")
+    assert all("Q8" in series for series in labels)
+    for lo, hi in _scales(page):
+        assert lo == pytest.approx(95.0, abs=0.05) and hi == pytest.approx(99.0, abs=0.05)
+    assert watch.clean(), watch
+
+
+def test_zoom_static_bucket_resolution(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open_q7(page, season_site["static"])
+    assert page.inner_text("#resolution") == ""
+    _drag(page, 96.0, 98.0)
+    assert page.inner_text("#resolution") == "bucket resolution (170 ms)"
+    assert watch.clean(), watch
+
+
 # --- History ------------------------------------------------------------------------------
 
 
