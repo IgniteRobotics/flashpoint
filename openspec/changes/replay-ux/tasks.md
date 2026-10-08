@@ -29,12 +29,12 @@
 
 ## 4. `FP.track` range, select, and zoom gestures (spec: match-reports, "Timeline zoom"; design 3)
 
-- [ ] 4.1 Write the browser tests first in `tests/web/test_browser.py` against a synthetic match:
+- [x] 4.1 Write the browser tests first in `tests/web/test_browser.py` against a synthetic match:
   - shift-drag on a track fires a selection with the dragged range;
   - a plain drag still moves the cursor and leaves the range unchanged;
   - ctrl+wheel over a track zooms around the pointer, while a plain wheel scrolls the page and does not zoom;
   - `setX` moves the x scale, and the y axis re-ranges to the visible data.
-- [ ] 4.2 Implement `setX`, `onSelect` (with a drawn selection band), and `onZoom` (ctrl/meta+wheel and Safari `gesturechange`) in `shell.js`. 4.1 passes, and the History browser tests stay green.
+- [x] 4.2 Implement `setX`, `onSelect` (with a drawn selection band), and `onZoom` (ctrl/meta+wheel and Safari `gesturechange`) in `shell.js`. 4.1 passes, and the History browser tests stay green.
 
 ## 5. Match list filters (spec: match-reports, "Match list filters")
 

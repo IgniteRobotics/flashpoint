@@ -175,6 +175,104 @@ def test_history_in_nav_only_when_served(page: Any, replay_site: dict[str, Any])
     assert page.inner_text("nav.tabs").split() == ["REPLAY"]
 
 
+# --- FP.track: x range, shift-drag select, ctrl+wheel zoom (spec: Timeline zoom) ------------
+
+TRACK_VIEW = """
+document.addEventListener('DOMContentLoaded', () => {
+  FP.view({ id: 'tracktest', label: 'Track', needsApi: false, mount(el) {
+    const x = []; const v = [];
+    for (let i = 0; i <= 1000; i += 1) { x.push(i / 10); v.push(i < 500 ? 1 + (i % 2) : 10 + (i % 2)); }
+    const plot = FP.h('div', { id: 'plot', style: { width: '800px' } });
+    FP.fill(el, plot, FP.h('div', { style: { height: '3000px' } }));
+    window.__ev = { pick: [], select: [], zoom: [] };
+    window.__track = FP.track(plot, { x, series: [{ label: 'v', values: v }],
+      onPick: (t) => window.__ev.pick.push(t),
+      onSelect: (a, b) => window.__ev.select.push([a, b]),
+      onZoom: (f, t) => window.__ev.zoom.push([f, t]) });
+  } });
+});
+"""
+
+
+@pytest.fixture
+def track_page(page: Any, replay_site: dict[str, Any]) -> tuple[Any, Watch, dict[str, float]]:
+    page.add_init_script(TRACK_VIEW)
+    watch = _open(page, replay_site["served"], "#view=tracktest")
+    page.wait_for_function("() => window.__track")
+    box = page.evaluate(
+        "() => { const r = __track.u.over.getBoundingClientRect();"
+        " return { x: r.left, y: r.top, w: r.width, h: r.height }; }"
+    )
+    return page, watch, box
+
+
+def _x_at(page: Any, box: dict[str, float], frac: float) -> float:
+    return float(page.evaluate(f"() => __track.u.posToVal({box['w'] * frac}, 'x')"))
+
+
+def test_track_shift_drag_selects(track_page: Any) -> None:
+    page, watch, box = track_page
+    y = box["y"] + box["h"] / 2
+    page.keyboard.down("Shift")
+    page.mouse.move(box["x"] + box["w"] * 0.2, y)
+    page.mouse.down()
+    page.mouse.move(box["x"] + box["w"] * 0.4, y)
+    band = page.evaluate("() => __track.selecting()")
+    page.mouse.move(box["x"] + box["w"] * 0.6, y)
+    page.mouse.up()
+    page.keyboard.up("Shift")
+    events = page.evaluate("() => __ev")
+    assert band is not None and events["pick"] == []
+    ((a, b),) = events["select"]
+    assert a == pytest.approx(_x_at(page, box, 0.2), abs=0.2)
+    assert b == pytest.approx(_x_at(page, box, 0.6), abs=0.2)
+    assert page.evaluate("() => __track.selecting()") is None
+    assert watch.clean(), watch
+
+
+def test_track_plain_drag_picks(track_page: Any) -> None:
+    page, watch, box = track_page
+    y = box["y"] + box["h"] / 2
+    before = page.evaluate("() => [__track.u.scales.x.min, __track.u.scales.x.max]")
+    page.mouse.move(box["x"] + box["w"] * 0.2, y)
+    page.mouse.down()
+    page.mouse.move(box["x"] + box["w"] * 0.5, y)
+    page.mouse.up()
+    events = page.evaluate("() => __ev")
+    assert events["select"] == [] and len(events["pick"]) >= 2
+    assert events["pick"][-1] == pytest.approx(_x_at(page, box, 0.5), abs=0.2)
+    assert page.evaluate("() => [__track.u.scales.x.min, __track.u.scales.x.max]") == before
+    assert watch.clean(), watch
+
+
+def test_track_ctrl_wheel_zooms_plain_wheel_scrolls(track_page: Any) -> None:
+    page, watch, box = track_page
+    page.mouse.move(box["x"] + box["w"] * 0.25, box["y"] + box["h"] / 2)
+    page.keyboard.down("Control")
+    page.mouse.wheel(0, -100)
+    page.keyboard.up("Control")
+    page.wait_for_function("() => __ev.zoom.length === 1")
+    ((factor, at),) = page.evaluate("() => __ev.zoom")
+    assert factor > 1 and at == pytest.approx(_x_at(page, box, 0.25), abs=0.2)
+    assert page.evaluate("() => window.scrollY") == 0
+    page.mouse.wheel(0, 200)
+    page.wait_for_function("() => window.scrollY > 0")
+    assert len(page.evaluate("() => __ev.zoom")) == 1
+    assert watch.clean(), watch
+
+
+def test_track_set_x_reranges_y(track_page: Any) -> None:
+    page, watch, _ = track_page
+    full = page.evaluate("() => __track.u.scales.y.max")
+    page.evaluate("() => __track.setX(10, 40)")
+    scales = page.evaluate(
+        "() => [__track.u.scales.x.min, __track.u.scales.x.max, __track.u.scales.y.max]"
+    )
+    assert scales[:2] == [10, 40]
+    assert full > 10 and scales[2] < 5  # only the 1-2 half is in view
+    assert watch.clean(), watch
+
+
 # --- Replay -------------------------------------------------------------------------------
 
 

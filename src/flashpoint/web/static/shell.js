@@ -209,7 +209,10 @@
   /* opts: { height, x: [...], series: [{ label, values, stroke, width, dash, fill, points, paths,
              band: { lower, upper } }], refs: [{ value, label }], shade: [{ from, to, alpha }],
              cursor: () => x | null, onPick: (x) => void, gapX: number, xLabel: (x) => string,
-             yLabel: (y) => string, ariaLabel: string } */
+             yLabel: (y) => string, ariaLabel: string,
+             onSelect: (x0, x1) => void   shift-drag (a plain drag still picks),
+             onZoom: (factor, x) => void  ctrl/meta+wheel or a Safari pinch; factor > 1 zooms in }
+     Returns { u, redraw, destroy, setX(min, max), selecting() }. */
   FP.track = (el, opts) => {
     const t = FP.tokens();
     const data = [opts.x];
@@ -241,6 +244,7 @@
         gaps: s.paths ? undefined : gapFilter,
       });
     }
+    let selection = null; // [x0, x1] while a shift-drag is in progress
     const drawShade = (u) => {
       const ctx = u.ctx;
       for (const band of opts.shade || []) {
@@ -290,6 +294,17 @@
         ctx.stroke();
         ctx.restore();
       }
+      if (selection) {
+        const a = u.valToPos(selection[0], 'x', true);
+        const b = u.valToPos(selection[1], 'x', true);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,176,0,0.18)';
+        ctx.strokeStyle = t.amberMid;
+        ctx.lineWidth = px;
+        ctx.fillRect(Math.min(a, b), u.bbox.top, Math.abs(b - a), u.bbox.height);
+        ctx.strokeRect(Math.min(a, b), u.bbox.top, Math.abs(b - a), u.bbox.height);
+        ctx.restore();
+      }
     };
     const axis = (label) => ({
       stroke: t.amberMuted,
@@ -333,21 +348,48 @@
       el.setAttribute('role', 'img');
       el.setAttribute('aria-label', opts.ariaLabel);
     }
-    if (opts.onPick) {
-      let dragging = false;
-      const pick = (event) => {
-        const rect = u.over.getBoundingClientRect();
-        const x = u.posToVal(Math.max(0, Math.min(rect.width, event.clientX - rect.left)), 'x');
-        opts.onPick(x, event);
-      };
+    const xAt = (event) => {
+      const rect = u.over.getBoundingClientRect();
+      return u.posToVal(Math.max(0, Math.min(rect.width, event.clientX - rect.left)), 'x');
+    };
+    if (opts.onPick || opts.onSelect) {
+      let dragging = null; // 'pick' | 'select'
       u.over.addEventListener('pointerdown', (event) => {
-        dragging = true;
+        dragging = event.shiftKey && opts.onSelect ? 'select' : (opts.onPick ? 'pick' : null);
+        if (!dragging) return;
         u.over.setPointerCapture(event.pointerId);
-        pick(event);
+        if (dragging === 'select') { const x = xAt(event); selection = [x, x]; u.redraw(false, false); } else opts.onPick(xAt(event), event);
       });
-      u.over.addEventListener('pointermove', (event) => { if (dragging) pick(event); });
-      u.over.addEventListener('pointerup', () => { dragging = false; });
-      u.over.addEventListener('pointercancel', () => { dragging = false; });
+      u.over.addEventListener('pointermove', (event) => {
+        if (dragging === 'pick') opts.onPick(xAt(event), event);
+        else if (dragging === 'select') { selection[1] = xAt(event); u.redraw(false, false); }
+      });
+      const end = (commit) => {
+        const sel = selection;
+        selection = null;
+        if (dragging === 'select') {
+          u.redraw(false, false);
+          if (commit && sel[0] !== sel[1]) opts.onSelect(Math.min(sel[0], sel[1]), Math.max(sel[0], sel[1]));
+        }
+        dragging = null;
+      };
+      u.over.addEventListener('pointerup', () => end(true));
+      u.over.addEventListener('pointercancel', () => end(false));
+    }
+    if (opts.onZoom) {
+      // Chromium and Firefox report a trackpad pinch as ctrl+wheel; plain wheel scrolls the page.
+      u.over.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        opts.onZoom(Math.exp(-event.deltaY * 0.002), xAt(event));
+      }, { passive: false });
+      let lastScale = 1;
+      u.over.addEventListener('gesturestart', (event) => { event.preventDefault(); lastScale = 1; });
+      u.over.addEventListener('gesturechange', (event) => {
+        event.preventDefault();
+        opts.onZoom(event.scale / lastScale, xAt(event));
+        lastScale = event.scale;
+      });
     }
     const observer = new ResizeObserver(() => {
       const w = Math.max(el.clientWidth, 200);
@@ -358,6 +400,8 @@
       u,
       redraw: () => u.redraw(false, false),
       destroy: () => { observer.disconnect(); u.destroy(); },
+      setX: (min, max) => u.setScale('x', { min, max }),
+      selecting: () => (selection ? selection.slice() : null),
     };
   };
 
