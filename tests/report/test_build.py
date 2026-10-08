@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -281,3 +282,56 @@ def test_removed_match_dropped_on_full_build(q7: MatchLake) -> None:
     assert summary.removed == ["2026gacmp_qm7"]
     assert not (data_dir(q7.lake) / "2026gacmp_qm7.js").exists()
     assert _load(data_dir(q7.lake) / "matches.js", "FP.index")["matches"] == []
+
+
+def test_index_entry_carries_session_season(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_qm7", "q7", quiet_rows())
+    lake.add_match("2025gaalb_qm3", "q3", quiet_rows(), robot="2025-comp", season="2025")
+    _build(lake)
+    index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
+    assert index["version"] == 2
+    assert {m["key"]: m["season"] for m in index["matches"]} == {
+        "2026gacmp_qm7": "2026", "2025gaalb_qm3": "2025",
+    }  # fmt: skip
+
+
+def test_payload_carries_absolute_window_start(q7: MatchLake) -> None:
+    _build(q7)
+    data = _load(data_dir(q7.lake) / "2026gacmp_qm7.js")
+    # t0_us is the lake time of window.t0, so the match start (auto at T=10 s) is t0_us - t0
+    assert data["t0_us"] - round(data["window"]["t0"] * S) == 10 * S
+    assert data["version"] == 2
+
+
+def test_version_1_state_rebuilds_every_match(q7: MatchLake) -> None:
+    q7.add_match("2026gacmp_qm8", "q8", quiet_rows())
+    _build(q7)
+    path = state_path(q7.lake)
+    state = json.loads(path.read_text())
+    for entry in state["matches"].values():
+        entry["version"] = 1
+        del entry["summary"]["season"]
+    path.write_text(json.dumps(state))
+    rebuilt = _build(q7)
+    assert rebuilt.built == ["2026gacmp_qm7", "2026gacmp_qm8"] and rebuilt.unchanged == []
+    again = _build(q7)
+    assert again.built == [] and again.unchanged == ["2026gacmp_qm7", "2026gacmp_qm8"]
+
+
+# The synthetic Q7 file built before the series assembly moved to envelope.series_payload
+# (replay-ux 2.2). A deliberate payload change updates this digest; anything else is a regression.
+Q7_DIGEST = "5d70dddb35f8474ced6b0f15ed11558d8cb27469d1c00efbd116e93bd3e32196"
+
+
+def test_synthetic_q7_bytes_unchanged(q7: MatchLake) -> None:
+    _build(q7)
+    data = (data_dir(q7.lake) / "2026gacmp_qm7.js").read_bytes()
+    assert hashlib.sha256(data).hexdigest() == Q7_DIGEST
+
+
+def test_build_is_byte_reproducible(q7: MatchLake) -> None:
+    _build(q7)
+    first = (data_dir(q7.lake) / "2026gacmp_qm7.js").read_bytes()
+    _build(q7, budget_bytes=2_000_001)  # a new config hash forces a rebuild
+    assert (data_dir(q7.lake) / "2026gacmp_qm7.js").read_bytes() == first
