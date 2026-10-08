@@ -171,10 +171,12 @@ def _usage(
 
 # --- a built Replay lake for the match list filters and timeline zoom (replay-ux) -------------
 
-# key, robot, season, start: two seasons, two robots, three events; 2026gacmp is the latest
+# key, robot, season, start: two seasons, three robots (one 2025-only), three events;
+# 2026gacmp is the latest
 REPLAY_MATCHES = (
     ("2025gaalb_qm1", "comp", "2025", "2025-03-01T15:00:00+00:00"),
     ("2025gaalb_qm2", "practice", "2025", "2025-03-01T16:00:00+00:00"),
+    ("2025gaalb_qm3", "2025-bot", "2025", "2025-03-01T17:00:00+00:00"),  # a 2025-only robot
     ("2026gadal_qm1", "comp", "2026", "2026-03-06T15:00:00+00:00"),
     ("2026gadal_qm2", "practice", "2026", "2026-03-06T16:00:00+00:00"),
     ("2026gadal_qm3", "comp", "2026", "2026-03-07T15:00:00+00:00"),

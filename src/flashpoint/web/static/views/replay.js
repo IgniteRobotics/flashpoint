@@ -192,7 +192,7 @@
     const entries = ui.entries;
     const shown = filterEntries(entries, f);
     const inSeason = f.season === ALL ? entries : entries.filter((e) => e.season === f.season);
-    const values = { season: newestValues(entries, 'season'), robot: newestValues(entries, 'robot'), event: newestValues(inSeason, 'event') };
+    const values = { season: newestValues(entries, 'season'), robot: newestValues(inSeason, 'robot'), event: newestValues(inSeason, 'event') };
     const unknown = FILTERS.filter(([key]) => f[key] !== ALL && !entries.some((e) => e[key] === f[key])).map(([key]) => key + ' ' + f[key]);
     const bar = h('div', { class: 'filters stack', role: 'group', 'aria-label': 'Filter matches' }, FILTERS.map(([key, label, allLabel]) => {
       const options = values[key].includes(f[key]) || f[key] === ALL ? values[key] : [f[key], ...values[key]];
@@ -203,20 +203,25 @@
           h('option', { value: ALL, selected: f[key] === ALL }, allLabel),
           options.map((v) => h('option', { value: v, selected: f[key] === v }, v + (unknown.includes(key + ' ' + v) ? ' (not in this index)' : '')))),
         disabled ? h('p', { class: 'meta' }, 'Rebuild with ', h('code', { class: 'code' }, 'flashpoint report'), ' to filter by season.') : null);
-    }));
+    }), h('button', { type: 'button', class: 'btn btn--sm', id: 'filters-clear', disabled: FILTERS.every(([key]) => f[key] === ALL), on: { click: clearFilters } }, 'CLEAR FILTERS'));
     const hidden = ui.key && !shown.some((e) => e.key === ui.key) ? entries.find((e) => e.key === ui.key) : null;
     const note = h('div', { id: 'filter-note', 'aria-live': 'polite' },
       !shown.length ? h('div', { class: 'callout callout--quiet' },
         h('p', null, 'No matches for these filters.'),
         unknown.length ? h('p', null, 'No match in this index has ', unknown.join(', '), '.') : null,
-        h('button', { type: 'button', class: 'btn btn--sm mt-2', id: 'filters-clear', on: { click: clearFilters } }, 'CLEAR FILTERS')) : null,
+        h('p', null, 'Use CLEAR FILTERS above to list every match.')) : null,
       shown.length && hidden ? h('p', { class: 'meta' }, 'Selected match ' + hidden.label + ' is hidden by the filters.') : null);
     FP.fill(ui.rail, h('h2', { class: 'label' }, 'Matches'), bar, note, matchList(shown, ui.key, f));
   }
 
   function setFilter(key, value) {
     ui.filters[key] = value;
-    if (key === 'season' && value !== ALL && ui.filters.event !== ALL && !ui.entries.some((e) => e.season === value && e.event === ui.filters.event)) ui.filters.event = ALL;
+    if (key === 'season' && value !== ALL) {
+      // The robot and event lists narrow to the season; a choice outside it goes back to all.
+      for (const other of ['robot', 'event']) {
+        if (ui.filters[other] !== ALL && !ui.entries.some((e) => e.season === value && e[other] === ui.filters[other])) ui.filters[other] = ALL;
+      }
+    }
     FP.setState({ ...ui.filters });
     renderRail();
   }

@@ -489,6 +489,32 @@ def test_filters_combine_and_season_narrows_events(page: Any, season_app: str) -
     assert watch.clean(), watch
 
 
+def test_filters_robots_narrow_by_season(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay&season=2025&robot=2025-bot&event=all")
+    page.wait_for_selector("#f-robot")
+    assert _options(page, "#f-robot") == ["all", "2025-bot", "practice", "comp"]  # newest first
+    assert _listed(page) == ["2025gaalb_qm3"]
+    page.select_option("#f-season", "2026")  # 2025-bot played no 2026 match
+    assert _options(page, "#f-robot") == ["all", "comp", "practice"]
+    assert page.input_value("#f-robot") == "all" and "robot=all" in page.url
+    page.select_option("#f-season", "all")
+    assert _options(page, "#f-robot") == ["all", "comp", "practice", "2025-bot"]
+    assert watch.clean(), watch
+
+
+def test_filters_clear_all_always_offered(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay")
+    page.wait_for_selector("#f-event")
+    assert _listed(page) == ["2026gacmp_qm7", "2026gacmp_qm8"]
+    page.click("#filters-clear")
+    assert _filters(page) == ("all", "all", "all") and len(_listed(page)) == 8
+    assert "season=all&robot=all&event=all" in page.url
+    assert page.is_disabled("#filters-clear")  # nothing left to clear
+    page.select_option("#f-robot", "practice")
+    assert page.is_enabled("#filters-clear")
+    assert watch.clean(), watch
+
+
 def test_filters_nothing_matches_and_clear(page: Any, season_app: str) -> None:
     watch = _open(page, season_app, "#view=replay")
     page.wait_for_selector("#f-event")
@@ -496,7 +522,7 @@ def test_filters_nothing_matches_and_clear(page: Any, season_app: str) -> None:
     assert _listed(page) == []
     assert "No matches for these filters" in page.inner_text("#filter-note")
     page.click("#filters-clear")
-    assert _filters(page) == ("all", "all", "all") and len(_listed(page)) == 7
+    assert _filters(page) == ("all", "all", "all") and len(_listed(page)) == 8
     assert watch.clean(), watch
 
 
@@ -523,7 +549,7 @@ def test_filters_unknown_value_named(page: Any, season_app: str) -> None:
     note = page.inner_text("#filter-note")
     assert "No matches for these filters" in note and "2019zzzz" in note
     page.click("#filters-clear")
-    assert len(_listed(page)) == 7
+    assert len(_listed(page)) == 8
     assert watch.clean(), watch
 
 
@@ -590,7 +616,7 @@ def test_filters_keyboard_reaches_every_match(page: Any, season_site: dict[str, 
             ring.add(found[2])
         if found[1]:
             seen.add(found[1])
-    assert len(seen) == 7 and ring == {"solid"}
+    assert len(seen) == 8 and ring == {"solid"}
     assert watch.clean(), watch
 
 
