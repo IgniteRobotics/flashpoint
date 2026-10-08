@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Match list filters
-The Replay match list SHALL have three filters: season, robot, and event. Each filter SHALL offer "all" plus the values present in the match index, newest first. Choosing a season SHALL limit the event filter to events in that season. Filters SHALL combine: only matches that satisfy every chosen filter are listed. Each index entry SHALL carry its season, so the filter never infers the season from the event key.
+The Replay match list SHALL have three filters: season, robot, and event. Each filter SHALL offer "all" plus the values present in the match index, newest first. Choosing a season SHALL limit the robot and event filters to the robots and events in that season, and a robot or event choice outside the new season SHALL return to "all". A control that clears every filter SHALL always be offered, and it SHALL be disabled when every filter is already "all". Filters SHALL combine: only matches that satisfy every chosen filter are listed. Each index entry SHALL carry its season, so the filter never infers the season from the event key.
 
 Default filters:
 - with no filters and no selected match in the page address, the filters SHALL default to the most recent event (by match start time), and to that event's season;
@@ -20,6 +20,14 @@ A filter value in the address that the index doesn't contain SHALL be treated as
 #### Scenario: Filters combine
 - **WHEN** the user chooses season 2026 and robot `practice` on a lake where both robots played `2026gadal`
 - **THEN** only `practice` matches from 2026 events are listed, and the event filter offers only 2026 events
+
+#### Scenario: Season narrows the robot list
+- **WHEN** the lake has a robot that played only 2025 matches, and the user chooses season 2026
+- **THEN** that robot is not offered in the robot filter, and if it was chosen, the robot filter returns to "all"
+
+#### Scenario: Clear all filters
+- **WHEN** the user presses the clear-filters control
+- **THEN** season, robot, and event all read "all", every match is listed, and the control is disabled until a filter is chosen again
 
 #### Scenario: Nothing matches
 - **WHEN** the filters select a robot that played no match at the chosen event

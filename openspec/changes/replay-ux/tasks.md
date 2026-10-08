@@ -48,6 +48,7 @@
   - season and robot carry over from a History link.
 - [x] 5.2 Implement the filter bar in `views/replay.js`: a pure `filterEntries()` function, the defaults, and the empty and hidden-selection notices. The controls are real `<select>`s and buttons, reachable by keyboard with a visible focus ring. 5.1 passes, and the keyboard-only test still reaches every match.
 - [x] 5.3 Static export: extend `test_static_lint` / the export browser test so that filtering a two-event export from file://, with the network blocked, lists only the chosen event and makes no request. The test passes.
+- [x] 5.4 Hand-check feedback (Josh, 2026-10-08): the robot filter narrows by season like the event filter (a choice outside the new season returns to all), and CLEAR FILTERS is always in the filter bar (disabled when every filter is all). Browser tests cover both, in served and static modes, with a 2025-only robot in the fixture.
 
 ## 6. Timeline zoom in Replay (spec: match-reports, "Timeline zoom")
 
