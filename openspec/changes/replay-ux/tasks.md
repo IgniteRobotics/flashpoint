@@ -72,11 +72,11 @@
 
 ## 8. Shareable links (spec: match-reports, "Shareable view links")
 
-- [ ] 8.1 Write the browser tests first:
+- [x] 8.1 Write the browser tests first:
   - copying the address with robot `comp` and window T+95 – T+99 s, then opening it in a new page, restores both;
   - `z=300,20` opens on the full window;
   - the existing restore-from-link test still passes.
-- [ ] 8.2 Write the filters and `z` into `FP.setState` (omit `z` at the full window) and read them in `mount()`. 8.1 passes.
+- [x] 8.2 Write the filters and `z` into `FP.setState` (omit `z` at the full window) and read them in `mount()`. 8.1 passes.
 
 ## 9. Docs and full verification
 
