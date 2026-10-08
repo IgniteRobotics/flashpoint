@@ -77,6 +77,7 @@ class MatchLake:
         fingerprint: str = "fp-1",
         hoot_buses: tuple[str, ...] = ("rio", "6E9415C3394C485320202050101C18FF"),
         with_wpilog: bool = True,
+        season: str = "2026",
     ) -> None:
         wpilog_id = None
         if with_wpilog:
@@ -84,7 +85,7 @@ class MatchLake:
             wpilog_id = self.raw(name, f"wpilog {session_id}".encode(), "wpilog")
             self.tables["logs"][-1]["utc_start"] = start_utc
         self.tables["sessions"].append(
-            {"session_id": session_id, "wpilog_id": wpilog_id, "robot": robot, "season": "2026",
+            {"session_id": session_id, "wpilog_id": wpilog_id, "robot": robot, "season": season,
              "match_key": key, "match_source": "fms" if key else "none",
              "kind": "match" if key else "non-match", "warnings": None}
         )  # fmt: skip
@@ -113,7 +114,7 @@ class MatchLake:
         )  # fmt: skip
         if rows is not None:
             write_silver(
-                silver_dir(self.lake) / "season=2026" / f"session_id={session_id}",
+                silver_dir(self.lake) / f"season={season}" / f"session_id={session_id}",
                 rows,
                 session_id,
             )

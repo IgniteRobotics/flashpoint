@@ -1,4 +1,5 @@
 import math
+import random
 from pathlib import Path
 
 import duckdb
@@ -10,6 +11,7 @@ from flashpoint.report.envelope import (
     round_sig,
     slot_envelopes,
     temperature_points,
+    window_between,
     window_for,
 )
 from tests.report.silver import S, points, series, write_silver
@@ -103,3 +105,56 @@ def test_temperature_change_points(tmp_path: Path) -> None:
     # seconds from match start (2 s); the reading before the window is carried in at t0
     assert temps["drive-fl"] == [[-2.0, 21.0], [-1.0, 22.0], [6.0, 30.0]]
     assert "hood" not in temps
+
+
+def test_window_between_any_range() -> None:
+    long = window_between(100 * S, 130 * S, match_start_us=90 * S)
+    assert long.width_us == 30_000 and long.n == 1000 and long.end_us >= 130 * S
+    assert long.time_s(0) == 10.0
+    short = window_between(100 * S, 102 * S, match_start_us=90 * S)  # 2 ms would be too narrow
+    assert short.width_us == 10_000 and short.n == 200
+    odd = window_between(0, 12_345_678, match_start_us=0)
+    assert odd.width_us % 10_000 == 0 and odd.width_us >= 10_000 and odd.n <= 1000
+    assert odd.end_us >= 12_345_678
+
+
+def test_window_for_is_padded_window_between() -> None:
+    assert window_for(100 * S, 264_100_000) == window_between(
+        98 * S, 266_100_000, match_start_us=100 * S
+    )
+
+
+def test_two_second_window_keeps_spike(tmp_path: Path) -> None:
+    rows = series("drive-fl", "supply_current", 0, 10, 1000, 10.0)
+    for row in rows:
+        if 5.0 * S <= row["t_us"] < 5.004 * S:
+            row["value"] = 150.0
+    path = write_silver(tmp_path / "silver", rows)
+    window = window_between(4 * S, 6 * S, match_start_us=2 * S)
+    env = slot_envelopes(duckdb.connect(), path, window)["drive-fl"]["supply_current"]
+    assert env["max"][100] == 150.0 and window.time_s(100) == 3.0  # T+3 s is lake 5 s
+    assert all(v == 10.0 for i, v in enumerate(env["max"]) if i != 100)
+
+
+def test_window_buckets_match_silver(tmp_path: Path) -> None:
+    rng = random.Random(7)
+    rows = series("hood", "stator_current", 0, 20, 250, 0.0)
+    for row in rows:
+        row["value"] = round(rng.uniform(-40, 80), 2)
+    path = write_silver(tmp_path / "silver", rows)
+    window = window_between(round(3.3 * S), round(9.7 * S), match_start_us=0)
+    env = slot_envelopes(duckdb.connect(), path, window)["hood"]["stator_current"]
+    for bucket in range(window.n):
+        lo = window.t0_us + bucket * window.width_us
+        inside = [r["value"] for r in rows if lo <= r["t_us"] < lo + window.width_us]
+        assert (env["min"][bucket], env["max"][bucket]) == (
+            (min(inside), max(inside)) if inside else (None, None)
+        )
+
+
+def test_window_temperature_carries_last_reading_in(tmp_path: Path) -> None:
+    rows = points("drive-fl", "temp_c", [(1.0, 30.0), (4.0, 31.0), (7.0, 33.0), (12.0, 35.0)])
+    path = write_silver(tmp_path / "silver", rows)
+    window = window_between(5 * S, 10 * S, match_start_us=2 * S)
+    temps = temperature_points(duckdb.connect(), path, window)
+    assert temps["drive-fl"] == [[3.0, 31.0], [5.0, 33.0]]

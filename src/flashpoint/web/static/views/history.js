@@ -198,7 +198,7 @@
     const key = matches[idx].match_key;
     const unit = ui.state.unit;
     const point = trend.points.find((p) => p.match_key === key && (!unit || p.series === unit));
-    if (unit && point) FP.go({ view: 'replay', m: key, track: point.slot_id });
+    if (unit && point) FP.go({ view: 'replay', m: key, track: point.slot_id, season: ui.state.season, robot: ui.state.robot });
     else showHover(idx, matches, trend);
   }
 
@@ -261,7 +261,7 @@
         h('div', { class: 'meta' }, e.slot_id, e.bus ? ' · bus ' + e.bus : '', e.can_id != null ? ' · CAN ' + e.can_id : '', ' · ', e.source === 'legacy' ? 'legacy epoch' : 'inventory')))),
       h('h2', { class: 'label' }, 'Matches'),
       h('div', { class: 'match-links', id: 'unit-matches' }, points.length ? points.map((p) => h('div', { class: 'row row--between' },
-        h('a', { class: 'btn btn--sm', href: FP.link({ view: 'replay', m: p.match_key, track: p.slot_id }) }, 'REPLAY ' + p.match_key),
+        h('a', { class: 'btn btn--sm', href: FP.link({ view: 'replay', m: p.match_key, track: p.slot_id, season: ui.state.season, robot: ui.state.robot }) }, 'REPLAY ' + p.match_key),
         h('button', { type: 'button', class: 'btn btn--sm', on: { click: (ev) => showLogs(ev.currentTarget, p.match_key) } }, 'LOGS'))) : h('p', { class: 'meta' }, 'No matches in this range.')),
       h('div', { id: 'unit-logs', class: 'mt-3', 'aria-live': 'polite' }),
       h('a', { class: 'btn btn--sm mt-4', href: FP.link({ view: 'history', unit: unit.unit_id }) }, 'LINK TO THIS UNIT'));

@@ -167,3 +167,54 @@ def _usage(
         "motor_energy_wh": 0.5, "stall_s": 0.0, "thermal_cycles": 1,
         "temp_max_c": 40.0, "flags": "",
     }  # fmt: skip
+
+
+# --- a built Replay lake for the match list filters and timeline zoom (replay-ux) -------------
+
+# key, robot, season, start: two seasons, three robots (one 2025-only), three events;
+# 2026gacmp is the latest
+REPLAY_MATCHES = (
+    ("2025gaalb_qm1", "comp", "2025", "2025-03-01T15:00:00+00:00"),
+    ("2025gaalb_qm2", "practice", "2025", "2025-03-01T16:00:00+00:00"),
+    ("2025gaalb_qm3", "2025-bot", "2025", "2025-03-01T17:00:00+00:00"),  # a 2025-only robot
+    ("2026gadal_qm1", "comp", "2026", "2026-03-06T15:00:00+00:00"),
+    ("2026gadal_qm2", "practice", "2026", "2026-03-06T16:00:00+00:00"),
+    ("2026gadal_qm3", "comp", "2026", "2026-03-07T15:00:00+00:00"),
+    ("2026gacmp_qm7", "comp", "2026", "2026-04-09T21:50:34+00:00"),
+    ("2026gacmp_qm8", "comp", "2026", "2026-04-10T15:00:00+00:00"),
+)
+
+
+def zoom_rows() -> list[dict[str, Any]]:
+    """Q7 for zoom: a brownout at T+97 s (lake 107 s; the match starts at lake 10 s) and hood
+    temperature WARNs at T+20 s and T+120 s, each side of a T+95-99 s window."""
+    from tests.report.lake import quiet_rows
+    from tests.report.silver import points, series
+
+    rows = [r for r in quiet_rows() if not (r["slot_id"] == "hood" and r["metric"] == "temp_c")]
+    for row in rows:
+        if row["metric"] == "supply_voltage" and 107.0 * 1e6 <= row["t_us"] < 107.5 * 1e6:
+            row["value"] = 6.0
+    rows += points("hood", "temp_c", [(0.0, 25.0), (30.0, 66.0), (60.0, 30.0), (130.0, 66.0)])
+    rows += series("hood", "supply_current", 107.0, 107.004, 1000, 150.0)  # a 4 ms spike
+    return rows
+
+
+def build_replay_season(root: Path, events: tuple[str, ...] | None = None) -> LakePaths:
+    """REPLAY_MATCHES (or those of `events`), built with `flashpoint report` (Q7 from
+    `zoom_rows`)."""
+    from flashpoint.report.build import ReportBuilder
+    from tests.report.lake import MatchLake, quiet_rows
+
+    lake = MatchLake(root)
+    for key, robot, season, start in REPLAY_MATCHES:
+        if events is not None and key.split("_")[0] not in events:
+            continue
+        rows = zoom_rows() if key == "2026gacmp_qm7" else quiet_rows(hz=10)
+        lake.add_match(key, key, rows, robot=robot, season=season, start_utc=start)
+    builder = ReportBuilder(lake.write_meta(), config.config_root())
+    try:
+        builder.build()
+    finally:
+        builder.close()
+    return lake.lake
