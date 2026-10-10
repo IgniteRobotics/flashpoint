@@ -83,13 +83,18 @@ lake/
   silver/samples/season=2026/session_id=<id>/part-*.parquet          # P2: one per hoot in the session
   silver/signals/season=2026/session_id=<id>/part-0.parquet          # declared NT signals (wpilog only)
   gold/match_features/season=2026/session_id=<id>/part-0.parquet      # P2
+  gold/can_health/season=2026/session_id=<id>/part-0.parquet         # CAN health per (match, phase, slot, unit)
+  gold/can_bus_health/season=2026/session_id=<id>/part-0.parquet     # logger gaps + bus status per (match, phase, bus)
+  gold/can_events/season=2026/session_id=<id>/part-0.parquet         # reboots, dropouts >= 0.1 s, bus gaps
   gold/anomalies/season=2026/part-0.parquet
   meta/flashpoint.sqlite (ledger, WAL)  meta/*.parquet (snapshots: files, logs, hoot_logs, entries, inventory)
   meta/units.parquet   meta/device_observations.parquet   # physical-device registry
 config/
-  seasons/2026.toml        # NT roots: robot, photonvision, camera_publisher, preferences, fms
+  seasons/2026.toml        # NT roots: robot, photonvision, camera_publisher, preferences, fms;
+                           # optional flashpoint root for /Flashpoint/ wpilog entries
   robots/2026-comp.toml    # slots: (bus, model, CAN id) → subsystem/role, gear ratio, motor model;
                            # signals: (season root, NT entry) → id, subsystem, component, metric
+                           # buses: robot-code bus name (e.g. DriveTrain) → hoot bus
 ```
 
 ```mermaid

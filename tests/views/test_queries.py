@@ -7,7 +7,15 @@ import pytest
 
 from flashpoint.lake.paths import LakePaths
 from flashpoint.views.queries import Filters, HistoryQueries, QueryError
-from tests.views.season import HOSTILE_ROLE, MATCHES, SeasonLake, build_season, match_key
+from tests.views.season import (
+    HOSTILE_ROLE,
+    MATCHES,
+    NO_HOOT_MATCH,
+    WORSENING,
+    SeasonLake,
+    build_season,
+    match_key,
+)
 
 
 @pytest.fixture(scope="module")
@@ -90,7 +98,9 @@ def test_hostile_value_is_data(season: SeasonLake, queries: HistoryQueries) -> N
     before = _lake_digest(season.lake)
     hostile = "x' OR 1=1 --"
     assert queries.trend("peak_temp", "unit", Filters(event=hostile))["points"] == []
+    assert queries.trend("isolated_gaps", "unit", Filters(event=hostile))["points"] == []
     assert queries.devices("peak_temp", Filters(slot=hostile)) == []
+    assert queries.devices("reboots", Filters(slot=hostile)) == []
     assert queries.summary(Filters(robot=hostile))["units"] == 0
     assert queries.unit(hostile)["found"] is False
     assert _lake_digest(season.lake) == before
@@ -120,6 +130,7 @@ def test_filter_values(queries: HistoryQueries) -> None:
     assert "ctre:MOVER" in values["unit"] and "intake" in values["subsystem"]
     assert [m["id"] for m in values["metric"]] == [
         "peak_temp", "min_voltage", "supply_wh", "stall_s", "current_p95",
+        "reboots", "isolated_gaps", "missed_per_min", "longest_gap_ms",
     ]  # fmt: skip
 
 
@@ -334,3 +345,47 @@ def test_season_queries_under_two_seconds(season: SeasonLake) -> None:
         call()
         elapsed = time.perf_counter() - started
         assert elapsed < 2.0, (name, elapsed)
+
+
+# --- CAN health ---------------------------------------------------------------------------
+
+
+def _line(queries: HistoryQueries, metric: str, unit: str) -> list[tuple[str, float]]:
+    trend = queries.trend(metric, "unit", Filters(unit=unit))
+    return [(p["match_key"], p["value"]) for p in trend["points"]]
+
+
+def test_worsening_connector(queries: HistoryQueries) -> None:
+    line = _line(queries, "isolated_gaps", "ctre:INTAKE-EXTENSION-FOLLOWER")
+    assert line[:4] == [(match_key(i), float(n)) for i, n in enumerate(WORSENING)]
+    reboots = _line(queries, "reboots", "ctre:INTAKE-EXTENSION-FOLLOWER")
+    assert reboots[3] == (match_key(3), 1.0) and sum(v for _, v in reboots) == 1
+
+
+def test_can_metrics_listed_with_units(queries: HistoryQueries) -> None:
+    metrics = {m["id"]: m for m in queries.filter_values()["metric"]}
+    assert {"reboots", "isolated_gaps", "missed_per_min", "longest_gap_ms"} <= set(metrics)
+    assert metrics["longest_gap_ms"]["unit"] == "ms"
+
+
+def test_no_hoot_for_a_match_is_a_gap_not_zero(queries: HistoryQueries) -> None:
+    trend = queries.trend("reboots", "unit", Filters(unit="ctre:HOOD-G"))
+    keys = [p["match_key"] for p in trend["points"]]
+    assert match_key(NO_HOOT_MATCH) not in keys
+    assert match_key(NO_HOOT_MATCH) in [m["match_key"] for m in trend["matches"]]
+    assert match_key(NO_HOOT_MATCH - 1) in keys and match_key(NO_HOOT_MATCH + 1) in keys
+
+
+def test_can_filters_bind_as_parameters(queries: HistoryQueries) -> None:
+    trend = queries.trend("missed_per_min", "slot", Filters(subsystem="intake", phase="teleop"))
+    assert "?" in queries.last_sql and "intake" not in queries.last_sql
+    assert {p["slot_id"] for p in trend["points"]} <= {
+        "intake-roller", "intake-roller-follower", "intake-extension", "intake-extension-follower"
+    }  # fmt: skip
+
+
+def test_device_table_for_a_can_metric_keeps_temperature_health(queries: HistoryQueries) -> None:
+    rows = {r["unit_id"]: r for r in queries.devices("isolated_gaps", Filters())}
+    assert rows["ctre:INTAKE-EXTENSION-FOLLOWER"]["spark"][:4] == [float(n) for n in WORSENING]
+    assert rows["ctre:FLYWHEEL-RIGHT"]["health"] == "WARN"
+    assert rows["ctre:INDEXER-MAIN"]["health"] == "HOT"

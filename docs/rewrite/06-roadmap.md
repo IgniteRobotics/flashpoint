@@ -186,11 +186,25 @@ Two improvements to the Replay board:
   - single-sample detail stays in AdvantageScope (D8: link, don't rebuild).
 - **Exit:** a drive coach finds a match by year, robot, and event in two clicks, and can zoom to a two-second brownout without leaving Replay.
 
+### CAN health (S–M, precursor to P5)
+- **Change:** `can-health`. It needs Robot-2026#108 on the robot for bus status.
+- **What it adds:**
+  - reboot events, from `ResetCount` rises and `Fault_BootDuringEnable`;
+  - frame gaps, measured against each device's own median frame interval while enabled. A gap that most of the device's bus siblings share is a logger gap (the CANivore shows dozens per match), never charged to the device;
+  - per-match counts per unit and slot in `gold/can_health`, logger gaps and bus status in `gold/can_bus_health`, and events in `gold/can_events`.
+- **Views:**
+  - Replay: reboot (FAULT), isolated dropout ≥ 0.25 s (WARN), and whole-bus silence ≥ 1 s (WARN). These replace the old silver sample-gap marker;
+  - History: reboots, isolated gaps, missed frames per enabled minute, and the longest gap, per unit.
+- **Labelled case:** Johnson Q105.
+  - The intake roller leader (rio TalonFX 2) rebooted after an 820 ms dropout.
+  - The intake-extension follower (rio TalonFX 14) had 42 isolated gaps, against 7, 20 and 1 in Q15, Q53 and Q76.
+- **Deferred:** chain-order localisation, to the 2027 robot.
+
 ### P5 — Anomaly detection (L)
 - **Tier 1, rules:**
   - temperature thresholds (port 55 °C avg / 65 °C max);
   - stall seconds (high current at near-zero velocity);
-  - CAN dropout and brownout counts (needs the DS log reader, LigerBots, 2026);
+  - CAN dropout counts: done from the hoots by **CAN health** (above), with no DS log reader. Brownout counts still need the DS log reader (LigerBots, 2026);
   - current residual P95 above a threshold.
 - **Tier 2, baselines:**
   - robust z-score (median/MAD) of each gold feature against that **unit's** own history. A swapped-in unit starts its own baseline automatically;

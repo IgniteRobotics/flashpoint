@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import pytest
 
@@ -25,7 +25,13 @@ from flashpoint.web.advantagescope import Install, Launcher
 from flashpoint.web.server import FlashpointServer
 from tests.report.lake import MatchLake, can_event, quiet_rows
 from tests.report.silver import points
-from tests.views.season import HOSTILE_ROLE, build_replay_season, build_season, match_key
+from tests.views.season import (
+    HOSTILE_ROLE,
+    NO_HOOT_MATCH,
+    build_replay_season,
+    build_season,
+    match_key,
+)
 
 pytestmark = pytest.mark.browser
 playwright = pytest.importorskip("playwright.sync_api")
@@ -993,6 +999,29 @@ def test_device_lifeline_order(page: Any, history_site: str) -> None:
     assert events == ["Last seen", "Moved", "First seen"]
     assert "2026-practice" in page.inner_text("#device .lifeline__item:last-child")
     assert "unit=ctre%3AMOVER" in page.url
+    assert watch.clean(), watch
+
+
+def test_worsening_connector(page: Any, history_site: str) -> None:
+    """The isolated-gap metric plots a unit's climb in match order; a missing hoot is a gap,
+    and the climbing match opens in Replay on that slot."""
+    unit = "ctre:INTAKE-EXTENSION-FOLLOWER"
+    watch = _open(page, history_site, "#view=history&metric=isolated_gaps&unit=" + quote(unit))
+    page.wait_for_selector("#device .lifeline")
+    button = page.locator("[data-metric='isolated_gaps']")
+    assert button.get_attribute("aria-pressed") == "true"
+    assert "isolated can gaps" in page.inner_text("#metric-title").lower()
+    chart = page.evaluate("() => FP.historyChart()")
+    values = chart["series"][unit]
+    assert values[:4] == [13, 46, 14, 101]
+    assert values[NO_HOOT_MATCH] is None  # no hoot: a gap, never zero
+    # Select the plotted point of match 4 (index 3 of the x axis, one point per match).
+    over = page.locator("#chart .u-over").first.bounding_box()
+    assert over is not None
+    frac = 3 / (len(chart["matches"]) - 1)
+    page.mouse.click(over["x"] + frac * over["width"], over["y"] + over["height"] / 2)
+    page.wait_for_function(f"() => location.hash.includes('m={match_key(3)}')")
+    assert "track=intake-extension-follower" in page.url
     assert watch.clean(), watch
 
 
