@@ -46,4 +46,4 @@
 
 - [ ] 7.1 [HUMAN] Derive and serve `~/flashpoint-lake`; confirm Q105 shows a FAULT reboot and a WARN dropout on the intake roller slot near hoot time 344–345 s, TalonFX 14's isolated-gap line climbs at Q105, and Q15/Q53/Q76 show no reboot or dropout markers
 - [x] 7.2 Update `docs/rewrite/06-roadmap.md` §P5 Tier 1 (CAN dropout counts now come from hoots via can-health; the DS log reader is no longer required for them) and `docs/rewrite/05-target-architecture.md` §4 (the three gold tables); verify with `grep -n "CAN dropout" docs/rewrite/06-roadmap.md` that the P5 line names can-health, and that the relative links in both edited sections point to files that exist
-- [ ] 7.3 Run ruff, mypy --strict, the full pytest suite, the corpus e2e and perf jobs, and the browser suite; open the PR into `rewrite` with the measurement table and budgets in the description; verify CI is green
+- [x] 7.3 Run ruff, mypy --strict, the full pytest suite, the corpus e2e and perf jobs, and the browser suite; open the PR into `rewrite` with the measurement table and budgets in the description; verify CI is green
