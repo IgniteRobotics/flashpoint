@@ -5,7 +5,7 @@ import duckdb
 import pytest
 
 from flashpoint.report.envelope import Window, temperature_points
-from flashpoint.report.markers import match_markers
+from flashpoint.report.markers import can_markers, match_markers
 from flashpoint.report.settings import ReportConfig
 from tests.report.silver import S, points, series, write_silver
 
@@ -102,19 +102,99 @@ def test_stall_interval(tmp_path: Path) -> None:
     assert markers[0]["message"] == "Stalled 4.0 s, stator up to 80 A"
 
 
-def test_sample_gap(tmp_path: Path) -> None:
+def test_silver_silence_alone_is_no_marker(tmp_path: Path) -> None:
+    """Gaps come from CAN health (frame clocks and siblings), not from silver samples."""
     rows = [r for r in _quiet() if not (r["slot_id"] == "hood" and 70 * S <= r["t_us"] < 72.5 * S)]
-    markers = _markers(tmp_path, rows)
-    assert [(m["level"], m["source"], m["kind"]) for m in markers] == [("WARN", "hood", "gap")]
-    assert markers[0]["t"] == pytest.approx(60.0 - 0.02, abs=0.01)
-    assert markers[0]["message"] == "No samples for 2.5 s"
+    rows = [r for r in rows if not (r["slot_id"] == "hood" and r["t_us"] >= 165 * S)]
+    assert _markers(tmp_path, rows) == []
 
 
-def test_slot_that_stops_logging(tmp_path: Path) -> None:
-    rows = [r for r in _quiet() if not (r["slot_id"] == "hood" and r["t_us"] >= 165 * S)]
-    markers = _markers(tmp_path, rows)
-    assert [(m["source"], m["kind"]) for m in markers] == [("hood", "gap")]
-    assert markers[0]["message"] == "No samples for 5.0 s"
+def _event(kind: str, t_s: float, **extra: Any) -> dict[str, Any]:
+    """A gold can_events row; t_s is match time."""
+    return {
+        "kind": kind, "bus": "rio", "device": "TalonFX-2", "slot_id": "intake-roller",
+        "unit_id": "ctre:A", "t_us": MATCH_START + round(t_s * S), "duration_ms": None,
+        "enabled": True, "reset_before": None, "reset_after": None, **extra,
+    }  # fmt: skip
+
+
+def _can(events: list[dict[str, Any]], **kw: Any) -> list[dict[str, Any]]:
+    return can_markers(events, WINDOW, MATCH_END, ReportConfig(**kw), {"rio": "rio",
+                       "6E9415C3394C485320202050101C18FF": "DriveTrain"})  # fmt: skip
+
+
+def test_reboot_marker() -> None:
+    (marker,) = _can([_event("reboot", 128.0, reset_before=0, reset_after=1)])
+    assert (marker["level"], marker["source"], marker["kind"]) == (
+        "FAULT",
+        "intake-roller",
+        "reboot",
+    )
+    assert marker["t"] == pytest.approx(128.0)
+    assert marker["message"] == "Device rebooted (reset count 0 → 1)"
+
+
+def test_reboot_without_reset_count() -> None:
+    (marker,) = _can([_event("reboot", 30.0)])
+    assert marker["message"] == "Device rebooted"
+
+
+def test_long_dropout_marker() -> None:
+    (marker,) = _can([_event("dropout", 127.0, duration_ms=820.0)])
+    assert (marker["level"], marker["source"], marker["kind"]) == (
+        "WARN",
+        "intake-roller",
+        "dropout",
+    )
+    assert marker["t"] == pytest.approx(127.0) and marker["end"] == pytest.approx(127.82)
+    assert marker["message"] == "No CAN frames for 0.82 s"
+
+
+def test_short_dropout_below_threshold() -> None:
+    assert _can([_event("dropout", 127.0, duration_ms=200.0)]) == []
+    assert len(_can([_event("dropout", 127.0, duration_ms=200.0)], dropout_warn_s=0.15)) == 1
+
+
+def test_whole_bus_silent() -> None:
+    gap = _event("bus_gap", 60.0, device=None, slot_id=None, unit_id=None, duration_ms=1400.0)
+    (marker,) = _can([gap])
+    assert (marker["level"], marker["source"], marker["kind"]) == ("WARN", "bus:rio", "bus_gap")
+    assert marker["message"] == "Whole bus silent for 1.4 s"
+    canivore = {**gap, "bus": "6E9415C3394C485320202050101C18FF"}
+    assert _can([canivore])[0]["source"] == "bus:DriveTrain"
+    unnamed = {**gap, "bus": "D4F5AE23394C4853202020500E3418FF"}
+    assert _can([unnamed])[0]["source"] == "bus:D4F5AE23394C4853202020500E3418FF"
+
+
+def test_short_bus_gap_is_no_marker() -> None:
+    gap = _event("bus_gap", 60.0, device=None, slot_id=None, unit_id=None, duration_ms=600.0)
+    assert _can([gap]) == []
+
+
+def test_unmapped_device_gets_no_marker() -> None:
+    events = [
+        _event("reboot", 30.0, slot_id=None, unit_id=None, device="CANdle-60"),
+        _event("dropout", 40.0, slot_id=None, unit_id=None, device="CANdle-60", duration_ms=900.0),
+    ]
+    assert _can(events) == []
+
+
+def test_events_outside_the_match_or_unaligned_are_ignored() -> None:
+    events = [
+        _event("reboot", -5.0, reset_before=0, reset_after=1),
+        _event("reboot", 165.0, reset_before=1, reset_after=2),
+        {**_event("reboot", 30.0), "t_us": None},
+    ]
+    assert _can(events) == []
+
+
+def test_can_markers_merge_with_other_rules(tmp_path: Path) -> None:
+    path = write_silver(tmp_path / "silver", _quiet())
+    con = duckdb.connect()
+    temps = temperature_points(con, path, WINDOW)
+    events = [_event("reboot", 128.0, reset_before=0, reset_after=1)]
+    markers = match_markers(con, path, WINDOW, MATCH_END, temps, ReportConfig(), events)
+    assert [(m["kind"], m["t"]) for m in markers] == [("reboot", 128.0)]
 
 
 def test_thresholds_from_config(tmp_path: Path) -> None:

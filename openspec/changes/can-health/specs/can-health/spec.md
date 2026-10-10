@@ -9,7 +9,7 @@ For every session with hoots, derive SHALL record a reboot event for a device wh
 - its reset count increases between two consecutive samples in one hoot; or
 - its boot-during-enable fault turns from off to on.
 
-A reset-count increase and a boot-during-enable rise on the same device within 2 seconds of each other SHALL be one event. The first reset-count sample of a hoot SHALL be a baseline, never an event. Each event SHALL carry the session, bus, device, slot and unit (when mapped), lake time, match time (when framed), whether the robot was enabled, and the reset count before and after (when logged). When a hoot has no reset-count signal (Phoenix 2025 hoots), reboots SHALL be detected from the boot-during-enable fault alone, and the session's CAN-health rows SHALL say the reset count was not logged.
+A reset-count increase and a boot-during-enable rise on the same device within 2 seconds of each other SHALL be one event. The first reset-count sample of a hoot SHALL be a baseline, never an event. Each event SHALL carry the session, bus, device, slot and unit (when mapped), its time on the hoot's clock, lake time (when the hoot is aligned), match time (when the session is framed and match-keyed), whether the robot was enabled, and the reset count before and after (when logged). When a hoot has no reset-count signal (Phoenix 2025 hoots), reboots SHALL be detected from the boot-during-enable fault alone, and the session's CAN-health rows SHALL say the reset count was not logged.
 
 #### Scenario: Reboot while enabled
 - **WHEN** a synthetic rio hoot has TalonFX 2's reset count go from 0 to 1 at hoot time 344.96 s, and its boot-during-enable fault turn on at 345.16 s, while the robot is enabled
@@ -24,8 +24,12 @@ A reset-count increase and a boot-during-enable rise on the same device within 2
 - **THEN** no reboot event is recorded
 
 #### Scenario: Hoot without reset count
-- **WHEN** corpus `2025-gadal-q30` is derived
-- **THEN** its CAN-health rows say the reset count was not logged, no reboot event is recorded, and derive succeeds
+- **WHEN** a synthetic 2025-style hoot with no reset-count signal, in a framed, match-keyed session, has a device's boot-during-enable fault turn on while enabled
+- **THEN** one reboot event is recorded for that device with no reset counts, and its CAN-health rows say the reset count was not logged
+
+#### Scenario: 2025 hoots in the corpus
+- **WHEN** corpus `2025-gacmp-q19` (2025 hoots with no wpilog) is derived
+- **THEN** no reboot event is recorded, and derive succeeds
 
 ### Requirement: Frame gaps measured per device
 For every device in a session's hoots, derive SHALL measure the device's frame stream against its own nominal period: the median interval between its frames while the robot is enabled. An interval of at least 2.5 times the nominal period SHALL be a frame gap, and the frames it misses SHALL be its length divided by the nominal period, rounded, minus one. Only gaps that start while the robot is enabled SHALL count. Frames in the first 5 seconds of each hoot SHALL be ignored. A device whose frames stop before an enabled window ends SHALL have a gap running to the earlier of the window end and the last frame of any device in that hoot; the end of a hoot SHALL never count as a gap. Devices with no configured slot SHALL be measured, so they count as siblings, but SHALL get no CAN-health row.
@@ -47,7 +51,7 @@ For every device in a session's hoots, derive SHALL measure the device's frame s
 - **THEN** a frame gap of about 3 s is recorded for it, ending at the teleop end
 
 #### Scenario: Truncated hoot
-- **WHEN** a hoot read as `incomplete-read` ends during teleop
+- **WHEN** corpus `2026-gacmp-e10-truncated` (a hoot read as `incomplete-read`) is derived
 - **THEN** no device on that hoot gets a gap running past the hoot's last frame, and derive succeeds
 
 ### Requirement: Isolated and bus-wide gaps
@@ -91,9 +95,13 @@ It SHALL also write one row per (match, phase, bus) holding the logger gap count
 - **WHEN** corpus `2026-gacmp-p2` (a wpilog with no hoots) is derived
 - **THEN** it has no CAN-health rows, and derive succeeds
 
-#### Scenario: Unframed session
-- **WHEN** a session has no match key (for example corpus `2025-nofms`)
-- **THEN** it has no CAN-health rows, its reboot events are still recorded with lake time and no match time, and derive succeeds
+#### Scenario: Session without a match key
+- **WHEN** a synthetic session with an aligned hoot and a reboot has no match key
+- **THEN** it has no CAN-health rows, and its reboot event is still recorded with lake time and no match time
+
+#### Scenario: Unaligned hoot
+- **WHEN** a session's hoot could not be aligned to a wpilog (for example the hoot-only corpus `2025-gacmp-q19`)
+- **THEN** its events carry hoot time and no lake time, it has no CAN-health rows, and derive succeeds
 
 ### Requirement: Bus status per match
 When a session's wpilog carries the bus-status signals (see `nt-signals`), the bus row SHALL summarise them over each phase: the maximum and mean utilisation, the increase in bus-off and TX-full counts, and the maximum receive and transmit error counts. A bus SHALL be matched to its status signals through the robot configuration, which names each bus as the robot code does (such as `DriveTrain`) and gives its hoot bus (`rio`, `canivore`, or the CANivore's 32-hex id). Where a session has no bus-status signals, those columns SHALL be empty and read "not logged", never zero.

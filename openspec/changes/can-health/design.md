@@ -73,6 +73,8 @@ Overlap is interval arithmetic, so no step joins on equal timestamps, which keep
 - *Alternative:* bucket gaps into 20 ms bins, as the exploration script did. Rejected: a gap that straddles a bin edge splits into two events.
 - *Siblings are per hoot, not per configured bus.* A hoot is one bus, and unmapped devices still count as siblings.
 
+**As implemented (task 5.1).** Gap detection reads each device's `Timestamp` frames separately with `WHERE signal = ?` and does the interval and overlap work in numpy. Bronze is sorted by (signal, ts_us), so each read touches few row groups and arrives already sorted. The DuckDB plan above (one windowed query over every device, plus a self-join) was built and measured first: on Q7's CANivore hoot it added +138 MB of peak memory, and a streamed two-pass variant added +225 MB. Per device it adds +66 MB, with identical gaps (1,150 on that hoot, and the same Johnson counts). The rule itself is unchanged: overlap is still interval arithmetic, never equal timestamps.
+
 ### D-e. Three gold tables, written through the existing per-session writer
 | Table | Key | Holds |
 |---|---|---|
@@ -126,6 +128,9 @@ The step touches full logs, since it reads every `Timestamp` row of a match.
 - **Rows.** Q7 has about 3 M `Timestamp` rows: 9 rio devices at 8 ms and 13 CANivore devices at 4 ms, over ~2.5 min enabled plus the disabled time.
 - **Query.** One `lag` window over two columns (`ts_us` int64, signal dictionary), with the connection's existing `memory_limit = 512MB` and `threads = 2`.
 - **Target.** At most 3 s and at most 150 MB of extra peak RSS (VmHWM on Linux) per match, as the spec requires. Task 5.3 measures it, and the corpus perf job asserts it.
+- **Measured (tasks 5.1 and 5.2, 2026-10-10, M-series laptop under background load).**
+  - Q7 CAN-health step: 0.59 s and +69 MB peak RSS over the same process without the step (`tests/semantics/test_can_health_perf.py`).
+  - Full `derive --all` on a copy of the Johnson lake (33 sessions, 46 hoots): 127.6 s and 126.9 s before, 148.7 s and 136.9 s after. That is +10–21 s in all, about 0.3–0.6 s per session.
 - **Season scale.** A full season (~60 matches) adds under 3 min to `derive --force`. The History CAN queries read tables with one row per match, phase and slot, so they stay well inside the existing 2 s refresh budget.
 
 ## Risks / Trade-offs

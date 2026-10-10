@@ -22,23 +22,23 @@
 
 ## 4. Gold tables and derive wiring
 
-- [ ] 4.1 Write failing tests for `can_health` rows: per (match, phase, slot, unit), phase cuts via framing shifted by `offset_us`, `missed_per_min` over enabled minutes, mid-session swap attribution ("Mid-session swap"); implement; verify tests pass
-- [ ] 4.2 Write failing tests for `can_bus_health` rows (logger gap counts/longest/total, device count; bus-status summary from silver signals via `[[bus]]`; empty columns when not logged) covering "Bus status logged" and "Older robot code"; implement; verify tests pass
-- [ ] 4.3 Write failing tests for `can_events` (all reboots; gaps ≥ 0.1 s only; unframed sessions keep lake time with empty match time); implement; verify tests pass
-- [ ] 4.4 Wire `can_health` into `Deriver.run` for stale sessions via `gold.write_session(..., table, schema)`; bump `DERIVE_VERSION` to 4 with a comment; write a test that a hoot-less session (`2026-gacmp-p2`-like) and an unframed session derive without error and without slot rows; verify `pytest tests/semantics` passes
-- [ ] 4.5 Add corpus tests: Q7 has zero reboots, a `match`/`auto`/`teleop` row per mapped hoot device, rio and CANivore bus rows with logger gaps, no CANcoder isolated gap, no CANivore device > 5 isolated gaps or > 50 ms; `2025-gadal-q30` has `reset_count_logged = false`; `2025-nofms` has no rows; two `--force` derives give identical rows; verify `pytest -m corpus` passes
+- [x] 4.1 Write failing tests for `can_health` rows: per (match, phase, slot, unit), phase cuts via framing shifted by `offset_us`, `missed_per_min` over enabled minutes, mid-session swap attribution ("Mid-session swap"); implement; verify tests pass
+- [x] 4.2 Write failing tests for `can_bus_health` rows (logger gap counts/longest/total, device count; bus-status summary from silver signals via `[[bus]]`; empty columns when not logged) covering "Bus status logged" and "Older robot code"; implement; verify tests pass
+- [x] 4.3 Write failing tests for `can_events` (all reboots; gaps ≥ 0.1 s only; unframed sessions keep lake time with empty match time); implement; verify tests pass
+- [x] 4.4 Wire `can_health` into `Deriver.run` for stale sessions via `gold.write_session(..., table, schema)`; bump `DERIVE_VERSION` to 4 with a comment; write a test that a hoot-less session (`2026-gacmp-p2`-like) and an unframed session derive without error and without slot rows; verify `pytest tests/semantics` passes
+- [ ] 4.5 Add corpus tests: Q7 has zero reboots, a `match`/`auto`/`teleop` row per mapped hoot device, rio and CANivore bus rows with logger gaps, no CANcoder isolated gap, no CANivore device > 5 isolated gaps or > 50 ms; `2025-gacmp-q19` (unaligned 2025 hoots) has no rows and no reboot event, and its events carry hoot time only; `2026-gacmp-e10-truncated` has no gap past its hoot's last frame; `2026-gacmp-p2` has no rows; two `--force` derives give identical rows; verify `pytest -m corpus` passes
 
 ## 5. Budgets
 
-- [ ] 5.1 Add the Q7 CAN-health timing and peak-memory assertion (< 3 s, < 150 MB over derive without the step, VmHWM on Linux) to the corpus perf tests; verify it passes locally and record the measured numbers in design.md Budgets
-- [ ] 5.2 Run the full derive on `~/flashpoint-lake` with `--force` and record wall time against the pre-change run; verify the increase is within 3 s per match
+- [x] 5.1 Add the Q7 CAN-health timing and peak-memory assertion (< 3 s, < 150 MB over derive without the step, VmHWM on Linux) to the corpus perf tests; verify it passes locally and record the measured numbers in design.md Budgets
+- [x] 5.2 Run the full derive on `~/flashpoint-lake` with `--force` and record wall time against the pre-change run; verify the increase is within 3 s per match
 
 ## 6. Views
 
-- [ ] 6.1 Write failing tests for `report.toml`: `dropout_warn_s` accepted (default 0.25), below 0.1 rejected with a message, existing files with `sample_gap_s` still load; implement in `report/settings.py` and update the comments in `config/report.toml`; verify tests pass
-- [ ] 6.2 Write failing marker tests ("Reboot marker" message "Device rebooted (reset count 0 → 1)", "Long dropout marker" "No CAN frames for 0.82 s", "Whole bus silent" on `bus:rio` with no slot dropout markers, unmapped devices get none); replace `gap_markers` with CAN rules reading `gold/can_events`; bump `REPORT_VERSION` to 3; verify tests pass
-- [ ] 6.3 Update the Replay front end so `bus:<name>` sources render in the timeline, marker list, and match-list counts, escaped as text; add a browser test that a `bus:rio` marker is focusable and moves the cursor; verify the browser suite passes
-- [ ] 6.4 Add the corpus test "Logger gaps stay quiet" (Q7 Replay has no reboot, dropout, or bus-gap marker) and re-check the Q7 payload is under 2 MB; verify `pytest -m corpus` passes
+- [x] 6.1 Write failing tests for `report.toml`: `dropout_warn_s` accepted (default 0.25), below 0.1 rejected with a message, existing files with `sample_gap_s` still load; implement in `report/settings.py` and update the comments in `config/report.toml`; verify tests pass
+- [x] 6.2 Write failing marker tests ("Reboot marker" message "Device rebooted (reset count 0 → 1)", "Long dropout marker" "No CAN frames for 0.82 s", "Whole bus silent" on `bus:rio` with no slot dropout markers, unmapped devices get none); replace `gap_markers` with CAN rules reading `gold/can_events`; bump `REPORT_VERSION` to 3; verify tests pass
+- [x] 6.3 Update the Replay front end so `bus:<name>` sources render in the timeline, marker list, and match-list counts, escaped as text; add a browser test that a `bus:rio` marker is focusable and moves the cursor; verify the browser suite passes
+- [x] 6.4 Add the corpus test "Logger gaps stay quiet" (Q7 Replay has no reboot, dropout, or bus-gap marker) and re-check the Q7 payload is under 2 MB; verify `pytest -m corpus` passes
 - [ ] 6.5 Write failing tests for `Metric.table` and the four CAN metrics in History queries (filters still bind as parameters; "No hoot for a match" gives a gap, not zero; hostile filter test still passes on the new table); implement in `views/queries.py`; verify tests pass
 - [ ] 6.6 Add the CAN metrics to the History metric picker and a browser test for "Worsening connector" (four points in order, last point drills to Replay); verify the browser suite passes
 

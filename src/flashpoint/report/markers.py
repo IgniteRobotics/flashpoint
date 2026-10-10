@@ -197,39 +197,50 @@ def stall_markers(
     return out
 
 
-def gap_markers(
-    con: duckdb.DuckDBPyConnection,
-    silver: Path,
+def can_markers(
+    events: list[dict[str, Any]],
     window: Window,
-    match_end_us: int,
+    match_end_us: int | None,
     config: ReportConfig,
+    bus_names: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """A slot silent (no sample of any metric) for longer than sample_gap_s during the match,
-    including a slot that stops logging before the match ends."""
-    gap_us = int(config.sample_gap_s * US_PER_S)
-    start = window.match_start_us
-    rows = con.execute(
-        f"""
-        WITH t AS (
-            SELECT DISTINCT slot_id, t_us FROM {_source(silver)} WHERE t_us >= ? AND t_us <= ?
-        ),
-        edges AS (
-            SELECT slot_id, t_us,
-                coalesce(lead(t_us) OVER (PARTITION BY slot_id ORDER BY t_us), ?) AS next_us
-            FROM t
-        ),
-        first AS (SELECT slot_id, min(t_us) AS t_us FROM t GROUP BY slot_id)
-        SELECT slot_id, t_us, next_us FROM edges WHERE next_us - t_us > ?
-        UNION ALL
-        SELECT slot_id, ?, t_us FROM first WHERE t_us - ? > ?
-        ORDER BY slot_id, t_us
-        """,  # noqa: S608 - internal path
-        [start, match_end_us, match_end_us, gap_us, start, start, gap_us],
-    ).fetchall()
-    return [
-        _marker("WARN", slot, "gap", window, s, e, f"No samples for {(e - s) / US_PER_S:.1f} s")
-        for slot, s, e in rows
-    ]
+    """Reboots (FAULT) and long isolated dropouts (WARN) on a mapped device's slot, and whole-bus
+    silences (WARN) on the bus, from CAN-health events during the match."""
+    end = match_end_us if match_end_us is not None else window.end_us
+    names = bus_names or {}
+    out = []
+    for e in events:
+        t = e["t_us"]
+        if t is None or not window.match_start_us <= t <= end:
+            continue
+        duration_us = round((e["duration_ms"] or 0) * 1000)
+        if e["kind"] == "reboot" and e["slot_id"]:
+            counts = (
+                f" (reset count {e['reset_before']} → {e['reset_after']})"
+                if e["reset_before"] is not None
+                else ""
+            )
+            out.append(
+                _marker(
+                    "FAULT", e["slot_id"], "reboot", window, t, None, "Device rebooted" + counts
+                )
+            )
+        elif (
+            e["kind"] == "dropout"
+            and e["slot_id"]
+            and duration_us >= config.dropout_warn_s * US_PER_S
+        ):
+            out.append(
+                _marker("WARN", e["slot_id"], "dropout", window, t, t + duration_us,
+                        f"No CAN frames for {duration_us / US_PER_S:.2f} s")
+            )  # fmt: skip
+        elif e["kind"] == "bus_gap" and duration_us >= config.sample_gap_s * US_PER_S:
+            source = "bus:" + names.get(e["bus"], e["bus"])
+            out.append(
+                _marker("WARN", source, "bus_gap", window, t, t + duration_us,
+                        f"Whole bus silent for {duration_us / US_PER_S:.1f} s")
+            )  # fmt: skip
+    return out
 
 
 def match_markers(
@@ -239,13 +250,15 @@ def match_markers(
     match_end_us: int | None,
     temps: dict[str, list[list[float]]],
     config: ReportConfig,
+    can_events: list[dict[str, Any]] | None = None,
+    bus_names: dict[str, str] | None = None,
     physics: PhysicsConfig = DEFAULT_CONFIG,
 ) -> list[dict[str, Any]]:
-    """Every rule's markers, in time order. Gaps need a match end (framing)."""
+    """Every rule's markers, in time order."""
     markers = (
         temperature_markers(temps, config)
         + power_markers(con, silver, window, config, physics)
         + stall_markers(con, silver, window, physics)
-        + (gap_markers(con, silver, window, match_end_us, config) if match_end_us else [])
+        + can_markers(can_events or [], window, match_end_us, config, bus_names)
     )
     return sorted(markers, key=lambda m: (m["t"], m["source"], m["kind"]))

@@ -23,7 +23,7 @@ from flashpoint.report.export import export_static
 from flashpoint.views.queries import HistoryQueries
 from flashpoint.web.advantagescope import Install, Launcher
 from flashpoint.web.server import FlashpointServer
-from tests.report.lake import MatchLake, quiet_rows
+from tests.report.lake import MatchLake, can_event, quiet_rows
 from tests.report.silver import points
 from tests.views.season import HOSTILE_ROLE, build_replay_season, build_season, match_key
 
@@ -94,7 +94,11 @@ def replay_site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, 
     q7 = quiet_rows() + points("hood", "temp_c", [(118.0, 66.0)])
     lake.add_match("2026gacmp_qm7", "q7", q7, wpilog_name=HOSTILE_LOG)
     e10 = [r for r in quiet_rows() if r["slot_id"] != "hood"]
-    lake.add_match("2026gacmp_e10", "e10", e10, start_utc="2026-04-11T19:25:48+00:00")
+    bus_gap = can_event("bus_gap", 60.0, device=None, slot_id=None, unit_id=None,
+                        duration_ms=1400.0)  # fmt: skip
+    lake.add_match(
+        "2026gacmp_e10", "e10", e10, start_utc="2026-04-11T19:25:48+00:00", can_events=[bus_gap]
+    )
     no_temp = [r for r in quiet_rows() if r["metric"] != "temp_c"]
     lake.add_match("2026gacmp_qm8", "q8", no_temp, pro_licensed=0)
     builder = ReportBuilder(lake.write_meta(), config_dir)
@@ -322,6 +326,23 @@ def test_marker_select(page: Any, app: str) -> None:
     page.keyboard.press("Enter")
     assert "Temperature 66 °C" in page.inner_text("#event")
     assert page.inner_text("#scrub-label") == "T+108.00 s"
+    assert marker.get_attribute("aria-pressed") == "true"
+    assert watch.clean(), watch
+
+
+def test_bus_marker_select(page: Any, app: str) -> None:
+    """A whole-bus silence is a marker on the bus, reachable and selectable by keyboard."""
+    watch = _open(page, app, "#view=replay&m=2026gacmp_e10")
+    page.wait_for_selector("[data-marker]")
+    marker = page.locator("[data-marker]").first
+    assert marker.get_attribute("aria-label") == (
+        "WARN bus:rio at T+50.0 s: Whole bus silent for 1.4 s"
+    )
+    marker.focus()
+    page.keyboard.press("Enter")
+    assert "WARN · bus:rio" in page.inner_text("#event")
+    assert "Until T+51.4 s" in page.inner_text("#event")
+    assert page.inner_text("#scrub-label") == "T+50.00 s"
     assert marker.get_attribute("aria-pressed") == "true"
     assert watch.clean(), watch
 

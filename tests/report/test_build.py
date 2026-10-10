@@ -10,7 +10,7 @@ from flashpoint import config
 from flashpoint.report.build import ReportBuilder, match_label, to_script
 from flashpoint.report.names import download_name
 from flashpoint.report.paths import data_dir, state_path
-from tests.report.lake import COMP_SLOTS, MatchLake, quiet_rows
+from tests.report.lake import COMP_SLOTS, MatchLake, can_event, quiet_rows
 from tests.report.silver import S, series
 
 
@@ -139,6 +139,29 @@ def test_markers_embedded_and_counted(tmp_path: Path) -> None:
     assert [(m["level"], m["source"], m["t"]) for m in data["markers"]] == [("WARN", "hood", 108.0)]
     index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
     assert index["matches"][0]["markers"] == {"WARN": 1, "FAULT": 0}
+
+
+def test_can_health_markers_from_gold(tmp_path: Path) -> None:
+    """Reboot and dropout markers come from gold/can_events; a CANivore bus takes its
+    robot-code name from the robot configuration."""
+    lake = MatchLake(tmp_path / "lake")
+    events = [
+        can_event("reboot", 138.0, reset_before=0, reset_after=1),
+        can_event("dropout", 137.0, duration_ms=820.0),
+        can_event("bus_gap", 70.0, bus="6E9415C3394C485320202050101C18FF", device=None,
+                  slot_id=None, unit_id=None, duration_ms=1400.0),
+        can_event("bus_gap", 80.0, device=None, slot_id=None, unit_id=None, duration_ms=60.0),
+    ]  # fmt: skip
+    lake.add_match("2026gacmp_qm9", "q9", quiet_rows(), can_events=events)
+    _build(lake)
+    data = _load(data_dir(lake.lake) / "2026gacmp_qm9.js")
+    assert [(m["level"], m["source"], m["kind"], m["t"]) for m in data["markers"]] == [
+        ("WARN", "bus:DriveTrain", "bus_gap", 60.0),
+        ("WARN", "intake-roller", "dropout", 127.0),
+        ("FAULT", "intake-roller", "reboot", 128.0),
+    ]
+    index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
+    assert index["matches"][0]["markers"] == {"WARN": 2, "FAULT": 1}
 
 
 def test_budget_lowers_buckets_but_keeps_extremes(tmp_path: Path) -> None:
@@ -290,7 +313,7 @@ def test_index_entry_carries_session_season(tmp_path: Path) -> None:
     lake.add_match("2025gaalb_qm3", "q3", quiet_rows(), robot="2025-comp", season="2025")
     _build(lake)
     index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
-    assert index["version"] == 2
+    assert index["version"] == 3
     assert {m["key"]: m["season"] for m in index["matches"]} == {
         "2026gacmp_qm7": "2026", "2025gaalb_qm3": "2025",
     }  # fmt: skip
@@ -301,7 +324,7 @@ def test_payload_carries_absolute_window_start(q7: MatchLake) -> None:
     data = _load(data_dir(q7.lake) / "2026gacmp_qm7.js")
     # t0_us is the lake time of window.t0, so the match start (auto at T=10 s) is t0_us - t0
     assert data["t0_us"] - round(data["window"]["t0"] * S) == 10 * S
-    assert data["version"] == 2
+    assert data["version"] == 3
 
 
 def test_version_1_state_rebuilds_every_match(q7: MatchLake) -> None:
@@ -321,7 +344,8 @@ def test_version_1_state_rebuilds_every_match(q7: MatchLake) -> None:
 
 # The synthetic Q7 file built before the series assembly moved to envelope.series_payload
 # (replay-ux 2.2). A deliberate payload change updates this digest; anything else is a regression.
-Q7_DIGEST = "5d70dddb35f8474ced6b0f15ed11558d8cb27469d1c00efbd116e93bd3e32196"
+# can-health: only "version" changed (2 -> 3); built with version 2 the bytes still give 5d70ddd...
+Q7_DIGEST = "c6928902323359472316150769c5063923be5f9c7b1661ee9889c554b461cbd6"
 
 
 def test_synthetic_q7_bytes_unchanged(q7: MatchLake) -> None:

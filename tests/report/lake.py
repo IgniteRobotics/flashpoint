@@ -9,6 +9,8 @@ import polars as pl
 
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
+from flashpoint.semantics.can_health import EVENTS_SCHEMA, EVENTS_TABLE
+from flashpoint.semantics.gold import gold_dir
 from flashpoint.semantics.silver import silver_dir
 from tests.report.silver import S, points, series, write_silver
 
@@ -78,6 +80,7 @@ class MatchLake:
         hoot_buses: tuple[str, ...] = ("rio", "6E9415C3394C485320202050101C18FF"),
         with_wpilog: bool = True,
         season: str = "2026",
+        can_events: list[dict[str, Any]] | None = None,
     ) -> None:
         wpilog_id = None
         if with_wpilog:
@@ -118,6 +121,14 @@ class MatchLake:
                 rows,
                 session_id,
             )
+        if can_events:
+            path = (
+                gold_dir(self.lake, EVENTS_TABLE) / f"season={season}" / f"session_id={session_id}"
+            )
+            path.mkdir(parents=True)
+            full = [{**dict.fromkeys(EVENTS_SCHEMA), "session_id": session_id, "season": season,
+                     "match_key": key, "robot": robot, **e} for e in can_events]  # fmt: skip
+            pl.DataFrame(full, schema=EVENTS_SCHEMA).write_parquet(path / "part-0.parquet")
 
     def set_fingerprint(self, session_id: str, fingerprint: str) -> None:
         for row in self.tables["derived_state"]:
@@ -144,3 +155,10 @@ def default_phases() -> list[tuple[str, float | None, float | None]]:
         ("teleop", 27.0, 175.0),
         ("post", 175.0, None),
     ]
+
+
+def can_event(kind: str, t_s: float, **extra: Any) -> dict[str, Any]:
+    """A can_events row at lake time t_s (the match starts at 10 s in default_phases)."""
+    return {"kind": kind, "bus": "rio", "device": "TalonFX-2", "slot_id": "intake-roller",
+            "unit_id": "ctre:A", "log_id": "h", "hoot_t_us": round(t_s * S),
+            "t_us": round(t_s * S), "enabled": True, **extra}  # fmt: skip
