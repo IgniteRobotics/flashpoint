@@ -9,16 +9,16 @@
 
 ## 2. Synthetic fixtures
 
-- [ ] 2.1 Add a test helper that builds a bronze hoot partition from a declarative spec (devices, period, silences, `RobotEnable` intervals, `ResetCount`/`Fault_BootDuringEnable` samples); verify with a self-test that frame counts and intervals match the spec
-- [ ] 2.2 Build fixtures: `q105_like` (10 rio devices at 8 ms; device 2 silent 820 ms, reset 0→1 at 344.96 s, boot-during-enable at 345.16 s), `bus_wide` (6 of 10 silent ~60 ms, starts up to 5 ms apart), `whole_bus` (all silent 1.4 s), `stops_early` (one device stops 3 s before teleop end), `no_reset_count`; verify each fixture's self-test passes
+- [x] 2.1 Add a test helper that builds a bronze hoot partition from a declarative spec (devices, period, silences, `RobotEnable` intervals, `ResetCount`/`Fault_BootDuringEnable` samples); verify with a self-test that frame counts and intervals match the spec
+- [x] 2.2 Build fixtures: `q105_like` (10 rio devices at 8 ms; device 2 silent 820 ms, reset 0→1 at 344.96 s, boot-during-enable at 345.16 s), `bus_wide` (6 of 10 silent ~60 ms, starts up to 5 ms apart), `whole_bus` (all silent 1.4 s), `stops_early` (one device stops 3 s before teleop end), `no_reset_count`; verify each fixture's self-test passes
 
 ## 3. Detection core (`semantics/can_health.py`)
 
-- [ ] 3.1 Write failing tests for enabled intervals from the hoot's `RobotEnable` and the 5 s start-up skip; implement; verify tests pass
-- [ ] 3.2 Write failing tests for nominal period and gap detection ("Gap against the device's own period": 40 ms on 8 ms → 4 missed; "Normal jitter is not a gap"; "Disabled time ignored"); implement the per-hoot DuckDB interval query; verify tests pass
-- [ ] 3.3 Write failing tests for trailing silence and hoot end ("Device stops before the window ends", "Truncated hoot"); implement; verify tests pass
-- [ ] 3.4 Write failing tests for sibling classification by interval overlap ("One device drops out", "Overlapping, not equal", unmapped devices counted as siblings); implement the overlap self-join; verify tests pass, and grep the module to confirm no equality join on timestamps
-- [ ] 3.5 Write failing tests for reboot events ("Reboot while enabled" merged within 2 s, "Baseline is not a reboot", `no_reset_count` → boot-during-enable only and `reset_count_logged = false`); implement; verify tests pass
+- [x] 3.1 Write failing tests for enabled intervals from the hoot's `RobotEnable` and the 5 s start-up skip; implement; verify tests pass
+- [x] 3.2 Write failing tests for nominal period and gap detection ("Gap against the device's own period": 40 ms on 8 ms → 4 missed; "Normal jitter is not a gap"; "Disabled time ignored"); implement the per-hoot DuckDB interval query; verify tests pass
+- [x] 3.3 Write failing tests for trailing silence and hoot end ("Device stops before the window ends", "Truncated hoot"); implement; verify tests pass
+- [x] 3.4 Write failing tests for sibling classification by interval overlap ("One device drops out", "Overlapping, not equal", unmapped devices counted as siblings); implement the overlap self-join; verify tests pass, and grep the module to confirm no equality join on timestamps
+- [x] 3.5 Write failing tests for reboot events ("Reboot while enabled" merged within 2 s, "Baseline is not a reboot", `no_reset_count` → boot-during-enable only and `reset_count_logged = false`); implement; verify tests pass
 
 ## 4. Gold tables and derive wiring
 

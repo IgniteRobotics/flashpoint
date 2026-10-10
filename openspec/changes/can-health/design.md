@@ -17,6 +17,20 @@ See proposal.md for the motivation. The facts that shape the design were measure
   | Corpus Q7, any device | ≤ 11 | ≤ 57 ms | n/a |
 
   The only isolated gap over 59 ms in the whole sample is Q105 TalonFX 2's 820 ms.
+
+  **As implemented (task 3.x, 2026-10-10).** The table above came from the exploration script, which took the median over the whole log. The spec takes it over enabled time only, which gives 9–10 ms on the rio, because the bus is busier while enabled. That raises the rio threshold to 22.5–25 ms and drops the 20–22 ms micro-gaps. Results with the real module:
+
+  | Case | Q15 | Q53 | Q76 | Q105 |
+  |---|---|---|---|---|
+  | rio TalonFX 14, isolated | 7 | 20 | 1 | **42** |
+  | rio TalonFX 10, isolated | 6 | 24 | 3 | 3 |
+  | rio TalonFX 8, isolated | 7 | 5 | 6 | 7 |
+
+  - Q105 TalonFX 14 is still the highest count by about 2×. The other devices are less noisy than before.
+  - Q105 also gives TalonFX 2 one reboot (reset count 0 → 1, enabled) and an isolated gap of 820 ms.
+  - On the CANivore, every CANcoder has 0 isolated gaps, and the Talons and Pigeon have 3–7, none over 13 ms.
+  - Corpus Q7: CANivore devices have at most 4 isolated gaps, at most 13 ms long; on the rio the worst is 57 ms. There are no reboots. The 2025 hoots report `reset_count_logged = false`.
+  - Each hoot takes 0.24–0.52 s to analyse.
 - **Derive is the right place.** `Deriver.run` already writes per-session gold tables through `gold.write_session(..., table, schema)` (`match_features`, `unit_usage`). It recomputes stale sessions by fingerprint, and the fingerprint includes `DERIVE_VERSION`.
 - **Markers today.** Replay markers come from `report/markers.py`. The existing `gap_markers` rule ("no silver samples for > `sample_gap_s`") fires on logger gaps and the end of a log, not on device faults.
 - **The bus-status logger (Robot-2026#108)** writes DataLog entries `/Flashpoint/CANBus/{rio,DriveTrain}/{Utilization,BusOffCount,TxFullCount,ReceiveErrorCount,TransmitErrorCount,Status}`. These are plain wpilog entries, not NetworkTables, so no `NT:` prefix. They are written on change at 10 Hz.
