@@ -375,3 +375,49 @@ def test_truncated_wpilog_keeps_signals_before_truncation(
     )
     assert times == list(range(1_000, 10_000, 1_000))
     assert ("shooter-velocity-setpoint", "missing") not in _missing(lake)
+
+
+BUS_SIGNALS = """
+[[signal]]
+id = "can-drivetrain-utilization"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/Utilization"
+subsystem = "can"
+component = "DriveTrain"
+metric = "utilization"
+
+[[signal]]
+id = "can-rio-transmit-error-count"
+root = "flashpoint"
+entry = "CANBus/rio/TransmitErrorCount"
+subsystem = "can"
+component = "rio"
+metric = "transmit_error_count"
+"""
+
+
+def test_bus_status_signals_under_flashpoint_root(
+    lake: LakePaths, registry: OwletRegistry, tmp_path: Path
+) -> None:
+    """Entries robot code writes straight to the wpilog map like NetworkTables ones."""
+    b = (
+        WpilogBuilder()
+        .start(1, "/Flashpoint/CANBus/DriveTrain/Utilization", "double")
+        .start(2, "/Flashpoint/CANBus/rio/TransmitErrorCount", "int64")
+    )
+    b.double(1, 1_000, 0.40).double(1, 2_000, 0.62)
+    b.int64(2, 1_000, 0).int64(2, 2_000, 12)
+    _ingest(lake, registry, b.write(tmp_path / "FRC_20260409_215113_GACMP_Q7.wpilog"))
+    config = _config(tmp_path / "config", {"r": (2026, BUS_SIGNALS)})
+    season = config / "seasons" / "2026.toml"
+    season.write_text(season.read_text() + 'flashpoint = "/Flashpoint/"\n')
+    _derive(lake, config)
+
+    rows = sorted(_signal_rows(lake), key=lambda r: (r["signal_id"], r["t_us"]))
+    assert [(r["subsystem"], r["component"], r["metric"], r["value"]) for r in rows] == [
+        ("can", "DriveTrain", "utilization", 0.40),
+        ("can", "DriveTrain", "utilization", 0.62),
+        ("can", "rio", "transmit_error_count", 0.0),
+        ("can", "rio", "transmit_error_count", 12.0),
+    ]
+    assert _missing(lake) == set()

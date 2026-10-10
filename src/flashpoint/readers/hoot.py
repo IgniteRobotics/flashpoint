@@ -49,6 +49,7 @@ HEALTH_PATTERN = re.compile(
     r"|DeviceTemp|ProcessorTemp|AncillaryDeviceTemp|Velocity|RotorVelocity|Position|DutyCycle"
     r"|DeviceEnable|FaultField|StickyFaultField|ConnectedMotor|Version"
     r"|MotorKT|MotorKV|MotorStallCurrent"  # device-reported motor model for current residuals
+    r"|ResetCount|Timestamp"  # CAN health: reboots, and one row per received frame
     r"|Fault_\w+)$"
 )
 

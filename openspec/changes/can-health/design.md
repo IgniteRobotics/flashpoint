@@ -90,6 +90,8 @@ We drop the old rule because it measured the same thing badly. Silver gaps are h
 - If bronze is unchanged, which is expected since owlet already emits both, `PIPELINE_VERSION` stays at 2.
 - If it changes, `PIPELINE_VERSION` goes to 3, and the release notes say to run `flashpoint rebuild`.
 
+**Result (task 1.2, 2026-10-10):** unchanged. The golden corpus ingested with the old and the new pattern gives the same bronze: 25,447,616 rows each, and zero rows differ (compared on log, signal, ts_us and values). `PIPELINE_VERSION` stays at 2.
+
 ### D-i. Bus-status signals: a `flashpoint` season root plus named buses
 - **The season root.** `SeasonRoots` gains an optional `flashpoint` root. The 2026 season sets it to `/Flashpoint/`, and `root_names()` leaves out roots that are unset. The existing check rejects a signal under an undefined root (`robot_config.py:179`).
 - **The 2026 signals.** The 2026 robot declares 10 signals: `CANBus/<bus>/<Metric>` for `rio` and `DriveTrain`. `Status` is skipped, because it is an enum code, not a measure.

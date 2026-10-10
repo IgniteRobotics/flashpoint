@@ -16,6 +16,20 @@ class ConfigError(Exception):
     pass
 
 
+def _check_bus(value: str) -> str:
+    if value in ("rio", "canivore") or CANIVORE_ID.match(value):
+        return value
+    raise ValueError("bus must be 'rio', 'canivore', or a 32-hex CANivore id")
+
+
+def _bus_matches(declared: str, bus: str) -> bool:
+    """`canivore` matches any non-rio bus: hoot files name it by its hex id, while the
+    diagnostics server (CAN inventory) reports its configured name, e.g. "DriveTrain"."""
+    if declared == "canivore":
+        return bus.lower() != "rio"
+    return declared.lower() == bus.lower()
+
+
 class Slot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -31,16 +45,24 @@ class Slot(BaseModel):
     @field_validator("bus")
     @classmethod
     def _bus(cls, value: str) -> str:
-        if value in ("rio", "canivore") or CANIVORE_ID.match(value):
-            return value
-        raise ValueError("bus must be 'rio', 'canivore', or a 32-hex CANivore id")
+        return _check_bus(value)
 
     def matches_bus(self, bus: str) -> bool:
-        """`canivore` matches any non-rio bus: hoot files name it by its hex id, while the
-        diagnostics server (CAN inventory) reports its configured name, e.g. "DriveTrain"."""
-        if self.bus == "canivore":
-            return bus.lower() != "rio"
-        return self.bus.lower() == bus.lower()
+        return _bus_matches(self.bus, bus)
+
+
+class Bus(BaseModel):
+    """A CAN bus as robot code names it (e.g. "DriveTrain"), tied to the bus its hoots carry."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1)
+    hoot: str  # "rio", "canivore" (any CANivore), or a specific 32-hex CANivore id
+
+    @field_validator("hoot")
+    @classmethod
+    def _hoot(cls, value: str) -> str:
+        return _check_bus(value)
 
 
 class SeasonRoots(BaseModel):
@@ -53,6 +75,8 @@ class SeasonRoots(BaseModel):
     camera_publisher: str = Field(min_length=1)
     preferences: str = Field(min_length=1)
     fms: str = Field(min_length=1)
+    # Entries robot code writes straight to the wpilog for Flashpoint (e.g. "/Flashpoint/").
+    flashpoint: str | None = Field(default=None, min_length=1)
 
 
 class SeasonConfig(BaseModel):
@@ -62,7 +86,7 @@ class SeasonConfig(BaseModel):
     roots: SeasonRoots
 
     def root_names(self) -> dict[str, str]:
-        return self.roots.model_dump()
+        return self.roots.model_dump(exclude_none=True)
 
 
 class Signal(BaseModel):
@@ -93,6 +117,21 @@ class RobotConfig(BaseModel):
     project: str
     slots: list[Slot] = Field(alias="slot")
     signals: list[Signal] = Field(default_factory=list, alias="signal")
+    buses: list[Bus] = Field(default_factory=list, alias="bus")
+
+    @model_validator(mode="after")
+    def _unique_buses(self) -> "RobotConfig":
+        names = [b.name for b in self.buses]
+        duplicates = sorted({n for n in names if names.count(n) > 1})
+        if duplicates:
+            raise ValueError(f"duplicate bus names {duplicates}")
+        return self
+
+    def bus_name_for(self, hoot_bus: str) -> str | None:
+        """The robot-code name of a hoot's bus; an exact CANivore id beats `canivore`."""
+        matches = [b for b in self.buses if _bus_matches(b.hoot, hoot_bus)]
+        matches.sort(key=lambda b: b.hoot == "canivore")
+        return matches[0].name if matches else None
 
     @model_validator(mode="after")
     def _unique_signals(self) -> "RobotConfig":

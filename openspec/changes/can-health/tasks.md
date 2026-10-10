@@ -1,11 +1,11 @@
 ## 1. Inputs: health profile and configuration
 
-- [ ] 1.1 Write failing tests in `tests/readers/test_hoot.py` asserting `HEALTH_PATTERN` matches `Phoenix6/TalonFX-2/ResetCount` and `Phoenix6/TalonFX-2/Timestamp`; add `ResetCount|Timestamp` to the pattern; verify the tests pass
-- [ ] 1.2 Re-ingest the golden corpus into a scratch lake and compare bronze with a pre-change lake row for row (signal, ts_us, values); if identical, leave `PIPELINE_VERSION` at 2 and record "unchanged" in design.md D-h; if not, bump it to 3 with a comment, and verify with `pytest -m corpus`
-- [ ] 1.3 Write failing tests for an optional `flashpoint` season root: `root_names()` omits unset roots, a 2025 robot declaring a `flashpoint` signal fails to load naming the signal and root (nt-signals "Root not defined for the season"); implement in `robot_config.py`; verify tests pass
-- [ ] 1.4 Write failing tests for `[[bus]]` in robot configuration (`name`, `hoot` validated like `Slot.bus`; duplicate names rejected); implement; verify tests pass
-- [ ] 1.5 Set `flashpoint = "/Flashpoint/"` in `config/seasons/2026.toml`; declare the 10 bus-status signals (subsystem `can`, component = bus name, snake_case metrics) and `[[bus]]` rio → `rio`, DriveTrain → `canivore` in `config/robots/2026-comp.toml`; update the corpus test for "2026 declarations match the corpus" to exclude the `flashpoint` root and assert the 10 are listed `missing` for Q7; verify `pytest tests/semantics -k signals` and `pytest -m corpus -k signals` pass
-- [ ] 1.6 Write a synthetic-wpilog test for "Bus status mapped" (silver rows with subsystem `can`, components `DriveTrain`/`rio`); verify it passes with no derive code changes
+- [x] 1.1 Write failing tests in `tests/readers/test_hoot.py` asserting `HEALTH_PATTERN` matches `Phoenix6/TalonFX-2/ResetCount` and `Phoenix6/TalonFX-2/Timestamp`; add `ResetCount|Timestamp` to the pattern; verify the tests pass
+- [x] 1.2 Re-ingest the golden corpus into a scratch lake and compare bronze with a pre-change lake row for row (signal, ts_us, values); if identical, leave `PIPELINE_VERSION` at 2 and record "unchanged" in design.md D-h; if not, bump it to 3 with a comment, and verify with `pytest -m corpus`
+- [x] 1.3 Write failing tests for an optional `flashpoint` season root: `root_names()` omits unset roots, a 2025 robot declaring a `flashpoint` signal fails to load naming the signal and root (nt-signals "Root not defined for the season"); implement in `robot_config.py`; verify tests pass
+- [x] 1.4 Write failing tests for `[[bus]]` in robot configuration (`name`, `hoot` validated like `Slot.bus`; duplicate names rejected); implement; verify tests pass
+- [x] 1.5 Set `flashpoint = "/Flashpoint/"` in `config/seasons/2026.toml`; declare the 10 bus-status signals (subsystem `can`, component = bus name, snake_case metrics) and `[[bus]]` rio → `rio`, DriveTrain → `canivore` in `config/robots/2026-comp.toml`; update the corpus test for "2026 declarations match the corpus" to exclude the `flashpoint` root and assert the 10 are listed `missing` for Q7; verify `pytest tests/semantics -k signals` and `pytest -m corpus -k signals` pass
+- [x] 1.6 Write a synthetic-wpilog test for "Bus status mapped" (silver rows with subsystem `can`, components `DriveTrain`/`rio`); verify it passes with no derive code changes
 
 ## 2. Synthetic fixtures
 
