@@ -347,6 +347,7 @@ def test_served_badge(page: Any, q7_site: dict[str, Any]) -> None:
     watch = _open(page, q7_site["url"], f"#view=replay&m={Q7}")
     page.wait_for_selector(f"a.match-btn[data-match='{Q7}'] .anom-glyph")
     assert page.inner_text(f"a.match-btn[data-match='{Q7}'] .anom-glyph") == "HIGH"
+    page.wait_for_selector(f"[data-anomaly-badge='{q7_site['brownout']}']")  # tracks render later
     badge = page.locator(f"[data-anomaly-badge='{q7_site['brownout']}']")
     assert badge.count() == 1 and "brownouts" in badge.inner_text()
     battery = page.locator(".track").first  # the battery track
