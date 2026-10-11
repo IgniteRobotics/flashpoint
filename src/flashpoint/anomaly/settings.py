@@ -40,6 +40,19 @@ METRIC_INFO = {
     MODEL_METRIC: ("feature vector", ""),
 }
 POWER = "power"  # the subject (and label slot) of a robot's brownouts
+_COUNTED = {"isolated_gaps": "gap", "reboots": "reboot", "brownouts": "brownout"}
+
+
+def format_value(metric: str, value: float) -> str:
+    """A metric value as a student reads it: "66 °C", "820 ms", "1 reboot"."""
+    if metric in _COUNTED:
+        n = round(value)
+        return f"{n} {_COUNTED[metric]}{'' if n == 1 else 's'}"
+    number = f"{value:.0f}" if abs(value) >= 100 or value == round(value) else f"{value:.1f}"
+    unit = METRIC_INFO[metric][1]
+    return f"{number} {unit}".strip()
+
+
 # A spread floor per metric, so a perfectly steady history cannot make every change infinite.
 DEFAULT_FLOORS = {
     "temp_max_c": 1.0,
