@@ -1,5 +1,5 @@
-"""`flashpoint` command line: ingest, rebuild, derive, detect, report, serve, acquire, backup,
-restore, doctor."""
+"""`flashpoint` command line: ingest, rebuild, derive, detect, backtest, report, serve, acquire,
+backup, restore, doctor."""
 
 import argparse
 import logging
@@ -78,6 +78,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     detect.add_argument("--all", action="store_true", help="run even when nothing changed")
     lake_arg(detect)
+
+    backtest = sub.add_parser(
+        "backtest",
+        help="replay detection in match order against config/failure-labels.toml",
+    )
+    lake_arg(backtest)
 
     report = sub.add_parser(
         "report", help="build per-match Replay data (incremental); --static exports a folder"
@@ -208,6 +214,36 @@ def _detect(lake: LakePaths, force: bool) -> int:
         f" {building} unit(s) building baseline;"
         f" scanned through {summary.get('scanned_through') or 'no matches'}"
     )
+    return 0
+
+
+def _backtest(lake: LakePaths) -> int:
+    from flashpoint.anomaly import backtest, detect
+
+    try:
+        result = backtest.backtest(lake, config.config_root())
+    except detect.DetectConfigError as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    if result.message:
+        print(result.message)
+    normal = result.report["sensitivities"]["normal"]
+    counts, fp = normal["counts"], normal["false_positives"]
+    rate = ", ".join(
+        f"{m} {v['per_10_robot_matches']:.2f}"
+        for m, v in fp["by_method"].items()
+        if v["count"] and v["per_10_robot_matches"] is not None
+    )
+    print(
+        f"backtest (normal sensitivity): {sum(counts.values())} label(s): caught"
+        f" {counts['caught']}, missed {counts['missed']}, not evaluable {counts['not evaluable']}"
+    )
+    print(f"  false positives per 10 robot-matches: {rate or 'none'}")
+    for label in normal["labels"]:
+        lead = f", lead {label['lead_matches']} match(es)" if label["result"] == "caught" else ""
+        why = f" ({label['reason']})" if label["reason"] else ""
+        print(f"  {label['match']} {label['unit'] or label['slot']}: {label['result']}{lead}{why}")
+    print(f"report: {result.md_path} (data: {result.json_path.name})")
     return 0
 
 
@@ -484,6 +520,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _derive(lake, force=args.all)
     if args.command == "detect":
         return _detect(lake, force=args.all)
+    if args.command == "backtest":
+        return _backtest(lake)
     if args.command == "report":
         return _report(lake, args)
     if args.command == "serve":

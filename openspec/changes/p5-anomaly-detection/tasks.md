@@ -54,8 +54,8 @@
 
 ## 9. Backtest
 
-- [ ] 9.1 Write failing tests for `flashpoint backtest`: Equals live detection (truncated lake at 20 matches), Triage ignored, Q105 caught with lead time 0, the degradation label missed with "building baseline (3 of 5)", Label outside the lake → not evaluable, empty lake message, byte-identical JSON, FP per method per 10 robot-matches, and the per-sensitivity breakdown. Then implement `anomaly/backtest.py` and the CLI command; verify the tests pass
-- [ ] 9.2 Write the two-season backtest budget test (120 × 23: < 60 s, < 1 GB); verify it passes
+- [x] 9.1 Write failing tests for `flashpoint backtest`: Equals live detection (truncated lake at 20 matches), Triage ignored, Q105 caught with lead time 0, the degradation label missed with "building baseline (3 of 5)", Label outside the lake → not evaluable, empty lake message, byte-identical JSON, FP per method per 10 robot-matches, and the per-sensitivity breakdown. Then implement `anomaly/backtest.py` and the CLI command; verify the tests pass
+- [x] 9.2 Write the two-season backtest budget test (120 × 23: < 60 s, < 1 GB); verify it passes
 - [ ] 9.3 [HUMAN] After adding the remaining 2026 logs to `~/flashpoint-lake`, run `flashpoint detect` and `flashpoint backtest`. Add any further known failures to `config/failure-labels.toml`, and review the per-method false-positive rate. Record the results, and any threshold changes, in design.md
 
 ## 10. Docs, gate, and hand checks

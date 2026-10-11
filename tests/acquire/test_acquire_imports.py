@@ -25,7 +25,8 @@ def test_report_and_serve_imports_stay_deferred() -> None:
         "import sys\n"
         "import flashpoint.cli\n"
         "print([m for m in ('flashpoint.report.build', 'flashpoint.web.server',"
-        " 'flashpoint.views.queries', 'flashpoint.anomaly.detect', 'numpy')"
+        " 'flashpoint.views.queries', 'flashpoint.anomaly.detect',"
+        " 'flashpoint.anomaly.backtest', 'numpy')"
         " if m in sys.modules])\n"
     )
     done = subprocess.run(  # noqa: S603
