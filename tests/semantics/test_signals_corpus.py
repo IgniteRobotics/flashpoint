@@ -27,11 +27,12 @@ def signals(derived_corpus_lake: Any) -> dict[str, Any]:
     return {"sessions": sessions, "rows": rows, "missing": missing}
 
 
-def _declared(robot_id: str) -> set[str]:
+def _declared(robot_id: str, flashpoint: bool = False) -> set[str]:
+    """Declared signal ids, outside the `flashpoint` root (or only under it)."""
     root = config.config_root()
     seasons = load_seasons(root / "seasons")
     robot = next(r for r in load_robots(root / "robots", seasons) if r.robot == robot_id)
-    return {s.id for s in robot.signals}
+    return {s.id for s in robot.signals if (s.root == "flashpoint") == flashpoint}
 
 
 def _by_signal(signals: dict[str, Any], wpilog: str) -> dict[str, tuple[int, int]]:
@@ -52,8 +53,16 @@ def _missing(signals: dict[str, Any], wpilog: str) -> list[tuple[str, str]]:
     ],
 )
 def test_every_declared_signal_matches(signals: dict[str, Any], wpilog: str, robot: str) -> None:
-    assert _missing(signals, wpilog) == []
+    """Signals under the `flashpoint` root are logged by code newer than the corpus."""
+    assert {s for s, _ in _missing(signals, wpilog)} == _declared(robot, flashpoint=True)
     assert set(_by_signal(signals, wpilog)) == _declared(robot)
+
+
+def test_bus_status_missing_before_the_logger(signals: dict[str, Any]) -> None:
+    missing = _missing(signals, "FRC_20260409_215113_GACMP_Q7.wpilog")
+    assert len(missing) == 10
+    assert {reason for _, reason in missing} == {"missing"}
+    assert {s for s, _ in missing} == _declared("2026-comp", flashpoint=True)
 
 
 def test_match_signals_carry_match_time(signals: dict[str, Any]) -> None:

@@ -25,10 +25,12 @@ from flashpoint.report import envelope, markers
 from flashpoint.report.names import download_name
 from flashpoint.report.paths import data_dir, file_stem, state_path
 from flashpoint.report.settings import ReportConfig, load_report_config
+from flashpoint.semantics import can_health
+from flashpoint.semantics.gold import gold_dir
 from flashpoint.semantics.robot_config import RobotConfig, load_robots
 from flashpoint.semantics.silver import silver_dir
 
-REPORT_VERSION = 2
+REPORT_VERSION = 3  # v3: CAN-health markers (reboot, dropout, bus gap) replace sample gaps
 BUDGET_BYTES = 2_000_000
 MIN_BUCKETS = 100
 DUCKDB_MEMORY_LIMIT = "256MB"
@@ -169,6 +171,21 @@ class ReportBuilder:
         )  # fmt: skip
         payload = json.dumps([REPORT_VERSION, config_hash, derived], default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
+
+    def _can_events(self, session: dict[str, Any]) -> list[dict[str, Any]]:
+        path = (
+            gold_dir(self.lake, can_health.EVENTS_TABLE)
+            / f"season={session['season']}"
+            / f"session_id={session['session_id']}"
+        )
+        if not any(path.glob("*.parquet")):
+            return []
+        cursor = self.con.execute(
+            "SELECT * FROM read_parquet(?) ORDER BY hoot_t_us, log_id, kind",
+            [str(path / "*.parquet")],
+        )
+        columns = [d[0] for d in cursor.description]
+        return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
 
     def _load_state(self) -> dict[str, Any]:
         path = state_path(self.lake)
@@ -413,6 +430,7 @@ class ReportBuilder:
         features = self._features(primary)
         temps_window = envelope.window_for(match_start, match_end, self.buckets)
         temps = envelope.temperature_points(self.con, silver, temps_window)
+        can_events = self._can_events(primary)
         found_markers = markers.match_markers(
             self.con,
             silver,
@@ -420,6 +438,12 @@ class ReportBuilder:
             match_end if framed else None,
             temps,
             self.report,
+            can_events,
+            {
+                bus: name
+                for bus in {e["bus"] for e in can_events}
+                if robot and (name := robot.bus_name_for(bus))
+            },
         )
         buckets = self.buckets
         while True:

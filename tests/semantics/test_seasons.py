@@ -145,3 +145,29 @@ def test_non_snake_case_metric_rejected(tmp_path: Path) -> None:
 def test_robot_without_signals_needs_no_season(tmp_path: Path) -> None:
     (robot,) = load_robots(_config(tmp_path, ROBOT, season=None) / "robots")
     assert robot.signals == []
+
+
+def test_flashpoint_root_is_optional(tmp_path: Path) -> None:
+    with_root = SEASON.replace("[roots]\n", '[roots]\nflashpoint = "/Flashpoint/"\n')
+    seasons = load_seasons(_config(tmp_path, ROBOT, with_root) / "seasons")
+    assert seasons[2026].root_names()["flashpoint"] == "/Flashpoint/"
+
+
+def test_unset_flashpoint_root_is_not_a_root(tmp_path: Path) -> None:
+    seasons = load_seasons(_config(tmp_path, ROBOT) / "seasons")
+    assert "flashpoint" not in seasons[2026].root_names()
+
+
+def test_signal_under_undefined_flashpoint_root_rejected(tmp_path: Path) -> None:
+    robot = ROBOT + _signal(id="rio-util", root="flashpoint", entry="CANBus/rio/Utilization")
+    with pytest.raises(ConfigError, match="(?s)rio-util.*flashpoint"):
+        load_robots(_config(tmp_path, robot) / "robots")
+
+
+def test_signal_under_flashpoint_root_maps_full_name(tmp_path: Path) -> None:
+    season = SEASON.replace("[roots]\n", '[roots]\nflashpoint = "/Flashpoint/"\n')
+    robot = ROBOT + _signal(id="rio-util", root="flashpoint", entry="CANBus/rio/Utilization")
+    config = _config(tmp_path, robot, season)
+    seasons = load_seasons(config / "seasons")
+    (loaded,) = load_robots(config / "robots", seasons)
+    assert set(loaded.signal_names(seasons[2026])) == {"/Flashpoint/CANBus/rio/Utilization"}

@@ -22,7 +22,7 @@ from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.query import connect
 from flashpoint.meta.extract import parse_hoot_filename
-from flashpoint.semantics import gold, signals, usage
+from flashpoint.semantics import can_health, gold, signals, usage
 from flashpoint.semantics.alignment import (
     HOOT_ENABLE,
     WPILOG_ENABLE,
@@ -495,6 +495,40 @@ class Deriver:
         }
         return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()
 
+    def _write_can_health(
+        self,
+        session: dict[str, Any],
+        framing: Framing,
+        robot: RobotConfig | None,
+        alignment: str,
+        sources: str,
+        run_id: str,
+    ) -> None:
+        sid = session["session_id"]
+        hoots = [
+            can_health.HootInput(h["log_id"], h["bus"], h["offset_us"])
+            for h in self.ledger.query(
+                "SELECT log_id, bus, offset_us FROM session_hoots WHERE session_id = ?", (sid,)
+            )
+        ]
+        observations = [
+            Observation(**o)
+            for o in self.ledger.query(
+                "SELECT session_id, slot_id, unit_id, source, from_ts_us, to_ts_us"
+                " FROM slot_observations WHERE session_id = ?",
+                (sid,),
+            )
+        ]
+        result = can_health.session_can_health(
+            self.con, self.lake, session, framing, robot, hoots, observations, alignment, sources
+        )
+        for table, schema, rows in (
+            (can_health.TABLE, can_health.SCHEMA, result.slots),
+            (can_health.BUS_TABLE, can_health.BUS_SCHEMA, result.buses),
+            (can_health.EVENTS_TABLE, can_health.EVENTS_SCHEMA, result.events),
+        ):
+            gold.write_session(self.lake, session["season"], sid, rows, run_id, table, schema)
+
     def _session_start(self, wpilog_id: str | None) -> str | None:
         rows = self.ledger.query("SELECT utc_start FROM logs WHERE log_id = ?", (wpilog_id,))
         return rows[0]["utc_start"] if rows else None
@@ -563,6 +597,9 @@ class Deriver:
             )
             gold.write_session(
                 self.lake, session["season"], sid, usage_rows, run_id, usage.TABLE, usage.SCHEMA
+            )
+            self._write_can_health(
+                session, framings[sid], robot, alignment or "none", sources, run_id
             )
             state[sid] = {
                 "session_id": sid,

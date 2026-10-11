@@ -7,3 +7,5 @@ photonvision = "NT:/photonvision/"
 camera_publisher = "NT:/CameraPublisher/"
 preferences = "NT:/Preferences/"
 fms = "NT:/FMSInfo/"
+# Entries Robot-2026 writes straight to the wpilog for Flashpoint (not NetworkTables).
+flashpoint = "/Flashpoint/"

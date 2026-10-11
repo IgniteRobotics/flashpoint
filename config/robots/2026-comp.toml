@@ -202,6 +202,15 @@ can_id = 43
 subsystem = "drivetrain"
 role = "back-right steer encoder"
 
+# --- CAN buses: robot-code name -> the bus its hoots carry -------------------------------
+[[bus]]
+name = "rio"
+hoot = "rio"
+
+[[bus]]
+name = "DriveTrain"
+hoot = "canivore"
+
 # --- NetworkTables signals (roots: config/seasons/2026.toml) ------------------------
 
 # intake
@@ -551,3 +560,85 @@ subsystem = "vision"
 component = "right-camera"
 metric = "target_area"
 
+# can: bus status from CanBusStatusLogger (Robot-2026#108), 10 Hz, written on change.
+# `Status` is skipped: an enum code, not a measure.
+
+[[signal]]
+id = "can-rio-utilization"
+root = "flashpoint"
+entry = "CANBus/rio/Utilization"
+subsystem = "can"
+component = "rio"
+metric = "utilization"
+
+[[signal]]
+id = "can-rio-bus-off-count"
+root = "flashpoint"
+entry = "CANBus/rio/BusOffCount"
+subsystem = "can"
+component = "rio"
+metric = "bus_off_count"
+
+[[signal]]
+id = "can-rio-tx-full-count"
+root = "flashpoint"
+entry = "CANBus/rio/TxFullCount"
+subsystem = "can"
+component = "rio"
+metric = "tx_full_count"
+
+[[signal]]
+id = "can-rio-receive-error-count"
+root = "flashpoint"
+entry = "CANBus/rio/ReceiveErrorCount"
+subsystem = "can"
+component = "rio"
+metric = "receive_error_count"
+
+[[signal]]
+id = "can-rio-transmit-error-count"
+root = "flashpoint"
+entry = "CANBus/rio/TransmitErrorCount"
+subsystem = "can"
+component = "rio"
+metric = "transmit_error_count"
+
+[[signal]]
+id = "can-drivetrain-utilization"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/Utilization"
+subsystem = "can"
+component = "DriveTrain"
+metric = "utilization"
+
+[[signal]]
+id = "can-drivetrain-bus-off-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/BusOffCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "bus_off_count"
+
+[[signal]]
+id = "can-drivetrain-tx-full-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/TxFullCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "tx_full_count"
+
+[[signal]]
+id = "can-drivetrain-receive-error-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/ReceiveErrorCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "receive_error_count"
+
+[[signal]]
+id = "can-drivetrain-transmit-error-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/TransmitErrorCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "transmit_error_count"

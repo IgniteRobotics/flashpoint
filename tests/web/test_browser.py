@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import pytest
 
@@ -23,9 +23,15 @@ from flashpoint.report.export import export_static
 from flashpoint.views.queries import HistoryQueries
 from flashpoint.web.advantagescope import Install, Launcher
 from flashpoint.web.server import FlashpointServer
-from tests.report.lake import MatchLake, quiet_rows
+from tests.report.lake import MatchLake, can_event, quiet_rows
 from tests.report.silver import points
-from tests.views.season import HOSTILE_ROLE, build_replay_season, build_season, match_key
+from tests.views.season import (
+    HOSTILE_ROLE,
+    NO_HOOT_MATCH,
+    build_replay_season,
+    build_season,
+    match_key,
+)
 
 pytestmark = pytest.mark.browser
 playwright = pytest.importorskip("playwright.sync_api")
@@ -94,7 +100,11 @@ def replay_site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, 
     q7 = quiet_rows() + points("hood", "temp_c", [(118.0, 66.0)])
     lake.add_match("2026gacmp_qm7", "q7", q7, wpilog_name=HOSTILE_LOG)
     e10 = [r for r in quiet_rows() if r["slot_id"] != "hood"]
-    lake.add_match("2026gacmp_e10", "e10", e10, start_utc="2026-04-11T19:25:48+00:00")
+    bus_gap = can_event("bus_gap", 60.0, device=None, slot_id=None, unit_id=None,
+                        duration_ms=1400.0)  # fmt: skip
+    lake.add_match(
+        "2026gacmp_e10", "e10", e10, start_utc="2026-04-11T19:25:48+00:00", can_events=[bus_gap]
+    )
     no_temp = [r for r in quiet_rows() if r["metric"] != "temp_c"]
     lake.add_match("2026gacmp_qm8", "q8", no_temp, pro_licensed=0)
     builder = ReportBuilder(lake.write_meta(), config_dir)
@@ -322,6 +332,23 @@ def test_marker_select(page: Any, app: str) -> None:
     page.keyboard.press("Enter")
     assert "Temperature 66 °C" in page.inner_text("#event")
     assert page.inner_text("#scrub-label") == "T+108.00 s"
+    assert marker.get_attribute("aria-pressed") == "true"
+    assert watch.clean(), watch
+
+
+def test_bus_marker_select(page: Any, app: str) -> None:
+    """A whole-bus silence is a marker on the bus, reachable and selectable by keyboard."""
+    watch = _open(page, app, "#view=replay&m=2026gacmp_e10")
+    page.wait_for_selector("[data-marker]")
+    marker = page.locator("[data-marker]").first
+    assert marker.get_attribute("aria-label") == (
+        "WARN bus:rio at T+50.0 s: Whole bus silent for 1.4 s"
+    )
+    marker.focus()
+    page.keyboard.press("Enter")
+    assert "WARN · bus:rio" in page.inner_text("#event")
+    assert "Until T+51.4 s" in page.inner_text("#event")
+    assert page.inner_text("#scrub-label") == "T+50.00 s"
     assert marker.get_attribute("aria-pressed") == "true"
     assert watch.clean(), watch
 
@@ -972,6 +999,29 @@ def test_device_lifeline_order(page: Any, history_site: str) -> None:
     assert events == ["Last seen", "Moved", "First seen"]
     assert "2026-practice" in page.inner_text("#device .lifeline__item:last-child")
     assert "unit=ctre%3AMOVER" in page.url
+    assert watch.clean(), watch
+
+
+def test_worsening_connector(page: Any, history_site: str) -> None:
+    """The isolated-gap metric plots a unit's climb in match order; a missing hoot is a gap,
+    and the climbing match opens in Replay on that slot."""
+    unit = "ctre:INTAKE-EXTENSION-FOLLOWER"
+    watch = _open(page, history_site, "#view=history&metric=isolated_gaps&unit=" + quote(unit))
+    page.wait_for_selector("#device .lifeline")
+    button = page.locator("[data-metric='isolated_gaps']")
+    assert button.get_attribute("aria-pressed") == "true"
+    assert "isolated can gaps" in page.inner_text("#metric-title").lower()
+    chart = page.evaluate("() => FP.historyChart()")
+    values = chart["series"][unit]
+    assert values[:4] == [13, 46, 14, 101]
+    assert values[NO_HOOT_MATCH] is None  # no hoot: a gap, never zero
+    # Select the plotted point of match 4 (index 3 of the x axis, one point per match).
+    over = page.locator("#chart .u-over").first.bounding_box()
+    assert over is not None
+    frac = 3 / (len(chart["matches"]) - 1)
+    page.mouse.click(over["x"] + frac * over["width"], over["y"] + over["height"] / 2)
+    page.wait_for_function(f"() => location.hash.includes('m={match_key(3)}')")
+    assert "track=intake-extension-follower" in page.url
     assert watch.clean(), watch
 
 

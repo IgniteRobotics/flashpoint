@@ -6,6 +6,8 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
+from flashpoint.config import CAN_EVENT_FLOOR_S
+
 
 class ReportConfigError(Exception):
     pass
@@ -19,7 +21,8 @@ class ReportConfig:
     brownout_hold_s: float = 0.02
     sag_v: float = 8.0  # battery proxy below this: WARN
     voltage_danger_v: float = 7.0  # History's min-voltage reference line
-    sample_gap_s: float = 1.0  # a slot silent this long during the match: WARN
+    sample_gap_s: float = 1.0  # a whole CAN bus silent this long during the match: WARN
+    dropout_warn_s: float = 0.25  # one device's isolated CAN frame gap this long: WARN
 
 
 _TABLES = {"thresholds", "advantagescope"}
@@ -45,9 +48,15 @@ def load_report_config(config_dir: Path) -> ReportConfig:
     if unknown:
         raise ReportConfigError(f"{path.name}: unknown keys {unknown}")
     try:
-        return ReportConfig(**{k: float(v) for k, v in values.items()})
+        loaded = ReportConfig(**{k: float(v) for k, v in values.items()})
     except (TypeError, ValueError) as exc:
         raise ReportConfigError(f"{path.name}: {exc}") from exc
+    if loaded.dropout_warn_s < CAN_EVENT_FLOOR_S:
+        raise ReportConfigError(
+            f"{path.name}: dropout_warn_s must be at least {CAN_EVENT_FLOOR_S} s"
+            " (shorter gaps are not kept as events)"
+        )
+    return loaded
 
 
 def advantagescope_path(config_dir: Path) -> Path | None:

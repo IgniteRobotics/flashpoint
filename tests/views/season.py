@@ -9,6 +9,8 @@ slots of `2026-comp`, plus 5 practice sessions on `2026-practice`. Scenarios:
 - legacy: steer-fl is a legacy unit for matches 0-4, then ctre:STEER-FL (inventory)
 - temperatures: flywheel-right reaches 66 C at match 42 (WARN), indexer-main 76 C at 50 (HOT)
 - alignment: match 7 is low confidence
+- CAN health: intake-extension-follower has 13, 46, 14, then 101 isolated gaps over matches
+  0-3 and reboots once in match 3; match 5 has no hoot, so no CAN-health rows
 """
 
 from dataclasses import dataclass
@@ -25,6 +27,8 @@ from flashpoint.semantics.robot_config import RobotConfig, load_robot
 HOSTILE_ROLE = "<img src=x onerror=alert(1)>"
 MATCHES = 60
 PRACTICE = 5
+NO_HOOT_MATCH = 5
+WORSENING = (13, 46, 14, 101)  # isolated gaps of intake-extension-follower, matches 0-3
 START = datetime(2026, 3, 6, 9, 0, tzinfo=UTC)
 
 
@@ -123,11 +127,29 @@ def build_season(root: Path, hostile: bool = False) -> SeasonLake:
             features,
         )
         _write(gold / "unit_usage" / "season=2026" / f"session_id={sid}" / "part-0.parquet", usage)
+        if i != NO_HOOT_MATCH:
+            _write(
+                gold / "can_health" / "season=2026" / f"session_id={sid}" / "part-0.parquet",
+                [_can(f, i) for f in features],
+            )
     lake.meta.mkdir(parents=True, exist_ok=True)
     _write(lake.meta / "sessions.parquet", sessions)
     _write(lake.meta / "logs.parquet", logs)
     _write(lake.meta / "slot_observations.parquet", observations)
     return SeasonLake(lake, [comp, practice], keys)
+
+
+def _can(feature: dict[str, Any], i: int) -> dict[str, Any]:
+    worsening = feature["slot_id"] == "intake-extension-follower" and i < len(WORSENING)
+    gaps = WORSENING[i] if worsening else i % 3
+    return {
+        **{k: feature[k] for k in ("match_key", "session_id", "robot", "phase", "slot_id",
+                                   "unit_id", "subsystem", "role", "alignment", "source_logs")},
+        "bus": "rio", "reboots": int(worsening and i == 3),
+        "reboots_enabled": int(worsening and i == 3),
+        "isolated_gaps": gaps, "missed_per_min": gaps / 2.5, "longest_gap_ms": 20.0 + gaps,
+        "reset_count_logged": True,
+    }  # fmt: skip
 
 
 def _session(sid: str, robot: str, key: str | None) -> dict[str, Any]:

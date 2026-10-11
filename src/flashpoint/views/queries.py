@@ -31,6 +31,7 @@ class Metric:
     label: str
     unit: str
     reference: str | None = None  # name of the ReportConfig limit drawn as a reference line
+    view: str = "features"  # the gold view holding the column: features or can
 
 
 METRICS = {
@@ -39,6 +40,12 @@ METRICS = {
     "supply_wh": Metric("supply_energy_wh", "Supply energy", "Wh"),
     "stall_s": Metric("stall_s", "Stall time", "s"),
     "current_p95": Metric("supply_current_p95", "Supply current P95", "A"),
+    "reboots": Metric("reboots", "Reboots", "count", view="can"),
+    "isolated_gaps": Metric("isolated_gaps", "Isolated CAN gaps", "count", view="can"),
+    "missed_per_min": Metric(
+        "missed_per_min", "CAN frames missed per enabled minute", "/min", view="can"
+    ),
+    "longest_gap_ms": Metric("longest_gap_ms", "Longest isolated CAN gap", "ms", view="can"),
 }
 PHASES = ("match", "auto", "teleop")
 LOW_ALIGNMENT = ("low", "very-low", "none")
@@ -53,7 +60,11 @@ _FEATURE_COLUMNS = {
     "subsystem": "VARCHAR",
     "role": "VARCHAR",
     "alignment": "VARCHAR",
-    **{m.column: "DOUBLE" for m in METRICS.values()},
+    **{m.column: "DOUBLE" for m in METRICS.values() if m.view == "features"},
+}
+_CAN_COLUMNS = {
+    **{k: v for k, v in _FEATURE_COLUMNS.items() if v == "VARCHAR"},
+    **{m.column: "DOUBLE" for m in METRICS.values() if m.view == "can"},
 }
 _USAGE_COLUMNS = {
     "session_id": "VARCHAR",
@@ -185,6 +196,7 @@ class HistoryQueries:
         for name, table, columns in (
             ("features_raw", "match_features", _FEATURE_COLUMNS),
             ("usage_raw", "unit_usage", _USAGE_COLUMNS),
+            ("can_raw", "can_health", _CAN_COLUMNS),
         ):
             glob = gold / table / "season=*" / "session_id=*" / "*.parquet"
             files = sorted((gold / table).glob("season=*/session_id=*/*.parquet"))
@@ -207,7 +219,7 @@ class HistoryQueries:
             FROM meta_sessions s LEFT JOIN meta_logs l ON l.log_id = s.wpilog_id
             """
         )
-        for name, raw in (("features", "features_raw"), ("usage", "usage_raw")):
+        for name, raw in (("features", "features_raw"), ("usage", "usage_raw"), ("can", "can_raw")):
             con.execute(
                 f"""
                 CREATE VIEW {name} AS
@@ -301,7 +313,7 @@ class HistoryQueries:
             f"""
             SELECT {series} AS series, f.match_key, f.t, f.{metric.column} AS value,
                 f.alignment, f.robot, f.slot_id, f.role, f.unit_id
-            FROM features f
+            FROM {metric.view} f
             WHERE {where}
             ORDER BY series, f.t, f.match_key
             """,  # noqa: S608 - series and column come from fixed whitelists
@@ -334,6 +346,16 @@ class HistoryQueries:
             return "WARN"
         return "OK"
 
+    def _temp_max(self, filters: Filters) -> dict[str, float | None]:
+        """Each unit's highest match temperature in range: health is temperature only."""
+        where, params = _where(filters, Filters.names(), "f")
+        rows = self._rows(
+            f"SELECT f.unit_id, max(f.temp_max_c) AS temp_max_c FROM features f"  # noqa: S608
+            f" WHERE {where} GROUP BY f.unit_id",
+            params,
+        )
+        return {r["unit_id"]: r["temp_max_c"] for r in rows}
+
     def devices(self, metric_name: str, filters: Filters) -> list[dict[str, Any]]:
         """One row per unit in range, by unit id."""
         metric = self.metric(metric_name)
@@ -345,16 +367,17 @@ class HistoryQueries:
                 arg_max(f.slot_id, f.t) AS slot_id, arg_max(f.role, f.t) AS role,
                 arg_max(f.robot, f.t) AS robot, arg_max(f.subsystem, f.t) AS subsystem,
                 min(f.t) AS first_t, max(f.t) AS last_t, count(DISTINCT f.match_key) AS matches,
-                max(f.temp_max_c) AS temp_max_c,
                 list(f.{metric.column} ORDER BY f.t, f.match_key) AS spark
-            FROM features f
+            FROM {metric.view} f
             WHERE {where}
             GROUP BY f.unit_id
             ORDER BY f.unit_id
-            """,  # noqa: S608 - column from the metric whitelist
+            """,  # noqa: S608 - view and column from the metric whitelist
             params,
         )
+        temps = self._temp_max(filters)
         for row in rows:
+            row["temp_max_c"] = temps.get(row["unit_id"])
             values = [v for v in row["spark"] if v is not None]
             row["serial"] = serial_of(row["unit_id"])
             row["latest"] = values[-1] if values else None
@@ -377,12 +400,9 @@ class HistoryQueries:
             f" WHERE {uwhere}",
             uparams,
         )[0]["powered_h"]
-        health = self._rows(
-            f"SELECT f.unit_id, max(f.temp_max_c) AS temp_max_c FROM features f"  # noqa: S608
-            f" WHERE {where} GROUP BY f.unit_id",
-            params,
-        )
-        flagged = [r for r in health if self._health(r["temp_max_c"]) in ("WARN", "HOT")]
+        flagged = [
+            u for u, t in self._temp_max(filters).items() if self._health(t) in ("WARN", "HOT")
+        ]
         return {
             "units": counts["units"],
             "matches": counts["matches"],

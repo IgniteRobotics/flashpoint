@@ -82,3 +82,38 @@ def test_select_robot_by_project_and_season(tmp_path: Path) -> None:
     assert select_robot(robots, "Other", "2026") is None
     assert select_robot(robots, None, "2026").robot == "r"  # type: ignore[union-attr]  # season's only robot
     assert select_robot(robots, None, "2024") is None
+
+
+BUSES = """
+[[bus]]
+name = "rio"
+hoot = "rio"
+[[bus]]
+name = "DriveTrain"
+hoot = "canivore"
+"""
+
+
+def test_buses_name_the_hoot_bus(tmp_path: Path) -> None:
+    robot = load_robot(_write(tmp_path, BASE + BUSES))
+    assert robot.bus_name_for("rio") == "rio"
+    assert robot.bus_name_for(CANIVORE) == "DriveTrain"
+    assert load_robot(_write(tmp_path, BASE)).bus_name_for("rio") is None
+
+
+def test_bus_with_specific_canivore_id(tmp_path: Path) -> None:
+    text = BASE + f'[[bus]]\nname = "DriveTrain"\nhoot = "{CANIVORE}"\n'
+    robot = load_robot(_write(tmp_path, text))
+    assert robot.bus_name_for(CANIVORE.lower()) == "DriveTrain"
+    assert robot.bus_name_for("D4F5AE23394C4853202020500E3418FF") is None
+
+
+def test_bus_hoot_validated(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="hoot"):
+        load_robot(_write(tmp_path, BASE + '[[bus]]\nname = "DriveTrain"\nhoot = "can0"\n'))
+
+
+def test_duplicate_bus_names_rejected(tmp_path: Path) -> None:
+    text = BASE + BUSES + '[[bus]]\nname = "DriveTrain"\nhoot = "rio"\n'
+    with pytest.raises(ConfigError, match="DriveTrain"):
+        load_robot(_write(tmp_path, text))

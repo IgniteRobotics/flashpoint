@@ -87,6 +87,14 @@ def test_q7_readout_and_markers(built: Any) -> None:
     }  # fmt: skip
 
 
+def test_q7_logger_gaps_stay_quiet(built: Any) -> None:
+    """Q7's CANivore has dozens of logger gaps; none is charged to a device or long enough to
+    mark the bus."""
+    data = _load(data_dir(built) / "2026gacmp_qm7.js")
+    assert not [m for m in data["markers"] if m["kind"] in {"reboot", "dropout", "bus_gap"}]
+    assert data["version"] == 3
+
+
 _BUILD = """
 import json, resource, sys, time
 from pathlib import Path

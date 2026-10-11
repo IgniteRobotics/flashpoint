@@ -313,3 +313,13 @@ def test_extra_exports_are_bounded_when_owlet_keeps_failing(
 
     assert len(exports) == 1
     assert result.wpilog.stat().st_size == 100
+
+
+def test_health_profile_includes_can_health_signals() -> None:
+    signals = {
+        "TalonFX-2/ResetCount": "a",
+        "TalonFX-2/Timestamp": "b",
+        "TalonFX-2/Fault_BootDuringEnable": "c",
+        "TalonFX-2/ClosedLoopReference": "d",
+    }
+    assert set(hoot.select_signals(signals, "health") or []) == {"a", "b", "c"}
