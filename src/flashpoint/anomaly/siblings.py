@@ -12,9 +12,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from flashpoint.anomaly.baseline import baseline_at
-from flashpoint.anomaly.findings import Finding
+from flashpoint.anomaly.findings import Finding, Flags
 from flashpoint.anomaly.settings import AnomalyConfig
-from flashpoint.anomaly.shapes import Flags
 
 
 @dataclass(frozen=True)
@@ -57,8 +56,10 @@ def sibling_findings(
     order: list[str],
     cfg: AnomalyConfig,
     own_z: dict[str, dict[str, float]],
+    slots: list[str] | None = None,
 ) -> list[Finding]:
-    slots = list(dict.fromkeys(m.slot for m in members))
+    """`slots`: the group's slots in configuration order (default: as the members list them)."""
+    slots = slots or list(dict.fromkeys(m.slot for m in members))
     if len(slots) < 2:
         return []
     at: dict[tuple[str, str], tuple[Member, float]] = {}

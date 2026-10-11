@@ -25,12 +25,12 @@
 
 ## 5. Anomalies table, explanations, and commands
 
-- [ ] 5.1 Write failing tests for severity (z ≥ 6 HIGH, ≥ 4 MED) and confidence (Low, Medium, High), and for explanation text and evidence (Evidence for a step: points 1–23, band, flagged 21–23; SIBLING carries the peer series; text is stored as plain strings). Then implement `anomaly/explain.py`; verify the tests pass
-- [ ] 5.2 Write failing tests for the table writer: atomic write of `gold/anomalies/anomalies.parquet` and `summary.json`, row-identical reruns, the fingerprint skip, a configuration error leaving the previous table in place, and baseline restarts read from triage. Then implement `anomaly/detect.py`; verify the tests pass
-- [ ] 5.3 Write failing CLI tests for `flashpoint detect` (exit codes, summary line with anomalies by severity and building-baseline count, `meta/detect.lock` held → `EXIT_LOCKED`). Then wire it into `cli.py` with deferred heavy imports, and extend the import guard test; verify `pytest tests/test_cli.py tests/acquire/test_acquire_imports.py` passes
-- [ ] 5.4 Write failing tests that derive runs detection when gold changed, and that `run_cycle` runs detect when `restart_pending` is set. Then implement both; verify `pytest tests/semantics tests/acquire` passes
-- [ ] 5.5 Write corpus tests: Q7 gives exactly one HIGH SPEC brownout anomaly on `power` for `2026-comp`; a synthetic Q105 copy gives the HIGH reboot and MED longest-gap anomalies at `2026johnson_qm105`; the full corpus, including truncated and quarantined files, completes with skip counts; a lake without raw gives identical results. Verify `pytest -m corpus` passes
-- [ ] 5.6 Write the detection budget test (synthetic 60 × 23 season, second run: < 5 s, < 400 MB via VmHWM/ru_maxrss as the existing perf tests do), and check that derive + detect on Q7 stays inside the 30 s / 1 GB ingest budget; verify the perf tests pass
+- [x] 5.1 Write failing tests for severity (z ≥ 6 HIGH, ≥ 4 MED) and confidence (Low, Medium, High), and for explanation text and evidence (Evidence for a step: points 1–23, band, flagged 21–23; SIBLING carries the peer series; text is stored as plain strings). Then implement `anomaly/explain.py`; verify the tests pass
+- [x] 5.2 Write failing tests for the table writer: atomic write of `gold/anomalies/anomalies.parquet` and `summary.json`, row-identical reruns, the fingerprint skip, a configuration error leaving the previous table in place, and baseline restarts read from triage. Then implement `anomaly/detect.py`; verify the tests pass
+- [x] 5.3 Write failing CLI tests for `flashpoint detect` (exit codes, summary line with anomalies by severity and building-baseline count, `meta/detect.lock` held → `EXIT_LOCKED`). Then wire it into `cli.py` with deferred heavy imports, and extend the import guard test; verify `pytest tests/test_cli.py tests/acquire/test_acquire_imports.py` passes
+- [x] 5.4 Write failing tests that derive runs detection when gold changed, and that `run_cycle` runs detect when `restart_pending` is set. Then implement both; verify `pytest tests/semantics tests/acquire` passes
+- [x] 5.5 Write corpus tests: Q7 gives exactly one HIGH SPEC brownout anomaly on `power` for `2026-comp`; a synthetic Q105 copy gives the HIGH reboot and MED longest-gap anomalies at `2026johnson_qm105`; the full corpus, including truncated and quarantined files, completes with skip counts; a lake without raw gives identical results. Verify `pytest -m corpus` passes
+- [x] 5.6 Write the detection budget test (synthetic 60 × 23 season, second run: < 5 s, < 400 MB via VmHWM/ru_maxrss as the existing perf tests do), and check that derive + detect on Q7 stays inside the 30 s / 1 GB ingest budget; verify the perf tests pass
 
 ## 6. Optional model detector
 

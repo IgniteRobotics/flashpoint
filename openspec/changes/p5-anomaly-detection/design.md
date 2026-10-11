@@ -136,11 +136,11 @@ Each file is loaded with `tomllib` and strict key validation, following `robot_c
 ### Budgets
 | Run | Time | Peak RSS | Notes |
 |---|---|---|---|
-| `detect`, 1 season (60 × 23), warm brownout cache, model off | < 5 s | < 400 MB | gold read via DuckDB, `threads=2` |
+| `detect`, 1 season (60 × 23), warm brownout cache, model off | < 5 s | < 400 MB | gold read via DuckDB, `threads=2`; measured (5.6): 1.6 s, 222 MB |
 | brownout count, one uncached match | ≤ 0.5 s | one match's silver | Q7 measured (2.4, macOS M-series, 2026-10-11): 0.10 s, +69 MB peak RSS |
 | `backtest`, 2 seasons (120 × 23) | < 60 s | < 1 GB | one detection pass |
 | `GET /api/anomalies` | < 500 ms | — | reads one Parquet file |
-| derive + detect on Q7 (perf test) | stays under the 30 s / 1 GB ingest budget | | detection adds < 1 s |
+| derive + detect on Q7 (perf test) | stays under the 30 s / 1 GB ingest budget | | measured (5.6): ingest + derive + detect 14.6 s, derive child 700 MB |
 
 ## Risks / Trade-offs
 

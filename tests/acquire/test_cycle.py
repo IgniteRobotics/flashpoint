@@ -701,3 +701,50 @@ def test_windows_stop_kills_and_waits_when_ctrl_break_fails(
     proc = _UnsignalableProc()
     cycle._end_process_group(proc)  # type: ignore[arg-type]
     assert proc.calls == ["signal", "kill", "wait"]
+
+
+# --- detection after a baseline restart ---------------------------------------------------------
+
+
+def _detect_marker(marker: Path) -> Callable[[LakePaths], list[str]]:
+    def command(_lake: LakePaths) -> list[str]:
+        return [sys.executable, "-c", f"open({str(marker)!r}, 'w').write('ran')"]
+
+    return command
+
+
+def _restart(lake: LakePaths) -> None:
+    ledger = Ledger(lake.ledger)
+    try:
+        ledger.add_triage({
+            "anomaly_id": "a" * 16, "from_state": "new", "to_state": "dismissed",
+            "outcome": "gearbox change", "restart_baseline": True, "subject": "ctre:CLIMB",
+            "metric": "stator_current_p95", "onset_match_key": "2026gacmp_qm7",
+        })  # fmt: skip
+    finally:
+        ledger.close()
+
+
+def test_pending_restart_runs_detect(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, tmp_path: Path
+) -> None:
+    marker = tmp_path / "detect-ran"
+    media = _media(pulls, lake)
+    quiet = _run(config, lake, pulls, media, _no_robot, detect_command=_detect_marker(marker))
+    assert quiet.detect is None and not marker.exists()
+
+    _restart(lake)
+    pending = _run(config, lake, pulls, media, _no_robot, detect_command=_detect_marker(marker))
+    assert pending.detect is not None and pending.detect.returncode == 0
+    assert marker.read_text() == "ran"
+    assert pending.as_dict()["detect"]["returncode"] == 0
+
+
+def test_pending_restart_skipped_on_a_dry_run(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, tmp_path: Path
+) -> None:
+    marker = tmp_path / "detect-ran"
+    _restart(lake)
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, dry_run=True,
+                  detect_command=_detect_marker(marker))  # fmt: skip
+    assert result.detect is None and not marker.exists()

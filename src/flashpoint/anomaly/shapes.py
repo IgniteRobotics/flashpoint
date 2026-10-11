@@ -15,9 +15,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from flashpoint.anomaly.baseline import Baseline, baseline_at
-
-NEVER = np.iinfo(np.int64).max
+from flashpoint.anomaly.baseline import Baseline, baseline_at, judge
+from flashpoint.anomaly.findings import Finding, Flags
 
 
 @dataclass(frozen=True)
@@ -29,25 +28,6 @@ class Rule:
     persist: int
     drift_z: float
     span: int
-
-
-@dataclass
-class Flags:
-    """Per index: flagged, the signed z that flagged it, and the index it was known at."""
-
-    flagged: np.ndarray
-    score: np.ndarray
-    known_at: np.ndarray
-
-    @classmethod
-    def empty(cls, size: int) -> "Flags":
-        return cls(np.zeros(size, bool), np.zeros(size), np.full(size, NEVER, dtype=np.int64))
-
-    def mark(self, j: int, z: float, at: int) -> None:
-        self.flagged[j] = True
-        if abs(z) > abs(self.score[j]):
-            self.score[j] = z
-        self.known_at[j] = min(self.known_at[j], at)
 
 
 def _run_baseline(x: np.ndarray, s: int, i: int, rule: Rule, start: int) -> Baseline | None:
@@ -97,3 +77,59 @@ def drift_flags(x: np.ndarray, rule: Rule, steps: np.ndarray, start: int = 0) ->
             if sign * z >= rule.drift_z:
                 flags.mark(j, float(z), i)
     return flags
+
+
+def unit_findings(
+    subject: str,
+    metric: str,
+    keys: list[str],
+    values: np.ndarray,
+    normal: Rule,
+    strict: Rule,
+    start_key: str | None = None,
+) -> tuple[Finding, Finding, np.ndarray]:
+    """STEP and DRIFT findings for one unit's metric, plus its z per match (for the sibling
+    pair rule). Missing values are left out of the series and never flagged; the baseline
+    restarts at `start_key` when given."""
+    present = np.flatnonzero(~np.isnan(values))
+    x = values[present]
+    # the first present value at or after the restart match
+    start = int(np.searchsorted(present, keys.index(start_key))) if start_key in keys else 0
+    judged = judge(x, normal.window, normal.floor, normal.min_baseline, start)
+    has_band = judged.n >= normal.min_baseline
+    size = len(keys)
+    out = []
+    for method in ("STEP", "DRIFT"):
+        results = {}
+        for name, rule in (("strict", strict), ("normal", normal)):
+            steps = step_flags(x, rule, start)
+            results[name] = steps if method == "STEP" else drift_flags(
+                x, rule, steps.flagged, start
+            )  # fmt: skip
+        threshold = normal.step_z if method == "STEP" else normal.drift_z
+        lo = np.where(has_band, judged.center - threshold * judged.spread, np.nan)
+        hi = np.where(has_band, judged.center + threshold * judged.spread, np.nan)
+        out.append(
+            Finding(
+                subject=subject, method=method, metric=metric, keys=keys, values=values,
+                strict=_scatter(size, present, results["strict"]),
+                normal=_scatter(size, present, results["normal"]),
+                lo=_full(size, present, lo), hi=_full(size, present, hi),
+                baseline_n=_full(size, present, judged.n.astype(float), 0).astype(np.int64),
+            )
+        )  # fmt: skip
+    return out[0], out[1], _full(size, present, judged.z)
+
+
+def _full(size: int, index: np.ndarray, values: np.ndarray, fill: float = np.nan) -> np.ndarray:
+    out = np.full(size, fill, dtype=float)
+    out[index] = values
+    return out
+
+
+def _scatter(size: int, index: np.ndarray, flags: Flags) -> Flags:
+    out = Flags.empty(size)
+    for k, i in enumerate(index):
+        if flags.flagged[k]:
+            out.mark(int(i), float(flags.score[k]), int(index[flags.known_at[k]]))
+    return out

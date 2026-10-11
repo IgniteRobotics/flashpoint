@@ -1,5 +1,5 @@
-"""`flashpoint` command line: ingest, rebuild, derive, report, serve, acquire, backup, restore,
-doctor."""
+"""`flashpoint` command line: ingest, rebuild, derive, detect, report, serve, acquire, backup,
+restore, doctor."""
 
 import argparse
 import logging
@@ -72,6 +72,12 @@ def _parser() -> argparse.ArgumentParser:
         "--all", action="store_true", help="rebuild every session, not only changed ones"
     )
     lake_arg(derive)
+
+    detect = sub.add_parser(
+        "detect", help="find anomalies in gold (runs after every derive; skips when unchanged)"
+    )
+    detect.add_argument("--all", action="store_true", help="run even when nothing changed")
+    lake_arg(detect)
 
     report = sub.add_parser(
         "report", help="build per-match Replay data (incremental); --static exports a folder"
@@ -166,6 +172,38 @@ def _derive(lake: LakePaths, force: bool) -> int:
     finally:
         deriver.close()
     print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
+    # Detection is part of every derive; it skips itself when gold and config are unchanged.
+    # Its own failure (configuration, lock) is reported but does not fail the derive.
+    _detect(lake, force=False)
+    return 0
+
+
+DETECT_LOCK = "detect.lock"
+
+
+def _detect(lake: LakePaths, force: bool) -> int:
+    from flashpoint.anomaly import detect
+
+    try:
+        with AcquireLock(lake.meta / DETECT_LOCK):
+            result = detect.detect(lake, config.config_root(), force=force)
+    except LockHeldError:
+        print(f"detect is already running on this lake (lock: {lake.meta / DETECT_LOCK})",
+              file=sys.stderr)  # fmt: skip
+        return EXIT_LOCKED
+    except detect.DetectConfigError as exc:
+        print(f"detection configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    summary = result.summary
+    counts = summary.get("counts", {})
+    severities = ", ".join(f"{counts.get(s, 0)} {s}" for s in ("HIGH", "MED", "LOW"))
+    building = summary.get("building_baseline", {}).get("count", 0)
+    state = "detected" if result.ran else "unchanged:"
+    print(
+        f"{state} {summary.get('anomalies', 0)} anomalies ({severities});"
+        f" {building} unit(s) building baseline;"
+        f" scanned through {summary.get('scanned_through') or 'no matches'}"
+    )
     return 0
 
 
@@ -437,6 +475,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _doctor(lake)
     if args.command == "derive":
         return _derive(lake, force=args.all)
+    if args.command == "detect":
+        return _detect(lake, force=args.all)
     if args.command == "report":
         return _report(lake, args)
     if args.command == "serve":

@@ -4,9 +4,8 @@ highest level any match of its episode reached; it shows at every sensitivity.""
 import numpy as np
 
 from flashpoint.anomaly.episodes import Episode
-from flashpoint.anomaly.findings import Finding
+from flashpoint.anomaly.findings import Finding, Flags
 from flashpoint.anomaly.settings import SpecLimits, format_value
-from flashpoint.anomaly.shapes import Flags
 
 SPEC_METRICS = ("temp_max_c", "temp_mean_c", "stall_s", "reboots", "longest_gap_ms", "brownouts")
 LEVELS = ("", "LOW", "MED", "HIGH")

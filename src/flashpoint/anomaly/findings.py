@@ -5,7 +5,26 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from flashpoint.anomaly.shapes import Flags
+NEVER = np.iinfo(np.int64).max
+
+
+@dataclass
+class Flags:
+    """Per index: flagged, the signed z that flagged it, and the index it was known at."""
+
+    flagged: np.ndarray
+    score: np.ndarray
+    known_at: np.ndarray
+
+    @classmethod
+    def empty(cls, size: int) -> "Flags":
+        return cls(np.zeros(size, bool), np.zeros(size), np.full(size, NEVER, dtype=np.int64))
+
+    def mark(self, j: int, z: float, at: int) -> None:
+        self.flagged[j] = True
+        if abs(z) > abs(self.score[j]):
+            self.score[j] = z
+        self.known_at[j] = min(self.known_at[j], at)
 
 
 @dataclass
