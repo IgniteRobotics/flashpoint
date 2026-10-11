@@ -14,9 +14,9 @@
 
 ## 3. Per-unit baselines (DRIFT and STEP)
 
-- [ ] 3.1 Write failing tests for the baseline at index *i*: window, median, 1.4826 × MAD, per-metric floors, `min_baseline` (5), the restart index, and no lookahead (appending values never changes earlier z). Then implement `anomaly/baseline.py`; verify the tests pass
-- [ ] 3.2 Write failing tests from the spec scenarios Sudden step, Slow drift, One bad match, Swapped-in unit, and Building baseline (3 of 5). Then implement the STEP and DRIFT flags with strict and normal thresholds; verify the tests pass
-- [ ] 3.3 Write failing tests for episodes: Episode continues (21, 22, 23, 25 → one anomaly, 4 matches), Episode ends (two ids), stable sha1 ids, and sensitivity tagging (the Strict-only finding scenario keeps one id across sensitivities). Then implement `anomaly/episodes.py`; verify the tests pass
+- [x] 3.1 Write failing tests for the baseline at index *i*: window, median, 1.4826 × MAD, per-metric floors, `min_baseline` (5), the restart index, and no lookahead (appending values never changes earlier z). Then implement `anomaly/baseline.py`; verify the tests pass
+- [x] 3.2 Write failing tests from the spec scenarios Sudden step, Slow drift, One bad match, Swapped-in unit, and Building baseline (3 of 5). Then implement the STEP and DRIFT flags with strict and normal thresholds; verify the tests pass
+- [x] 3.3 Write failing tests for episodes: Episode continues (21, 22, 23, 25 → one anomaly, 4 matches), Episode ends (two ids), stable sha1 ids, and sensitivity tagging (the Strict-only finding scenario keeps one id across sensitivities). Then implement `anomaly/episodes.py`; verify the tests pass
 
 ## 4. SPEC rules and sibling comparison
 
