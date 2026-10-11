@@ -423,6 +423,7 @@ def _sibling_lake(season: SeasonLake, tmp_path: Path) -> AnomalyQueries:
         "flagged_keys": json.dumps([match_key(i) for i in range(40, 45)]), "evidence": "{}",
     })  # fmt: skip
     path = root / "gold" / "anomalies" / "anomalies.parquet"
+    shutil.rmtree(path.parent, ignore_errors=True)  # the shared season may have been detected
     path.parent.mkdir(parents=True)
     pl.DataFrame([row], schema=detect.SCHEMA).write_parquet(path)
     return AnomalyQueries(lake, config.config_root())
