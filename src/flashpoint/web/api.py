@@ -1,5 +1,5 @@
-"""History JSON API: thin, read-only endpoints over `views.queries`, plus Replay's windowed
-detail over one match's silver partition.
+"""History JSON API: thin, read-only endpoints over `views.queries`, Replay's windowed detail
+over one match's silver partition, and the anomalies queue and detail (`views.anomalies`).
 
 Unknown or repeated parameters are refused (400); values bind as query parameters, never text.
 """
@@ -14,6 +14,7 @@ import duckdb
 
 from flashpoint.report import envelope
 from flashpoint.report.paths import data_dir, file_stem
+from flashpoint.views.anomalies import AnomalyQueries, TriageError
 from flashpoint.views.queries import Filters, HistoryQueries, QueryError
 
 Response = tuple[int, dict[str, Any]]
@@ -41,8 +42,15 @@ def _filters(values: dict[str, str]) -> Filters:
 
 
 class Api:
-    def __init__(self, queries: HistoryQueries) -> None:
+    def __init__(
+        self,
+        queries: HistoryQueries,
+        anomalies: AnomalyQueries | None = None,
+        writable: bool = False,
+    ) -> None:
         self.queries = queries
+        self.anomalies = anomalies
+        self.writable = writable  # triage is offered only on a locally bound server
         self.routes: dict[str, Callable[[str, dict[str, list[str]]], dict[str, Any]]] = {
             "filters": self.filters,
             "summary": self.summary,
@@ -51,6 +59,7 @@ class Api:
             "unit": self.unit,
             "match": self.match,
             "envelope": self.envelope,
+            "anomalies": self.anomaly_routes,
         }
 
     def handle(self, path: str, params: dict[str, list[str]]) -> Response:
@@ -63,8 +72,8 @@ class Api:
             return 200, route(unquote(rest), params)
         except ApiError as exc:
             return exc.status, {"error": str(exc)}
-        except QueryError as exc:
-            return 400, {"error": str(exc)}
+        except (QueryError, TriageError) as exc:
+            return getattr(exc, "status", 400), {"error": str(exc)}
 
     def _lake(self) -> dict[str, Any]:
         return {"lake": str(self.queries.lake.root), "empty": self.queries.is_empty()}
@@ -116,6 +125,27 @@ class Api:
             "build_command": f"flashpoint report --match {rest}",
             "sources": self.queries.sources(rest),
         }
+
+    def anomaly_routes(self, rest: str, params: dict[str, list[str]]) -> dict[str, Any]:
+        """/api/anomalies (the queue), /api/anomalies/summary (the badge), /api/anomalies/<id>."""
+        if self.anomalies is None:
+            raise ApiError(404, "anomalies are not available")
+        if rest == "":
+            values = _single(params, {"sens", "tab", "unit", "match"})
+            queue = self.anomalies.queue(
+                values.get("sens") or "normal",
+                values.get("tab") or "open",
+                values.get("unit") or None,
+                values.get("match") or None,
+            )
+            return {**queue, "writable": self.writable}
+        _single(params, set())
+        if rest == "summary":
+            return self.anomalies.badge()
+        detail = self.anomalies.detail(rest)
+        if detail is None:
+            raise ApiError(404, f"no anomaly {rest}")
+        return {**detail, "writable": self.writable}
 
     def _built_payload(self, key: str) -> dict[str, Any]:
         """The built Replay data for `key`; 404 unless it exists and is that match's file."""

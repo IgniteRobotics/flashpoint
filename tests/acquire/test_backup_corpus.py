@@ -1,8 +1,9 @@
 """Restore drill on the golden corpus (spec: lake-backup / Restore drill), with real rclone.
 
 The corpus lake is backed up to a local-directory remote (`:local:<path>`), restored into a new
-lake and rebuilt; the new ledger must list the same files and gold must hold the same match
-features. Skipped where rclone is not installed, except in CI, where that is a failure.
+lake and rebuilt; the new ledger must list the same files and triage, gold must hold the same
+match features, and a resolved anomaly must come back with its id and outcome. Skipped where
+rclone is not installed, except in CI, where that is a failure.
 """
 
 import json
@@ -41,6 +42,7 @@ def restore_drill(
     restored = LakePaths(tmp_path / "restored")
 
     ingest_code = main(["ingest", str(corpus_dir), "--lake", str(original.root)])
+    resolved = _resolve_one(original)
     assert main(["backup", "--lake", str(original.root)]) == 0
     assert main(["restore", "--lake", str(restored.root)]) == 0
     assert main(["rebuild", "--lake", str(restored.root)]) == ingest_code
@@ -52,6 +54,27 @@ def restore_drill(
     gold = _gold(original)
     assert gold.height > 0
     assert_frame_equal(_gold(restored), gold)
+    triage = "SELECT anomaly_id, at, from_state, to_state, outcome, subject FROM anomaly_triage"
+    assert ledger_rows(restored.ledger, triage) == ledger_rows(original.ledger, triage) != []
+    # Survives rebuild: the rebuilt lake's detection produces the same id, still resolved.
+    from flashpoint.views.anomalies import AnomalyQueries
+
+    detail = AnomalyQueries(restored, config_dir).detail(resolved)
+    assert detail is not None and detail["detected"] is True
+    assert (detail["state"], detail["outcome"]) == ("resolved", "battery replaced")
+
+
+def _resolve_one(lake: LakePaths) -> str:
+    """Resolve the corpus's brownout anomaly (Q7) through the triage write path."""
+    from flashpoint.anomaly import detect
+    from flashpoint.views.anomalies import AnomalyQueries
+
+    rows = detect.read_anomalies(lake).filter(pl.col("metric") == "brownouts").to_dicts()
+    anomaly_id = str(rows[0]["id"])
+    queries = AnomalyQueries(lake, flashpoint_config.config_root())
+    queries.triage(anomaly_id, {"to": "investigating"})
+    queries.triage(anomaly_id, {"to": "resolved", "outcome": "battery replaced"})
+    return anomaly_id
 
 
 def test_restore_drill_reproduces_the_ledger_and_gold(

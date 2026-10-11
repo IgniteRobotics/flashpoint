@@ -97,7 +97,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(report)
 
-    serve = sub.add_parser("serve", help="serve Replay and History from the lake (read-only)")
+    serve = sub.add_parser(
+        "serve", help="serve Replay, History and Anomalies (read-only but for triage)"
+    )
     serve.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
     serve.add_argument("--port", type=int, default=8000, help="port (default 8000; 0 = any)")
     serve.add_argument(
@@ -260,6 +262,7 @@ def _report(lake: LakePaths, args: argparse.Namespace) -> int:
 def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     from flashpoint.report.settings import ReportConfigError, load_report_config
     from flashpoint.semantics.robot_config import ConfigError, load_robots
+    from flashpoint.views.anomalies import AnomalyQueries
     from flashpoint.views.queries import HistoryQueries
     from flashpoint.web import advantagescope
     from flashpoint.web.server import FlashpointServer, host_warning, run
@@ -287,6 +290,7 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
             lake,
             HistoryQueries(lake, robots, report_config),
             launcher=advantagescope.Launcher(install, problem, root),
+            anomalies=AnomalyQueries(lake, config.config_root()),
         )
     except (OSError, OverflowError) as exc:
         print(f"cannot listen on {args.host}:{args.port}: {exc}", file=sys.stderr)

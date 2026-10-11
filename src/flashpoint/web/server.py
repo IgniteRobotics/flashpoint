@@ -2,7 +2,9 @@
 
 Routes: `/` and `/static/*` from the package, `/data/*` from `<lake>/report/data/`,
 `/raw/<sha256>/<name>` for ledger hashes only, and `/api/*`. Everything else is 404.
-The one non-GET route is the guarded `POST /api/launch` (ADR-0014); the lake stays read-only.
+The non-GET routes are the guarded `POST /api/launch` (ADR-0014) and
+`POST /api/anomalies/<id>/triage` (ADR-0015). Logs and derived layers stay read-only; the one
+write is an appended triage row in the ledger.
 """
 
 import contextlib
@@ -11,6 +13,7 @@ import json
 import re
 import shutil
 import sys
+from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,8 +24,9 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
 from flashpoint.report.names import safe_name
 from flashpoint.report.paths import data_dir
+from flashpoint.views.anomalies import AnomalyQueries, TriageError
 from flashpoint.views.queries import HistoryQueries
-from flashpoint.web.advantagescope import Launcher
+from flashpoint.web.advantagescope import Launcher, spawn
 from flashpoint.web.advantagescope import refusal as launch_refusal
 from flashpoint.web.api import Api
 
@@ -31,7 +35,8 @@ DEFAULT_HOST, DEFAULT_PORT = "127.0.0.1", 8000
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _DATA_NAME = re.compile(r"^[A-Za-z0-9_.-]+\.js$")
 LAUNCH_PATH = "/api/launch"
-MAX_LAUNCH_BODY = 4096
+TRIAGE_PATH = re.compile(r"^/api/anomalies/([0-9a-f]{16})/triage$")
+MAX_LAUNCH_BODY = 4096  # also the triage body limit
 GUARD_HEADERS = ("Host", "Origin", "X-Flashpoint", "Content-Type")
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -73,13 +78,17 @@ class FlashpointServer(ThreadingHTTPServer):
         queries: HistoryQueries,
         static_dir: Path = STATIC_DIR,
         launcher: Launcher | None = None,
+        anomalies: AnomalyQueries | None = None,
+        spawner: Callable[[list[str]], None] = spawn,
     ) -> None:
         super().__init__(address, Handler)
         self.lake = lake
         self.queries = queries
-        self.api = Api(queries)
+        self.anomalies = anomalies
+        self.api = Api(queries, anomalies, writable=self.bound_local)
         self.static_dir = static_dir
         self.launcher = launcher or Launcher(None)
+        self.spawner = spawner  # starts `flashpoint detect` after a baseline restart
 
     @property
     def bound_local(self) -> bool:
@@ -178,22 +187,28 @@ class Handler(BaseHTTPRequestHandler):
     do_PUT = do_DELETE = do_PATCH = _method_not_allowed  # noqa: N815
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib naming
-        if urlsplit(self.path).path != LAUNCH_PATH:
+        path = urlsplit(self.path).path
+        triage = TRIAGE_PATH.match(path)
+        if path != LAUNCH_PATH and (triage is None or self.server.anomalies is None):
             self._method_not_allowed()
             return
         with contextlib.suppress(BrokenPipeError, ConnectionResetError):
-            self._launch()
+            if triage is not None:
+                self._triage(triage.group(1))
+            else:
+                self._launch()
 
-    def _launch(self) -> None:
+    def _guarded_body(self, marker: str, refused: dict[str, Any]) -> tuple[bool, Any]:
+        """The JSON body of a guarded write, or (False, None) after sending the refusal."""
         server = self.server
         # Header names are case-insensitive; look each one up through the message.
         headers = {name: self.headers.get(name, "") for name in GUARD_HEADERS}
         reason = launch_refusal(
-            server.bound_local, server.server_address[1], self.client_address[0], headers
+            server.bound_local, server.server_address[1], self.client_address[0], headers, marker
         )
         if reason is not None:
-            self._send_json(HTTPStatus.FORBIDDEN, {"started": False, "reason": reason})
-            return
+            self._send_json(HTTPStatus.FORBIDDEN, {**refused, "reason": reason})
+            return False, None
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -201,13 +216,39 @@ class Handler(BaseHTTPRequestHandler):
         if length < 0 or length > MAX_LAUNCH_BODY:
             self.close_connection = True
             self._send_json(
-                HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"started": False, "reason": "body too large"}
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {**refused, "reason": "body too large"}
             )
+            return False, None
+        try:
+            return True, json.loads(self.rfile.read(length) or b"null")
+        except (ValueError, UnicodeDecodeError):
+            self._send_json(HTTPStatus.BAD_REQUEST, {**refused, "reason": "invalid JSON"})
+            return False, None
+
+    def _triage(self, anomaly_id: str) -> None:
+        server = self.server
+        assert server.anomalies is not None
+        ok, body = self._guarded_body("triage", {"saved": False})
+        if not ok:
             return
         try:
-            body = json.loads(self.rfile.read(length) or b"null")
-        except (ValueError, UnicodeDecodeError):
-            self._send_json(HTTPStatus.BAD_REQUEST, {"started": False, "reason": "invalid JSON"})
+            result = server.anomalies.triage(anomaly_id, body)
+        except TriageError as exc:
+            self._send_json(exc.status, {"saved": False, "reason": str(exc)})
+            return
+        if result["restart_baseline"]:
+            # Detection applies the restart; the queue says it is pending until then.
+            detect = [sys.executable, "-m", "flashpoint", "detect", "--lake", str(server.lake.root)]
+            try:
+                server.spawner(detect)
+            except OSError as exc:
+                result["spawn_error"] = f"could not start detection: {exc}"
+        self._send_json(HTTPStatus.OK, {"saved": True, **result})
+
+    def _launch(self) -> None:
+        server = self.server
+        ok, body = self._guarded_body("launch", {"started": False})
+        if not ok:
             return
         if not isinstance(body, dict):
             self._send_json(

@@ -54,7 +54,7 @@ SCHEMA: dict[str, pl.DataType] = {
     "title": pl.String(), "why": pl.String(), "actual_value": pl.Float64(),
     "confidence": pl.String(), "baseline_n": pl.Int64(), "max_z": pl.Float64(),
     "peer_name": pl.String(), "flagged_keys": pl.String(), "low_alignment": pl.Boolean(),
-    "evidence": pl.String(),
+    "evidence": pl.String(), "last_start": pl.String(),
 }  # fmt: skip
 
 
@@ -201,6 +201,8 @@ def compute(
                       low_alignment=frozenset(low))  # fmt: skip
         finding = spec_finding(f"{POWER}:{robot_name}", "brownouts", keys, values, cfg.spec)
         rows += _describe([finding], ctx)
+    for row in rows:
+        row["last_start"] = frame.starts.get(row["last_match_key"])
     rows.sort(key=lambda r: r["id"])
     return Computed(rows, frame, sorted(building, key=lambda b: b["unit"]), restart_seq, notes)
 
