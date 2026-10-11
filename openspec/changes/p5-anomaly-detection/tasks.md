@@ -7,10 +7,10 @@
 
 ## 2. Detection inputs
 
-- [ ] 2.1 Write a synthetic gold builder in `tests/anomaly/gold_builder.py` (per-unit series → `match_features`, `can_health`, and `unit_usage` partitions, with options for swaps, missing rows, and low alignment); verify a round-trip test reads back the series in match order
-- [ ] 2.2 Write failing tests for the input frame: whole-match rows only, a `match_features` × `can_health` join, ordering by `session_start` then `match_key`, missing values kept as null per metric, and skipped rows counted by reason. Then implement `anomaly/frame.py` with DuckDB (`threads=2`, `con.execute` with params); verify the tests pass
-- [ ] 2.3 Write failing tests for the brownout cache: the count equals Replay's brownout FAULT markers for Q7; only matches whose silver fingerprint or thresholds changed are recounted; one match's silver at a time. Then implement `anomaly/power.py` reusing `report.markers.power_markers`; verify the tests pass, including the corpus Q7 test
-- [ ] 2.4 Measure the uncached brownout count on Q7 (time and peak RSS) and record it in design.md Budgets; verify it is ≤ 0.5 s, or record the deviation with its cause
+- [x] 2.1 Write a synthetic gold builder in `tests/anomaly/gold_builder.py` (per-unit series → `match_features`, `can_health`, and `unit_usage` partitions, with options for swaps, missing rows, and low alignment); verify a round-trip test reads back the series in match order
+- [x] 2.2 Write failing tests for the input frame: whole-match rows only, a `match_features` × `can_health` join, ordering by `session_start` then `match_key`, missing values kept as null per metric, and skipped rows counted by reason. Then implement `anomaly/frame.py` with DuckDB (`threads=2`, `con.execute` with params); verify the tests pass
+- [x] 2.3 Write failing tests for the brownout cache: the count equals Replay's brownout FAULT markers for Q7; only matches whose silver fingerprint or thresholds changed are recounted; one match's silver at a time. Then implement `anomaly/power.py` reusing `report.markers.power_markers`; verify the tests pass, including the corpus Q7 test
+- [x] 2.4 Measure the uncached brownout count on Q7 (time and peak RSS) and record it in design.md Budgets; verify it is ≤ 0.5 s, or record the deviation with its cause
 
 ## 3. Per-unit baselines (DRIFT and STEP)
 

@@ -69,7 +69,9 @@ The SPEC temperature limits default to the `report.toml` marker thresholds, but 
 ### D5. Brownout cache from the Replay marker logic
 Detection reuses `report.markers.power_markers` to count brownout FAULT intervals per match. Results go to `gold/anomalies/power_counts.parquet`, one row per match_key. The row holds the count, the lowest proxy voltage, the silver partition fingerprint (mtime and size), and a hash of the brownout thresholds. Only matches whose fingerprint or thresholds changed are recomputed, one match's silver at a time.
 
-Measured cost on Q7 is to be confirmed in task 2.4. The budget is ≤ 0.5 s per match.
+Measured cost on Q7 (task 2.4): 0.10 s and +69 MB peak RSS uncached. The budget is ≤ 0.5 s per match.
+
+The span and primary session come from `report.build.match_span`, extracted from Replay's match payload so both use one code path (same primary session, same window).
 
 - *Alternative:* a new gold `match_power` table written by derive (`DERIVE_VERSION` 5). Rejected: derive would then depend on `report.toml` thresholds, every lake would need a full re-derive, and two copies of the brownout rule could disagree.
 
@@ -135,7 +137,7 @@ Each file is loaded with `tomllib` and strict key validation, following `robot_c
 | Run | Time | Peak RSS | Notes |
 |---|---|---|---|
 | `detect`, 1 season (60 × 23), warm brownout cache, model off | < 5 s | < 400 MB | gold read via DuckDB, `threads=2` |
-| brownout count, one uncached match | ≤ 0.5 s | one match's silver | Q7 measured in 2.4 |
+| brownout count, one uncached match | ≤ 0.5 s | one match's silver | Q7 measured (2.4, macOS M-series, 2026-10-11): 0.10 s, +69 MB peak RSS |
 | `backtest`, 2 seasons (120 × 23) | < 60 s | < 1 GB | one detection pass |
 | `GET /api/anomalies` | < 500 ms | — | reads one Parquet file |
 | derive + detect on Q7 (perf test) | stays under the 30 s / 1 GB ingest budget | | detection adds < 1 s |
