@@ -274,7 +274,7 @@ flashpoint/
 | D7 | Lifetime UI | **History view in one local app** (`flashpoint serve`, DuckDB API; ADR-0013 supersedes the marimo plan) | marimo (can't render the canvas shell); Grafana + DuckDB plugin (glibc server, unsigned plugin); Streamlit |
 | D8 | Deep dive | **Link to AdvantageScope**: a guarded one-click launch on the machine running `serve` (ADR-0014), otherwise download the raw logs | Rebuild graphs (don't) |
 | D9 | Deploy | **`pipx install` + per-user services** (systemd user unit, Windows scheduled task; container deferred) | Three-service compose (today) |
-| D10 | Anomaly v1 | **Rules + robust z-score vs per-unit history + DCMotor residual** | Jump to ML (not enough data in season 1) |
+| D10 | Anomaly v1 (**decided**, P5) | **Rules (SPEC) + robust z-score vs per-unit history (DRIFT, STEP) + sibling comparison, residual as a baseline metric; optional isolation forest off by default** (ADR-0010, accepted with amendments; triage writes ADR-0015) | Jump to ML (not enough data in season 1) |
 | D11 | Device identity (**decided**) | **Serial-number units from the robot-logged CAN inventory, plus config-declared legacy epochs** | CAN-ID only (swaps corrupt baselines); manual maintenance log only |
 
 ## 7. Shrinking the per-match payload (fix for #37)

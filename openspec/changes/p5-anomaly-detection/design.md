@@ -162,3 +162,22 @@ Each file is loaded with `tomllib` and strict key validation, following `robot_c
 
 - Default stall-time and residual floors are expected to move after the first real backtest (task 9.2). That changes configuration values only.
 - Whether the model detector earns its keep. Decide after a season of backtests, with no structural impact.
+
+## Implementation notes (2026-10-11)
+
+Decisions and deviations found while implementing; the specs are unchanged unless stated.
+
+- **STEP needs a jump; a STEP suppresses DRIFT (refines D2).** With the D2 rules as written, a slow drift becomes a STEP once 3 values pass `step_z`, and after a real step the new level reads as a DRIFT while it enters the baseline window. That breaks the Sudden step and Slow drift scenarios. So a STEP also needs its run's median to be `step_z` spreads from the `persist` values just before the run. A DRIFT is suppressed while any STEP flag (at the same sensitivity) sits in its baseline window or run. Both are in ADR-0010's amendments.
+- **Strict and normal flags are unioned.** Episodes come from the union of the strict and normal per-match flags, so the strict onset is kept even where suppression differs between sensitivities. The sensitivity tag is as D3 describes.
+- **Restarts keep earlier judgements.** Matches before a restart point are still judged against their full history. Only matches from the onset onward use the restarted baseline, so older anomalies on that metric stay. The restarted anomaly itself becomes "no longer detected", and its triage is kept.
+- **Sibling groups are left out of the derive and Replay fingerprints.** Declaring them does not re-derive or rebuild anything.
+- **One span for Replay and brownouts.** `report.build.match_span` was extracted from Replay's match payload. Detection's brownout count uses the same primary session and window, so the counts always agree. Q7 has 6 brownouts.
+- **Restart checks are stdlib-only.** `anomaly/restarts.py` uses only sqlite3 and json, so the acquire watch can check `restart_pending` every cycle without loading polars or numpy. Exit 3 (lock held) is not an error for the cycle.
+- **SPEC confidence** uses the subject's prior match count, capped at `window`, as its baseline size. A one-match SPEC finding is Low, as the spec says.
+- **Reopen returns to `new`.**
+- **Module layout.** The anomaly read and write service is `views/anomalies.py`, not `views/queries.py`. `HistoryQueries` takes an optional `AnomalyQueries` for health. A served app always has the service (`FlashpointServer` defaults it), so the Anomalies view and its badge never 404.
+- **Static snapshot** goes to `OUT/data/anomalies-snapshot.js` as `FP.anomalySnapshot = {...}`, next to the match data.
+- **Resolved anomaly drops its badge (corpus).** Real Q7 also has three MED SPEC stall anomalies on the intake (the stalls that coincide with its brownouts). Resolving the brownout removes its badge, and Q7's glyph drops from HIGH to MED rather than disappearing. The browser test asserts that.
+- **No lookahead (spec scenario).** An anomaly still running at the cutoff keeps its id and onset; one finished by the cutoff is identical. The test checks both directions.
+- **Backtest "caught".** An anomaly about the label's unit or slot (and metric, when given) counts when it was detected at or before the label's match and has a flagged match within the 5 before it. Lead time is the label's match index minus the detection match index, in that robot's match order. A date label resolves to the robot's last match on or before that date.
+- **The corpus has gold for one match (Q7).** Its anomalies are 1 HIGH SPEC brownout (6 brownouts) and 3 MED SPEC intake stalls. Josh's Johnson lake gives the HIGH Q105 roller reboot, the MED 820 ms gap, stall MEDs, and brownouts in all four matches (one HIGH episode).

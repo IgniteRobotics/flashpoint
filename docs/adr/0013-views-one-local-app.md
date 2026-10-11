@@ -2,6 +2,7 @@
 
 - Status: Proposed
 - Date: 2026-10-05
+- Amended by: [0014](0014-guarded-advantagescope-launch.md) (the AdvantageScope launch) and [0015](0015-anomaly-triage-writes.md) (triage writes: the app is read-only except for appended triage rows)
 - Supersedes: [0007](0007-lifetime-ui-marimo.md)
 - Refs: openspec change `p4-views-and-reports` (design.md), Josh's canvas "Flashpoint UI Prototypes" (2026-10-05), D6, D7, D8; pitfalls #35, #37, #56, #58, #59
 

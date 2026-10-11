@@ -211,6 +211,24 @@ Two improvements to the Replay board:
 - **Deferred:** chain-order localisation, to the 2027 robot.
 
 ### P5 — Anomaly detection (L)
+
+> **Status: implemented 2026-10-11** (change `p5-anomaly-detection`, PR into `rewrite`, stacked on the can-health archive PR #40). Field check and backtest on the full 2026 logs are open ([HUMAN] 9.3, 10.4).
+>
+> - **What shipped:**
+>   - `flashpoint detect` (also the last step of every derive; skipped when nothing changed) writes `gold/anomalies/` with SPEC limits, DRIFT and STEP against each unit's own median/MAD baseline, and SIBLING comparison within the robot config's `[[siblings]]` groups. MODEL (isolation forest) is optional and off by default (`ml` extra).
+>   - Every anomaly carries actual vs expected, confidence, a per-match evidence series with its expected band, a "why", causes from `config/anomaly-causes.toml`, and "seen this before".
+>   - The Anomalies view (queue, sensitivity, evidence, triage), a navigation badge, Replay badges (a snapshot in static exports), and anomaly-aware History health.
+>   - Triage is stored append-only in the ledger: local only, backed up, and kept across rebuilds (ADR-0015).
+>   - `flashpoint backtest` scores `config/failure-labels.toml` (seeded with Johnson Q105 and GACMP Q7): caught or missed, lead time, and false positives per method per 10 robot-matches.
+> - **Measured:** detect on a 60 × 23 season takes 1.6 s and 222 MB; the backtest on two seasons takes 3.2 s and 256 MB; an uncached Q7 brownout count takes 0.10 s.
+> - **On real data:** the Johnson lake flags the Q105 roller reboot (HIGH) and its 820 ms gap (MED), intake stalls, and brownouts in all four matches. The Q105 extension-follower degradation is missed until more 2026 logs give it a baseline (3 of 5 matches).
+> - **Deferred:**
+>   - the Slack/Discord webhook, until the backtest shows a tolerable false-positive rate;
+>   - NOISE (idle-current jitter), which needs a commanded-off feature in gold;
+>   - STUMPY discords and River online learners;
+>   - spin-test, battery-resistance, and current-limit-count metrics (no data yet);
+>   - a Driver Station log reader (brownouts come from the battery proxy).
+
 - **Tier 1, rules:**
   - temperature thresholds (port 55 °C avg / 65 °C max);
   - stall seconds (high current at near-zero velocity);
