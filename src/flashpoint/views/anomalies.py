@@ -192,6 +192,19 @@ class AnomalyQueries:
             "restart_pending": restarts.restart_pending(self.lake),
         }
 
+    def open_units(self) -> dict[str, dict[str, Any]]:
+        """Each unit's open anomalies at normal sensitivity: their count and worst severity."""
+        out: dict[str, dict[str, Any]] = {}
+        for i in self.items():
+            if not (i["detected"] and i["subject_kind"] == "unit" and TAB_OF[i["state"]] == "open"
+                    and shown_at(i["sensitivity"], "normal")):  # fmt: skip
+                continue
+            info = out.setdefault(i["subject_key"], {"count": 0, "severity": i["severity"]})
+            info["count"] += 1
+            if SEVERITY_RANK[i["severity"]] < SEVERITY_RANK[info["severity"]]:
+                info["severity"] = i["severity"]
+        return out
+
     def _causes(self, row: dict[str, Any]) -> dict[str, Any]:
         try:
             found = causes_for(

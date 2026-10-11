@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
+from flashpoint.config import config_root
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
 from flashpoint.report.names import safe_name
@@ -84,8 +85,11 @@ class FlashpointServer(ThreadingHTTPServer):
         super().__init__(address, Handler)
         self.lake = lake
         self.queries = queries
-        self.anomalies = anomalies
-        self.api = Api(queries, anomalies, writable=self.bound_local)
+        # Served mode always has the Anomalies view (an empty queue before detection runs).
+        self.anomalies = anomalies or AnomalyQueries(lake, config_root())
+        if queries.anomalies is None:
+            queries.anomalies = self.anomalies  # History health counts open anomalies
+        self.api = Api(queries, self.anomalies, writable=self.bound_local)
         self.static_dir = static_dir
         self.launcher = launcher or Launcher(None)
         self.spawner = spawner  # starts `flashpoint detect` after a baseline restart
@@ -189,7 +193,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - stdlib naming
         path = urlsplit(self.path).path
         triage = TRIAGE_PATH.match(path)
-        if path != LAUNCH_PATH and (triage is None or self.server.anomalies is None):
+        if path != LAUNCH_PATH and triage is None:
             self._method_not_allowed()
             return
         with contextlib.suppress(BrokenPipeError, ConnectionResetError):
@@ -227,7 +231,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def _triage(self, anomaly_id: str) -> None:
         server = self.server
-        assert server.anomalies is not None
         ok, body = self._guarded_body("triage", {"saved": False})
         if not ok:
             return

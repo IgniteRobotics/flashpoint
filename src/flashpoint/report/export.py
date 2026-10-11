@@ -1,17 +1,20 @@
 """`flashpoint report --static OUT`: Replay as a folder that opens from file:// (no server).
 
 OUT/index.html, OUT/static/ (the shell and Replay, without views that need the query API),
-OUT/data/ (the built match data), and OUT/raw/ (each match's raw logs, hard-linked when on the
-same filesystem, copied otherwise; left out with --no-raw).
+OUT/data/ (the built match data, plus `anomalies-snapshot.js`: the open anomalies flagged in the
+exported matches, read-only, with the time it was taken), and OUT/raw/ (each match's raw logs,
+hard-linked when on the same filesystem, copied otherwise; left out with --no-raw).
 """
 
 import json
 import os
 import shutil
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from flashpoint.config import config_root
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
 from flashpoint.report.paths import data_dir
@@ -19,6 +22,9 @@ from flashpoint.report.paths import data_dir
 STATIC_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
 MARKER = ".flashpoint-export"
 NEEDS_API = "data-needs-api"  # index.html marks the <script> of each view that needs the API
+SNAPSHOT = "anomalies-snapshot.js"
+SNAPSHOT_FIELDS = ("id", "subject", "robot", "slot_id", "method", "metric", "title", "severity",
+                   "sensitivity")  # fmt: skip
 
 
 class ExportError(Exception):
@@ -85,8 +91,25 @@ def _link_or_copy(source: Path, target: Path) -> bool:
         return False
 
 
+def anomaly_snapshot(lake: LakePaths, keys: set[str], config_dir: Path) -> dict[str, Any]:
+    """Open anomalies flagged in the exported matches (triage as of now), for static badges."""
+    from flashpoint.views.anomalies import TAB_OF, AnomalyQueries
+
+    items = []
+    for item in AnomalyQueries(lake, config_dir).items():
+        flagged = [k for k in item["flagged_keys"] if k in keys]
+        if item["detected"] and TAB_OF[item["state"]] == "open" and flagged:
+            items.append({**{k: item[k] for k in SNAPSHOT_FIELDS}, "flagged_keys": flagged})
+    items.sort(key=lambda i: i["id"])
+    return {"taken_at": datetime.now(UTC).isoformat(timespec="seconds"), "items": items}
+
+
 def export_static(
-    lake: LakePaths, out: Path, include_raw: bool = True, static_dir: Path = STATIC_DIR
+    lake: LakePaths,
+    out: Path,
+    include_raw: bool = True,
+    static_dir: Path = STATIC_DIR,
+    config_dir: Path | None = None,
 ) -> ExportResult:
     built = data_dir(lake)
     if not (built / "matches.js").is_file():
@@ -95,6 +118,12 @@ def export_static(
     _static(out, static_dir, include_raw)
     shutil.copytree(built, out / "data", ignore=shutil.ignore_patterns(".*"))
     index = _payload(built / "matches.js")
+    snapshot = anomaly_snapshot(lake, {e["key"] for e in index["matches"]},
+                                config_dir or config_root())  # fmt: skip
+    (out / "data" / SNAPSHOT).write_text(
+        "FP.anomalySnapshot = " + json.dumps(snapshot).replace("</", "<\\/") + ";\n",
+        encoding="utf-8",
+    )
     raw_files = linked = 0
     if include_raw:
         (out / "raw").mkdir()

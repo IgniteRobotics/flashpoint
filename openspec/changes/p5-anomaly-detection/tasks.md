@@ -45,12 +45,12 @@
 
 ## 8. Views
 
-- [ ] 8.1 Write failing Playwright tests for the Anomalies view: Queue from the corpus, Sensitivity, Nothing open (with building-baseline count), Link keeps the selection, Evidence point opens Replay, and the subject opening History on the metric. Then build `web/static/views/anomalies.js` to the canvas board with shell tokens and uPlot; verify the browser tests pass
-- [ ] 8.2 Write failing Playwright tests for the triage UI: Investigate then resolve, Close without a reason, Hostile outcome text, restart-baseline pending notice, actions absent when shared or static, and keyboard reachability with a visible focus outline. Then implement; verify the browser tests pass
-- [ ] 8.3 Write failing Playwright tests for the navigation badge (count, HIGH emphasis, refresh after triage) and the absence of Anomalies in static mode. Then implement the shell badge slot; verify the browser tests pass
-- [ ] 8.4 Write failing Playwright tests for Replay badges: Served badge, Resolved anomaly drops its badge (data files unchanged), the battery track for `power`, and Detection does not rebuild Replay. Then implement in `replay.js`; verify the browser tests pass
-- [ ] 8.5 Write failing tests for the static snapshot: `report --static` writes `anomalies-snapshot.js` filtered to the exported matches with `taken_at`; offline open shows badges without links; no external host in any file. Then implement in `report/export.py`; verify the report and browser tests pass
-- [ ] 8.6 Write failing Playwright and query tests for History: Health from an anomaly (HOT from a HIGH SIBLING), Closed anomalies do not count, and the row link to Anomalies filtered to the unit. Then implement; verify the tests pass and the Season-scale refresh test still runs in < 2 s
+- [x] 8.1 Write failing Playwright tests for the Anomalies view: Queue from the corpus, Sensitivity, Nothing open (with building-baseline count), Link keeps the selection, Evidence point opens Replay, and the subject opening History on the metric. Then build `web/static/views/anomalies.js` to the canvas board with shell tokens and uPlot; verify the browser tests pass
+- [x] 8.2 Write failing Playwright tests for the triage UI: Investigate then resolve, Close without a reason, Hostile outcome text, restart-baseline pending notice, actions absent when shared or static, and keyboard reachability with a visible focus outline. Then implement; verify the browser tests pass
+- [x] 8.3 Write failing Playwright tests for the navigation badge (count, HIGH emphasis, refresh after triage) and the absence of Anomalies in static mode. Then implement the shell badge slot; verify the browser tests pass
+- [x] 8.4 Write failing Playwright tests for Replay badges: Served badge, Resolved anomaly drops its badge (data files unchanged), the battery track for `power`, and Detection does not rebuild Replay. Then implement in `replay.js`; verify the browser tests pass
+- [x] 8.5 Write failing tests for the static snapshot: `report --static` writes `anomalies-snapshot.js` filtered to the exported matches with `taken_at`; offline open shows badges without links; no external host in any file. Then implement in `report/export.py`; verify the report and browser tests pass
+- [x] 8.6 Write failing Playwright and query tests for History: Health from an anomaly (HOT from a HIGH SIBLING), Closed anomalies do not count, and the row link to Anomalies filtered to the unit. Then implement; verify the tests pass and the Season-scale refresh test still runs in < 2 s
 
 ## 9. Backtest
 

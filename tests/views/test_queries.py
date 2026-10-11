@@ -2,10 +2,13 @@ import hashlib
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from flashpoint import config
 from flashpoint.lake.paths import LakePaths
+from flashpoint.views.anomalies import AnomalyQueries
 from flashpoint.views.queries import Filters, HistoryQueries, QueryError
 from tests.views.season import (
     HOSTILE_ROLE,
@@ -330,7 +333,11 @@ def test_connection_is_lazy(season: SeasonLake) -> None:
 
 @pytest.mark.perf
 def test_season_queries_under_two_seconds(season: SeasonLake) -> None:
-    queries = HistoryQueries(season.lake, season.robots)
+    from flashpoint.anomaly import detect
+
+    detect.detect(season.lake, config.config_root())  # health then counts open anomalies too
+    anomalies = AnomalyQueries(season.lake, config.config_root())
+    queries = HistoryQueries(season.lake, season.robots, anomalies=anomalies)
     filters = Filters(subsystem="drivetrain")
     calls: dict[str, Callable[[], object]] = {
         "filters": lambda: queries.filter_values(),
@@ -389,3 +396,62 @@ def test_device_table_for_a_can_metric_keeps_temperature_health(queries: History
     assert rows["ctre:INTAKE-EXTENSION-FOLLOWER"]["spark"][:4] == [float(n) for n in WORSENING]
     assert rows["ctre:FLYWHEEL-RIGHT"]["health"] == "WARN"
     assert rows["ctre:INDEXER-MAIN"]["health"] == "HOT"
+
+
+# --- health from open anomalies (spec: lifetime-trends / Device table and summary tiles) --------
+
+
+def _sibling_lake(season: SeasonLake, tmp_path: Path) -> AnomalyQueries:
+    """The season's lake (copied) with one open HIGH SIBLING anomaly on drive-bl, a unit under
+    every temperature limit."""
+    import json
+    import shutil
+
+    import polars as pl
+
+    from flashpoint.anomaly import detect
+
+    root = tmp_path / "lake"
+    shutil.copytree(season.lake.root, root)
+    lake = LakePaths(root)
+    row: dict[str, Any] = dict.fromkeys(detect.SCHEMA)
+    row.update({
+        "id": "5" * 16, "subject": "ctre:DRIVE-BL", "subject_key": "ctre:DRIVE-BL",
+        "subject_kind": "unit", "robot": "2026-comp", "slot_id": "drive-bl", "method": "SIBLING",
+        "metric": "temp_max_c", "severity": "HIGH", "sensitivity": "relaxed", "title": "hot",
+        "onset_match_key": match_key(40), "last_match_key": match_key(44),
+        "flagged_keys": json.dumps([match_key(i) for i in range(40, 45)]), "evidence": "{}",
+    })  # fmt: skip
+    path = root / "gold" / "anomalies" / "anomalies.parquet"
+    path.parent.mkdir(parents=True)
+    pl.DataFrame([row], schema=detect.SCHEMA).write_parquet(path)
+    return AnomalyQueries(lake, config.config_root())
+
+
+def test_health_from_an_anomaly(season: SeasonLake, tmp_path: Path) -> None:
+    anomalies = _sibling_lake(season, tmp_path)
+    queries = HistoryQueries(anomalies.lake, season.robots, anomalies=anomalies)
+    try:
+        rows = {r["unit_id"]: r for r in queries.devices("peak_temp", Filters())}
+        assert rows["ctre:DRIVE-BL"]["health"] == "HOT"
+        assert rows["ctre:DRIVE-BL"]["anomalies"] == {"count": 1, "severity": "HIGH"}
+        assert (
+            rows["ctre:DRIVE-FL"]["anomalies"] is None and rows["ctre:DRIVE-FL"]["health"] == "OK"
+        )
+        assert queries.summary(Filters())["units_warn_hot"] == 3  # the two hot units, plus it
+    finally:
+        queries.close()
+
+
+def test_closed_anomalies_do_not_count(season: SeasonLake, tmp_path: Path) -> None:
+    anomalies = _sibling_lake(season, tmp_path)
+    anomalies.triage("5" * 16, {"to": "dismissed", "outcome": "new bearing, runs warm"})
+    queries = HistoryQueries(anomalies.lake, season.robots, anomalies=anomalies)
+    try:
+        rows = {r["unit_id"]: r for r in queries.devices("peak_temp", Filters())}
+        assert (
+            rows["ctre:DRIVE-BL"]["health"] == "OK" and rows["ctre:DRIVE-BL"]["anomalies"] is None
+        )
+        assert queries.summary(Filters())["units_warn_hot"] == 2
+    finally:
+        queries.close()

@@ -285,12 +285,13 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     except OSError as exc:  # a locked file must not stop the app from starting
         print(f"warning: could not clean {root}: {exc}", file=sys.stderr)
     try:
+        anomalies = AnomalyQueries(lake, config.config_root())
         server = FlashpointServer(
             (args.host, args.port),
             lake,
-            HistoryQueries(lake, robots, report_config),
+            HistoryQueries(lake, robots, report_config, anomalies),
             launcher=advantagescope.Launcher(install, problem, root),
-            anomalies=AnomalyQueries(lake, config.config_root()),
+            anomalies=anomalies,
         )
     except (OSError, OverflowError) as exc:
         print(f"cannot listen on {args.host}:{args.port}: {exc}", file=sys.stderr)

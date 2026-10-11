@@ -216,7 +216,11 @@
         h('td', { class: 'num' }, FP.fmt(r.latest, 1)),
         h('td', { class: 'num' }, r.change == null ? '—' : (r.change >= 0 ? '+' : '') + FP.fmt(r.change, 1)),
         h('td', { class: 'spark-cell', title: 'This unit\'s own range' }, FP.spark(r.spark, { stroke: on ? FP.tokens().amberHi : FP.tokens().amber })),
-        h('td', null, FP.status(level, word)));
+        h('td', null, FP.status(level, word), r.anomalies ? [' ', h('a', {
+          class: 'badge sev sev--' + r.anomalies.severity.toLowerCase(), dataset: { anomalies: r.unit_id },
+          href: FP.link({ view: 'anomalies', tab: 'open', sens: 'normal', unit: r.unit_id }),
+          title: 'Open anomalies for this unit',
+        }, r.anomalies.count + ' ' + r.anomalies.severity)] : null));
     }));
   }
 
