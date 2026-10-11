@@ -43,6 +43,7 @@ class Finding:
     peer: np.ndarray | None = None  # SIBLING: the median of the other members
     peer_name: str | None = None
     expected: str | None = None  # SPEC: the limit, e.g. "< 65 °C"
+    reasons: list[str] | None = None  # MODEL: per match, the features furthest from baseline
 
     @property
     def flagged(self) -> np.ndarray:

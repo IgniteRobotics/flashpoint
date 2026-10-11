@@ -195,6 +195,8 @@ def _detect(lake: LakePaths, force: bool) -> int:
         print(f"detection configuration error: {exc}", file=sys.stderr)
         return EXIT_USAGE
     summary = result.summary
+    for note in summary.get("notes", []) if result.ran else []:
+        print(f"warning: {note}", file=sys.stderr)
     counts = summary.get("counts", {})
     severities = ", ".join(f"{counts.get(s, 0)} {s}" for s in ("HIGH", "MED", "LOW"))
     building = summary.get("building_baseline", {}).get("count", 0)

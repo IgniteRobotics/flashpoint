@@ -181,6 +181,12 @@ def compute(
         for finding in found:
             if finding.flagged.any():
                 rows += _describe([finding], contexts[finding.subject])
+    notes: list[str] = []
+    if cfg.model.enabled:
+        from flashpoint.anomaly import model
+
+        for finding in model.model_findings(frame, cfg, notes.append):
+            rows += _describe([finding], contexts[finding.subject])
     for robot_name, keys in frame.matches.items():
         values = np.array([
             float(counts.counts[k]["brownouts"]) if k in counts.counts else np.nan for k in keys
@@ -196,7 +202,7 @@ def compute(
         finding = spec_finding(f"{POWER}:{robot_name}", "brownouts", keys, values, cfg.spec)
         rows += _describe([finding], ctx)
     rows.sort(key=lambda r: r["id"])
-    return Computed(rows, frame, sorted(building, key=lambda b: b["unit"]), restart_seq)
+    return Computed(rows, frame, sorted(building, key=lambda b: b["unit"]), restart_seq, notes)
 
 
 def _season(frame: Frame, robot: str) -> str:
@@ -241,8 +247,13 @@ def fingerprint(
     lake: LakePaths, settings: Settings, counts: power.PowerCounts, restarts: bool = True
 ) -> str:
     restart_at, seq = restarts_of(lake) if restarts else ({}, 0)
+    model_ready = False
+    if settings.anomaly.model.enabled:  # installing the extra later must rerun detection
+        from flashpoint.anomaly import model
+
+        model_ready = model.available()
     parts = [DETECT_VERSION, settings.digest, _gold_files(lake), counts.digest(),
-             sorted(restart_at.items()), seq]  # fmt: skip
+             sorted(restart_at.items()), seq, model_ready]  # fmt: skip
     return hashlib.sha256(json.dumps(parts, default=str).encode()).hexdigest()
 
 

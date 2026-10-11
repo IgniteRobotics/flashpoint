@@ -102,6 +102,19 @@ def _texts(finding: Finding, episode: Episode, z: float, cfg: AnomalyConfig) -> 
             f" {actual}; expected {expected}."
         )
         return {"actual": actual, "expected": expected, "title": title, "why": why}
+    if method == "MODEL":
+        reasons = finding.reasons[episode.last] if finding.reasons else ""
+        return {
+            "actual": f"score {float(np.max(flagged)):.2f}",
+            "expected": "typical for this subsystem",
+            "title": f"Unusual combination of motor features in {when}",
+            "why": (
+                "MODEL: an isolation forest trained on earlier events' unit-matches of this"
+                f" subsystem put {match_label(last)} in its most unusual"
+                f" {cfg.model.contamination:.0%}. Furthest from this unit's own baseline:"
+                f" {reasons}."
+            ),
+        }
     i = episode.onset
     center = (finding.lo[i] + finding.hi[i]) / 2
     half = (finding.hi[i] - finding.lo[i]) / 2
@@ -133,17 +146,13 @@ def _texts(finding: Finding, episode: Episode, z: float, cfg: AnomalyConfig) -> 
             f" {'above' if z > 0 else 'below'} it for {episode.matches} matches: a sudden"
             " change that persisted."
         )
-    elif method == "DRIFT":
+    else:  # DRIFT
         title = f"{_sentence(name)} drifted {_direction(z)} from {base} to {actual} since {when}"
         why = (
             f"DRIFT: the median of the last {cfg.baseline.drift_span} matches moved at least"
             f" {cfg.baseline.drift_z:g} spreads {'above' if z > 0 else 'below'} this unit's own"
             f" earlier {n} matches (median {base}): a gradual change."
         )
-    else:  # MODEL
-        title = f"Unusual combination of motor features in {when}"
-        why = finding.expected or "MODEL: an isolation forest flagged this unit-match."
-        expected = "typical for this subsystem"
     return {"actual": actual, "expected": expected, "title": title, "why": why}
 
 

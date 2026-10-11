@@ -34,7 +34,7 @@
 
 ## 6. Optional model detector
 
-- [ ] 6.1 Add the Poetry extra `ml` (scikit-learn). Write failing tests: off by default (no sklearn import, checked via `sys.modules`); enabled but missing → one warning, other anomalies unchanged; deterministic flags; MED cap and `normal` tag; training uses only earlier events; explanations name the three features with the largest |z|. Then implement `anomaly/model.py`; verify the tests pass with and without the extra installed (CI installs it in one job)
+- [x] 6.1 Add the Poetry extra `ml` (scikit-learn). Write failing tests: off by default (no sklearn import, checked via `sys.modules`); enabled but missing → one warning, other anomalies unchanged; deterministic flags; MED cap and `normal` tag; training uses only earlier events; explanations name the three features with the largest |z|. Then implement `anomaly/model.py`; verify the tests pass with and without the extra installed (CI installs it in one job)
 
 ## 7. API and triage writes
 
