@@ -159,7 +159,7 @@ class ReportBuilder:
     def _config_hash(self) -> str:
         digest = hashlib.sha256(json.dumps(asdict(self.report), sort_keys=True).encode())
         for robot in sorted(self.robots):
-            digest.update(self.robots[robot].model_dump_json().encode())
+            digest.update(self.robots[robot].model_dump_json(exclude={"siblings"}).encode())
         digest.update(f"{self.budget_bytes}:{self.buckets}".encode())
         return digest.hexdigest()
 

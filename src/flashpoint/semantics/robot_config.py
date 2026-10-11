@@ -109,6 +109,24 @@ class Signal(BaseModel):
         raise ValueError(f"metric {value!r} must be snake_case")
 
 
+class SiblingGroup(BaseModel):
+    """Slots that do the same job (e.g. the four drive motors), compared with each other."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1)
+    slots: list[str]
+
+    @model_validator(mode="after")
+    def _members(self) -> "SiblingGroup":
+        if len(set(self.slots)) < 2:
+            raise ValueError(f"sibling group {self.name!r} needs at least two slots")
+        repeated = sorted({s for s in self.slots if self.slots.count(s) > 1})
+        if repeated:
+            raise ValueError(f"sibling group {self.name!r} lists {repeated[0]!r} twice")
+        return self
+
+
 class RobotConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -118,6 +136,7 @@ class RobotConfig(BaseModel):
     slots: list[Slot] = Field(alias="slot")
     signals: list[Signal] = Field(default_factory=list, alias="signal")
     buses: list[Bus] = Field(default_factory=list, alias="bus")
+    siblings: list[SiblingGroup] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _unique_buses(self) -> "RobotConfig":
@@ -170,6 +189,29 @@ class RobotConfig(BaseModel):
             seen[key] = slot.id
             ids.add(slot.id)
         return self
+
+    @model_validator(mode="after")
+    def _valid_siblings(self) -> "RobotConfig":
+        ids = {s.id for s in self.slots}
+        names: set[str] = set()
+        owner: dict[str, str] = {}
+        for group in self.siblings:
+            if group.name in names:
+                raise ValueError(f"duplicate sibling group {group.name!r}")
+            names.add(group.name)
+            for slot in group.slots:
+                if slot not in ids:
+                    raise ValueError(f"sibling group {group.name!r} names unknown slot {slot!r}")
+                if slot in owner:
+                    raise ValueError(
+                        f"sibling group {group.name!r}: slot {slot!r} is already in"
+                        f" group {owner[slot]!r}"
+                    )
+                owner[slot] = group.name
+        return self
+
+    def sibling_group(self, slot_id: str) -> SiblingGroup | None:
+        return next((g for g in self.siblings if slot_id in g.slots), None)
 
     def slot_for(self, bus: str, model: str, can_id: int) -> Slot | None:
         model = model.replace(" ", "")  # inventory reports "Talon FX"; hoot says "TalonFX"

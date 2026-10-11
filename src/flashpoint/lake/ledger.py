@@ -77,7 +77,24 @@ CREATE TABLE IF NOT EXISTS inventory (
     log_id TEXT NOT NULL, ts_us INTEGER NOT NULL, payload TEXT NOT NULL,
     valid INTEGER NOT NULL, error TEXT
 );
+CREATE TABLE IF NOT EXISTS anomaly_triage (
+    seq INTEGER PRIMARY KEY, anomaly_id TEXT NOT NULL, at TEXT NOT NULL,
+    from_state TEXT NOT NULL, to_state TEXT NOT NULL, outcome TEXT,
+    restart_baseline INTEGER NOT NULL DEFAULT 0,
+    subject TEXT NOT NULL, metric TEXT NOT NULL, onset_match_key TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS anomaly_triage_id ON anomaly_triage (anomaly_id, seq);
+CREATE TRIGGER IF NOT EXISTS anomaly_triage_no_update BEFORE UPDATE ON anomaly_triage
+BEGIN SELECT RAISE(ABORT, 'anomaly_triage is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS anomaly_triage_no_delete BEFORE DELETE ON anomaly_triage
+BEGIN SELECT RAISE(ABORT, 'anomaly_triage is append-only'); END;
 """
+# Triage is people's work, not derived from logs: nothing in the pipeline (rebuild, derive,
+# detect, a version change) may remove it. The current state is the last row per anomaly.
+TRIAGE_COLUMNS = (
+    "anomaly_id", "from_state", "to_state", "outcome", "restart_baseline",
+    "subject", "metric", "onset_match_key",
+)  # fmt: skip
 # The acquire watch writes `pulls` while an ingest subprocess holds derive transactions.
 BUSY_TIMEOUT_MS = 30_000
 METADATA_TABLES = ("logs", "hoot_logs", "entries", "inventory")
@@ -235,6 +252,34 @@ class Ledger:
                     f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608
                     tuple(row.values()),
                 )
+
+    def add_triage(self, row: dict[str, Any]) -> int:
+        """Append one triage change (stamped now, UTC); returns its sequence number."""
+        values = [row[c] for c in TRIAGE_COLUMNS]
+        with self._db:
+            cursor = self._db.execute(
+                f"INSERT INTO anomaly_triage (at, {', '.join(TRIAGE_COLUMNS)})"  # noqa: S608
+                f" VALUES (?, {', '.join('?' for _ in TRIAGE_COLUMNS)})",
+                (_now(), *values),
+            )
+        assert cursor.lastrowid is not None
+        return cursor.lastrowid
+
+    def triage(self, anomaly_id: str | None = None) -> list[dict[str, Any]]:
+        """Triage history in order: one anomaly's, or every anomaly's."""
+        if anomaly_id is None:
+            return self.query("SELECT * FROM anomaly_triage ORDER BY seq")
+        return self.query(
+            "SELECT * FROM anomaly_triage WHERE anomaly_id = ? ORDER BY seq", (anomaly_id,)
+        )
+
+    def triage_states(self) -> dict[str, dict[str, Any]]:
+        """The latest triage row per anomaly id."""
+        rows = self.query(
+            "SELECT * FROM anomaly_triage WHERE seq IN"
+            " (SELECT max(seq) FROM anomaly_triage GROUP BY anomaly_id)"
+        )
+        return {r["anomaly_id"]: r for r in rows}
 
     def query(self, sql: str, args: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         cursor = self._db.execute(sql, args)

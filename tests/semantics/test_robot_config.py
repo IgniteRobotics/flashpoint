@@ -117,3 +117,54 @@ def test_duplicate_bus_names_rejected(tmp_path: Path) -> None:
     text = BASE + BUSES + '[[bus]]\nname = "DriveTrain"\nhoot = "rio"\n'
     with pytest.raises(ConfigError, match="DriveTrain"):
         load_robot(_write(tmp_path, text))
+
+
+TWO_SLOTS = BASE + (
+    '[[slot]]\nid = "b"\nbus = "rio"\nmodel = "TalonFX"\ncan_id = 2\nsubsystem = "s"\nrole = "y"\n'
+)
+
+
+def test_repo_2026_sibling_groups() -> None:
+    robot = load_robot(REPO_CONFIG / "2026-comp.toml")
+    groups = {g.name: g.slots for g in robot.siblings}
+    assert groups["drive"] == ["drive-fl", "drive-fr", "drive-bl", "drive-br"]
+    assert groups["steer"] == ["steer-fl", "steer-fr", "steer-bl", "steer-br"]
+    assert groups["flywheel"] == [
+        "flywheel-left-leader",
+        "flywheel-right",
+        "flywheel-left-follower",
+    ]
+    assert groups["intake-roller"] == ["intake-roller", "intake-roller-follower"]
+    assert groups["intake-extension"] == ["intake-extension", "intake-extension-follower"]
+    assert robot.sibling_group("drive-br").name == "drive"  # type: ignore[union-attr]
+    assert robot.sibling_group("hood") is None
+
+
+def test_no_sibling_groups(tmp_path: Path) -> None:
+    assert load_robot(_write(tmp_path, BASE)).siblings == []
+
+
+@pytest.mark.parametrize(
+    ("groups", "pattern"),
+    [
+        (
+            '[[siblings]]\nname = "pair"\nslots = ["a", "drive-xx"]\n',
+            r"(?s)r\.toml.*pair.*drive-xx",
+        ),
+        ('[[siblings]]\nname = "solo"\nslots = ["a"]\n', r"(?s)r\.toml.*solo.*two"),
+        (
+            '[[siblings]]\nname = "g1"\nslots = ["a", "b"]\n'
+            '[[siblings]]\nname = "g2"\nslots = ["b", "a"]\n',
+            r"(?s)r\.toml.*g2.*('a'|'b')",
+        ),
+        (
+            '[[siblings]]\nname = "g"\nslots = ["a", "b"]\n'
+            '[[siblings]]\nname = "g"\nslots = ["a", "b"]\n',
+            r"(?s)r\.toml.*duplicate.*'g'",
+        ),
+        ('[[siblings]]\nname = "g"\nslots = ["a", "a"]\n', r"(?s)r\.toml.*g.*'a'"),
+    ],
+)
+def test_bad_sibling_groups(tmp_path: Path, groups: str, pattern: str) -> None:
+    with pytest.raises(ConfigError, match=pattern):
+        load_robot(_write(tmp_path, TWO_SLOTS + groups))

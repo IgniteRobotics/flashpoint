@@ -1,0 +1,124 @@
+# Likely causes shown with an anomaly, as suggestions, never a diagnosis. Team-edited: add what
+# you found when you resolve an anomaly. Keyed by method and metric; `subsystem` narrows an entry
+# (subsystem entries are listed first). Methods: SPEC, DRIFT, STEP, SIBLING, MODEL.
+# Metrics: see config/anomaly.toml [baseline] metrics, plus reboots, longest_gap_ms, brownouts.
+
+# --- SPEC ---------------------------------------------------------------------------------
+[[cause]]
+method = "SPEC"
+metric = "reboots"
+text = "Loose power lug or connector"
+
+[[cause]]
+method = "SPEC"
+metric = "reboots"
+text = "Motor lead damaged near a pinch point"
+
+[[cause]]
+method = "SPEC"
+metric = "longest_gap_ms"
+text = "CAN wiring or connector chafing or loose"
+
+[[cause]]
+method = "SPEC"
+metric = "longest_gap_ms"
+text = "The device lost power briefly (check the reboot count for the same match)"
+
+[[cause]]
+method = "SPEC"
+metric = "brownouts"
+subsystem = "power"
+text = "Stalled motors drawing high current at the same time (check Replay's stall markers)"
+
+[[cause]]
+method = "SPEC"
+metric = "brownouts"
+subsystem = "power"
+text = "Battery aging or not fully charged; deep discharges at events speed it up"
+
+[[cause]]
+method = "SPEC"
+metric = "temp_max_c"
+text = "Sustained high load or stalling in this match"
+
+[[cause]]
+method = "SPEC"
+metric = "stall_s"
+text = "A mechanism jammed or driven into a hard stop"
+
+# --- STEP ---------------------------------------------------------------------------------
+[[cause]]
+method = "STEP"
+metric = "stator_current_p95"
+text = "A mechanical change or hit around the onset match: check the pit log for that day"
+
+[[cause]]
+method = "STEP"
+metric = "stator_current_p95"
+text = "A belt or roller slipping since then"
+
+[[cause]]
+method = "STEP"
+metric = "temp_max_c"
+text = "Unit swapped without a recorded swap (no CAN inventory for this log)"
+
+[[cause]]
+method = "STEP"
+metric = "isolated_gaps"
+text = "CAN wiring or connector disturbed around the onset match"
+
+# --- DRIFT --------------------------------------------------------------------------------
+[[cause]]
+method = "DRIFT"
+metric = "stator_current_p95"
+subsystem = "drivetrain"
+text = "Wheel bearing wear"
+
+[[cause]]
+method = "DRIFT"
+metric = "stator_current_p95"
+subsystem = "drivetrain"
+text = "Debris or carpet fiber in the gear mesh"
+
+[[cause]]
+method = "DRIFT"
+metric = "stator_current_p95"
+subsystem = "drivetrain"
+text = "A bent bevel gear or misaligned module"
+
+[[cause]]
+method = "DRIFT"
+metric = "temp_max_c"
+text = "Warmer venue temperatures"
+
+[[cause]]
+method = "DRIFT"
+metric = "temp_max_c"
+text = "Early wear"
+
+[[cause]]
+method = "DRIFT"
+metric = "isolated_gaps"
+text = "A CAN connector working loose"
+
+# --- SIBLING ------------------------------------------------------------------------------
+[[cause]]
+method = "SIBLING"
+metric = "temp_max_c"
+subsystem = "shooter"
+text = "Belt over-tensioned on one side"
+
+[[cause]]
+method = "SIBLING"
+metric = "temp_max_c"
+text = "Dragging bearing or rubbing part"
+
+[[cause]]
+method = "SIBLING"
+metric = "temp_max_c"
+text = "Motor wearing out early"
+
+[[cause]]
+method = "SIBLING"
+metric = "stator_current_p95"
+text = "Dragging bearing or rubbing part"
