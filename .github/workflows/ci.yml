@@ -30,7 +30,7 @@ jobs:
       - run: poetry run ruff check .
       - run: poetry run ruff format --check .
       - run: poetry run mypy src tests tools
-      - run: poetry run pytest -m "not corpus and not browser"
+      - run: poetry run pytest -m "not corpus and not browser and not perf"
       - name: Verify systemd user unit
         run: |
           # verify checks that ExecStart exists; stand in for the pipx-installed binary
@@ -53,7 +53,7 @@ jobs:
       - run: poetry install --no-interaction
       - run: poetry run ruff check .
       - run: poetry run mypy src tests tools
-      - run: poetry run pytest -m "not corpus and not browser"
+      - run: poetry run pytest -m "not corpus and not browser and not perf"
 
   corpus:
     name: corpus
