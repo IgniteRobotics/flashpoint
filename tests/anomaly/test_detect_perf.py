@@ -10,7 +10,10 @@ import pytest
 
 from tests.anomaly.gold_builder import GoldLake, steady
 
-pytestmark = pytest.mark.perf
+pytestmark = [
+    pytest.mark.perf,
+    pytest.mark.skipif(sys.platform == "win32", reason="peak RSS needs POSIX resource"),
+]
 
 BUDGET_S = 5.0
 BUDGET_RSS_BYTES = 400 << 20

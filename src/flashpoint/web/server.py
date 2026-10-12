@@ -313,9 +313,11 @@ def host_warning(host: str) -> str | None:
     )
 
 
-def run(server: FlashpointServer) -> int:
-    """Serve until interrupted; Ctrl-C exits cleanly with 0."""
+def run(server: FlashpointServer, banner: str | None = None) -> int:
+    """Serve until interrupted; Ctrl-C exits cleanly with 0, even right after the banner."""
     try:
+        if banner is not None:
+            print(banner, flush=True)
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nstopped", file=sys.stderr)

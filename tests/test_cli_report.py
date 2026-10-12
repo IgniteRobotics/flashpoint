@@ -94,7 +94,7 @@ def test_serve_host_warning_and_bad_port(
 ) -> None:
     import flashpoint.web.server as server
 
-    monkeypatch.setattr(server, "run", lambda s: (s.server_close(), 0)[1])
+    monkeypatch.setattr(server, "run", lambda s, banner=None: (s.server_close(), 0)[1])
     assert main(["serve", "--lake", str(lake.root), "--no-build", "--host", "0.0.0.0",  # noqa: S104
                  "--port", "0"]) == 0  # fmt: skip
     captured = capsys.readouterr()
@@ -127,7 +127,7 @@ def test_serve_wires_the_launcher(
     monkeypatch.setenv("FLASHPOINT_CONFIG", str(config_dir))
     seen: list[dict[str, object]] = []
 
-    def capture(s: server.FlashpointServer) -> int:
+    def capture(s: server.FlashpointServer, banner: str | None = None) -> int:
         seen.append(s.launcher.availability(s.bound_local, "127.0.0.1"))
         s.server_close()
         return 0

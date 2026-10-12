@@ -1079,8 +1079,10 @@ def test_corpus_lake_served(page: Any, derived_corpus_lake: Any) -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/"
         watch = _open(page, url)
         page.click("a.match-btn[data-match='2026gacmp_qm7']")
-        page.wait_for_selector("#readout tr")
-        assert _readout_slots(page)[0] == "intake-extension"  # 46 °C, the hottest in Q7
+        # the readout is redrawn once anomalies load: wait for Q7's rows, not the first render
+        page.wait_for_function(
+            "() => document.querySelector('#readout tr')?.dataset.slot === 'intake-extension'"
+        )  # 46 °C, the hottest in Q7
         _open(page, url, "#view=history&unit=legacy%3A2026-comp%3Aintake-extension%3A0")
         page.wait_for_selector("#device .lifeline__item")
         assert "2026gacmp_qm7" in page.inner_text("#device")

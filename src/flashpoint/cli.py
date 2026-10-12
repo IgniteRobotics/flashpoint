@@ -335,8 +335,7 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     warning = host_warning(args.host)
     if warning:
         print(warning, file=sys.stderr)
-    print(f"Flashpoint (lake {lake.root}) at {server.url}", flush=True)
-    return run(server)
+    return run(server, f"Flashpoint (lake {lake.root}) at {server.url}")
 
 
 def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:

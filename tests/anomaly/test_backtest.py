@@ -153,7 +153,7 @@ def test_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: An
     assert main(["backtest", "--lake", str(lake.root)]) == 0
     out = capsys.readouterr().out
     assert "caught 1, missed 1, not evaluable 1" in out
-    assert "report/backtest/" in out
+    assert str(Path("report") / "backtest") in out
     bad = _config(tmp_path, labels=(
         '[[label]]\nrobot = "2026-comp"\nslot = "drive-xx"\nmatch = "2026johnson_qm105"\n'
         'kind = "failure"\nnote = "x"\n'
