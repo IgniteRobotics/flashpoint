@@ -85,6 +85,14 @@ The GACMP Q7 entry is removed from `config/failure-labels.toml`. The backtest co
 
 **Q7 values from the corpus derive:** drive 14.3–18.4 mΩ; flywheels 50.0 (left leader), 65.8 (left follower), 67.3 (right) mΩ; intake rollers 64.8 / 72.1 mΩ; indexer accelerator 35.1 mΩ. The hood and intake extension are `low-current`, and indexer-main is `no-fit`. Three steer motors pass the gates (0.7, 9.6, 10.0 mΩ), so they are noisier than the probe suggested; the 3 mΩ floor keeps them from flagging on noise alone. Under the 8.5 V test threshold, Q7 has 3 brownouts on the gyro (8.10, 8.27, 8.22 V).
 
+**Field check (2026-10-12, task 5.4, `~/flashpoint-lake`, 57 sessions re-derived in 3.4 min, accepted by Josh):**
+- Brownouts: none in 25 matches. The gyro's lowest supply voltage was 7.59 V.
+- Drive motors: median supply path resistance of 17.2–18.9 mΩ per motor (single matches 2.8–27.9 mΩ).
+- Flywheels: the left follower's median is 52.7 mΩ, against 28.9 (left leader) and 34.2 (right). It shows only as LOW SIBLINGs (follower and leader), consistent with a worse follower lead or connector.
+- 4 HIGH anomalies (3 STEP + 1 DRIFT) at `2026gacmp_pm2`, the first match at GACMP: left-leader flywheel, right flywheel, and intake roller. The STEPs carry the event-boundary tag GADAL → GACMP. Three motors jumping 15–25 mΩ in the same match points to a shared cause (rewiring between events, or a change on the shared supply path), not three connectors; to ask the electrical team.
+- Steer motors and indexer-main are mostly `low-current`, with small, noisy values when fitted. Apart from two MED DRIFTs on the indexer accelerator, the remaining resistance anomalies are LOW.
+- Every unit on this lake has a legacy id (no CAN inventory), so baselines follow the slot.
+
 ## Risks / Trade-offs
 
 - [The proxy device isn't on the main bus on another robot] → The proxy is declared per robot, and validation only checks that the slot exists. The robot TOML comment says what qualifies.

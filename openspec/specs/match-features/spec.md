@@ -11,6 +11,7 @@ For every framed session with a match key, the system SHALL write one row per (m
 - maximum temperature and temperature rise rate;
 - supply and motor energy, and stall time;
 - residual P95 where available;
+- supply path resistance where available (motor physics);
 - the robot id, alignment confidence, and source log ids.
 
 #### Scenario: Qualification match rows
