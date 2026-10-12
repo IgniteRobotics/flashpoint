@@ -102,6 +102,7 @@ class Baseline(_Section):
     drift_span: int = Field(default=5, ge=1)
     med_z: float = Field(default=4.0, gt=0)  # DRIFT, STEP and SIBLING severity: MED at |z| >= med_z
     high_z: float = Field(default=6.0, gt=0)
+    quiet_event_steps: bool = True  # a STEP at a unit's first match of a new event: LOW, strict
     floors: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_FLOORS))
 
     @field_validator("metrics")

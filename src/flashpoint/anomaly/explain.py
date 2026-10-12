@@ -12,7 +12,7 @@ from flashpoint.anomaly.episodes import Episode, anomaly_id, sensitivity
 from flashpoint.anomaly.findings import NEVER, Finding
 from flashpoint.anomaly.settings import METRIC_INFO, POWER, AnomalyConfig, format_value
 from flashpoint.anomaly.spec_rules import episode_level
-from flashpoint.report.build import match_label
+from flashpoint.report.build import event_of, match_label
 
 EVIDENCE_MATCHES = 40
 SEVERITIES = ("LOW", "MED", "HIGH")
@@ -76,7 +76,19 @@ def _direction(z: float) -> str:
     return "up" if z > 0 else "down"
 
 
-def _texts(finding: Finding, episode: Episode, z: float, cfg: AnomalyConfig) -> dict[str, str]:
+def event_change(finding: Finding, episode: Episode) -> tuple[str, str] | None:
+    """(previous event, new event) when the episode starts at the unit's first match of a new
+    event and the unit played an earlier event; else None."""
+    onset = episode.onset
+    earlier = [i for i in range(onset) if not np.isnan(finding.values[i])]
+    if not earlier:
+        return None
+    before, now = event_of(finding.keys[earlier[-1]]), event_of(finding.keys[onset])
+    return (before, now) if before != now else None
+
+
+def _texts(finding: Finding, episode: Episode, z: float, cfg: AnomalyConfig,
+           changed: tuple[str, str] | None = None) -> dict[str, str]:  # fmt: skip
     name, _ = METRIC_INFO[finding.metric]
     onset, last = finding.keys[episode.onset], finding.keys[episode.last]
     flagged = finding.values[list(episode.flagged)]
@@ -138,7 +150,19 @@ def _texts(finding: Finding, episode: Episode, z: float, cfg: AnomalyConfig) -> 
     base = format_value(finding.metric, center)
     expected = f"{base} ± {format_value(finding.metric, half)}"
     n = int(finding.baseline_n[i])
-    if method == "STEP":
+    if method == "STEP" and changed is not None:
+        title = (
+            f"{_sentence(name)} changed between events: {base} at {changed[0]}, {actual} from"
+            f" {match_label(onset)}"
+        )
+        why = (
+            f"STEP at an event boundary: the {name} moved from {base} (this unit's previous {n}"
+            f" matches) to {actual} starting with its first match at {changed[1]}, after"
+            f" {changed[0]}. Changes between events are usually deliberate (a rebuild, new"
+            " current limits, a gear change), so this shows only at strict sensitivity, as LOW."
+            " If nothing was changed, investigate it like any other STEP."
+        )
+    elif method == "STEP":
         title = f"{_sentence(name)} stepped {_direction(z)} from {base} to {actual} at {when}"
         why = (
             f"STEP: compared with this unit's own previous {n} matches (median {base}). The"
@@ -171,6 +195,11 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
         if finding.method == "MODEL":
             severity = min(severity, "MED", key=SEVERITIES.index)
     tag = sensitivity(episode, finding.normal.flagged, severity)
+    changed = None
+    if finding.method == "STEP" and ctx.cfg.baseline.quiet_event_steps:
+        changed = event_change(finding, episode)
+        if changed is not None:
+            severity, tag = "LOW", "strict"
     if finding.method == "MODEL" and tag == "relaxed":
         tag = "normal"  # MODEL shows only at normal and strict
     baseline_n = int(finding.baseline_n[episode.onset])
@@ -203,7 +232,7 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
         "matches_affected": episode.matches,
         "detected_match_key": finding.keys[known] if known != NEVER else None,
         "detected_normal_match_key": finding.keys[min(normal_known)] if normal_known else None,
-        **_texts(finding, episode, z, ctx.cfg),
+        **_texts(finding, episode, z, ctx.cfg, changed),
         "actual_value": _num(float(np.nanmax(finding.values[flagged]))
                              if finding.method == "SPEC"
                              else float(np.nanmedian(finding.values[flagged]))),

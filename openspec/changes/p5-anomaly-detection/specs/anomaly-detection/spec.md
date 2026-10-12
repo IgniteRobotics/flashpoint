@@ -99,6 +99,8 @@ A single-match outlier SHALL NOT produce an anomaly at normal sensitivity.
 
 A unit history SHALL follow the unit, never the slot. A unit observed in a new slot keeps its baseline. A new unit in an old slot starts empty.
 
+A STEP whose onset is the unit's first match at an event, when the unit played at an earlier event, SHALL be an event change. Its severity SHALL be LOW, it SHALL show only at strict sensitivity, and its title and explanation SHALL name both events. It SHALL still suppress DRIFT like any STEP. A setting (`quiet_event_steps`, on by default) SHALL turn this off. A STEP that starts later in an event SHALL be unaffected.
+
 #### Scenario: Sudden step
 - **WHEN** a synthetic unit's maximum temperature is 45 ± 1 °C for 20 matches, then 55 ± 1 °C from match 21
 - **THEN** after match 23 there is a STEP anomaly with onset match 21, and no DRIFT anomaly for that metric
@@ -114,6 +116,14 @@ A unit history SHALL follow the unit, never the slot. A unit observed in a new s
 #### Scenario: Swapped-in unit
 - **WHEN** a slot's unit is replaced at match 20 by a new serial, and the new unit runs 10 °C hotter than the old one did
 - **THEN** no DRIFT or STEP anomaly is raised for the new unit before its fifth match, and the old unit's history is not used for it
+
+#### Scenario: Change between events
+- **WHEN** a synthetic unit's maximum temperature is 45 ± 1 °C for 10 matches at one event, then 55 ± 1 °C from its first match at the next event
+- **THEN** there is one STEP anomaly with onset at the second event's first match, LOW, shown only at strict, naming both events, and no DRIFT anomaly for that metric
+
+#### Scenario: Step inside an event
+- **WHEN** the same step starts at the second event's third match
+- **THEN** the STEP anomaly has its usual severity (HIGH) and shows at every sensitivity
 
 #### Scenario: Building baseline
 - **WHEN** detection runs on a lake where a unit has played 3 matches

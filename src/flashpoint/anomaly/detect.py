@@ -36,7 +36,7 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.report.settings import ReportConfig, ReportConfigError, load_report_config
 from flashpoint.semantics.robot_config import ConfigError, RobotConfig, load_robots
 
-DETECT_VERSION = 1  # bump when anomaly rows change for the same inputs
+DETECT_VERSION = 2  # bump when anomaly rows change for the same inputs
 ANOMALIES_FILE = "anomalies.parquet"
 SUMMARY_FILE = "summary.json"
 LOCK_FILE = "detect.lock"
