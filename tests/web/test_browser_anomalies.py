@@ -311,6 +311,7 @@ def test_queue_from_the_corpus(page: Any, derived_corpus_lake: Any, brownout_con
         assert "brownout" in first.inner_text()
         page.wait_for_selector("#why")
         assert page.inner_text("#why").startswith("SPEC:")
+        page.wait_for_function("() => FP.anomalyChart() != null")  # drawn just after the text
         assert page.evaluate("() => FP.anomalyChart()")["flagged"][-1] is not None
         assert watch.clean(), watch
     finally:

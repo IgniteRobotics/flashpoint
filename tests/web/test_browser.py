@@ -292,7 +292,12 @@ def test_track_set_x_reranges_y(track_page: Any) -> None:
 
 def test_hottest_motor_in_two_clicks(page: Any, app: str) -> None:
     watch = _open(page, app)
+    page.wait_for_selector("#readout tr")
+    shown = page.query_selector("#readout")  # the default match's readout, before the click
     page.click("a.match-btn[data-match='2026gacmp_qm7']")
+    # The click remounts Replay after awaiting the index and (served) the anomalies, so the old
+    # readout stays on screen for a moment: wait for it to go, then for the new rows.
+    page.wait_for_function("e => !e.isConnected", arg=shown)
     page.wait_for_selector("#readout tr")
     assert page.inner_text("#readout-label") == "MATCH MAXIMA · HOTTEST FIRST"
     assert _readout_slots(page) == ["hood", "intake-roller", "drive-fl"]
