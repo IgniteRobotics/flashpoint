@@ -54,7 +54,7 @@ SCHEMA: dict[str, pl.DataType] = {
     "title": pl.String(), "why": pl.String(), "actual_value": pl.Float64(),
     "confidence": pl.String(), "baseline_n": pl.Int64(), "max_z": pl.Float64(),
     "peer_name": pl.String(), "flagged_keys": pl.String(), "low_alignment": pl.Boolean(),
-    "evidence": pl.String(), "last_start": pl.String(),
+    "evidence": pl.String(), "last_start": pl.String(), "event_boundary": pl.String(),
 }  # fmt: skip
 
 

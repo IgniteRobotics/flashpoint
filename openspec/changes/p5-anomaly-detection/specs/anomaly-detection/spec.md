@@ -99,7 +99,7 @@ A single-match outlier SHALL NOT produce an anomaly at normal sensitivity.
 
 A unit history SHALL follow the unit, never the slot. A unit observed in a new slot keeps its baseline. A new unit in an old slot starts empty.
 
-A STEP whose onset is the unit's first match at an event, when the unit played at an earlier event, SHALL be an event change. Its severity SHALL be LOW, it SHALL show only at strict sensitivity, and its title and explanation SHALL name both events. It SHALL still suppress DRIFT like any STEP. A setting (`quiet_event_steps`, on by default) SHALL turn this off. A STEP that starts later in an event SHALL be unaffected.
+A STEP whose onset is the unit's first match at an event, when the unit played at an earlier event, SHALL be tagged with the event boundary (the previous and the new event). The tag SHALL NOT change its severity or sensitivity. Its explanation SHALL name both events, and the Anomalies view SHALL show the tag in the queue and the detail. A STEP that starts later in an event SHALL NOT be tagged.
 
 #### Scenario: Sudden step
 - **WHEN** a synthetic unit's maximum temperature is 45 ± 1 °C for 20 matches, then 55 ± 1 °C from match 21
@@ -119,11 +119,11 @@ A STEP whose onset is the unit's first match at an event, when the unit played a
 
 #### Scenario: Change between events
 - **WHEN** a synthetic unit's maximum temperature is 45 ± 1 °C for 10 matches at one event, then 55 ± 1 °C from its first match at the next event
-- **THEN** there is one STEP anomaly with onset at the second event's first match, LOW, shown only at strict, naming both events, and no DRIFT anomaly for that metric
+- **THEN** there is one HIGH STEP anomaly with onset at the second event's first match, tagged with both events, its explanation names both events, and the Anomalies view shows an event-boundary tag on it
 
 #### Scenario: Step inside an event
 - **WHEN** the same step starts at the second event's third match
-- **THEN** the STEP anomaly has its usual severity (HIGH) and shows at every sensitivity
+- **THEN** the STEP anomaly is HIGH and has no event-boundary tag
 
 #### Scenario: Building baseline
 - **WHEN** detection runs on a lake where a unit has played 3 matches

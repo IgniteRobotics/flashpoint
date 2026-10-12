@@ -13,7 +13,7 @@ from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.views.anomalies import NO_CAUSES, AnomalyQueries
 from flashpoint.web.server import FlashpointServer
-from tests.web.anomaly_lake import build_anomaly_lake, ids
+from tests.web.anomaly_lake import build_anomaly_lake, build_event_boundary_lake, ids
 
 
 @pytest.fixture
@@ -70,6 +70,7 @@ def test_queue_defaults(app: Any, built: tuple[LakePaths, Path]) -> None:
     assert body["writable"] is True
     item = body["items"][0]
     assert (item["state"], item["serial"], item["detected"]) == ("new", "HOOD", True)
+    assert all(i["event_boundary"] is None for i in body["items"])  # one event
     assert item["flagged_keys"] == ["2026syn_qm21", "2026syn_qm22", "2026syn_qm23",
                                     "2026syn_qm24"][: len(item["flagged_keys"])]  # fmt: skip
 
@@ -359,3 +360,11 @@ def test_triage_is_the_only_write(serve: Any, tmp_path: Path) -> None:
         assert all(ledger.query(f"SELECT count(*) AS n FROM {t}")[0]["n"] == 0 for t in tables)  # noqa: S608
     finally:
         ledger.close()
+
+
+def test_event_boundary_tag(serve: Any, tmp_path: Path) -> None:
+    lake, config_dir = build_event_boundary_lake(tmp_path)
+    app = serve(lake, anomalies=AnomalyQueries(lake, config_dir))
+    step = next(a for a in app.json("/api/anomalies")[1]["items"] if a["method"] == "STEP")
+    assert (step["severity"], step["event_boundary"]) == ("HIGH", "2026aaa → 2026bbb")
+    assert app.json(f"/api/anomalies/{step['id']}")[1]["event_boundary"] == "2026aaa → 2026bbb"

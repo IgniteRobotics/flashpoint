@@ -1,7 +1,6 @@
 """Detection over synthetic gold: the anomaly-detection spec scenarios."""
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -136,29 +135,18 @@ def _steps(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [r for r in rows if r["metric"] == "temp_max_c" and r["method"] in ("STEP", "DRIFT")]
 
 
-def test_step_at_an_event_boundary_is_a_quiet_event_change(tmp_path: Path) -> None:
+def test_step_at_an_event_boundary_is_tagged(tmp_path: Path) -> None:
     found = _steps(_rows(_two_events(tmp_path, 10).write()))
     assert [(r["method"], r["onset_match_key"]) for r in found] == [("STEP", "2026bbb_qm1")]
     step = found[0]
-    assert (step["severity"], step["sensitivity"]) == ("LOW", "strict")
-    assert "changed between events" in step["title"]
-    assert "2026aaa" in step["why"] and "2026bbb" in step["why"]
+    assert (step["severity"], step["sensitivity"]) == ("HIGH", "relaxed")  # still an anomaly
+    assert step["event_boundary"] == "2026aaa → 2026bbb"
+    assert "first match at 2026bbb, after 2026aaa" in step["why"]
 
 
-def test_step_inside_an_event_is_unchanged(tmp_path: Path) -> None:
+def test_step_inside_an_event_is_not_tagged(tmp_path: Path) -> None:
     found = _steps(_rows(_two_events(tmp_path, 12).write()))
     assert [(r["method"], r["onset_match_key"]) for r in found] == [("STEP", "2026bbb_qm3")]
     assert (found[0]["severity"], found[0]["sensitivity"]) == ("HIGH", "relaxed")
-    assert "between events" not in found[0]["title"]
-
-
-def test_event_boundary_rule_can_be_switched_off(tmp_path: Path) -> None:
-    config_dir = tmp_path / "config"
-    shutil.copytree(config.config_root(), config_dir)
-    toml = config_dir / "anomaly.toml"
-    text = toml.read_text().replace("quiet_event_steps = true", "quiet_event_steps = false")
-    toml.write_text(text)
-    settings = detect.load_settings(config_dir)
-    found = _steps(detect.compute(_two_events(tmp_path / "lake", 10).write(), settings).rows)
-    assert [(r["method"], r["onset_match_key"]) for r in found] == [("STEP", "2026bbb_qm1")]
-    assert (found[0]["severity"], found[0]["sensitivity"]) == ("HIGH", "relaxed")
+    assert found[0]["event_boundary"] is None
+    assert "between events" not in found[0]["why"]

@@ -41,6 +41,18 @@ def build_anomaly_lake(root: Path, matches: int = 25, slots: list[str] | None = 
     return lake, config_dir
 
 
+def build_event_boundary_lake(root: Path) -> tuple[LakePaths, Path]:
+    """10 matches at 2026aaa, then 6 at 2026bbb; the hood's maximum temperature steps from 45 to
+    55 °C at its first 2026bbb match (a HIGH STEP tagged with the event boundary)."""
+    keys = [f"2026aaa_qm{i + 1}" for i in range(10)] + [f"2026bbb_qm{i + 1}" for i in range(6)]
+    gold = GoldLake(root / "lake", matches=16, slots=["hood"], keys=keys)
+    gold.set("hood", "temp_max_c", steady(45.0, 10) + steady(55.0, 6))
+    lake = gold.write()
+    config_dir = anomaly_config(root)
+    detect.detect(lake, config_dir)
+    return lake, config_dir
+
+
 def ids(lake: LakePaths) -> dict[str, str]:
     """step, spec, drift -> anomaly id."""
     rows = detect.read_anomalies(lake).to_dicts()

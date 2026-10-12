@@ -13,7 +13,7 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.views.anomalies import AnomalyQueries
 from flashpoint.views.queries import HistoryQueries
 from flashpoint.web.server import FlashpointServer
-from tests.web.anomaly_lake import build_anomaly_lake, ids
+from tests.web.anomaly_lake import build_anomaly_lake, build_event_boundary_lake, ids
 from tests.web.test_browser import NetworkServer, Recorder, _open, _stop
 
 pytestmark = pytest.mark.browser
@@ -80,6 +80,24 @@ def test_queue_and_detail(page: Any, site: dict[str, Any]) -> None:
     assert page.locator("#causes li").count() >= 1
     assert "not a diagnosis" in page.inner_text("#detail")
     assert watch.clean(), watch
+
+
+def test_event_boundary_chip(page: Any, tmp_path: Path) -> None:
+    lake, config_dir = build_event_boundary_lake(tmp_path)
+    server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake),
+                              anomalies=AnomalyQueries(lake, config_dir))  # fmt: skip
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        watch = _anomalies(page, f"http://127.0.0.1:{server.server_address[1]}/")
+        chip = page.locator("#queue .anom [data-event-boundary]")
+        assert chip.count() == 1 and chip.inner_text() == "EVENT BOUNDARY · AAA → BBB"
+        page.click("#queue .anom")
+        page.wait_for_selector("#detail #event-boundary")
+        assert "AAA → BBB" in page.inner_text("#event-boundary")
+        assert "first match at 2026bbb, after 2026aaa" in page.inner_text("#why")
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
 
 
 def test_sensitivity(page: Any, site: dict[str, Any]) -> None:

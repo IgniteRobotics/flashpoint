@@ -150,19 +150,7 @@ def _texts(finding: Finding, episode: Episode, z: float, cfg: AnomalyConfig,
     base = format_value(finding.metric, center)
     expected = f"{base} ± {format_value(finding.metric, half)}"
     n = int(finding.baseline_n[i])
-    if method == "STEP" and changed is not None:
-        title = (
-            f"{_sentence(name)} changed between events: {base} at {changed[0]}, {actual} from"
-            f" {match_label(onset)}"
-        )
-        why = (
-            f"STEP at an event boundary: the {name} moved from {base} (this unit's previous {n}"
-            f" matches) to {actual} starting with its first match at {changed[1]}, after"
-            f" {changed[0]}. Changes between events are usually deliberate (a rebuild, new"
-            " current limits, a gear change), so this shows only at strict sensitivity, as LOW."
-            " If nothing was changed, investigate it like any other STEP."
-        )
-    elif method == "STEP":
+    if method == "STEP":
         title = f"{_sentence(name)} stepped {_direction(z)} from {base} to {actual} at {when}"
         why = (
             f"STEP: compared with this unit's own previous {n} matches (median {base}). The"
@@ -170,6 +158,11 @@ def _texts(finding: Finding, episode: Episode, z: float, cfg: AnomalyConfig,
             f" {'above' if z > 0 else 'below'} it for {episode.matches} matches: a sudden"
             " change that persisted."
         )
+        if changed is not None:
+            why += (
+                f" It started with this unit's first match at {changed[1]}, after {changed[0]}:"
+                " check whether the mechanism or its configuration changed between events."
+            )
     else:  # DRIFT
         title = f"{_sentence(name)} drifted {_direction(z)} from {base} to {actual} since {when}"
         why = (
@@ -195,11 +188,7 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
         if finding.method == "MODEL":
             severity = min(severity, "MED", key=SEVERITIES.index)
     tag = sensitivity(episode, finding.normal.flagged, severity)
-    changed = None
-    if finding.method == "STEP" and ctx.cfg.baseline.quiet_event_steps:
-        changed = event_change(finding, episode)
-        if changed is not None:
-            severity, tag = "LOW", "strict"
+    changed = event_change(finding, episode) if finding.method == "STEP" else None
     if finding.method == "MODEL" and tag == "relaxed":
         tag = "normal"  # MODEL shows only at normal and strict
     baseline_n = int(finding.baseline_n[episode.onset])
@@ -243,4 +232,5 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
         "flagged_keys": json.dumps(keys),
         "low_alignment": any(k in ctx.low_alignment for k in keys),
         "evidence": json.dumps(_evidence(finding, episode), ensure_ascii=False),
+        "event_boundary": f"{changed[0]} → {changed[1]}" if changed else None,
     }  # fmt: skip

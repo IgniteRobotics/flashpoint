@@ -132,10 +132,14 @@
       a.severity ? h('span', { class: sevClass(a.severity) }, a.severity + ' · ' + who(a)) : h('span', { class: 'meta' }, who(a)),
       h('span', { class: 'muted' }, a.method || '—')),
     h('span', { class: 'anom__title' }, a.title),
+    a.event_boundary ? h('span', { class: 'badge badge--event', dataset: { eventBoundary: '' } }, 'EVENT BOUNDARY · ' + eventText(a.event_boundary)) : null,
     h('span', { class: 'anom__row' },
       h('span', { class: 'muted' }, 'since ' + label(a.onset_match_key)),
       h('span', { class: 'astate astate--' + a.state }, a.state.toUpperCase() + (a.detected ? '' : ' · NO LONGER DETECTED'))))));
   }
+
+  // "2026gadal → 2026gacmp" -> "GADAL → GACMP"
+  function eventText(s) { return s.replace(/\b\d{4}([a-z0-9]+)/g, (_, e) => e.toUpperCase()); }
 
   function markSelected() {
     document.querySelectorAll('#queue .anom').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === ui.id)));
@@ -177,6 +181,7 @@
         fact('Actual', a.actual), fact('Expected', a.expected), fact('First seen', label(a.onset_match_key)),
         fact('Matches affected', a.matches_affected), fact('Confidence', a.confidence), fact('Method', a.method)) : null,
       a.low_alignment ? h('p', { class: 'badge badge--low mb-3' }, '▲ LOW ALIGNMENT IN A FLAGGED MATCH') : null,
+      a.event_boundary ? h('p', { class: 'badge badge--event mb-3', id: 'event-boundary' }, 'EVENT BOUNDARY · ' + eventText(a.event_boundary) + ' · STARTED AT THE FIRST MATCH OF THE NEW EVENT') : null,
       a.evidence && a.evidence.points && a.evidence.points.length ? evidence(a) : null,
       a.detected ? h('div', { class: 'anom-cols' },
         h('section', null, h('h2', { class: 'h-section' }, 'Why it was flagged'), h('p', { class: 'prose', id: 'why' }, a.why)),

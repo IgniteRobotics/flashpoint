@@ -551,6 +551,7 @@ tr.is-retired { opacity: .6; }
 .match-btn.is-low { border-style: dashed; }
 .match-btn__counts { display: flex; gap: var(--sp-2); }
 .badge--low { color: var(--hot); border-style: dashed; }
+.badge--event { color: var(--amber-muted); border-style: dotted; align-self: flex-start; }
 
 /* Replay header, notes, downloads */
 .match-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); font-size: var(--fs-xs); color: var(--amber-dim); }

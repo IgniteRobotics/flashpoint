@@ -24,8 +24,6 @@ drift_z = 2.5               # DRIFT: median of the last drift_span matches beyon
 drift_span = 5
 med_z = 4.0                 # severity: MED at |z| >= med_z, HIGH at >= high_z, else LOW
 high_z = 6.0
-quiet_event_steps = true    # a STEP starting at a unit's first match of a new event (after an
-                            # earlier event) is LOW and shows only at strict: usually a rebuild
 
 [baseline.floors]           # minimum spread per metric
 temp_max_c = 1.0

@@ -37,7 +37,7 @@ ITEM_COLUMNS = (
     "id", "subject", "subject_key", "subject_kind", "robot", "season", "slot_id", "role",
     "subsystem", "model", "method", "metric", "metric_name", "metric_unit", "severity",
     "sensitivity", "title", "onset_match_key", "last_match_key", "matches_affected",
-    "detected_match_key", "confidence", "low_alignment", "last_start",
+    "detected_match_key", "confidence", "low_alignment", "last_start", "event_boundary",
 )  # fmt: skip
 
 
