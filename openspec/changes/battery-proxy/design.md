@@ -81,6 +81,7 @@ The GACMP Q7 entry is removed from `config/failure-labels.toml`. The backtest co
 - Uncached Q7 brownout count: 0.056 s, +32 MB (budget 0.5 s).
 - Season detect (60 × 23): 1.88 s, 226 MB (budget 5 s / 400 MB).
 - Backtest (two seasons): 3.7 s, 258 MB.
+- CI (task 5.3): every blocking job is green. The non-blocking perf job's season detect measured 5.16–5.22 s against the 5 s budget on the GitHub runner (4.67 s on `rewrite` before this change; the extra baseline metric adds about 11%). It passed once on a rerun. Accepted by Josh on 2026-10-12: the budget is defined on the reference laptop, which measures 1.88 s.
 
 **Q7 values from the corpus derive:** drive 14.3–18.4 mΩ; flywheels 50.0 (left leader), 65.8 (left follower), 67.3 (right) mΩ; intake rollers 64.8 / 72.1 mΩ; indexer accelerator 35.1 mΩ. The hood and intake extension are `low-current`, and indexer-main is `no-fit`. Three steer motors pass the gates (0.7, 9.6, 10.0 mΩ), so they are noisier than the probe suggested; the 3 mΩ floor keeps them from flagging on noise alone. Under the 8.5 V test threshold, Q7 has 3 brownouts on the gyro (8.10, 8.27, 8.22 V).
 

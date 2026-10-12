@@ -48,7 +48,7 @@
 
 - [x] 5.1 Add a dated amendment to ADR-0010 (the battery proxy is a declared low-current device with a median fallback; adds supply path resistance). Update docs/rewrite 06-roadmap P5 deferred items (battery-resistance metric delivered as supply path resistance; DS log reader still deferred) and the README's Anomalies section. Verify the links resolve
 - [x] 5.2 Rerun the perf budgets: Q7 ingest + derive + detect < 30 s and < 1 GB; brownout count ≤ 0.5 s; season detect < 5 s and < 400 MB. Record the measurements in design.md
-- [ ] 5.3 Run the full gate locally (ruff, mypy, unit, corpus, browser, perf), then open a PR into `rewrite`. Verify CI is green on all jobs
+- [x] 5.3 Run the full gate locally (ruff, mypy, unit, corpus, browser, perf), then open a PR into `rewrite`. Verify CI is green on all jobs
 - [ ] 5.4 [HUMAN] Re-derive `~/flashpoint-lake`, then run `flashpoint report`, `detect` and `backtest`. Confirm:
   - there are no brownout anomalies, or every one is backed by a real gyro dip;
   - drive-motor path resistance reads 15–25 mΩ in History and Anomalies evidence;
