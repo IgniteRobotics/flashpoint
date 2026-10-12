@@ -187,6 +187,16 @@ Two improvements to the Replay board:
 - **Exit:** a drive coach finds a match by year, robot, and event in two clicks, and can zoom to a two-second brownout without leaving Replay.
 
 ### CAN health (S–M, precursor to P5)
+
+> **Status: ✅ done; archived 2026-10-11** (merged into `rewrite` as #38; archived as `openspec/changes/archive/2026-10-11-can-health`). Its specs are now the baseline in `openspec/specs/`: `can-health` (new), plus changes to `match-reports`, `lifetime-trends`, and `nt-signals`.
+>
+> - `DERIVE_VERSION` 4 and `REPORT_VERSION` 3, so run `flashpoint derive` then `flashpoint report` after upgrading. `PIPELINE_VERSION` is unchanged, so nothing is re-ingested.
+> - Field-checked on the Johnson lake on 2026-10-11:
+>   - Q105 Replay shows the intake roller's 0.82 s dropout (WARN) and reboot (FAULT);
+>   - History shows the extension follower's isolated gaps climbing to 42.
+> - Cost: the Q7 step takes 0.59 s and +69 MB of peak memory. Bus status waits on Robot-2026#108 running on the robot.
+> - Follow-up: #39 (History sparklines are scaled per row).
+
 - **Change:** `can-health`. It needs Robot-2026#108 on the robot for bus status.
 - **What it adds:**
   - reboot events, from `ResetCount` rises and `Fault_BootDuringEnable`;
