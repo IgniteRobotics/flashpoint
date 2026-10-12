@@ -63,5 +63,5 @@
 
 - [x] 10.1 Write ADR-0015 (anomaly triage writes; amends 0013 and 0014). Set ADR-0010 to Accepted with amendments (MODEL optional and off by default; no SPEC limit on the residual; NOISE, STUMPY, and River deferred; brownouts from the battery proxy). Update the server docstring about non-GET routes. Verify the ADR index lists 0015
 - [x] 10.2 Update docs/rewrite: 05 §6 D10 row (decided, with the amendments) and 06 §2 P5 (status, what shipped, deferred items: webhook, NOISE, STUMPY/River, spin-test and battery metrics). Update the README command list with `detect` and `backtest`; verify the links resolve
-- [ ] 10.3 Run the full gate (unit, corpus, browser, perf) locally, then open a PR into `rewrite` (stacked on PR #40 if it is still open); verify CI is green on all jobs
+- [x] 10.3 Run the full gate (unit, corpus, browser, perf) locally, then open a PR into `rewrite` (stacked on PR #40 if it is still open); verify CI is green on all jobs
 - [x] 10.4 [HUMAN] Serve `~/flashpoint-lake`. Check that the Anomalies queue, evidence, and why-text for the Q105 roller reboot read correctly; triage one anomaly through investigate → resolve; dismiss one with restart baseline and confirm the pending notice clears after detection runs. Confirm the Replay and History badges match the queue
