@@ -191,7 +191,7 @@ Lake: Johnson plus GACMP (19 matches with gold). Josh changed four values, which
 | `anomaly.toml` `[spec] stall_med_s` | 3.0 | 5.0 |
 | `anomaly.toml` `[baseline.floors] isolated_gaps` | 1.0 | 2.5 |
 | `anomaly.toml` `[baseline.floors] missed_per_min` | 0.5 | 1.0 |
-| `report.toml` `brownout_hold_s` | 0.02 | 0.05 |
+| `report.toml` `brownout_hold_s` | 0.02 | 0.5 |
 
 Results at normal sensitivity: 165 → 136 anomalies (30 HIGH, 47 MED, 59 LOW). Both evaluable labels (Q105 roller reboot, GACMP Q7 brownouts) are still caught with lead 0. The follower label is still missed (building baseline, 3 of 5). False positives per 10 robot-matches:
 
