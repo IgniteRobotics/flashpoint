@@ -1,0 +1,52 @@
+# Anomaly detection (`flashpoint detect`). Values are the defaults; edit and rerun detect
+# (no re-derive needed). Unknown keys are rejected.
+
+[spec]                      # fixed limits, judged per match; shown at every sensitivity
+temp_max_med_c = 65.0       # match maximum temperature: MED
+temp_max_high_c = 75.0      # ... HIGH
+temp_mean_med_c = 55.0      # match mean temperature: MED
+stall_med_s = 5.0           # stall time: MED
+gap_med_ms = 250.0          # longest isolated CAN gap: MED
+gap_high_ms = 1000.0        # ... HIGH
+brownout_high = 1           # brownouts (battery proxy, same rule as Replay's FAULT markers): HIGH
+# reboots: any reboot while enabled is HIGH, any other reboot MED
+
+[baseline]                  # DRIFT and STEP: each unit against its own history (median / MAD)
+metrics = [
+  "temp_max_c", "temp_mean_c", "temp_rise_c_per_min", "stator_current_p95",
+  "residual_p95_a", "stall_s", "isolated_gaps", "missed_per_min",
+]
+window = 20                 # previous matches in the baseline
+min_baseline = 5            # fewer prior matches: "building baseline", no DRIFT/STEP
+step_z = 3.5                # STEP: the last step_persist matches all beyond this, same sign
+step_persist = 3
+drift_z = 2.5               # DRIFT: median of the last drift_span matches beyond this
+drift_span = 5
+med_z = 4.0                 # severity: MED at |z| >= med_z, HIGH at >= high_z, else LOW
+high_z = 6.0
+
+[baseline.floors]           # minimum spread per metric
+temp_max_c = 1.0
+temp_mean_c = 1.0
+temp_rise_c_per_min = 0.5
+stator_current_p95 = 2.0
+residual_p95_a = 5.0
+stall_s = 0.5
+isolated_gaps = 2.5
+missed_per_min = 1.0
+
+[sibling]                   # SIBLING: a unit against the median of its group (robot TOML)
+z = 3.0
+need = 3                    # flagged in at least `need` of the last `of` whole-group matches
+of = 5
+
+[strict]                    # strict sensitivity adds findings at these lower thresholds
+step_z = 2.5
+drift_z = 1.5
+sibling_z = 2.0
+persist = 2
+
+[model]                     # isolation forest; needs `poetry install -E ml`
+enabled = false
+contamination = 0.01        # flag the top 1 % of scores
+min_train = 200             # unit-matches needed before it scores anything

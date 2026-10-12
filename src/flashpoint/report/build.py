@@ -129,6 +129,60 @@ class LakeMeta:
         return found[0] if found else None
 
 
+@dataclass(frozen=True)
+class MatchSpan:
+    """The session a match's Replay is built from, and the time it covers."""
+
+    primary: dict[str, Any]
+    silver: Path
+    start_us: int
+    end_us: int
+    framed: bool  # False: never enabled; the span is the whole log
+
+
+def silver_path(lake: LakePaths, session: dict[str, Any]) -> Path | None:
+    path = silver_dir(lake) / f"season={session['season']}" / f"session_id={session['session_id']}"
+    return path if path.is_dir() and any(path.glob("*.parquet")) else None
+
+
+def primary_session(meta: "LakeMeta", aligned: list[dict[str, Any]]) -> dict[str, Any]:
+    """Of the sessions with silver, the one with the most silver rows."""
+    return max(
+        aligned,
+        key=lambda s: (meta.one("derived_state", session_id=s["session_id"]) or {}).get(
+            "silver_rows"
+        )
+        or 0,
+    )
+
+
+def match_span(
+    lake: LakePaths,
+    meta: "LakeMeta",
+    con: duckdb.DuckDBPyConnection,
+    aligned: list[dict[str, Any]],
+) -> MatchSpan:
+    """Shared by Replay and detection's brownout count, so both judge the same samples."""
+    primary = primary_session(meta, aligned)
+    silver = silver_path(lake, primary)
+    assert silver is not None
+    phases = meta.rows("match_phases", session_id=primary["session_id"])
+    enabled = [p for p in phases if p["phase"] in ("auto", "teleop", "test")]
+    framed = bool(enabled) and enabled[0]["start_us"] is not None
+    span = con.execute(
+        "SELECT min(t_us), max(t_us) FROM read_parquet(?)", [str(silver / "*.parquet")]
+    ).fetchone()
+    assert span is not None
+    first_us, last_us = int(span[0]), int(span[1])
+    if framed:
+        match_start = int(enabled[0]["start_us"])
+        match_end = max((p["end_us"] for p in enabled if p["end_us"] is not None), default=None)
+        match_end = int(match_end) if match_end is not None else last_us
+    else:
+        match_start, match_end = first_us, last_us
+    return MatchSpan(primary, silver, match_start, match_end, framed)
+
+
 class ReportBuilder:
     def __init__(
         self,
@@ -159,7 +213,7 @@ class ReportBuilder:
     def _config_hash(self) -> str:
         digest = hashlib.sha256(json.dumps(asdict(self.report), sort_keys=True).encode())
         for robot in sorted(self.robots):
-            digest.update(self.robots[robot].model_dump_json().encode())
+            digest.update(self.robots[robot].model_dump_json(exclude={"siblings"}).encode())
         digest.update(f"{self.budget_bytes}:{self.buckets}".encode())
         return digest.hexdigest()
 
@@ -341,12 +395,7 @@ class ReportBuilder:
         return worst["confidence"] or "none", worst["method"]
 
     def _silver(self, session: dict[str, Any]) -> Path | None:
-        path = (
-            silver_dir(self.lake)
-            / f"season={session['season']}"
-            / (f"session_id={session['session_id']}")
-        )
-        return path if path.is_dir() and any(path.glob("*.parquet")) else None
+        return silver_path(self.lake, session)
 
     def _temperature_reason(self, sessions: list[dict[str, Any]]) -> str:
         licensed = [
@@ -382,29 +431,10 @@ class ReportBuilder:
                 "sources": sources,
                 "markers": [],
             }, None
-        primary = max(
-            aligned,
-            key=lambda s: (self.meta.one("derived_state", session_id=s["session_id"]) or {}).get(
-                "silver_rows"
-            )
-            or 0,
-        )
-        silver = self._silver(primary)
-        assert silver is not None
+        span = match_span(self.lake, self.meta, self.con, aligned)
+        primary, silver = span.primary, span.silver
+        framed, match_start, match_end = span.framed, span.start_us, span.end_us
         phases = self.meta.rows("match_phases", session_id=primary["session_id"])
-        enabled = [p for p in phases if p["phase"] in ("auto", "teleop", "test")]
-        framed = bool(enabled) and enabled[0]["start_us"] is not None
-        span = self.con.execute(
-            "SELECT min(t_us), max(t_us) FROM read_parquet(?)", [str(silver / "*.parquet")]
-        ).fetchone()
-        assert span is not None
-        first_us, last_us = int(span[0]), int(span[1])
-        if framed:
-            match_start = int(enabled[0]["start_us"])
-            match_end = max((p["end_us"] for p in enabled if p["end_us"] is not None), default=None)
-            match_end = int(match_end) if match_end is not None else last_us
-        else:
-            match_start, match_end = first_us, last_us
         notes: list[str] = []
         if not framed:
             notes.append(

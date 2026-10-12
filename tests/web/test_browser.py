@@ -179,9 +179,10 @@ def test_registered_view_renders_in_the_shell(page: Any, app: str) -> None:
     assert watch.clean(), watch
 
 
-def test_history_in_nav_only_when_served(page: Any, replay_site: dict[str, Any]) -> None:
+def test_api_views_in_nav_only_when_served(page: Any, replay_site: dict[str, Any]) -> None:
     _open(page, replay_site["served"])
-    assert page.inner_text("nav.tabs").split() == ["REPLAY", "HISTORY"]
+    page.wait_for_selector("[data-badge='anomalies']:not([hidden])")
+    assert page.inner_text("nav.tabs").split() == ["REPLAY", "HISTORY", "ANOMALIES", "0"]
     _open(page, replay_site["static"])
     assert page.inner_text("nav.tabs").split() == ["REPLAY"]
 
@@ -1078,8 +1079,10 @@ def test_corpus_lake_served(page: Any, derived_corpus_lake: Any) -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/"
         watch = _open(page, url)
         page.click("a.match-btn[data-match='2026gacmp_qm7']")
-        page.wait_for_selector("#readout tr")
-        assert _readout_slots(page)[0] == "intake-extension"  # 46 °C, the hottest in Q7
+        # the readout is redrawn once anomalies load: wait for Q7's rows, not the first render
+        page.wait_for_function(
+            "() => document.querySelector('#readout tr')?.dataset.slot === 'intake-extension'"
+        )  # 46 °C, the hottest in Q7
         _open(page, url, "#view=history&unit=legacy%3A2026-comp%3Aintake-extension%3A0")
         page.wait_for_selector("#device .lifeline__item")
         assert "2026gacmp_qm7" in page.inner_text("#device")

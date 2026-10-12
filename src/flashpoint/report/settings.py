@@ -18,7 +18,7 @@ class ReportConfig:
     temp_warn_c: float = 65.0
     temp_fault_c: float = 75.0
     brownout_v: float = 6.75  # battery proxy below this, held brownout_hold_s: FAULT
-    brownout_hold_s: float = 0.02
+    brownout_hold_s: float = 0.5
     sag_v: float = 8.0  # battery proxy below this: WARN
     voltage_danger_v: float = 7.0  # History's min-voltage reference line
     sample_gap_s: float = 1.0  # a whole CAN bus silent this long during the match: WARN

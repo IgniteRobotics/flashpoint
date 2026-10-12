@@ -211,6 +211,27 @@ hoot = "rio"
 name = "DriveTrain"
 hoot = "canivore"
 
+# --- sibling groups: slots that do the same job, compared with each other (SIBLING anomalies) ---
+[[siblings]]
+name = "drive"
+slots = ["drive-fl", "drive-fr", "drive-bl", "drive-br"]
+
+[[siblings]]
+name = "steer"
+slots = ["steer-fl", "steer-fr", "steer-bl", "steer-br"]
+
+[[siblings]]
+name = "flywheel"
+slots = ["flywheel-left-leader", "flywheel-right", "flywheel-left-follower"]
+
+[[siblings]]
+name = "intake-roller"
+slots = ["intake-roller", "intake-roller-follower"]
+
+[[siblings]]
+name = "intake-extension"
+slots = ["intake-extension", "intake-extension-follower"]
+
 # --- NetworkTables signals (roots: config/seasons/2026.toml) ------------------------
 
 # intake

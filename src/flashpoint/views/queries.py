@@ -1,8 +1,9 @@
 """History queries over the lake: parameterised DuckDB SQL, read-only, testable without HTTP.
 
-Reads gold (`match_features`, `unit_usage`) and the meta Parquet snapshots only; it never
-opens the SQLite ledger. Every filter value binds as a `?` parameter, and metric names map to
-columns through a fixed whitelist, so request values are always data, never query text.
+Reads gold (`match_features`, `unit_usage`) and the meta Parquet snapshots; device health also
+counts open anomalies (through `views.anomalies`, which reads triage from the ledger). Every
+filter value binds as a `?` parameter, and metric names map to columns through a fixed
+whitelist, so request values are always data, never query text.
 """
 
 import difflib
@@ -19,6 +20,7 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.report.names import download_name
 from flashpoint.report.settings import ReportConfig
 from flashpoint.semantics.robot_config import RobotConfig
+from flashpoint.views.anomalies import AnomalyQueries
 
 
 class QueryError(ValueError):
@@ -159,10 +161,12 @@ class HistoryQueries:
         lake: LakePaths,
         robots: list[RobotConfig] | None = None,
         report: ReportConfig | None = None,
+        anomalies: AnomalyQueries | None = None,
     ) -> None:
         self.lake = lake
         self.robots = {r.robot: r for r in robots or []}
         self.report = report or ReportConfig()
+        self.anomalies = anomalies
         self.last_sql = ""  # the most recent statement issued (tests check its predicates)
         self._con: duckdb.DuckDBPyConnection | None = None
         self._lock = threading.Lock()
@@ -346,6 +350,18 @@ class HistoryQueries:
             return "WARN"
         return "OK"
 
+    def _open_anomalies(self) -> dict[str, dict[str, Any]]:
+        return self.anomalies.open_units() if self.anomalies is not None else {}
+
+    @staticmethod
+    def _worse(health: str, anomaly: dict[str, Any] | None) -> str:
+        """Temperature health, raised by open anomalies: HIGH counts as HOT, MED/LOW as WARN."""
+        if anomaly is None:
+            return health
+        level = "HOT" if anomaly["severity"] == "HIGH" else "WARN"
+        order = ("NO-DATA", "OK", "WARN", "HOT")
+        return max(health, level, key=order.index)
+
     def _temp_max(self, filters: Filters) -> dict[str, float | None]:
         """Each unit's highest match temperature in range: health is temperature only."""
         where, params = _where(filters, Filters.names(), "f")
@@ -376,13 +392,15 @@ class HistoryQueries:
             params,
         )
         temps = self._temp_max(filters)
+        anomalies = self._open_anomalies()
         for row in rows:
             row["temp_max_c"] = temps.get(row["unit_id"])
             values = [v for v in row["spark"] if v is not None]
             row["serial"] = serial_of(row["unit_id"])
             row["latest"] = values[-1] if values else None
             row["change"] = values[-1] - values[0] if len(values) >= 2 else None
-            row["health"] = self._health(row["temp_max_c"])
+            row["anomalies"] = anomalies.get(row["unit_id"])
+            row["health"] = self._worse(self._health(row["temp_max_c"]), row["anomalies"])
         return rows
 
     def summary(self, filters: Filters) -> dict[str, Any]:
@@ -400,9 +418,11 @@ class HistoryQueries:
             f" WHERE {uwhere}",
             uparams,
         )[0]["powered_h"]
+        anomalies = self._open_anomalies()
         flagged = [
-            u for u, t in self._temp_max(filters).items() if self._health(t) in ("WARN", "HOT")
-        ]
+            u for u, t in self._temp_max(filters).items()
+            if self._worse(self._health(t), anomalies.get(u)) in ("WARN", "HOT")
+        ]  # fmt: skip
         return {
             "units": counts["units"],
             "matches": counts["matches"],

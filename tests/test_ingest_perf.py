@@ -86,6 +86,7 @@ def test_q7_match_ingest_budget(corpus_group: Callable[[str], list[Path]], tmp_p
     assert done.returncode == 0, done.stdout + done.stderr
     assert "3 ingested" in done.stdout
     assert "derived 1 of 1 session(s)" in done.stdout  # ingest + derive (P2)
+    assert "detected " in done.stdout  # + anomaly detection (P5), inside the same budget
     assert elapsed < BUDGET_S
     assert peaks["flashpoint_peak_bytes"] < BUDGET_RSS_BYTES
     if sys.platform == "darwin":

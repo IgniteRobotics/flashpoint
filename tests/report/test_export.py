@@ -85,3 +85,58 @@ def test_nothing_built(tmp_path: Path) -> None:
     lake = MatchLake(tmp_path / "lake")
     with pytest.raises(ExportError, match="flashpoint report"):
         export_static(lake.lake, tmp_path / "out")
+
+
+def _anomaly(anomaly_id: str, keys: list[str], **extra: object) -> dict[str, object]:
+    import json
+
+    from flashpoint.anomaly import detect
+
+    row: dict[str, object] = dict.fromkeys(detect.SCHEMA)
+    row.update({
+        "id": anomaly_id, "subject": "power", "subject_key": "power:2026-comp",
+        "subject_kind": "power", "robot": "2026-comp", "slot_id": "power", "method": "SPEC",
+        "metric": "brownouts", "severity": "HIGH", "sensitivity": "relaxed",
+        "title": "6 brownouts in Q7 </script>", "onset_match_key": keys[0],
+        "last_match_key": keys[-1], "flagged_keys": json.dumps(keys), "evidence": "{}",
+        **extra,
+    })  # fmt: skip
+    return row
+
+
+def test_anomaly_snapshot(built: MatchLake, tmp_path: Path) -> None:
+    import json
+
+    import polars as pl
+
+    from flashpoint.anomaly import detect
+    from flashpoint.views.anomalies import AnomalyQueries
+
+    rows = [
+        _anomaly("a" * 16, ["2026gacmp_qm6", "2026gacmp_qm7"]),
+        _anomaly("b" * 16, ["2026gacmp_qm6"]),  # no exported match
+        _anomaly("c" * 16, ["2026gacmp_qm7"]),  # resolved below
+    ]
+    path = built.root / "gold" / "anomalies" / "anomalies.parquet"
+    path.parent.mkdir(parents=True)
+    pl.DataFrame(rows, schema=detect.SCHEMA).write_parquet(path)
+    queries = AnomalyQueries(built.lake, config.config_root())
+    queries.triage("c" * 16, {"to": "investigating"})
+    queries.triage("c" * 16, {"to": "resolved", "outcome": "battery swapped"})
+
+    out = tmp_path / "export"
+    export_static(built.lake, out)
+    text = (out / "data" / "anomalies-snapshot.js").read_text()
+    assert text.startswith("FP.anomalySnapshot = ") and text.endswith(";\n")
+    assert "</script>" not in text  # escaped like the other data files
+    snapshot = json.loads(text.removeprefix("FP.anomalySnapshot = ").removesuffix(";\n"))
+    assert [i["id"] for i in snapshot["items"]] == ["a" * 16]
+    assert snapshot["items"][0]["flagged_keys"] == ["2026gacmp_qm7"]
+    assert snapshot["taken_at"].endswith("+00:00")
+    assert "http" not in text
+
+
+def test_anomaly_snapshot_without_detection(built: MatchLake, tmp_path: Path) -> None:
+    out = tmp_path / "export"
+    export_static(built.lake, out)
+    assert '"items": []' in (out / "data" / "anomalies-snapshot.js").read_text()

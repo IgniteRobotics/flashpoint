@@ -2,6 +2,7 @@
 
 - Status: Proposed
 - Date: 2026-10-05
+- Amended by: [0015](0015-anomaly-triage-writes.md) (the same guard covers triage writes, with marker value `triage`)
 - Amends: [0013](0013-views-one-local-app.md) (the read-only app); refines D8
 - Deciders: Josh
 - Refs: openspec change `advantagescope-launch` (design.md), D8, pitfall #54

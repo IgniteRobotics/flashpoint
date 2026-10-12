@@ -359,3 +359,14 @@ def test_build_is_byte_reproducible(q7: MatchLake) -> None:
     first = (data_dir(q7.lake) / "2026gacmp_qm7.js").read_bytes()
     _build(q7, budget_bytes=2_000_001)  # a new config hash forces a rebuild
     assert (data_dir(q7.lake) / "2026gacmp_qm7.js").read_bytes() == first
+
+
+def test_sibling_groups_do_not_change_the_config_hash(tmp_path: Path) -> None:
+    builder = ReportBuilder(MatchLake(tmp_path / "lake").write_meta(), config.config_root())
+    try:
+        before = builder._config_hash()
+        for name, robot in builder.robots.items():
+            builder.robots[name] = robot.model_copy(update={"siblings": []})
+        assert builder._config_hash() == before
+    finally:
+        builder.close()

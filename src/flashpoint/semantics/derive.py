@@ -490,7 +490,10 @@ class Deriver:
             ),
             "phases": [p.__dict__ for p in framing.phases],
             # Only this session's robot and season: editing one robot re-derives only its sessions.
-            "robot": robot.model_dump(mode="json") if robot is not None else None,
+            # Sibling groups only steer detection: editing them must not re-derive.
+            "robot": robot.model_dump(mode="json", exclude={"siblings"})
+            if robot is not None
+            else None,
             "season_roots": season.root_names() if season is not None else None,
         }
         return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()

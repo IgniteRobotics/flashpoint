@@ -10,6 +10,9 @@ dependencies = ["numpy (>=2.0,<2.5)", "numba (>=0.61)", "polars (>=1.30)", "pyar
 [project.scripts]
 flashpoint = "flashpoint.cli:main"
 
+[project.optional-dependencies]
+ml = ["scikit-learn (>=1.5)"]
+
 [tool.poetry]
 packages = [{ include = "flashpoint", from = "src" }]
 
@@ -54,5 +57,5 @@ python_version = "3.11"
 
 [[tool.mypy.overrides]]
 # Third-party packages without type stubs.
-module = ["pyarrow", "pyarrow.*", "numba", "numba.*", "wpiutil", "wpiutil.*"]
+module = ["pyarrow", "pyarrow.*", "numba", "numba.*", "wpiutil", "wpiutil.*", "sklearn", "sklearn.*"]
 ignore_missing_imports = true

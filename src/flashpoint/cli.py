@@ -1,5 +1,5 @@
-"""`flashpoint` command line: ingest, rebuild, derive, report, serve, acquire, backup, restore,
-doctor."""
+"""`flashpoint` command line: ingest, rebuild, derive, detect, backtest, report, serve, acquire,
+backup, restore, doctor."""
 
 import argparse
 import logging
@@ -73,6 +73,18 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(derive)
 
+    detect = sub.add_parser(
+        "detect", help="find anomalies in gold (runs after every derive; skips when unchanged)"
+    )
+    detect.add_argument("--all", action="store_true", help="run even when nothing changed")
+    lake_arg(detect)
+
+    backtest = sub.add_parser(
+        "backtest",
+        help="replay detection in match order against config/failure-labels.toml",
+    )
+    lake_arg(backtest)
+
     report = sub.add_parser(
         "report", help="build per-match Replay data (incremental); --static exports a folder"
     )
@@ -91,7 +103,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(report)
 
-    serve = sub.add_parser("serve", help="serve Replay and History from the lake (read-only)")
+    serve = sub.add_parser(
+        "serve", help="serve Replay, History and Anomalies (read-only but for triage)"
+    )
     serve.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
     serve.add_argument("--port", type=int, default=8000, help="port (default 8000; 0 = any)")
     serve.add_argument(
@@ -166,6 +180,70 @@ def _derive(lake: LakePaths, force: bool) -> int:
     finally:
         deriver.close()
     print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
+    # Detection is part of every derive; it skips itself when gold and config are unchanged.
+    # Its own failure (configuration, lock) is reported but does not fail the derive.
+    _detect(lake, force=False)
+    return 0
+
+
+DETECT_LOCK = "detect.lock"
+
+
+def _detect(lake: LakePaths, force: bool) -> int:
+    from flashpoint.anomaly import detect
+
+    try:
+        with AcquireLock(lake.meta / DETECT_LOCK):
+            result = detect.detect(lake, config.config_root(), force=force)
+    except LockHeldError:
+        print(f"detect is already running on this lake (lock: {lake.meta / DETECT_LOCK})",
+              file=sys.stderr)  # fmt: skip
+        return EXIT_LOCKED
+    except detect.DetectConfigError as exc:
+        print(f"detection configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    summary = result.summary
+    for note in summary.get("notes", []) if result.ran else []:
+        print(f"warning: {note}", file=sys.stderr)
+    counts = summary.get("counts", {})
+    severities = ", ".join(f"{counts.get(s, 0)} {s}" for s in ("HIGH", "MED", "LOW"))
+    building = summary.get("building_baseline", {}).get("count", 0)
+    state = "detected" if result.ran else "unchanged:"
+    print(
+        f"{state} {summary.get('anomalies', 0)} anomalies ({severities});"
+        f" {building} unit(s) building baseline;"
+        f" scanned through {summary.get('scanned_through') or 'no matches'}"
+    )
+    return 0
+
+
+def _backtest(lake: LakePaths) -> int:
+    from flashpoint.anomaly import backtest, detect
+
+    try:
+        result = backtest.backtest(lake, config.config_root())
+    except detect.DetectConfigError as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    if result.message:
+        print(result.message)
+    normal = result.report["sensitivities"]["normal"]
+    counts, fp = normal["counts"], normal["false_positives"]
+    rate = ", ".join(
+        f"{m} {v['per_10_robot_matches']:.2f}"
+        for m, v in fp["by_method"].items()
+        if v["count"] and v["per_10_robot_matches"] is not None
+    )
+    print(
+        f"backtest (normal sensitivity): {sum(counts.values())} label(s): caught"
+        f" {counts['caught']}, missed {counts['missed']}, not evaluable {counts['not evaluable']}"
+    )
+    print(f"  false positives per 10 robot-matches: {rate or 'none'}")
+    for label in normal["labels"]:
+        lead = f", lead {label['lead_matches']} match(es)" if label["result"] == "caught" else ""
+        why = f" ({label['reason']})" if label["reason"] else ""
+        print(f"  {label['match']} {label['unit'] or label['slot']}: {label['result']}{lead}{why}")
+    print(f"report: {result.md_path} (data: {result.json_path.name})")
     return 0
 
 
@@ -220,6 +298,7 @@ def _report(lake: LakePaths, args: argparse.Namespace) -> int:
 def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     from flashpoint.report.settings import ReportConfigError, load_report_config
     from flashpoint.semantics.robot_config import ConfigError, load_robots
+    from flashpoint.views.anomalies import AnomalyQueries
     from flashpoint.views.queries import HistoryQueries
     from flashpoint.web import advantagescope
     from flashpoint.web.server import FlashpointServer, host_warning, run
@@ -242,11 +321,13 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     except OSError as exc:  # a locked file must not stop the app from starting
         print(f"warning: could not clean {root}: {exc}", file=sys.stderr)
     try:
+        anomalies = AnomalyQueries(lake, config.config_root())
         server = FlashpointServer(
             (args.host, args.port),
             lake,
-            HistoryQueries(lake, robots, report_config),
+            HistoryQueries(lake, robots, report_config, anomalies),
             launcher=advantagescope.Launcher(install, problem, root),
+            anomalies=anomalies,
         )
     except (OSError, OverflowError) as exc:
         print(f"cannot listen on {args.host}:{args.port}: {exc}", file=sys.stderr)
@@ -254,8 +335,7 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     warning = host_warning(args.host)
     if warning:
         print(warning, file=sys.stderr)
-    print(f"Flashpoint (lake {lake.root}) at {server.url}", flush=True)
-    return run(server)
+    return run(server, f"Flashpoint (lake {lake.root}) at {server.url}")
 
 
 def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
@@ -437,6 +517,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _doctor(lake)
     if args.command == "derive":
         return _derive(lake, force=args.all)
+    if args.command == "detect":
+        return _detect(lake, force=args.all)
+    if args.command == "backtest":
+        return _backtest(lake)
     if args.command == "report":
         return _report(lake, args)
     if args.command == "serve":

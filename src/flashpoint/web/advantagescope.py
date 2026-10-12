@@ -270,8 +270,11 @@ def _loopback(host: str) -> bool:
     return bool(address.is_loopback or (mapped is not None and mapped.is_loopback))
 
 
-def refusal(bound_local: bool, port: int, client: str, headers: Mapping[str, str]) -> str | None:
-    """Why a launch request is refused, or None. Every check must pass (ADR-0014):
+def refusal(
+    bound_local: bool, port: int, client: str, headers: Mapping[str, str], marker: str = "launch"
+) -> str | None:
+    """Why a write request (`marker`: launch, triage) is refused, or None. Every check must
+    pass (ADR-0014, ADR-0015):
     the server is bound to loopback, the client is loopback, `Host` names this machine
     (DNS rebinding), and `Origin`, the marker header, and a JSON body force a CORS preflight
     that this server never answers, so no other web page can send it."""
@@ -285,7 +288,7 @@ def refusal(bound_local: bool, port: int, client: str, headers: Mapping[str, str
         return "the Host header does not name this machine"
     if not host or headers.get("Origin") != f"http://{host}":
         return "cross-origin request refused"
-    if headers.get(MARKER) != "launch":
+    if headers.get(MARKER) != marker:
         return f"missing {MARKER} header"
     if headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
         return "Content-Type must be application/json"

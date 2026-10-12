@@ -54,6 +54,53 @@
     return found && found.role ? slot + ' · ' + found.role : slot;
   };
 
+  /* ---------- anomaly badges: served from the API, static from the export's snapshot ---------- */
+  const SEV_RANK = { HIGH: 0, MED: 1, LOW: 2 };
+  async function loadAnomalies() {
+    const sens = FP.sensitivity();
+    let items = [];
+    let takenAt = null;
+    try {
+      if (FP.mode.static) {
+        await FP.loadScript('data/anomalies-snapshot.js');
+        const snap = FP.anomalySnapshot || { items: [] };
+        takenAt = snap.taken_at || null;
+        items = snap.items.filter((a) => FP.shownAt(a.sensitivity, sens));
+      } else {
+        items = (await FP.api('anomalies', { sens, tab: 'open' })).items.filter((a) => a.detected);
+      }
+    } catch (_) {
+      items = []; // no snapshot in an older export, or no detection yet
+    }
+    const byMatch = {};
+    for (const a of items) for (const key of a.flagged_keys) (byMatch[key] = byMatch[key] || []).push(a);
+    return { sens, takenAt, byMatch };
+  }
+  const anomaliesAt = (key) => (ui && ui.anoms ? ui.anoms.byMatch[key] || [] : []);
+  function matchGlyph(key) {
+    const found = anomaliesAt(key);
+    if (!found.length) return null;
+    const worst = found.map((a) => a.severity).sort((a, b) => SEV_RANK[a] - SEV_RANK[b])[0];
+    return h('span', { class: 'anom-glyph sev sev--' + worst.toLowerCase(), dataset: { anomaly: key },
+      title: found.length + ' open anomal' + (found.length === 1 ? 'y' : 'ies') + ' flagged in this match' }, worst);
+  }
+  function trackBadges(d, spec) {
+    const slot = spec === 'battery' ? 'power' : (spec.includes(':') ? spec.split(':')[1] : null);
+    if (!slot) return null;
+    const found = anomaliesAt(d.match_key).filter((a) => a.slot_id === slot && a.robot === d.robot);
+    if (!found.length) return null;
+    const snap = ui.anoms.takenAt;
+    return h('div', { class: 'track__badges' }, found.map((a) => {
+      const text = a.method + ' · ' + a.title;
+      const cls = 'badge sev sev--' + a.severity.toLowerCase();
+      return FP.mode.static
+        ? h('span', { class: cls, dataset: { anomalyBadge: a.id }, title: 'Anomaly snapshot taken ' + FP.when(snap) },
+          text, ' · snapshot ' + FP.when(snap))
+        : h('a', { class: cls, dataset: { anomalyBadge: a.id },
+          href: FP.link({ view: 'anomalies', tab: 'open', sens: ui.anoms.sens, id: a.id }) }, text);
+    }));
+  }
+
   function totalCurrent(d) {
     const n = d.window.n; const out = new Array(n).fill(null);
     for (const slot of slotIds(d)) {
@@ -150,7 +197,7 @@
           'aria-current': e.key === selected ? 'page' : null,
           dataset: { match: e.key },
         },
-        h('span', { class: 'match-btn__row' }, h('b', null, e.label), status),
+        h('span', { class: 'match-btn__row' }, h('b', null, e.label), matchGlyph(e.key), status),
         h('span', { class: 'meta' }, e.robot, ' · ', FP.when(e.start_utc)),
         e.low_alignment && e.status === 'ok' ? h('span', { class: 'badge badge--low' }, '▲ LOW ALIGNMENT · ' + e.alignment) : null);
       }))));
@@ -272,6 +319,10 @@
       return;
     }
     ui.entries = entries;
+    const mineAnoms = ui;
+    const anoms = await loadAnomalies();
+    if (ui !== mineAnoms || !el.isConnected) return;
+    ui.anoms = anoms;
     ui.seasons = seasonsKnown(index);
     ui.filters = initialFilters(state, entries, entries.find((e) => e.key === state.m), ui.seasons);
     const shown = filterEntries(entries, ui.filters);
@@ -472,7 +523,8 @@
         h('div', { class: 'track__name' }, td.label.toUpperCase()),
         h('div', { class: 'track__now' }, now, ' ', h('span', { class: 'meta' }, td.unit || '')),
         h('div', { class: 'track__range', 'data-range': String(index) }),
-        picker);
+        picker,
+        trackBadges(d, spec));
       container.appendChild(h('div', { class: 'track' }, label, plot));
       const entry = { spec, td, now, plot, range: label.querySelector('[data-range]') };
       if (td.missing || !td.values) {

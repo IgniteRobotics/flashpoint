@@ -427,15 +427,47 @@
     return canvas;
   };
 
+  /* ---------- Anomaly sensitivity: one setting shared by Anomalies and Replay ---------- */
+  const SENS_KEY = 'flashpoint.sensitivity';
+  FP.SENSITIVITIES = ['relaxed', 'normal', 'strict'];
+  FP.sensitivity = (value) => {
+    if (value && FP.SENSITIVITIES.includes(value)) {
+      try { window.localStorage.setItem(SENS_KEY, value); } catch (_) { /* storage unavailable */ }
+      return value;
+    }
+    let stored = null;
+    try { stored = window.localStorage.getItem(SENS_KEY); } catch (_) { stored = null; }
+    return FP.SENSITIVITIES.includes(stored) ? stored : 'normal';
+  };
+  /* An anomaly tagged `tag` (the lowest sensitivity that shows it) shows at `chosen`. */
+  FP.shownAt = (tag, chosen) => FP.SENSITIVITIES.indexOf(tag) <= FP.SENSITIVITIES.indexOf(chosen);
+
   /* ---------- Views and the router ---------- */
   const views = [];
   let current = null;
   FP.view = (view) => { views.push(view); };
   const available = () => views.filter((v) => !(v.needsApi && MODE.static));
 
+  /* A view's nav badge ({ text, hot } or null), filled after the header renders. */
+  FP.refreshBadges = () => {
+    for (const v of available()) {
+      const slot = document.querySelector('[data-badge="' + v.id + '"]');
+      if (!slot || !v.badge) continue;
+      Promise.resolve(v.badge()).then((b) => {
+        slot.hidden = !b;
+        if (!b) return;
+        slot.textContent = b.text;
+        slot.classList.toggle('tab__badge--hot', Boolean(b.hot));
+        slot.setAttribute('aria-label', b.label || b.text);
+      }).catch(() => { slot.hidden = true; });
+    }
+  };
+
   function header(active) {
     const nav = h('nav', { class: 'tabs', 'aria-label': 'Views' },
-      available().map((v) => h('a', { class: 'tab', href: '#view=' + encodeURIComponent(v.id), 'aria-current': v.id === active ? 'page' : null }, v.label.toUpperCase())));
+      available().map((v) => h('a', { class: 'tab', href: '#view=' + encodeURIComponent(v.id), 'aria-current': v.id === active ? 'page' : null },
+        v.label.toUpperCase(),
+        v.badge ? h('span', { class: 'tab__badge', dataset: { badge: v.id }, hidden: true }) : null)));
     const crt = h('button', { type: 'button', class: 'btn btn--sm btn--ghost', 'aria-pressed': 'true', title: 'Toggle scanline texture', on: { click: toggleCrt } }, 'CRT');
     crt.dataset.crt = '';
     return h('header', { class: 'app-header' },
@@ -475,6 +507,7 @@
       if (path) { path.textContent = 'lake ' + FP.indexData.lake; path.title = FP.indexData.lake; }
     }
     document.title = view.label + ' · Flashpoint';
+    FP.refreshBadges();
     view.mount(document.getElementById('view'), state);
   }
   FP.go = (state) => {

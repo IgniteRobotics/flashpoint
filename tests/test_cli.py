@@ -57,3 +57,52 @@ def test_doctor_lists_season_roots_and_signal_counts(
     assert "2026" in out and "robot=NT:Robot/m_robotContainer/" in out
     assert "photonvision=NT:/photonvision/" in out
     assert "r " in out and "1 slots, 1 signals" in out
+
+
+def _gold(root: Path) -> Path:
+    from tests.anomaly.gold_builder import GoldLake, steady
+
+    gold = GoldLake(root, matches=25, slots=["hood", "drive-fl"])
+    gold.set("hood", "temp_max_c", steady(45.0, 20) + steady(55.0, 5))
+    gold.set("drive-fl", "temp_max_c", [40.0] * 3)
+    gold.swap("drive-fl", 3, "ctre:NEW-DRIVE")
+    gold.write()
+    return root
+
+
+def test_detect_summary_line(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    lake = _gold(tmp_path / "lake")
+    assert main(["detect", "--lake", str(lake)]) == 0
+    out = capsys.readouterr().out
+    assert "1 HIGH" in out and "anomal" in out
+    assert "1 unit(s) building baseline" in out  # the drive unit swapped out after 3 matches
+    assert "scanned through 2026syn_qm25" in out
+    assert main(["detect", "--lake", str(lake)]) == 0
+    assert "unchanged" in capsys.readouterr().out
+    assert main(["detect", "--all", "--lake", str(lake)]) == 0
+    assert "unchanged" not in capsys.readouterr().out
+
+
+def test_detect_config_error_is_usage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import shutil
+
+    from flashpoint import config
+
+    cfg = tmp_path / "config"
+    shutil.copytree(config.config_root(), cfg)
+    (cfg / "anomaly.toml").write_text("[baseline]\ndrift_z_score = 2\n")
+    monkeypatch.setenv(config.CONFIG_ENV, str(cfg))
+    assert main(["detect", "--lake", str(_gold(tmp_path / "lake"))]) == 2
+    assert "drift_z_score" in capsys.readouterr().err
+
+
+def test_detect_lock_held(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from flashpoint.acquire.watch import EXIT_LOCKED, AcquireLock
+
+    lake = _gold(tmp_path / "lake")
+    (lake / "meta").mkdir(exist_ok=True)
+    with AcquireLock(lake / "meta" / "detect.lock"):
+        assert main(["detect", "--lake", str(lake)]) == EXIT_LOCKED
+    assert "detect" in capsys.readouterr().err

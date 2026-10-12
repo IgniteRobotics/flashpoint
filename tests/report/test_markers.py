@@ -51,21 +51,21 @@ def test_temperature_warn_and_fault(tmp_path: Path) -> None:
 
 def test_brownout_is_one_fault_not_also_a_sag(tmp_path: Path) -> None:
     rows = _quiet()
-    for row in rows:  # every device at 6.5 V for 0.2 s at T+97 s
-        if row["metric"] == "supply_voltage" and 107 * S <= row["t_us"] < 107.2 * S:
+    for row in rows:  # every device at 6.5 V for 0.6 s at T+97 s
+        if row["metric"] == "supply_voltage" and 107 * S <= row["t_us"] < 107.6 * S:
             row["value"] = 6.5
     markers = _markers(tmp_path, rows)
     assert len(markers) == 1
     marker = markers[0]
     assert (marker["level"], marker["source"], marker["kind"]) == ("FAULT", "power", "brownout")
     assert marker["t"] == pytest.approx(97.0)
-    assert marker["end"] == pytest.approx(97.2, abs=0.03)
+    assert marker["end"] == pytest.approx(97.6, abs=0.03)
     assert "6.50 V" in marker["message"]
 
 
 def test_brief_dip_below_brownout_is_only_a_sag(tmp_path: Path) -> None:
     rows = _quiet()
-    for row in rows:  # one device, one sample at 6.5 V held 10 ms (< the 20 ms minimum)
+    for row in rows:  # one device, one sample at 6.5 V held 10 ms (< the 500 ms minimum)
         hood = row["slot_id"] == "hood" and row["metric"] == "supply_voltage"
         if hood and 50 * S <= row["t_us"] < 50.01 * S:
             row["value"] = 6.5
@@ -208,7 +208,7 @@ def test_thresholds_from_config(tmp_path: Path) -> None:
 def test_markers_state_facts_only(tmp_path: Path) -> None:
     rows = _quiet()
     for row in rows:
-        if row["metric"] == "supply_voltage" and 107 * S <= row["t_us"] < 107.2 * S:
+        if row["metric"] == "supply_voltage" and 107 * S <= row["t_us"] < 107.6 * S:
             row["value"] = 6.5
     for marker in _markers(tmp_path, rows):
         assert set(marker) == {"level", "source", "kind", "t", "end", "message"}

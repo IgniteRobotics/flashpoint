@@ -48,11 +48,16 @@ def serve() -> Iterator[Any]:
     started: list[FlashpointServer] = []
 
     def start(
-        lake: LakePaths, static_dir: Path | None = None, robots: Any = None, launcher: Any = None
-    ) -> Running:
+        lake: LakePaths, static_dir: Path | None = None, robots: Any = None, launcher: Any = None,
+        anomalies: Any = None, spawner: Any = None,
+    ) -> Running:  # fmt: skip
         kwargs: dict[str, Any] = {"static_dir": static_dir} if static_dir else {}
         if launcher is not None:
             kwargs["launcher"] = launcher
+        if anomalies is not None:
+            kwargs["anomalies"] = anomalies
+        if spawner is not None:
+            kwargs["spawner"] = spawner
         server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake, robots), **kwargs)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
