@@ -203,3 +203,5 @@ Results at normal sensitivity: 165 → 136 anomalies (30 HIGH, 47 MED, 59 LOW). 
 | SIBLING | 1.1 | 0 |
 
 Still loud: DRIFT `missed_per_min` (10), SPEC stall (10), DRIFT temperatures (12, plausibly the venue change), and STEP residual and stator current (4 HIGH each). The longer brownout hold did not change the count: one episode still spans 16 matches with 25 brownouts, which points at the 6.75 V proxy threshold rather than the hold. 9.3 stays open for the next pass.
+
+With the hold at 0.5 s (corrected from 0.05 s): 137 anomalies (31 HIGH, 47 MED, 59 LOW), SPEC 7.37 per 10 robot-matches, labels unchanged. The brownout episode splits into Q7 alone and qm33 → Johnson qm105. 14 matches still hold below 6.75 V for 0.5 s or more, with lows of 5.6–6.5 V.
