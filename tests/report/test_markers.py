@@ -65,7 +65,7 @@ def test_brownout_is_one_fault_not_also_a_sag(tmp_path: Path) -> None:
 
 def test_brief_dip_below_brownout_is_only_a_sag(tmp_path: Path) -> None:
     rows = _quiet()
-    for row in rows:  # one device, one sample at 6.5 V held 10 ms (< the 20 ms minimum)
+    for row in rows:  # one device, one sample at 6.5 V held 10 ms (< the 50 ms minimum)
         hood = row["slot_id"] == "hood" and row["metric"] == "supply_voltage"
         if hood and 50 * S <= row["t_us"] < 50.01 * S:
             row["value"] = 6.5

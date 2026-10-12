@@ -20,7 +20,7 @@
 
 ## 4. SPEC rules and sibling comparison
 
-- [x] 4.1 Write failing tests for the SPEC table: hot motor 66 °C → MED with "< 65 °C"; 75 °C → HIGH; mean 55 °C; stall 3 s; reboot while enabled → HIGH, otherwise MED; isolated gap 0.25 s / 1 s; brownout ≥ 1 → HIGH on `power`; severity is the episode maximum. Then implement `anomaly/spec_rules.py`; verify the tests pass
+- [x] 4.1 Write failing tests for the SPEC table: hot motor 66 °C → MED with "< 65 °C"; 75 °C → HIGH; mean 55 °C; stall 5 s; reboot while enabled → HIGH, otherwise MED; isolated gap 0.25 s / 1 s; brownout ≥ 1 → HIGH on `power`; severity is the episode maximum. Then implement `anomaly/spec_rules.py`; verify the tests pass
 - [x] 4.2 Write failing tests for sibling comparison: One drive motor runs hot, Whole group warms together, Missing member, and the pair rule (the anomaly goes to the member further from its own baseline, with the peer named). Then implement `anomaly/siblings.py`; verify the tests pass
 
 ## 5. Anomalies table, explanations, and commands

@@ -31,7 +31,7 @@ def test_defaults() -> None:
         75.0,
         55.0,
     )
-    assert cfg.spec.stall_med_s == 3.0
+    assert cfg.spec.stall_med_s == 5.0
     assert (cfg.spec.gap_med_ms, cfg.spec.gap_high_ms) == (250.0, 1000.0)
     assert (cfg.baseline.window, cfg.baseline.min_baseline) == (20, 5)
     assert (cfg.baseline.step_z, cfg.baseline.step_persist, cfg.baseline.drift_z) == (3.5, 3, 2.5)

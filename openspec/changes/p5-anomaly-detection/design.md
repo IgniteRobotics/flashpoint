@@ -60,7 +60,7 @@ So an anomaly keeps one id whatever the sensitivity, and its onset is the strict
 ### D4. SPEC rules
 SPEC rules are evaluated per match from the same frame, with the limits from `config/anomaly.toml [spec]`:
 - temperature 65/75 °C maximum and 55 °C mean;
-- stall 3 s;
+- stall 5 s (3 s before the 9.3 tuning);
 - reboots (`reboots_enabled > 0` → HIGH, other reboots → MED);
 - longest isolated gap 0.25 s / 1 s.
 
@@ -145,7 +145,7 @@ Each file is loaded with `tomllib` and strict key validation, following `robot_c
 ## Risks / Trade-offs
 
 - **Too little history, so detection is silent** → "building baseline" is reported in the view and the backtest. The Q105 degradation label is expected to be missed until more 2026 logs are ingested. Josh is adding them, and task 9.2 re-runs the backtest then.
-- **False-positive flood** (the residual is noisy, and stall default 3 s is a guess) → MAD floors, persistence, sensitivity tags, and a backtest FP report per method before anyone relies on it. Thresholds are in config, not code.
+- **False-positive flood** (the residual is noisy, and the stall default is a guess, already raised from 3 s to 5 s) → MAD floors, persistence, sensitivity tags, and a backtest FP report per method before anyone relies on it. Thresholds are in config, not code.
 - **Ids shift when configuration changes onsets** → triage is kept and shown as "no longer detected". Students re-triage the new id. This is acceptable, because configuration changes are rare.
 - **First write route** → the same guard as the launch, append-only rows, a 4 KB body cap, JSON-only, and no write in shared or static mode. ADR-0015 records it.
 - **The server and the watch both touch SQLite** → WAL and busy timeout are already in the ledger. Triage inserts are single-row transactions.
@@ -181,3 +181,25 @@ Decisions and deviations found while implementing; the specs are unchanged unles
 - **No lookahead (spec scenario).** An anomaly still running at the cutoff keeps its id and onset; one finished by the cutoff is identical. The test checks both directions.
 - **Backtest "caught".** An anomaly about the label's unit or slot (and metric, when given) counts when it was detected at or before the label's match and has a flagged match within the 5 before it. Lead time is the label's match index minus the detection match index, in that robot's match order. A date label resolves to the robot's last match on or before that date.
 - **The corpus has gold for one match (Q7).** Its anomalies are 1 HIGH SPEC brownout (6 brownouts) and 3 MED SPEC intake stalls. Josh's Johnson lake gives the HIGH Q105 roller reboot, the MED 820 ms gap, stall MEDs, and brownouts in all four matches (one HIGH episode).
+
+## Tuning, first pass (9.3, 2026-10-11)
+
+Lake: Johnson plus GACMP (19 matches with gold). Josh changed four values, which are now the code defaults and the shipped config:
+
+| Setting | Was | Now |
+|---|---|---|
+| `anomaly.toml` `[spec] stall_med_s` | 3.0 | 5.0 |
+| `anomaly.toml` `[baseline.floors] isolated_gaps` | 1.0 | 2.5 |
+| `anomaly.toml` `[baseline.floors] missed_per_min` | 0.5 | 1.0 |
+| `report.toml` `brownout_hold_s` | 0.02 | 0.05 |
+
+Results at normal sensitivity: 165 → 136 anomalies (30 HIGH, 47 MED, 59 LOW). Both evaluable labels (Q105 roller reboot, GACMP Q7 brownouts) are still caught with lead 0. The follower label is still missed (building baseline, 3 of 5). False positives per 10 robot-matches:
+
+| Method | Before | After |
+|---|---|---|
+| DRIFT | 24.2 | 18.4 |
+| SPEC | 7.4 | 6.8 |
+| STEP | 6.8 | 5.3 |
+| SIBLING | 1.1 | 0 |
+
+Still loud: DRIFT `missed_per_min` (10), SPEC stall (10), DRIFT temperatures (12, plausibly the venue change), and STEP residual and stator current (4 HIGH each). The longer brownout hold did not change the count: one episode still spans 16 matches with 25 brownouts, which points at the 6.75 V proxy threshold rather than the hold. 9.3 stays open for the next pass.

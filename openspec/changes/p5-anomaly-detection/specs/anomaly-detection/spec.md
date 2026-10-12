@@ -58,7 +58,7 @@ The system SHALL flag a match when a configured fixed limit is crossed. These li
 |---|---|---|
 | maximum temperature | ≥ 65 °C | ≥ 75 °C |
 | mean temperature | ≥ 55 °C | — |
-| stall time | ≥ 3 s | — |
+| stall time | ≥ 5 s | — |
 | reboots | any reboot not while enabled | any reboot while enabled |
 | longest isolated CAN gap | ≥ 0.25 s | ≥ 1 s |
 | brownouts (battery proxy below the brownout threshold for the hold time; subject is the robot's `power`) | — | ≥ 1 |
@@ -208,7 +208,7 @@ Thresholds, windows, persistence, the model detector switch, and the cause catal
 - **THEN** detection stops with an error naming the file and `drift_z_score`, and the previous anomalies table is left in place
 
 #### Scenario: Raise a limit
-- **WHEN** the stall-time limit is raised from 3 s to 10 s and detection runs again
+- **WHEN** the stall-time limit is raised from 5 s to 10 s and detection runs again
 - **THEN** stall anomalies below 10 s are gone, and no derive ran
 
 ### Requirement: Partial and malformed inputs

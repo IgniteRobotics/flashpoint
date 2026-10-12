@@ -61,8 +61,8 @@ DEFAULT_FLOORS = {
     "stator_current_p95": 2.0,
     "residual_p95_a": 5.0,  # the residual is noisy (one Q76 drive row: teleop P95 115 A)
     "stall_s": 0.5,
-    "isolated_gaps": 1.0,
-    "missed_per_min": 0.5,
+    "isolated_gaps": 2.5,
+    "missed_per_min": 1.0,
 }
 
 
@@ -78,7 +78,7 @@ class SpecLimits(_Section):
     temp_max_med_c: float = Field(default=65.0, ge=0)
     temp_max_high_c: float = Field(default=75.0, ge=0)
     temp_mean_med_c: float = Field(default=55.0, ge=0)
-    stall_med_s: float = Field(default=3.0, ge=0)
+    stall_med_s: float = Field(default=5.0, ge=0)
     gap_med_ms: float = Field(default=250.0, ge=0)  # longest isolated CAN gap
     gap_high_ms: float = Field(default=1000.0, ge=0)
     brownout_high: int = Field(default=1, ge=1)

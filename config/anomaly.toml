@@ -5,7 +5,7 @@
 temp_max_med_c = 65.0       # match maximum temperature: MED
 temp_max_high_c = 75.0      # ... HIGH
 temp_mean_med_c = 55.0      # match mean temperature: MED
-stall_med_s = 3.0           # stall time: MED
+stall_med_s = 5.0           # stall time: MED
 gap_med_ms = 250.0          # longest isolated CAN gap: MED
 gap_high_ms = 1000.0        # ... HIGH
 brownout_high = 1           # brownouts (battery proxy, same rule as Replay's FAULT markers): HIGH
@@ -32,8 +32,8 @@ temp_rise_c_per_min = 0.5
 stator_current_p95 = 2.0
 residual_p95_a = 5.0
 stall_s = 0.5
-isolated_gaps = 1.0
-missed_per_min = 0.5
+isolated_gaps = 2.5
+missed_per_min = 1.0
 
 [sibling]                   # SIBLING: a unit against the median of its group (robot TOML)
 z = 3.0

@@ -78,7 +78,7 @@ def test_config_error_keeps_the_previous_table(step_lake: GoldLake, tmp_path: Pa
 
 def test_raise_a_limit_needs_no_derive(tmp_path: Path) -> None:
     gold = GoldLake(tmp_path / "lake", matches=6, slots=["intake-roller"])
-    gold.set("intake-roller", "stall_s", [0, 0, 4.0, 0, 0, 0])
+    gold.set("intake-roller", "stall_s", [0, 0, 6.0, 0, 0, 0])
     lake = gold.write()
     _run(lake, _config(tmp_path))
     assert [r["metric"] for r in _rows(lake) if r["method"] == "SPEC"] == ["stall_s"]
