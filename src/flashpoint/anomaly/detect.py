@@ -102,8 +102,11 @@ def load_settings(config_dir: Path) -> Settings:
     digest = hashlib.sha256()
     digest.update(anomaly.digest().encode())
     for robot in sorted(robots, key=lambda r: r.robot):
-        digest.update(robot.model_dump_json(include={"robot", "slots", "siblings"}).encode())
-    digest.update(power.thresholds_hash(report).encode())
+        digest.update(
+            robot.model_dump_json(include={"robot", "slots", "siblings", "battery_proxy"}).encode()
+        )
+        digest.update(power.thresholds_hash(report, robot.battery_proxy).encode())
+    digest.update(power.thresholds_hash(report, None).encode())
     return Settings(anomaly, robots, report, digest.hexdigest())
 
 
@@ -130,7 +133,11 @@ def compute(
     """Every anomaly the lake's gold supports, as rows (no files written)."""
     cfg = settings.anomaly
     frame = frame if frame is not None else load_frame(lake)
-    counts = counts if counts is not None else power.brownout_counts(lake, settings.report)
+    counts = (
+        counts
+        if counts is not None
+        else power.brownout_counts(lake, settings.report, settings.robots)
+    )
     restart_at, restart_seq = restarts_of(lake) if restarts else ({}, 0)
     robots = {r.robot: r for r in settings.robots}
     rows: list[dict[str, Any]] = []
@@ -196,9 +203,12 @@ def compute(
         low = frame.rows.filter(
             (pl.col("robot") == robot_name) & (pl.col("alignment") != "high")
         ).get_column("match_key")
+        proxies = {
+            k: counts.counts[k]["proxy"] for k in keys if counts.counts.get(k, {}).get("proxy")
+        }
         ctx = Context(robot=robot_name, season=_season(frame, robot_name), slot_id=POWER,
                       role=None, subsystem=POWER, model=None, cfg=cfg,
-                      low_alignment=frozenset(low))  # fmt: skip
+                      low_alignment=frozenset(low), proxies=proxies)  # fmt: skip
         finding = spec_finding(f"{POWER}:{robot_name}", "brownouts", keys, values, cfg.spec)
         rows += _describe([finding], ctx)
     for row in rows:
@@ -318,7 +328,7 @@ def detect(
     """Run detection unless nothing changed since the last run (`force` runs anyway).
     Raises DetectConfigError, leaving the previous table in place."""
     settings = load_settings(config_dir)
-    counts = power.brownout_counts(lake, settings.report)
+    counts = power.brownout_counts(lake, settings.report, settings.robots)
     fp = fingerprint(lake, settings, counts, restarts)
     previous = read_summary(lake)
     if (

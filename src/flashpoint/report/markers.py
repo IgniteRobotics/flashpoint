@@ -8,6 +8,9 @@ import numpy as np
 import polars as pl
 
 from flashpoint.report.envelope import Window
+from flashpoint.report.proxy import Proxy
+from flashpoint.report.proxy import resolve as resolve_proxy
+from flashpoint.report.proxy import series_sql as proxy_series_sql
 from flashpoint.report.settings import ReportConfig
 from flashpoint.semantics.physics import DEFAULT_CONFIG, PhysicsConfig
 
@@ -88,22 +91,23 @@ def power_markers(
     silver: Path,
     window: Window,
     config: ReportConfig,
-    physics: PhysicsConfig = DEFAULT_CONFIG,
+    proxy: Proxy | None,
 ) -> list[dict[str, Any]]:
-    """Brownout (FAULT, held >= brownout_hold_s) and sag (WARN) on the battery proxy: the
-    lowest device supply voltage, i.e. any device below the threshold."""
+    """Brownout (FAULT, held >= brownout_hold_s) and sag (WARN) on the battery proxy. A sample
+    holds until the proxy's next one, never longer than `gap_limit_s`."""
+    if proxy is None:
+        return []
+    query, params = proxy_series_sql(proxy, silver, window.t0_us, window.end_us)
     # Only samples below the sag threshold leave DuckDB, each with the time it holds until.
     held = con.execute(
         f"""
-        SELECT slot_id, t_us, value, held_end FROM (
-            SELECT slot_id, t_us, value, least(
-                coalesce(lead(t_us) OVER (PARTITION BY slot_id ORDER BY t_us), ?), t_us + ?
-            ) AS held_end
-            FROM {_source(silver)}
-            WHERE metric = 'supply_voltage' AND t_us >= ? AND t_us < ?
+        SELECT t_us, value, held_end FROM (
+            SELECT t_us, value,
+                least(coalesce(lead(t_us) OVER (ORDER BY t_us), ?), t_us + ?) AS held_end
+            FROM ({query})
         ) WHERE value < ?
-        """,  # noqa: S608 - internal path
-        [window.end_us, physics.hold_cap_us, window.t0_us, window.end_us,
+        """,  # noqa: S608 - internal query
+        [window.end_us, round(config.gap_limit_s * US_PER_S), *params,
          max(config.sag_v, config.brownout_v)],
     ).pl()  # fmt: skip
     if held.is_empty():
@@ -112,33 +116,25 @@ def power_markers(
     def below(threshold: float) -> list[tuple[int, int, float, float, str]]:
         low = held.filter(pl.col("value") < threshold)
         return _intervals(
-            low["t_us"].to_numpy(),
-            low["held_end"].to_numpy(),
-            low["value"].to_numpy(),
-            low["slot_id"].to_list(),
+            low["t_us"].to_numpy(), low["held_end"].to_numpy(), low["value"].to_numpy()
         )
 
-    def message(lowest: float, slot: str, threshold: float, start: int, end: int) -> str:
-        # Names the device: a stalled motor's own supply voltage can dip with wiring loss.
+    def message(lowest: float, threshold: float, start: int, end: int) -> str:
         return (
-            f"Supply voltage {lowest:.2f} V at {slot} (below {threshold:.2f} V)"
+            f"Battery proxy ({proxy.label}) {lowest:.2f} V (below {threshold:.2f} V)"
             f" for {(end - start) / US_PER_S:.2f} s"
         )
 
     hold_us = config.brownout_hold_s * US_PER_S
     brownouts = [i for i in below(config.brownout_v) if i[1] - i[0] >= hold_us]
     out = [
-        _marker(
-            "FAULT", "power", "brownout", window, s, e, message(lo, slot, config.brownout_v, s, e)
-        )
-        for s, e, lo, _, slot in brownouts
+        _marker("FAULT", "power", "brownout", window, s, e, message(lo, config.brownout_v, s, e))
+        for s, e, lo, _, _ in brownouts
     ]
-    for s, e, lo, _, slot in below(config.sag_v):
+    for s, e, lo, _, _ in below(config.sag_v):
         if any(b[0] < e and b[1] > s for b in brownouts):
             continue  # the brownout marker already covers this dip
-        out.append(
-            _marker("WARN", "power", "sag", window, s, e, message(lo, slot, config.sag_v, s, e))
-        )
+        out.append(_marker("WARN", "power", "sag", window, s, e, message(lo, config.sag_v, s, e)))
     return out
 
 
@@ -253,11 +249,13 @@ def match_markers(
     can_events: list[dict[str, Any]] | None = None,
     bus_names: dict[str, str] | None = None,
     physics: PhysicsConfig = DEFAULT_CONFIG,
+    proxy_slot: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Every rule's markers, in time order."""
+    """Every rule's markers, in time order. `proxy_slot` is the robot's declared battery proxy."""
+    proxy = resolve_proxy(con, silver, window.t0_us, window.end_us, proxy_slot)
     markers = (
         temperature_markers(temps, config)
-        + power_markers(con, silver, window, config, physics)
+        + power_markers(con, silver, window, config, proxy)
         + stall_markers(con, silver, window, physics)
         + can_markers(can_events or [], window, match_end_us, config, bus_names)
     )

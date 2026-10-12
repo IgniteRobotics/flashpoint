@@ -205,3 +205,18 @@ def test_full_derive_gold_and_noop_rerun(corpus_lake: Any) -> None:
     assert set(stalls) == {"intake-extension", "intake-roller", "intake-roller-follower"}
     assert stalls["intake-extension"] == pytest.approx(21.5, abs=1.0)
     assert 3.0 < stalls["intake-roller"] < 8.0
+
+
+def test_q7_drive_motor_supply_path_resistance(derived_corpus_lake: Any) -> None:
+    """Spec: motor-physics / Corpus drive motors (probed at 18-20 mΩ on the season lake)."""
+    import duckdb
+
+    rows = duckdb.sql(
+        "SELECT slot_id, supply_resistance_mohm, supply_resistance_flag FROM read_parquet(?)"
+        " WHERE match_key = '2026gacmp_qm7' AND phase = 'match' AND slot_id LIKE 'drive-%'"
+        " ORDER BY slot_id",
+        params=[str(derived_corpus_lake.root / "gold/match_features/*/*/*.parquet")],
+    ).fetchall()
+    assert [r[0] for r in rows] == ["drive-bl", "drive-br", "drive-fl", "drive-fr"]
+    for slot, mohm, flag in rows:
+        assert flag is None and 5.0 <= mohm <= 40.0, (slot, mohm, flag)

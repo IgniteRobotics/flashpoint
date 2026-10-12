@@ -26,6 +26,7 @@ FEATURE_METRICS = (
     "stator_current_p95",
     "residual_p95_a",
     "stall_s",
+    "supply_resistance_mohm",
 )
 CAN_METRICS = ("reboots", "reboots_enabled", "isolated_gaps", "missed_per_min", "longest_gap_ms")
 DEFAULTS: dict[str, float] = {
@@ -35,6 +36,7 @@ DEFAULTS: dict[str, float] = {
     "stator_current_p95": 40.0,
     "residual_p95_a": 10.0,
     "stall_s": 0.0,
+    "supply_resistance_mohm": 20.0,
     "reboots": 0,
     "reboots_enabled": 0,
     "isolated_gaps": 2,

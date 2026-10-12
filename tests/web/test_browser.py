@@ -316,6 +316,7 @@ def test_scrub_and_keyboard(page: Any, app: str) -> None:
     stepped = float(page.inner_text("#scrub-label").removeprefix("T+").removesuffix(" s"))
     assert 90 < stepped <= 90.17
     assert f"t={stepped:.2f}" in page.url
+    page.locator(".track__plot").first.scroll_into_view_if_needed()  # focus scrolled to #scrub
     plot = page.locator(".track__plot").first.bounding_box()
     page.mouse.click(plot["x"] + plot["width"] * 0.9, plot["y"] + plot["height"] / 2)
     assert float(page.inner_text("#scrub-label")[2:-2]) > 140  # clicked near the end
@@ -765,6 +766,15 @@ def test_zoom_hidden_marker_selection_pans(page: Any, season_app: str) -> None:
     assert "Temperature 66" in page.inner_text("#event")
     assert page.locator("#markers-left").is_hidden()
     assert page.inner_text("#markers-right").startswith("2 ▸")
+    assert watch.clean(), watch
+
+
+def test_battery_track_names_its_proxy(page: Any, season_app: str) -> None:
+    """The default first track is the battery proxy, labelled with the proxy used (the season's
+    robots declare none, so the median of Q7's 3 devices)."""
+    watch = _open_q7(page, season_app)
+    name = page.locator(".track").first.locator(".track__name").inner_text()
+    assert name == "BATTERY PROXY (MEDIAN OF 3 DEVICES)"
     assert watch.clean(), watch
 
 

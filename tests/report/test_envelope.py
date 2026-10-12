@@ -14,6 +14,7 @@ from flashpoint.report.envelope import (
     window_between,
     window_for,
 )
+from flashpoint.report.proxy import Proxy
 from tests.report.silver import S, points, series, write_silver
 
 
@@ -80,18 +81,31 @@ def test_only_track_metrics(tmp_path: Path) -> None:
     assert set(envs["drive-fl"]) == {"rotor_velocity_rps"}
 
 
-def test_battery_proxy_is_lowest_device(tmp_path: Path) -> None:
+def _voltages(tmp_path: Path) -> Path:
     rows = series("drive-fl", "supply_voltage", 0, 10, 100, 12.0)
     rows += series("hood", "supply_voltage", 0, 10, 100, 11.0)
-    rows += series("steer-fl", "supply_voltage", 0, 10, 100, 12.5)
+    rows += series("gyro", "supply_voltage", 0, 10, 100, 12.5)
     for row in rows:
         if row["slot_id"] == "hood" and 3 * S <= row["t_us"] < 3.01 * S:
-            row["value"] = 6.4
-    path = write_silver(tmp_path / "silver", rows)
-    env = battery_envelope(duckdb.connect(), path, _window())
-    assert env["min"][300] == 6.4
-    assert env["mean"][300] == 12.0  # median across devices
-    assert env["min"][100] == 11.0 and env["max"][100] == 12.5
+            row["value"] = 6.4  # one motor's own wiring drop
+    return write_silver(tmp_path / "silver", rows)
+
+
+def test_battery_envelope_follows_declared_proxy(tmp_path: Path) -> None:
+    env = battery_envelope(duckdb.connect(), _voltages(tmp_path), _window(), Proxy("gyro", 1))
+    assert env["min"][300] == 12.5 and env["max"][300] == 12.5  # the motor dip is not in it
+    assert env["mean"][100] == 12.5
+
+
+def test_battery_envelope_median_fallback(tmp_path: Path) -> None:
+    env = battery_envelope(duckdb.connect(), _voltages(tmp_path), _window(), Proxy(None, 3))
+    assert env["min"][300] == 12.0  # the median of the three devices, not the 6.4 V dip
+    assert env["mean"][100] == 12.0
+
+
+def test_battery_envelope_without_proxy_is_empty(tmp_path: Path) -> None:
+    env = battery_envelope(duckdb.connect(), _voltages(tmp_path), _window(), None)
+    assert set(env["mean"]) == {None}
 
 
 def test_temperature_change_points(tmp_path: Path) -> None:

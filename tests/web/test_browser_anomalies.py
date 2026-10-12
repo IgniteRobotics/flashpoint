@@ -298,8 +298,9 @@ def test_nav_badge(page: Any, site: dict[str, Any]) -> None:
 
 
 @pytest.mark.corpus
-def test_queue_from_the_corpus(page: Any, derived_corpus_lake: Any) -> None:
-    detect.detect(derived_corpus_lake, config.config_root(), force=True)
+def test_queue_from_the_corpus(page: Any, derived_corpus_lake: Any, brownout_config: Path) -> None:
+    """Test thresholds (brownout 8.5 V, sag 9.0 V): the shipped ones find no Q7 brownout."""
+    detect.detect(derived_corpus_lake, brownout_config, force=True)
     server = FlashpointServer(("127.0.0.1", 0), derived_corpus_lake,
                               HistoryQueries(derived_corpus_lake))  # fmt: skip
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -323,8 +324,10 @@ Q7 = "2026gacmp_qm7"
 
 @pytest.fixture(scope="module")
 def q7_site(
-    corpus_group: Any, tmp_path_factory: pytest.TempPathFactory
+    corpus_group: Any, tmp_path_factory: pytest.TempPathFactory, brownout_config: Path
 ) -> Iterator[dict[str, Any]]:
+    """Q7 under the test thresholds (brownout 8.5 V, sag 9.0 V), so it has a brownout."""
+    import os
     import subprocess
     import sys
 
@@ -340,12 +343,13 @@ def q7_site(
     subprocess.run(  # ingest, derive, and detect, as a pit laptop does
         [sys.executable, "-m", "flashpoint", "ingest", "--lake", str(lake.root), str(match_dir)],
         check=True, capture_output=True,
+        env={**os.environ, config.CONFIG_ENV: str(brownout_config)},
     )  # fmt: skip
-    builder = ReportBuilder(lake, config.config_root())
+    builder = ReportBuilder(lake, brownout_config)
     builder.build()
     builder.close()
     export = root / "export"
-    export_static(lake, export)
+    export_static(lake, export, config_dir=brownout_config)
     server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     brownout = next(r["id"] for r in detect.read_anomalies(lake).to_dicts()
@@ -411,7 +415,9 @@ def test_static_snapshot_badge(page: Any, q7_site: dict[str, Any]) -> None:
 
 
 @pytest.mark.corpus
-def test_detection_does_not_rebuild_replay(q7_site: dict[str, Any], tmp_path: Path) -> None:
+def test_detection_does_not_rebuild_replay(
+    q7_site: dict[str, Any], tmp_path: Path, brownout_config: Path
+) -> None:
     import shutil
 
     from flashpoint.report.build import ReportBuilder
@@ -419,8 +425,8 @@ def test_detection_does_not_rebuild_replay(q7_site: dict[str, Any], tmp_path: Pa
     lake = q7_site["lake"]
     before = {p.name: p.stat().st_mtime_ns for p in (lake.root / "report" / "data").glob("*.js")}
     config_dir = tmp_path / "config"
-    shutil.copytree(config.config_root(), config_dir)
-    (config_dir / "anomaly.toml").write_text("[spec]\nstall_med_s = 10\n")
+    shutil.copytree(brownout_config, config_dir)  # the site's configuration ...
+    (config_dir / "anomaly.toml").write_text("[spec]\nstall_med_s = 10\n")  # ... but detection
     assert detect.detect(lake, config_dir).ran
     builder = ReportBuilder(lake, config_dir)
     try:
@@ -431,7 +437,7 @@ def test_detection_does_not_rebuild_replay(q7_site: dict[str, Any], tmp_path: Pa
     after = {p.name: p.stat().st_mtime_ns for p in (lake.root / "report" / "data").glob("*.js")
              if p.name != "matches.js"}  # fmt: skip
     assert after == {k: v for k, v in before.items() if k != "matches.js"}
-    detect.detect(lake, config.config_root())  # back to the shipped configuration
+    detect.detect(lake, brownout_config)  # back to the site's configuration
 
 
 # --- History health (spec: lifetime-trends / Device table and summary tiles) --------------------

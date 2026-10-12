@@ -118,7 +118,8 @@
   function trackData(d, spec) {
     const limits = d.limits || {};
     if (spec === 'battery') {
-      return { label: 'Battery proxy (lowest device)', unit: 'V', digits: 2, values: d.battery.mean, band: { lower: d.battery.min, upper: d.battery.max }, lowSeries: d.battery.min, refs: [{ value: limits.brownout_v, label: 'BROWNOUT ' + limits.brownout_v }] };
+      const proxy = d.battery_proxy ? d.battery_proxy.label : 'not logged';
+      return { label: 'Battery proxy (' + proxy + ')', unit: 'V', digits: 2, values: d.battery.mean, band: { lower: d.battery.min, upper: d.battery.max }, lowSeries: d.battery.min, refs: [{ value: limits.brownout_v, label: 'BROWNOUT ' + limits.brownout_v }] };
     }
     if (spec === 'total') {
       return { label: 'Total supply current', unit: 'A', digits: 0, values: totalCurrent(d), refs: [] };

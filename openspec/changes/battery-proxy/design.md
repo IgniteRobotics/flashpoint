@@ -76,6 +76,14 @@ The GACMP Q7 entry is removed from `config/failure-labels.toml`. The backtest co
 - **Brownout count:** still at most 0.5 s per uncached match, because it reads one device's series instead of all of them.
 - **Detect season budget:** one more baseline metric. It stays well inside 5 s / 400 MB (1.6 s today), and the perf test is rerun.
 
+**Measured (2026-10-12, task 5.2, reference laptop, `pytest -m perf -s`):**
+- Q7 ingest + derive + detect: 17.2–19.5 s, 720–840 MB peak (budget 30 s / 1 GB). The same test on the unchanged branch measured 16.8 s on the same day, so this change adds 0.4–2.5 s; the 14.6 s above was an earlier, quieter run.
+- Uncached Q7 brownout count: 0.056 s, +32 MB (budget 0.5 s).
+- Season detect (60 × 23): 1.88 s, 226 MB (budget 5 s / 400 MB).
+- Backtest (two seasons): 3.7 s, 258 MB.
+
+**Q7 values from the corpus derive:** drive 14.3–18.4 mΩ; flywheels 50.0 (left leader), 65.8 (left follower), 67.3 (right) mΩ; intake rollers 64.8 / 72.1 mΩ; indexer accelerator 35.1 mΩ. The hood and intake extension are `low-current`, and indexer-main is `no-fit`. Three steer motors pass the gates (0.7, 9.6, 10.0 mΩ), so they are noisier than the probe suggested; the 3 mΩ floor keeps them from flagging on noise alone. Under the 8.5 V test threshold, Q7 has 3 brownouts on the gyro (8.10, 8.27, 8.22 V).
+
 ## Risks / Trade-offs
 
 - [The proxy device isn't on the main bus on another robot] → The proxy is declared per robot, and validation only checks that the slot exists. The robot TOML comment says what qualifies.

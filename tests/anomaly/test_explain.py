@@ -115,3 +115,15 @@ def test_evidence_is_capped_at_40_matches() -> None:
     (episode,) = episodes(step.flagged)
     points = json.loads(str(describe(step, episode, CTX)["evidence"]))["points"]
     assert len(points) == 40 and points[-1]["match_key"] == keys[-1]
+
+
+def test_brownout_why_names_the_proxy() -> None:
+    values = np.array([0.0] * 5 + [2.0])
+    finding = spec_finding("power:2026-comp", "brownouts", KEYS[:6], values, CFG.spec)
+    (episode,) = episodes(finding.flagged)
+    ctx = Context(robot="2026-comp", season="2026", slot_id="power", role=None,
+                  subsystem="power", model=None, cfg=CFG,
+                  proxies={KEYS[5]: "gyro"})  # fmt: skip
+    row = describe(finding, episode, ctx)
+    assert "battery proxy: gyro" in str(row["why"])
+    assert row["role"] == "battery proxy (gyro)"
