@@ -120,12 +120,14 @@ poetry run flashpoint report --static /Volumes/USB/flashpoint   # Replay folder 
 poetry run flashpoint report --static OUT --no-raw      # without the raw logs (smaller)
 ```
 
+Every view shares one filter bar under the header: season, robot, event, and the unit picked in History. A filter set on one view applies on every view and stays in the address, so links keep it; CLEAR FILTERS clears them everywhere. History's own filters (type, phase, subsystem, slot) follow a divider and apply to History only. Replay doesn't apply the unit filter, because its index doesn't record which units played each match. On a wide screen each column scrolls on its own, and the ◂ / ▸ control on a side rail minimizes it to a strip (remembered per view on this machine).
+
 Open the static export by double-clicking `index.html`; it needs no server or network. History needs `serve`, because it queries the lake. Thresholds for markers and health (65/75 °C, brownout and sag voltages) live in `config/report.toml`. So does an optional AdvantageScope path. Without one, `serve` uses the newest WPILib install, and `flashpoint doctor` shows which one it found. Students can explore further with the marimo notebook in [`notebooks/`](notebooks/README.md).
 
 
 ### Anomalies (P5)
 
-Every `derive` ends by running detection, so anomalies stay current with no extra step. `flashpoint detect` reruns it by hand, for example after editing `config/anomaly.toml`; no re-derive is needed. Detection flags fixed limits (SPEC), changes against each unit's own history (DRIFT, STEP), and units that leave their sibling group (SIBLING, groups in the robot config). `serve` adds an **Anomalies** view with the evidence, likely causes, and triage (investigate, resolve, dismiss), available on the machine running `serve` only.
+Every `derive` ends by running detection, so anomalies stay current with no extra step. `flashpoint detect` reruns it by hand, for example after editing `config/anomaly.toml`; no re-derive is needed. Detection flags fixed limits (SPEC), changes against each unit's own history (DRIFT, STEP), and units that leave their sibling group (SIBLING, groups in the robot config). `serve` adds an **Anomalies** view with the evidence, likely causes, and triage (investigate, resolve, dismiss), available on the machine running `serve` only. The queue follows the shared filters (the badge in the navigation always counts the whole lake), and GROUP DEVICE groups it by unit, with a robot's brownouts under its battery.
 
 ```bash
 poetry run flashpoint detect            # recompute gold/anomalies/ (skips when nothing changed)

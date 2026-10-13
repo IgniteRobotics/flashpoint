@@ -185,6 +185,7 @@ Two improvements to the Replay board:
   - finer detail needs `serve` to fetch higher-resolution envelopes for the visible window from silver. Static exports stop at bucket resolution and say so;
   - single-sample detail stays in AdvantageScope (D8: link, don't rebuild).
 - **Exit:** a drive coach finds a match by year, robot, and event in two clicks, and can zoom to a two-second brownout without leaving Replay.
+- **Follow-up, change `ui-cross-tab-filters` (2026-10-12):** season, robot, event, and unit are one filter state for every view, shown in one filter bar under the header and kept in the address. Replay's filters moved out of its rail; History's own filters (type, phase, subsystem, slot) sit after a divider and apply to History only. CLEAR FILTERS clears the shared filters everywhere. On wide screens each column scrolls on its own, and every side rail minimizes to a labelled strip, remembered per view on this machine. Replay shows a unit filter as not applied (its index has no per-match units).
 
 ### CAN health (S–M, precursor to P5)
 
@@ -229,6 +230,7 @@ Two improvements to the Replay board:
 >   - spin-test and current-limit-count metrics (no data yet);
 >   - a Driver Station log reader (brownouts come from the battery proxy). Still deferred after `battery-proxy`.
 > - **Follow-up, change `battery-proxy` (2026-10-12):** the battery proxy is the robot's declared low-current device (the gyro), with a per-20 ms median fallback, so a motor's wiring drop no longer reads as a brownout; the brownout hold is 0.02 s and a logging gap holds a low sample at most 0.1 s. The deferred battery-resistance metric shipped as **supply path resistance** per motor (mΩ, a baseline metric). See the [ADR-0010](../adr/0010-anomaly-v1-rules-baselines.md) amendment.
+> - **Follow-up, change `ui-cross-tab-filters` (2026-10-12):** the Anomalies queue takes the shared season, robot, event, and unit filters, applied by the server (`/api/anomalies`; an anomaly passes when one of its flagged matches is in the chosen season and event), and can be grouped by device (a unit by serial, or a robot's battery). The navigation badge stays unfiltered.
 
 - **Tier 1, rules:**
   - temperature thresholds (port 55 °C avg / 65 °C max);

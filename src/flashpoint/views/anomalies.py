@@ -147,10 +147,19 @@ class AnomalyQueries:
         by_time = sorted(items, key=lambda i: (i["last_start"] or "", i["id"]), reverse=True)
         return sorted(by_time, key=lambda i: SEVERITY_RANK.get(i["severity"], 3))
 
+    @staticmethod
+    def _in(item: dict[str, Any], matches: set[str]) -> bool:
+        """At least one flagged match is in `matches`; one no longer detected uses its onset."""
+        keys = item["flagged_keys"] or [item["onset_match_key"]]
+        return any(k in matches for k in keys)
+
     def queue(
         self, sens: str = "normal", tab: str = "open", unit: str | None = None,
-        match: str | None = None,
+        match: str | None = None, robot: str | None = None, in_matches: set[str] | None = None,
     ) -> dict[str, Any]:  # fmt: skip
+        """The queue for one tab. `robot` and `in_matches` (the match keys in the chosen season,
+        robot, and event; None: any) are the shared view filters; the badge and `open_units` do
+        not take them."""
         if sens not in SENSITIVITIES:
             raise TriageError(400, f"unknown sensitivity {sens!r}; one of {list(SENSITIVITIES)}")
         if tab not in TABS:
@@ -160,6 +169,8 @@ class AnomalyQueries:
             if self._shown(i, sens)
             and (unit is None or i["subject_key"] == unit or i["subject"] == unit)
             and (match is None or match in i["flagged_keys"])
+            and (robot is None or i["robot"] in (robot, None))
+            and (in_matches is None or self._in(i, in_matches))
         ]  # fmt: skip
         counts = {t: sum(1 for i in chosen if TAB_OF[i["state"]] == t) for t in TABS}
         listed = self._sorted(i for i in chosen if TAB_OF[i["state"]] == tab)

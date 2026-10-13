@@ -87,7 +87,11 @@ class Api:
     def filters(self, rest: str, params: dict[str, list[str]]) -> dict[str, Any]:
         self._no_rest(rest)
         _single(params, set())
-        return {**self._lake(), "values": self.queries.filter_values()}
+        return {
+            **self._lake(),
+            "values": self.queries.filter_values(),
+            "combos": self.queries.filter_combos(),
+        }
 
     def summary(self, rest: str, params: dict[str, list[str]]) -> dict[str, Any]:
         self._no_rest(rest)
@@ -132,12 +136,15 @@ class Api:
         if self.anomalies is None:
             raise ApiError(404, "anomalies are not available")
         if rest == "":
-            values = _single(params, {"sens", "tab", "unit", "match"})
+            values = _single(params, {"sens", "tab", "unit", "match", "season", "robot", "event"})
+            scope = {k: values.get(k) or None for k in ("season", "robot", "event")}
             queue = self.anomalies.queue(
                 values.get("sens") or "normal",
                 values.get("tab") or "open",
                 values.get("unit") or None,
                 values.get("match") or None,
+                robot=scope["robot"],
+                in_matches=self.queries.match_keys(**scope) if any(scope.values()) else None,
             )
             return {**queue, "writable": self.writable}
         _single(params, set())

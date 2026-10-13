@@ -2,7 +2,8 @@
    Replay: one match from its precomputed envelopes (report/build.py).
    URL: #view=replay&m=<match key>&o=<overlay key>&t=<cursor s>&ev=<marker>
         &tr=<track,track,track,track>&track=<slot from a History drill-through>
-        &season=&robot=&event=<match list filters, 'all' or a value; shared with History>
+        &season=&robot=&event=&unit=<the shared filters, 'all' or a value (FP.filters); season,
+          robot, and event narrow the match list; unit is shown as not applied in Replay>
         &z=<from s>,<to s> (the visible window; omitted at the full match window)
    Tracks: battery | total | <metric>:<slot>, metric one of METRICS below.
    ========================================================================== */
@@ -204,81 +205,62 @@
       }))));
   }
 
-  /* ---------- match list filters ---------- */
-  const ALL = 'all';
-  const FILTERS = [['season', 'SEASON', 'All seasons'], ['robot', 'ROBOT', 'All robots'], ['event', 'EVENT', 'All events']];
+  /* ---------- match list filters (the shared season, robot, and event; spec: view-filters) ---------- */
+  const { ALL } = FP;
+  const FILTERS = ['season', 'robot', 'event']; // the index has no per-match units: unit is not applied
 
   /* Entries that pass every chosen filter ('all' passes everything). */
   function filterEntries(entries, f) {
-    return entries.filter((e) => FILTERS.every(([key]) => f[key] === ALL || e[key] === f[key]));
+    return entries.filter((e) => FILTERS.every((key) => f[key] === ALL || e[key] === f[key]));
   }
   const startKey = (e) => (e.start_utc ? '1' + e.start_utc : '0') + '|' + e.key; // no start sorts by key
   const latest = (entries) => entries.reduce((best, e) => (best == null || startKey(e) > startKey(best) ? e : best), null);
-  /* Distinct values of `key`, newest first (seasons by value, the rest by their latest match). */
-  function newestValues(entries, key) {
-    const last = {};
-    for (const e of entries) if (e[key] != null && (last[e[key]] == null || startKey(e) > last[e[key]])) last[e[key]] = startKey(e);
-    const values = Object.keys(last);
-    return key === 'season' ? values.sort().reverse() : values.sort((a, b) => (last[b] > last[a] ? 1 : last[b] < last[a] ? -1 : 0));
-  }
   // An index built before REPORT_VERSION 2 has no season; an empty one has nothing to rebuild.
   const seasonsKnown = (index) => Boolean(index) && (!index.matches.length || (index.version >= 2 && index.matches.every((e) => e.season != null)));
 
+  /* The defaults apply only to a fresh address (no shared filter at all, not even 'all'). */
   function initialFilters(state, entries, selected, seasons) {
-    if (FILTERS.every(([key]) => state[key] == null || state[key] === '')) {
+    if (FP.fresh(state)) {
       const base = selected || latest(entries);
       return { season: base && seasons ? base.season : ALL, robot: ALL, event: base ? base.event : ALL };
     }
-    const f = {};
-    for (const [key] of FILTERS) f[key] = state[key] || ALL;
-    if (!seasons) f.season = ALL;
-    return f;
+    const f = FP.filters(state);
+    return { season: seasons ? f.season : ALL, robot: f.robot, event: f.event };
+  }
+
+  function renderBar() {
+    const f = { ...ui.filters, unit: FP.filters().unit };
+    const bar = FP.filterBar({
+      filters: f,
+      combos: ui.entries.map((e) => ({ season: e.season, robot: e.robot, event: e.event, last: startKey(e) })),
+      unitNote: 'not applied in Replay',
+      unknownText: '(not in this index)',
+      seasonNote: ui.seasons ? null : ['Rebuild with ', h('code', { class: 'code' }, 'flashpoint report'), ' to filter by season.'],
+      onChange: setFilters,
+    });
+    ui.bar = ui.bar ? FP.swap(ui.bar, bar) : bar;
   }
 
   function renderRail() {
     const f = ui.filters;
     const entries = ui.entries;
     const shown = filterEntries(entries, f);
-    const inSeason = f.season === ALL ? entries : entries.filter((e) => e.season === f.season);
-    const values = { season: newestValues(entries, 'season'), robot: newestValues(inSeason, 'robot'), event: newestValues(inSeason, 'event') };
-    const unknown = FILTERS.filter(([key]) => f[key] !== ALL && !entries.some((e) => e[key] === f[key])).map(([key]) => key + ' ' + f[key]);
-    const bar = h('div', { class: 'filters stack', role: 'group', 'aria-label': 'Filter matches' }, FILTERS.map(([key, label, allLabel]) => {
-      const options = values[key].includes(f[key]) || f[key] === ALL ? values[key] : [f[key], ...values[key]];
-      const disabled = key === 'season' && !ui.seasons;
-      return h('div', { class: 'filter' },
-        h('label', { class: 'group__label', for: 'f-' + key }, label),
-        h('select', { class: 'select', id: 'f-' + key, disabled, on: { change: (event) => setFilter(key, event.target.value) } },
-          h('option', { value: ALL, selected: f[key] === ALL }, allLabel),
-          options.map((v) => h('option', { value: v, selected: f[key] === v }, v + (unknown.includes(key + ' ' + v) ? ' (not in this index)' : '')))),
-        disabled ? h('p', { class: 'meta' }, 'Rebuild with ', h('code', { class: 'code' }, 'flashpoint report'), ' to filter by season.') : null);
-    }), h('button', { type: 'button', class: 'btn btn--sm', id: 'filters-clear', disabled: FILTERS.every(([key]) => f[key] === ALL), on: { click: clearFilters } }, 'CLEAR FILTERS'));
+    const unknown = FP.unknownFilters(f, entries);
     const hidden = ui.key && !shown.some((e) => e.key === ui.key) ? entries.find((e) => e.key === ui.key) : null;
     const note = h('div', { id: 'filter-note', 'aria-live': 'polite' },
       !shown.length ? h('div', { class: 'callout callout--quiet' },
         h('p', null, 'No matches for these filters.'),
         unknown.length ? h('p', null, 'No match in this index has ', unknown.join(', '), '.') : null,
-        h('p', null, 'Use CLEAR FILTERS above to list every match.')) : null,
+        h('button', { type: 'button', class: 'btn btn--sm mt-2', id: 'note-clear', on: { click: () => setFilters({ season: ALL, robot: ALL, event: ALL, unit: ALL }) } }, 'CLEAR FILTERS')) : null,
       shown.length && hidden ? h('p', { class: 'meta' }, 'Selected match ' + hidden.label + ' is hidden by the filters.') : null);
-    FP.fill(ui.rail, h('h2', { class: 'label' }, 'Matches'), bar, note, matchList(shown, ui.key, f));
+    FP.fill(ui.rail, note, matchList(shown, ui.key, f));
   }
 
-  function setFilter(key, value) {
-    ui.filters[key] = value;
-    if (key === 'season' && value !== ALL) {
-      // The robot and event lists narrow to the season; a choice outside it goes back to all.
-      for (const other of ['robot', 'event']) {
-        if (ui.filters[other] !== ALL && !ui.entries.some((e) => e.season === value && e[other] === ui.filters[other])) ui.filters[other] = ALL;
-      }
-    }
-    FP.setState({ ...ui.filters });
+  function setFilters(patch) {
+    for (const key of FILTERS) if (key in patch) ui.filters[key] = patch[key];
+    FP.setFilters({ ...ui.filters, ...('unit' in patch ? { unit: patch.unit } : {}) });
+    renderBar();
     renderRail();
-  }
-  function clearFilters() {
-    ui.filters = { season: ALL, robot: ALL, event: ALL };
-    FP.setState({ ...ui.filters });
-    renderRail();
-    const first = ui.rail.querySelector('select:not([disabled])');
-    if (first) first.focus();
   }
 
   function downloads(sources) {
@@ -330,13 +312,15 @@
     const key = state.m || (shown.find((e) => e.status === 'ok') || shown[0] || entries.find((e) => e.status === 'ok') || entries[0]).key; // state.m may be unbuilt
     const entry = entries.find((e) => e.key === key);
     const layout = h('div', { class: 'layout' });
-    const rail = h('nav', { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' });
+    const rail = FP.rail({ view: 'replay', side: 'l', label: 'Matches', tag: 'nav', attrs: { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' } });
     const main = h('div', { class: 'main pad', id: 'replay-main' });
-    const aside = h('aside', { class: 'rail-r panel panel--rail-r stack', 'aria-label': 'Marker, readout, and raw logs' });
-    FP.fill(el, FP.fill(layout, rail, main, aside));
-    ui.main = main; ui.aside = aside; ui.rail = rail; ui.key = key;
+    const aside = FP.rail({ view: 'replay', side: 'r', label: 'Details', attrs: { class: 'rail-r panel panel--rail-r', 'aria-label': 'Marker, readout, and raw logs' } });
+    aside.body.classList.add('stack');
+    ui.main = main; ui.aside = aside.body; ui.rail = rail.body; ui.key = key;
+    renderBar();
+    FP.fill(el, ui.bar, FP.fill(layout, rail.el, main, aside.el));
     renderRail();
-    FP.setState({ ...ui.filters });
+    FP.setFilters({ ...ui.filters });
 
     if (!entry) {
       FP.fill(main, notice(key, h('p', { class: 'prose' }, 'Replay data for this match is not built.'),
@@ -344,15 +328,15 @@
       if (!FP.mode.static) {
         try {
           const info = await FP.api('match/' + encodeURIComponent(key));
-          FP.fill(aside, asideDownloads(info.sources, key));
-        } catch (err) { FP.fill(aside, h('p', { class: 'meta' }, String(err.message))); }
+          FP.fill(ui.aside, asideDownloads(info.sources, key));
+        } catch (err) { FP.fill(ui.aside, h('p', { class: 'meta' }, String(err.message))); }
       }
       return;
     }
     if (entry.status !== 'ok') {
       const d = await FP.loadMatch(entry);
       FP.fill(main, notice(entry.label + ' · no aligned samples', h('p', { class: 'prose' }, d.reason), h('p', { class: 'meta mt-3' }, d.match_key, ' · ', d.robot)));
-      FP.fill(aside, asideDownloads(d.sources, d.match_key));
+      FP.fill(ui.aside, asideDownloads(d.sources, d.match_key));
       return;
     }
     const mine = ui;

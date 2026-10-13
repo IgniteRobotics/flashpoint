@@ -2,37 +2,44 @@
    History: how each physical unit (by serial) and each slot trends across
    matches, events, seasons and robots. Served mode only: every filter runs as
    a DuckDB query behind /api (nothing is filtered in the browser).
-   URL: #view=history&season=&robot=&event=&match_type=&phase=&subsystem=&slot=
-        &metric=<id>&by=unit|slot&unit=<unit id>
+   URL: #view=history&season=&robot=&event=&unit=<the shared filters, 'all' or a value
+          (FP.filters); unit selects that unit (its line, row, and the right rail)>
+        &match_type=&phase=&subsystem=&slot=<History-only filters, restored from the nav>
+        &metric=<id>&by=unit|slot
    ========================================================================== */
 (function () {
   'use strict';
   const FP = window.FP;
   const { h } = FP;
 
-  const FILTERS = [
-    ['season', 'RANGE', 'All time'],
-    ['robot', 'ROBOT', 'All robots'],
-    ['event', 'EVENT', 'All events'],
+  const { ALL } = FP;
+  // History-only filters, after the shared ones (season, robot, event, unit) in the filter bar.
+  const EXTRAS = [
     ['match_type', 'TYPE', 'All types'],
     ['phase', 'PHASE', null],
     ['subsystem', 'SUBSYSTEM', 'All subsystems'],
+    ['slot', 'SLOT', 'All slots'],
   ];
+  const EXTRA_KEYS = EXTRAS.map(([key]) => key);
+  const DEFAULT_PHASE = 'match';
   const TYPE_LABEL = { qm: 'Qualification', pm: 'Practice', e: 'Elimination', sf: 'Semifinal', f: 'Final' };
   const HEALTH = { OK: ['ok', 'OK'], WARN: ['warn', 'WARN'], HOT: ['fault', 'HOT'], 'NO-DATA': ['retired', 'NO DATA'] };
   const KIND = { 'first-seen': 'First seen', moved: 'Moved', 'replaced-by': 'Replaced by', 'last-seen': 'Last seen' };
 
   let ui = null;
 
+  /* Query parameters: the shared filters that are set, then History's own. */
   const filterParams = (s) => {
     const out = {};
-    for (const [key] of FILTERS) if (s[key]) out[key] = s[key];
-    if (s.slot) out.slot = s.slot;
+    for (const key of ['season', 'robot', 'event']) if (s[key] && s[key] !== ALL) out[key] = s[key];
+    for (const key of EXTRA_KEYS) if (s[key]) out[key] = s[key];
+    out.phase = s.phase || DEFAULT_PHASE;
     return out;
   };
+  const selectedUnit = () => (ui.state.unit && ui.state.unit !== ALL ? ui.state.unit : null);
 
   async function mount(el, state) {
-    ui = { el, state: Object.assign({ metric: 'peak_temp', by: 'unit', phase: 'match' }, state), chart: null };
+    ui = { el, state: Object.assign({ metric: 'peak_temp', by: 'unit' }, state), chart: null };
     let filters;
     try {
       filters = await FP.api('filters');
@@ -49,16 +56,9 @@
       return;
     }
     ui.values = filters.values;
-    const band = h('section', { class: 'band', 'aria-label': 'Range and filters' },
-      FILTERS.map(([key, label, all]) => {
-        const options = (key === 'phase' ? filters.values.phase : filters.values[key] || []);
-        const select = h('select', { class: 'select', id: 'f-' + key, on: { change: (e) => setFilter(key, e.target.value) } },
-          all ? h('option', { value: '' }, all) : null,
-          options.map((v) => h('option', { value: v, selected: ui.state[key] === v }, key === 'match_type' ? (TYPE_LABEL[v] || v) : key === 'phase' ? v.toUpperCase() : v)));
-        return h('div', { class: 'field' }, h('label', { class: 'group__label', for: 'f-' + key }, label), select);
-      }),
-      ui.state.slot ? h('div', { class: 'field' }, h('span', { class: 'group__label' }, 'SLOT'),
-        h('button', { type: 'button', class: 'chip', on: { click: () => setFilter('slot', '') } }, ui.state.slot + ' ✕')) : null,
+    ui.combos = filters.combos;
+    renderBar();
+    const band = h('section', { class: 'band', 'aria-label': 'Summary' },
       h('div', { class: 'band__spacer' }),
       h('div', { class: 'tiles', id: 'tiles', 'aria-live': 'polite' }));
     const main = h('div', { class: 'main pad' },
@@ -78,10 +78,27 @@
           h('th', { scope: 'col', class: 'num' }, 'Matches'), h('th', { scope: 'col', class: 'num' }, 'Latest'), h('th', { scope: 'col', class: 'num' }, 'Change'),
           h('th', { scope: 'col' }, 'Trend'), h('th', { scope: 'col' }, 'Health'))),
         h('tbody', { id: 'rows' }))));
-    const aside = h('aside', { class: 'rail-r panel panel--rail-r', id: 'device', 'aria-label': 'Unit details' });
-    FP.fill(el, band, h('div', { class: 'layout' }, main, aside));
+    const aside = FP.rail({ view: 'history', side: 'r', label: 'Unit', attrs: { class: 'rail-r panel panel--rail-r', id: 'device', 'aria-label': 'Unit details' } });
+    ui.device = aside.body;
+    FP.fill(el, ui.bar, band, h('div', { class: 'layout' }, main, aside.el));
     renderMetrics();
     await refresh();
+  }
+
+  function renderBar() {
+    const s = ui.state;
+    const extras = EXTRAS.map(([key, label, allLabel]) => {
+      const options = ui.values[key] || [];
+      const text = (v) => (key === 'match_type' ? (TYPE_LABEL[v] || v) : key === 'phase' ? v.toUpperCase() : v);
+      const value = key === 'phase' ? (s.phase && s.phase !== DEFAULT_PHASE ? s.phase : null) : (s[key] || null);
+      // A value the lake doesn't hold (from an address) stays chosen and named.
+      const all = value && !options.includes(value) ? [value, ...options] : options;
+      return { key, label, allLabel, value, fallback: key === 'phase' ? DEFAULT_PHASE : '', options: all.map((v) => [v, text(v)]) };
+    });
+    const bar = FP.filterBar({
+      filters: FP.filters(s), combos: ui.combos, extras, only: 'HISTORY ONLY', unknownText: '(not in this lake)', onChange: setFilters,
+    });
+    ui.bar = ui.bar ? FP.swap(ui.bar, bar) : bar;
   }
 
   function renderMetrics() {
@@ -94,7 +111,9 @@
 
   async function refresh() {
     const params = filterParams(ui.state);
-    FP.setState({ view: 'history', ...params, metric: ui.state.metric, by: ui.state.by, unit: ui.state.unit || null });
+    const own = Object.fromEntries(EXTRA_KEYS.map((key) => [key, ui.state[key] || null]));
+    if (own.phase === DEFAULT_PHASE) own.phase = null;
+    FP.setState({ view: 'history', ...own, metric: ui.state.metric, by: ui.state.by });
     const mine = ui;
     const [summary, trend, devices] = await Promise.all([
       FP.api('summary', params),
@@ -123,7 +142,10 @@
     FP.fill(title, trend.label + ' ', h('span', { class: 'h-section__aside' }, 'per match · ' + trend.unit + (trend.reference != null ? ' · reference ' + trend.reference + ' ' + trend.unit : '')));
     const matches = trend.matches;
     if (!matches.length || !trend.points.length) {
-      FP.fill(box, h('p', { class: 'notice prose' }, 'No matches in this range.'));
+      const unknown = FP.unknownFilters(FP.filters(ui.state), ui.combos);
+      FP.fill(box, h('div', { class: 'notice prose', id: 'chart-empty' },
+        h('p', null, 'No matches in this range.'),
+        unknown.length ? h('p', null, 'No match in this lake has ', unknown.join(', '), '.') : null));
       FP.fill(document.getElementById('legend'));
       return;
     }
@@ -133,7 +155,7 @@
       if (!bySeries.has(p.series)) bySeries.set(p.series, new Array(matches.length).fill(null));
       bySeries.get(p.series)[index.get(p.match_key)] = p.value;
     }
-    const selected = trend.by === 'unit' ? ui.state.unit : null;
+    const selected = trend.by === 'unit' ? selectedUnit() : null;
     const tokens = FP.tokens();
     const names = [...bySeries.keys()].sort((a, b) => (a === selected) - (b === selected));
     const series = names.map((name) => ({
@@ -187,7 +209,7 @@
     const box = document.getElementById('chart-hover');
     if (!box || idx == null || !matches[idx]) return;
     const key = matches[idx].match_key;
-    const selected = ui.state.unit;
+    const selected = selectedUnit();
     const point = trend.points.find((p) => p.match_key === key && (!selected || p.series === selected));
     FP.fill(box, key, ' · ', FP.when(matches[idx].t),
       point ? [' · ', point.series, ' ', FP.fmt(point.value, 1), ' ', trend.unit, ' · alignment ', point.alignment || '—', point.slot_changed ? ' · slot changed to ' + point.slot_id : ''] : '');
@@ -196,16 +218,16 @@
   function pickMatch(idx, matches, trend) {
     if (!matches[idx]) return;
     const key = matches[idx].match_key;
-    const unit = ui.state.unit;
+    const unit = selectedUnit();
     const point = trend.points.find((p) => p.match_key === key && (!unit || p.series === unit));
-    if (unit && point) FP.go({ view: 'replay', m: key, track: point.slot_id, season: ui.state.season, robot: ui.state.robot });
+    if (unit && point) FP.go({ view: 'replay', m: key, track: point.slot_id });
     else showHover(idx, matches, trend);
   }
 
   function renderTable(rows, trend) {
     FP.fill(document.getElementById('table-title'), (trend.by === 'unit' ? 'Units' : 'Units') + ' · ' + rows.length + ' in range · ' + trend.label);
     FP.fill(document.getElementById('rows'), rows.map((r) => {
-      const on = r.unit_id === ui.state.unit;
+      const on = r.unit_id === selectedUnit();
       const [level, word] = HEALTH[r.health] || HEALTH['NO-DATA'];
       return h('tr', { class: on ? 'is-sel' : null },
         h('td', null, h('button', { type: 'button', class: 'dev-btn', 'aria-pressed': String(on), dataset: { unit: r.unit_id }, on: { click: () => selectUnit(r.unit_id) } },
@@ -225,16 +247,17 @@
   }
 
   async function renderDevice() {
-    const aside = document.getElementById('device');
-    if (!ui.state.unit) {
-      FP.fill(aside, h('h2', { class: 'label' }, 'Unit'), h('p', { class: 'meta' }, 'Select a unit in the table to see its odometry and lifeline.'));
+    const aside = ui.device;
+    if (!selectedUnit()) {
+      FP.fill(aside, h('p', { class: 'meta' }, 'Select a unit in the table to see its odometry and lifeline.'));
       return;
     }
     const mine = ui;
-    const unit = await FP.api('unit/' + encodeURIComponent(ui.state.unit), { season: ui.state.season, robot: ui.state.robot });
+    const { season, robot } = filterParams(ui.state);
+    const unit = await FP.api('unit/' + encodeURIComponent(selectedUnit()), { season, robot });
     if (ui !== mine || !aside.isConnected) return;
     if (!unit.found) {
-      FP.fill(aside, h('h2', { class: 'label' }, 'Unit'),
+      FP.fill(aside,
         h('p', { class: 'device__title' }, 'Not found'),
         h('p', { class: 'prose' }, 'No unit ', h('code', { class: 'code' }, unit.unit_id), ' in this lake.'),
         unit.suggestions.length ? h('div', { class: 'suggestions' }, h('span', { class: 'group__label' }, 'CLOSEST'),
@@ -246,7 +269,6 @@
     const fact = (k, v) => h('div', { class: 'fact' }, h('div', { class: 'fact__k' }, k), h('div', { class: 'fact__v' }, v));
     const points = (ui.trend.points || []).filter((p) => p.series === unit.unit_id).slice().reverse().slice(0, 12);
     FP.fill(aside,
-      h('h2', { class: 'label' }, 'Unit'),
       h('div', { class: 'meta' }, (unit.model || 'unknown model') + ' · ' + (unit.identity === 'legacy' ? 'legacy id' : 'SN ' + unit.serial)),
       h('p', { class: 'device__title' }, unit.current.role || unit.current.slot_id || unit.unit_id),
       FP.status(level, word),
@@ -265,7 +287,7 @@
         h('div', { class: 'meta' }, e.slot_id, e.bus ? ' · bus ' + e.bus : '', e.can_id != null ? ' · CAN ' + e.can_id : '', ' · ', e.source === 'legacy' ? 'legacy epoch' : 'inventory')))),
       h('h2', { class: 'label' }, 'Matches'),
       h('div', { class: 'match-links', id: 'unit-matches' }, points.length ? points.map((p) => h('div', { class: 'row row--between' },
-        h('a', { class: 'btn btn--sm', href: FP.link({ view: 'replay', m: p.match_key, track: p.slot_id, season: ui.state.season, robot: ui.state.robot }) }, 'REPLAY ' + p.match_key),
+        h('a', { class: 'btn btn--sm', href: FP.link({ view: 'replay', m: p.match_key, track: p.slot_id }) }, 'REPLAY ' + p.match_key),
         h('button', { type: 'button', class: 'btn btn--sm', on: { click: (ev) => showLogs(ev.currentTarget, p.match_key) } }, 'LOGS'))) : h('p', { class: 'meta' }, 'No matches in this range.')),
       h('div', { id: 'unit-logs', class: 'mt-3', 'aria-live': 'polite' }),
       h('a', { class: 'btn btn--sm mt-4', href: FP.link({ view: 'history', unit: unit.unit_id }) }, 'LINK TO THIS UNIT'));
@@ -282,7 +304,18 @@
   }
 
   /* ---------- interactions ---------- */
-  function setFilter(key, value) { ui.state[key] = value || null; refresh(); }
+  /* One path for every filter change: shared keys go to the address for every view, History's
+     own stay with History. */
+  function setFilters(patch) {
+    const shared = {};
+    for (const [key, value] of Object.entries(patch)) {
+      if (FP.SHARED.includes(key)) shared[key] = value;
+      ui.state[key] = value;
+    }
+    FP.setFilters(shared);
+    renderBar();
+    refresh();
+  }
   function setMetric(id) {
     ui.state.metric = id;
     document.querySelectorAll('[data-metric]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metric === id)));
@@ -293,7 +326,7 @@
     document.querySelectorAll('[data-by]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.by === by)));
     refresh();
   }
-  function selectUnit(id) { ui.state.unit = ui.state.unit === id ? null : id; refresh(); }
+  function selectUnit(id) { setFilters({ unit: selectedUnit() === id ? ALL : id }); }
 
   // For tests: the plotted series ({ name: values per match }) and the match keys.
   FP.historyChart = () => (ui && ui.chart ? {
@@ -305,6 +338,7 @@
     id: 'history',
     label: 'History',
     needsApi: true,
+    keep: EXTRA_KEYS, // History's own filters come back when it is opened from the navigation
     mount,
     unmount: () => { if (ui && ui.chart) ui.chart.destroy(); ui = null; },
   });

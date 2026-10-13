@@ -602,7 +602,7 @@ def test_filters_old_index_disables_season(page: Any, season_site: dict[str, Any
     page.goto(season_site["served"] + "#view=replay")
     page.wait_for_selector("#f-event")
     assert page.is_disabled("#f-season") and page.input_value("#f-season") == "all"
-    assert "Rebuild with flashpoint report to filter by season" in page.inner_text("nav.rail-l")
+    assert "Rebuild with flashpoint report to filter by season" in page.inner_text("#filter-bar")
     assert _listed(page) == ["2026gacmp_qm7", "2026gacmp_qm8"]
     page.select_option("#f-event", "all")
     page.select_option("#f-robot", "practice")
@@ -1223,3 +1223,466 @@ def test_launch_from_history(page: Any, tmp_path: Path) -> None:
         assert watch.clean(), watch
     finally:
         _stop(server)
+
+
+# --- Shared filters (spec: view-filters) ---------------------------------------------------
+
+HOSTILE_EVENT = "x' OR 1=1 --"
+READY = {
+    "replay": "#rail-l-body #filter-note",
+    "history": "#rows tr, #chart-empty",
+    "anomalies": "#queue .anom, #queue-empty",
+}
+
+
+def _view_open(page: Any, url: str, view: str, extra: str = "") -> Watch:
+    watch = _open(page, url, f"#view={view}{extra}")
+    page.wait_for_selector(READY[view], state="attached")
+    return watch
+
+
+def _go(page: Any, view: str) -> None:
+    """Open `view` from the navigation."""
+    page.click(f"nav.tabs a[data-view='{view}']")
+    page.wait_for_selector(READY[view], state="attached")
+
+
+def _queued(page: Any) -> list[str]:
+    ids = page.eval_on_selector_all("#queue .anom", "els => els.map(e => e.dataset.id)")
+    return [str(x) for x in ids]
+
+
+def _history_matches(page: Any, n: int) -> list[str]:
+    page.wait_for_function(f"() => FP.historyChart() && FP.historyChart().matches.length === {n}")
+    return [str(k) for k in page.evaluate("() => FP.historyChart().matches")]
+
+
+def test_event_carries_from_replay_to_history(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "replay", "&season=all&robot=all&event=all")
+    page.select_option("#f-event", "2026gacmp")
+    _go(page, "history")
+    assert page.input_value("#f-event") == "2026gacmp"
+    assert _history_matches(page, 2) == ["2026gacmp_qm7", "2026gacmp_qm8"]
+    assert watch.clean(), watch
+
+
+def test_robot_carries_from_history_to_anomalies(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history")
+    page.select_option("#f-robot", "practice")
+    page.wait_for_function("() => location.hash.includes('robot=practice')")
+    _go(page, "anomalies")
+    assert page.input_value("#f-robot") == "practice"
+    assert _queued(page) == [cross_site["ids"]["med"]]
+    assert page.inner_text("#open-count") == "1"
+    assert watch.clean(), watch
+
+
+def test_drill_through_keeps_the_other_filters(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history", "&season=2026")
+    page.click("[data-anomalies='ctre:12345']")
+    page.wait_for_selector(READY["anomalies"], state="attached")
+    assert page.input_value("#f-season") == "2026"
+    assert "ctre:12345" in page.inner_text("#unit-chip")
+    assert watch.clean(), watch
+
+
+def test_copied_address_restores_the_filters(page: Any, cross_site: dict[str, Any]) -> None:
+    found = cross_site["ids"]
+    watch = _view_open(
+        page, cross_site["url"], "anomalies", "&season=2026&robot=comp&unit=ctre%3A12345"
+    )
+    assert [page.input_value(f"#f-{k}") for k in ("season", "robot", "event")] == [
+        "2026", "comp", "all",
+    ]  # fmt: skip
+    assert "ctre:12345" in page.inner_text("#unit-chip")
+    assert _queued(page) == [found["step"], found["drift"]]
+    assert watch.clean(), watch
+
+
+def test_nav_carries_filters_without_a_reload(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "replay", "&season=all&robot=all&event=all")
+    page.evaluate("() => { window.__same = true; }")
+    page.select_option("#f-robot", "comp")
+    hrefs = page.eval_on_selector_all("nav.tabs a[data-view]", "as => as.map(a => a.hash)")
+    assert all("robot=comp" in h for h in hrefs), hrefs
+    assert page.evaluate("() => window.__same") is True
+    assert watch.clean(), watch
+
+
+def test_replay_default_becomes_shared(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "replay")
+    assert (page.input_value("#f-season"), page.input_value("#f-event")) == ("2026", "2026gacmp")
+    _go(page, "history")
+    assert (page.input_value("#f-season"), page.input_value("#f-event")) == ("2026", "2026gacmp")
+    assert watch.clean(), watch
+
+
+def test_history_opened_first(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history")
+    assert [page.input_value(f"#f-{k}") for k in ("season", "robot", "event")] == ["all"] * 3
+    assert _history_matches(page, 9)  # every match, 2026gacol included
+    assert watch.clean(), watch
+
+
+def test_no_default_after_a_clear(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "replay", "&season=all&robot=all&event=all")
+    assert [page.input_value(f"#f-{k}") for k in ("season", "robot", "event")] == ["all"] * 3
+    assert len(_listed(page)) == 8
+    assert watch.clean(), watch
+
+
+def test_same_bar_on_every_view(page: Any, cross_site: dict[str, Any]) -> None:
+    tops = []
+    for view in ("replay", "history", "anomalies"):
+        watch = _view_open(page, cross_site["url"], view, "&season=all&robot=all&event=all")
+        bar = page.evaluate(
+            """() => { const bar = document.getElementById('filter-bar');
+            const labels = [...bar.querySelectorAll('select:not([data-only])')]
+              .map(s => [bar.querySelector(`label[for="${s.id}"]`).textContent, s.options[0].text]);
+            return { first: document.getElementById('view').firstElementChild === bar,
+                     labels, top: bar.getBoundingClientRect().top,
+                     clear: bar.lastElementChild.id }; }"""
+        )
+        assert bar["first"] and bar["clear"] == "filters-clear", (view, bar)
+        assert bar["labels"] == [
+            ["SEASON", "All seasons"], ["ROBOT", "All robots"], ["EVENT", "All events"],
+        ], view  # fmt: skip
+        tops.append(bar["top"])
+        assert watch.clean(), watch
+    assert len(set(tops)) == 1, tops
+
+
+def test_history_only_filters_marked(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history")
+    after = page.evaluate(
+        """() => { const only = document.querySelector('#filter-bar .filter-bar__only');
+        const ids = [...document.querySelectorAll('#filter-bar select')].map(s => s.id);
+        const later = ids.filter(id => only.compareDocumentPosition(document.getElementById(id))
+          & Node.DOCUMENT_POSITION_FOLLOWING);
+        return [only.textContent, later]; }"""
+    )
+    assert after == ["HISTORY ONLY", ["f-match_type", "f-phase", "f-subsystem", "f-slot"]]
+    assert watch.clean(), watch
+
+
+def test_season_narrows_robots_on_every_view(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "anomalies", "&robot=2025-bot")
+    assert _options(page, "#f-robot") == ["all", "comp", "practice", "2025-bot"]  # newest first
+    page.select_option("#f-season", "2026")
+    assert page.input_value("#f-robot") == "all"
+    assert "2025-bot" not in _options(page, "#f-robot")
+    for view in ("history", "replay"):
+        _go(page, view)
+        assert page.input_value("#f-season") == "2026" and page.input_value("#f-robot") == "all"
+        assert "2025-bot" not in _options(page, "#f-robot"), view
+    assert watch.clean(), watch
+
+
+def test_nothing_to_clear(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history")
+    assert page.is_disabled("#filters-clear")
+    page.select_option("#f-subsystem", "shooter")
+    assert page.is_enabled("#filters-clear")
+    _view_open(page, cross_site["url"], "anomalies")
+    assert page.is_disabled("#filters-clear")
+    assert watch.clean(), watch
+
+
+def test_unit_chip_only_when_set(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history")
+    assert page.locator("#unit-chip").count() == 0
+    _view_open(page, cross_site["url"], "history", "&unit=ctre%3A12345")
+    assert "ctre:12345" in page.inner_text("#unit-chip")
+    page.click("#unit-clear")
+    page.wait_for_selector("#unit-chip", state="detached")
+    assert "unit=" not in page.url
+    assert watch.clean(), watch
+
+
+def test_unit_filter_not_applied_in_replay(page: Any, season_app: str) -> None:
+    watch = _open(page, season_app, "#view=replay&season=all&robot=all&event=all&unit=ctre%3AX")
+    page.wait_for_selector("#unit-note")
+    assert page.inner_text("#unit-note") == "not applied in Replay"
+    assert len(_listed(page)) == 8
+    assert watch.clean(), watch
+
+
+def test_static_export_filter_bar(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open(page, season_site["static"], "#view=replay")
+    page.wait_for_selector("#view > #filter-bar #f-event")
+    assert page.locator("nav.rail-l select").count() == 0  # out of the rail
+    page.select_option("#f-event", "2026gadal")
+    assert _listed(page) == ["2026gadal_qm1", "2026gadal_qm2", "2026gadal_qm3"]
+    page.click("#filters-clear")
+    assert len(_listed(page)) == 8
+    assert watch.clean(), watch
+
+
+def test_unit_chosen_in_history_reaches_anomalies(page: Any, cross_site: dict[str, Any]) -> None:
+    found = cross_site["ids"]
+    watch = _view_open(page, cross_site["url"], "history")
+    page.click("button.dev-btn[data-unit='ctre:12345']")
+    page.wait_for_selector("#device .device__title")
+    assert "ctre:12345" in page.inner_text("#unit-chip")
+    _go(page, "anomalies")
+    assert "ctre:12345" in page.inner_text("#unit-chip")
+    assert _queued(page) == [found["step"], found["drift"]]
+    _go(page, "history")
+    page.click("button.dev-btn[data-unit='ctre:12345']")  # again: clears it
+    page.wait_for_selector("#unit-chip", state="detached")
+    assert "unit=" not in page.url
+    assert watch.clean(), watch
+
+
+def test_unit_set_elsewhere(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history", "&unit=ctre%3A12345")
+    page.wait_for_selector("#device .device__title")
+    assert page.locator("#rows tr.is-sel").count() == 1
+    assert page.locator("#rows tr").count() == 5  # the other units are still listed
+    assert "ctre:12345 emphasised" in str(page.get_attribute("#chart", "aria-label"))
+    assert watch.clean(), watch
+
+
+def test_history_only_filter_stays_on_history(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history")
+    page.select_option("#f-subsystem", "shooter")
+    page.wait_for_function("() => location.hash.includes('subsystem=shooter')")
+    _go(page, "anomalies")
+    assert "subsystem" not in page.url and len(_queued(page)) == 6
+    _go(page, "history")
+    assert page.input_value("#f-subsystem") == "shooter"
+    assert watch.clean(), watch
+
+
+def test_clear_on_history(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history", "&event=2026gacmp&subsystem=shooter")
+    assert _history_matches(page, 2)
+    page.click("#filters-clear")
+    values = [page.input_value(f"#f-{k}") for k in ("season", "robot", "event")]
+    assert values == ["all"] * 3 and page.input_value("#f-subsystem") == ""
+    assert len(_history_matches(page, 9)) == 9  # all time
+    assert page.is_disabled("#filters-clear")
+    assert watch.clean(), watch
+
+
+def test_clear_on_history_clears_replay(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "replay", "&robot=comp&event=2026gacmp")
+    _go(page, "history")
+    page.click("#filters-clear")
+    assert _history_matches(page, 9)
+    _go(page, "replay")
+    assert [page.input_value(f"#f-{k}") for k in ("season", "robot", "event")] == ["all"] * 3
+    assert len(_listed(page)) == 8
+    assert watch.clean(), watch
+
+
+def test_clear_removes_the_unit(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "anomalies", "&unit=ctre%3A12345")
+    assert len(_queued(page)) == 2
+    page.click("#filters-clear")
+    page.wait_for_selector("#unit-chip", state="detached")
+    page.wait_for_function("() => document.querySelectorAll('#queue .anom').length === 6")
+    _go(page, "history")
+    assert page.locator("#rows tr.is-sel").count() == 0
+    assert watch.clean(), watch
+
+
+def test_event_with_no_built_replay_data(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history", "&event=2026gacol")
+    assert _history_matches(page, 1) == ["2026gacol_qm1"]
+    _go(page, "replay")
+    assert _listed(page) == [] and page.input_value("#f-event") == "2026gacol"
+    note = page.inner_text("#filter-note")
+    assert "No matches for these filters" in note and "event 2026gacol" in note
+    assert page.locator("#note-clear").count() == 1
+    _go(page, "history")
+    assert page.input_value("#f-event") == "2026gacol"
+    assert watch.clean(), watch
+
+
+@pytest.mark.parametrize("view", ["replay", "history", "anomalies"])
+def test_hostile_value_in_the_address(page: Any, cross_site: dict[str, Any], view: str) -> None:
+    watch = _view_open(page, cross_site["url"], view, "&event=" + quote(HOSTILE_EVENT))
+    assert page.input_value("#f-event") == HOSTILE_EVENT
+    empty = {"replay": "#filter-note", "history": "#chart-empty", "anomalies": "#queue-empty"}
+    assert f"event {HOSTILE_EVENT}" in page.inner_text(empty[view])
+    if view == "replay":
+        assert _listed(page) == []
+    if view == "anomalies":
+        assert _queued(page) == [] and page.inner_text("#open-count") == "0"
+    assert page.locator("img").count() == 0
+    assert watch.clean(), watch
+
+
+def test_anomalies_nothing_passes_the_filters(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "anomalies", "&robot=practice&event=2026gacmp")
+    assert "Nothing passes these filters" in page.inner_text("#queue-empty")
+    page.click("#queue-clear")
+    page.wait_for_function("() => document.querySelectorAll('#queue .anom').length === 6")
+    assert page.input_value("#f-robot") == "all" and page.is_disabled("#filters-clear")
+    assert watch.clean(), watch
+
+
+def test_selected_anomaly_outside_the_event(page: Any, cross_site: dict[str, Any]) -> None:
+    drift = cross_site["ids"]["drift"]  # flagged only at 2026gadal
+    watch = _view_open(page, cross_site["url"], "anomalies", f"&id={drift}&event=2026gacmp")
+    page.wait_for_selector("#hidden-note")
+    assert "hidden by the filters" in page.inner_text("#hidden-note")
+    assert drift not in _queued(page) and f"id={drift}" in page.url
+    page.wait_for_selector("#detail #title")
+    assert page.inner_text("#title").startswith("drift:")
+    assert watch.clean(), watch
+
+
+def test_badge_ignores_the_robot_filter(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "anomalies", "&robot=practice")
+    page.wait_for_selector("[data-badge='anomalies']:not([hidden])")
+    assert page.inner_text("[data-badge='anomalies']") == "6"  # the whole lake
+    assert _queued(page) == [cross_site["ids"]["med"]]
+    assert watch.clean(), watch
+
+
+# --- Rails: independent scroll and minimize (spec: match-reports) ----------------------------
+
+SPACER = """sel => { const d = document.createElement('div'); d.className = 'test-spacer';
+  d.style.height = '3000px'; document.querySelector(sel).appendChild(d); }"""
+
+
+def _rect(page: Any, sel: str) -> dict[str, float]:
+    return dict(page.evaluate(
+        f"() => {{ const r = document.querySelector({json.dumps(sel)}).getBoundingClientRect();"
+        " return { top: r.top, bottom: r.bottom, left: r.left, width: r.width }; }"
+    ))  # fmt: skip
+
+
+def test_scroll_the_evidence_keep_the_queue(page: Any, cross_site: dict[str, Any]) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    watch = _view_open(page, cross_site["url"], "anomalies")
+    page.wait_for_selector("#detail #title")
+    page.evaluate(SPACER, "#detail")
+    page.evaluate(
+        "() => { const m = document.getElementById('detail'); m.scrollTop = m.scrollHeight; }"
+    )
+    assert page.evaluate("() => document.getElementById('detail').scrollTop") > 0
+    assert page.evaluate("() => window.scrollY") == 0
+    first = _rect(page, "#queue .anom")
+    assert first["top"] >= 0 and first["bottom"] <= 900
+    assert _rect(page, "#filter-bar")["top"] >= 0
+    assert watch.clean(), watch
+
+
+def test_scroll_the_match_list_keep_the_tracks(page: Any, season_site: dict[str, Any]) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    watch = _open_q7(page, season_site["served"], "&season=all&robot=all&event=all")
+    page.evaluate(SPACER, "#rail-l-body")
+    before = (_rect(page, "#tracks"), _rect(page, "#readout"))
+    page.evaluate(
+        "() => { const r = document.querySelector('nav.rail-l'); r.scrollTop = r.scrollHeight; }"
+    )
+    assert page.evaluate("() => document.querySelector('nav.rail-l').scrollTop") > 0
+    assert (_rect(page, "#tracks"), _rect(page, "#readout")) == before
+    assert page.evaluate("() => window.scrollY") == 0
+    assert watch.clean(), watch
+
+
+def test_narrow_window_scrolls_as_one(page: Any, season_site: dict[str, Any]) -> None:
+    page.set_viewport_size({"width": 700, "height": 900})
+    watch = _open_q7(page, season_site["served"])
+    found = page.evaluate(
+        """() => ({ overflow: getComputedStyle(document.querySelector('nav.rail-l')).overflowY,
+                    page: document.scrollingElement.scrollHeight > innerHeight,
+                    below: document.querySelector('nav.rail-l').getBoundingClientRect().top
+                      >= document.getElementById('replay-main').getBoundingClientRect().bottom })"""
+    )
+    assert found == {"overflow": "visible", "page": True, "below": True}
+    assert watch.clean(), watch
+
+
+@pytest.mark.parametrize("size", [(1366, 768), (1100, 700)])
+def test_every_column_reaches_its_end(page: Any, cross_site: dict[str, Any],
+                                      size: tuple[int, int]) -> None:  # fmt: skip
+    page.set_viewport_size({"width": size[0], "height": size[1]})
+    for view in ("replay", "history", "anomalies"):
+        watch = _view_open(page, cross_site["url"], view, "&season=all&robot=all&event=all")
+        ends = page.evaluate(
+            """() => [...document.querySelectorAll('.layout > *')].map(c => {
+              c.scrollTop = c.scrollHeight; const r = c.getBoundingClientRect();
+              return [c.className, r.bottom <= innerHeight + 1,
+                      Math.abs(c.scrollTop + c.clientHeight - c.scrollHeight) <= 1]; })"""
+        )
+        assert all(e[1] and e[2] for e in ends), (view, ends)
+        assert page.evaluate("() => window.scrollY") == 0, view
+        assert watch.clean(), watch
+
+
+WIDE = """() => document.querySelectorAll('.layout > .rail').forEach(c => {
+  const d = document.createElement('div'); d.className = 'test-wide';
+  d.style.width = '400px'; c.appendChild(d); })"""
+
+
+@pytest.mark.parametrize("view", ["replay", "history", "anomalies"])
+def test_rails_fit_their_content(page: Any, cross_site: dict[str, Any], view: str) -> None:
+    """A rail that scrolls still widens to its content (a 400 px block in a 220 or 320 px rail)
+    rather than clipping it; the main column gives up the room."""
+    page.set_viewport_size({"width": 1366, "height": 768})
+    watch = _view_open(page, cross_site["url"], view, "&season=all&robot=all&event=all")
+    page.evaluate(WIDE)
+    clipped = page.evaluate(
+        """() => [...document.querySelectorAll('.layout > .rail')]
+             .filter(c => c.scrollWidth > c.clientWidth + 1)
+             .map(c => [c.className, c.clientWidth, c.scrollWidth])"""
+    )
+    assert clipped == [], (view, clipped)
+    assert watch.clean(), watch
+
+
+def test_minimize_the_replay_match_list(page: Any, season_site: dict[str, Any]) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    watch = _open_q7(page, season_site["served"])
+    before = page.evaluate("() => FP.replay.charts()[0].width")
+    page.click("#rail-l-min")
+    assert "is-collapsed" in str(page.get_attribute("nav.rail-l", "class"))
+    assert page.is_visible("#rail-l-strip") and page.inner_text("#rail-l-strip") == "MATCHES"
+    assert page.is_hidden("#rail-l-body")
+    page.wait_for_function(f"() => FP.replay.charts()[0].width > {before} + 100")
+    page.click("#rail-l-strip")
+    assert page.is_visible("#rail-l-body a.match-btn")
+    assert watch.clean(), watch
+
+
+def test_rails_remembered_per_view(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "history")
+    page.click("#rail-r-min")
+    page.reload()
+    page.wait_for_selector(READY["history"], state="attached")
+    assert "is-collapsed" in str(page.get_attribute("#device", "class"))
+    _go(page, "replay")
+    assert "is-collapsed" not in str(page.get_attribute("aside.rail-r", "class"))
+    assert page.is_visible("#rail-r-min")
+    assert watch.clean(), watch
+
+
+def test_rail_controls_by_keyboard(page: Any, season_site: dict[str, Any]) -> None:
+    watch = _open_q7(page, season_site["served"])
+    page.focus("#rail-l-min")
+    assert page.get_attribute("#rail-l-min", "aria-expanded") == "true"
+    page.keyboard.press("Enter")
+    assert page.evaluate("() => document.activeElement.id") == "rail-l-strip"
+    assert page.get_attribute("#rail-l-strip", "aria-expanded") == "false"
+    page.keyboard.press("Enter")
+    assert page.evaluate("() => document.activeElement.id") == "rail-l-min"
+    assert page.is_visible("#rail-l-body")
+    assert watch.clean(), watch
+
+
+def test_rails_without_storage(page: Any, season_site: dict[str, Any]) -> None:
+    page.add_init_script(
+        "Object.defineProperty(window, 'localStorage', { get() { throw new Error('denied'); } });"
+    )
+    watch = _open_q7(page, season_site["served"])
+    page.click("#rail-l-min")
+    assert "is-collapsed" in str(page.get_attribute("nav.rail-l", "class"))
+    page.reload()
+    page.wait_for_selector("#readout tr")
+    assert "is-collapsed" not in str(page.get_attribute("nav.rail-l", "class"))
+    assert watch.clean(), watch
