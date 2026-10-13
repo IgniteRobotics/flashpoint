@@ -136,6 +136,8 @@ poetry install --extras ml              # optional: the MODEL detector ([model] 
 
 Thresholds live in `config/anomaly.toml`, likely causes in `config/anomaly-causes.toml`, and known failures in `config/failure-labels.toml`. All three are team-edited and validated on load.
 
+Brownouts are judged on the **battery proxy**: the supply voltage of the robot's declared `battery_proxy` slot (a low-current device on the main power bus, such as the gyro), or, when there is none, the median across devices. A single motor's supply dip is its own wiring drop, not a brownout. That drop shows up instead as **supply path resistance** (mΩ per motor), a baseline metric, so a loosening connector or lead can show as a STEP, DRIFT, or SIBLING anomaly.
+
 ### Tests
 
 ```bash

@@ -14,6 +14,7 @@ from flashpoint import config
 from flashpoint.anomaly import detect
 from flashpoint.report.build import ReportBuilder
 from flashpoint.report.paths import data_dir
+from tests.brownout_config import Q7_BROWNOUTS
 
 pytestmark = pytest.mark.corpus
 Q7 = "2026gacmp_qm7"
@@ -38,8 +39,15 @@ def test_runs_after_derive(corpus_group: Callable[[str], list[Path]], tmp_path: 
     assert (lake / "gold" / "anomalies" / "anomalies.parquet").is_file()
 
 
-def test_q7_brownout_anomaly(derived_corpus_lake: Any) -> None:
+def test_no_brownouts_from_motor_dips(derived_corpus_lake: Any) -> None:
+    """Shipped thresholds: the gyro stays above 6.75 V, so motors' own dips raise nothing."""
     rows = detect.compute(derived_corpus_lake, SETTINGS).rows
+    assert [r for r in rows if r["subject"] == "power"] == []
+
+
+def test_q7_brownout_anomaly(derived_corpus_lake: Any, brownout_config: Path) -> None:
+    """Test thresholds (brownout 8.5 V, sag 9.0 V), above Q7's lowest battery proxy voltage."""
+    rows = detect.compute(derived_corpus_lake, detect.load_settings(brownout_config)).rows
     brownouts = [r for r in rows if r["metric"] == "brownouts"]
     assert len(brownouts) == 1
     (row,) = brownouts
@@ -47,8 +55,9 @@ def test_q7_brownout_anomaly(derived_corpus_lake: Any) -> None:
         "SPEC", "HIGH", "power", "2026-comp",
     )  # fmt: skip
     assert row["onset_match_key"] == Q7 and row["slot_id"] == "power"
+    assert "battery proxy: gyro" in row["why"]
 
-    builder = ReportBuilder(derived_corpus_lake, config.config_root())
+    builder = ReportBuilder(derived_corpus_lake, brownout_config)
     try:
         builder.build(match_keys=[Q7])
     finally:
@@ -56,7 +65,7 @@ def test_q7_brownout_anomaly(derived_corpus_lake: Any) -> None:
     text = (data_dir(derived_corpus_lake) / f"{Q7}.js").read_text(encoding="utf-8")
     markers = json.loads(text[text.index("(") + 1 : -3])["markers"]
     faults = [m for m in markers if m["kind"] == "brownout" and m["level"] == "FAULT"]
-    assert row["actual_value"] == len(faults)
+    assert row["actual_value"] == len(faults) == Q7_BROWNOUTS
 
 
 def test_whole_corpus_completes_with_skip_counts(derived_corpus_lake: Any) -> None:

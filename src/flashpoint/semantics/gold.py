@@ -56,6 +56,18 @@ def session_features(
     slots = {s.id: s for s in robot.slots}
     # The gap's rows are excluded, so the last auto sample must not hold across the gap.
     breaks = [p.start_us for p in framing.phases if p.name == "gap" and p.start_us is not None]
+    # The declared battery proxy, read once (one low-rate device). The median fallback is not
+    # used here: it contains the motor itself.
+    proxy = (
+        con.sql(
+            f"SELECT t_us, value FROM {source}"  # noqa: S608
+            " WHERE slot_id = ? AND metric = 'supply_voltage' AND phase IN ('auto', 'teleop')"
+            " ORDER BY t_us",
+            params=[robot.battery_proxy],
+        ).pl()
+        if robot.battery_proxy is not None
+        else None
+    )
     rows = []
     for slot_id, unit_id in sorted(motors):
         # One motor at a time keeps memory bounded by a motor's samples, not the session's.
@@ -78,7 +90,7 @@ def session_features(
                     "role": slots[slot_id].role if slot_id in slots else None,
                     "alignment": alignment,
                     "source_logs": source_logs,
-                    **motor_features(motor, start, end, breaks=breaks),
+                    **motor_features(motor, start, end, breaks=breaks, proxy=proxy),
                 }
             )
     return rows

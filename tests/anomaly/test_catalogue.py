@@ -36,14 +36,13 @@ note = "rebooted"
 
 def test_seeded_labels_load_and_resolve() -> None:
     labels = load_labels(config.config_root(), ROBOTS)
-    assert len(labels) >= 3
+    assert len(labels) >= 2
     by_slot = {(lb.match, lb.slot): lb for lb in labels}
     roller = by_slot[("2026johnson_qm105", "intake-roller")]
     assert (roller.robot, roller.kind, roller.metric) == ("2026-comp", "failure", "reboots")
     follower = by_slot[("2026johnson_qm105", "intake-extension-follower")]
     assert follower.kind == "degradation"
-    power = by_slot[("2026gacmp_qm7", "power")]
-    assert (power.kind, power.metric) == ("failure", "brownouts")
+    assert ("2026gacmp_qm7", "power") not in by_slot  # a wiring drop, not a brownout
     assert all(lb.robot and lb.slot for lb in labels)
 
 

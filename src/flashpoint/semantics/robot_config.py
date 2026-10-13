@@ -137,6 +137,14 @@ class RobotConfig(BaseModel):
     signals: list[Signal] = Field(default_factory=list, alias="signal")
     buses: list[Bus] = Field(default_factory=list, alias="bus")
     siblings: list[SiblingGroup] = Field(default_factory=list)
+    # A low-current slot on the main power bus whose supply voltage stands in for the battery.
+    battery_proxy: str | None = None
+
+    @model_validator(mode="after")
+    def _known_battery_proxy(self) -> "RobotConfig":
+        if self.battery_proxy is not None and self.battery_proxy not in {s.id for s in self.slots}:
+            raise ValueError(f"battery proxy {self.battery_proxy!r} is not one of the slots")
+        return self
 
     @model_validator(mode="after")
     def _unique_buses(self) -> "RobotConfig":

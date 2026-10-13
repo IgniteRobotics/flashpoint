@@ -87,6 +87,8 @@ def test_payload_shape(q7: MatchLake) -> None:
     env = data["series"]["hood"]["supply_current"]
     assert set(env) == {"min", "max", "mean"} and len(env["max"]) == data["window"]["n"]
     assert set(data["battery"]) == {"min", "max", "mean"}
+    # 2026-comp declares the gyro, which this match did not log: the median of 3 devices
+    assert data["battery_proxy"] == {"slot": None, "devices": 3, "label": "median of 3 devices"}
     assert data["temps"]["intake-roller"] == [[-2.0, 27.0], [90.0, 45.0]]
     assert data["maxima"]["intake-roller"] == {
         "temp_max_c": 45.0, "supply_current_max": 12.0, "stator_current_max": 22.0,
@@ -99,6 +101,20 @@ def test_payload_shape(q7: MatchLake) -> None:
     assert all(s["download"].startswith("2026gacmp_qm7__") for s in data["sources"])
     size = (data_dir(q7.lake) / "2026gacmp_qm7.js").stat().st_size
     assert data["bytes"] <= size < data["bytes"] + 32  # measured before the field was added
+
+
+def test_battery_track_is_the_declared_proxy(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    rows = quiet_rows() + series("gyro", "supply_voltage", 0, 180, 100, 12.4)
+    for row in rows:  # the hood's own wiring drop: neither the track nor a marker shows it
+        if row["slot_id"] == "hood" and row["metric"] == "supply_voltage" and row["t_us"] >= 60 * S:
+            row["value"] = 6.0
+    lake.add_match("2026gacmp_qm7", "q7", rows)
+    _build(lake)
+    data = _load(data_dir(lake.lake) / "2026gacmp_qm7.js")
+    assert data["battery_proxy"] == {"slot": "gyro", "devices": 1, "label": "gyro"}
+    assert {v for v in data["battery"]["min"] if v is not None} == {12.4}
+    assert data["markers"] == []
 
 
 def test_index_and_state(q7: MatchLake) -> None:
@@ -313,7 +329,7 @@ def test_index_entry_carries_session_season(tmp_path: Path) -> None:
     lake.add_match("2025gaalb_qm3", "q3", quiet_rows(), robot="2025-comp", season="2025")
     _build(lake)
     index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
-    assert index["version"] == 3
+    assert index["version"] == 4
     assert {m["key"]: m["season"] for m in index["matches"]} == {
         "2026gacmp_qm7": "2026", "2025gaalb_qm3": "2025",
     }  # fmt: skip
@@ -324,7 +340,7 @@ def test_payload_carries_absolute_window_start(q7: MatchLake) -> None:
     data = _load(data_dir(q7.lake) / "2026gacmp_qm7.js")
     # t0_us is the lake time of window.t0, so the match start (auto at T=10 s) is t0_us - t0
     assert data["t0_us"] - round(data["window"]["t0"] * S) == 10 * S
-    assert data["version"] == 3
+    assert data["version"] == 4
 
 
 def test_version_1_state_rebuilds_every_match(q7: MatchLake) -> None:
@@ -345,7 +361,9 @@ def test_version_1_state_rebuilds_every_match(q7: MatchLake) -> None:
 # The synthetic Q7 file built before the series assembly moved to envelope.series_payload
 # (replay-ux 2.2). A deliberate payload change updates this digest; anything else is a regression.
 # can-health: only "version" changed (2 -> 3); built with version 2 the bytes still give 5d70ddd...
-Q7_DIGEST = "c6928902323359472316150769c5063923be5f9c7b1661ee9889c554b461cbd6"
+# battery-proxy: only "version" (3 -> 4) and the added "battery_proxy" changed; without them the
+# bytes still give c692890... (the synthetic match's devices all sit at 12 V).
+Q7_DIGEST = "599aaddf5d9de8516aecaa396b40f57e829a73975b1dc5d19813510d8c750f9f"
 
 
 def test_synthetic_q7_bytes_unchanged(q7: MatchLake) -> None:

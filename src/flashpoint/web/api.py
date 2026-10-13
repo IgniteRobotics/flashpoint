@@ -14,6 +14,7 @@ import duckdb
 
 from flashpoint.report import envelope
 from flashpoint.report.paths import data_dir, file_stem
+from flashpoint.report.proxy import Proxy
 from flashpoint.views.anomalies import AnomalyQueries, TriageError
 from flashpoint.views.queries import Filters, HistoryQueries, QueryError
 
@@ -215,7 +216,9 @@ class Api:
             con.execute("SET memory_limit = '256MB'")
             con.execute("SET threads = 2")
             temps = envelope.temperature_points(con, silver, window)
-            detail = envelope.series_payload(con, silver, window, temps, match_end)
+            found = payload.get("battery_proxy")  # the match's own proxy, not the window's
+            proxy = Proxy(found["slot"], found["devices"]) if found else None
+            detail = envelope.series_payload(con, silver, window, temps, match_end, proxy)
         finally:
             con.close()
         keys = ("window", "series", "battery", "temps", "not_logged")

@@ -22,6 +22,7 @@ from flashpoint import config
 from flashpoint.anomaly import power
 from flashpoint.lake.paths import LakePaths
 from flashpoint.report.settings import load_report_config
+from flashpoint.semantics.robot_config import load_robots
 
 def own_peak():
     if sys.platform.startswith("linux"):
@@ -33,10 +34,11 @@ def own_peak():
 
 lake, count = LakePaths(Path(sys.argv[1])), sys.argv[2] == "count"
 report = load_report_config(config.config_root())
+robots = load_robots(config.config_root() / "robots")
 (power.anomalies_dir(lake) / power.POWER_FILE).unlink(missing_ok=True)
 started = time.perf_counter()
 if count:
-    assert power.brownout_counts(lake, report).recounted == ["2026gacmp_qm7"]
+    assert power.brownout_counts(lake, report, robots).recounted == ["2026gacmp_qm7"]
 elapsed = time.perf_counter() - started
 print(json.dumps({"count_s": elapsed, "peak_bytes": own_peak()}))
 """

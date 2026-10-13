@@ -122,6 +122,37 @@ def test_sibling_in_detection(tmp_path: Path) -> None:
     assert json.loads(rows[0]["evidence"])["peer"] == "median of drive-fl, drive-fr, drive-br"
 
 
+def test_degrading_connector(tmp_path: Path) -> None:
+    gold = GoldLake(tmp_path, matches=18, slots=["drive-fl"])
+    gold.set("drive-fl", "supply_resistance_mohm", steady(20.0, 15) + steady(35.0, 3))
+    (row,) = [r for r in _rows(gold.write()) if r["metric"] == "supply_resistance_mohm"]
+    assert (row["method"], row["onset_match_key"]) == ("STEP", "2026syn_qm16")
+    assert (row["metric_name"], row["metric_unit"]) == ("supply path resistance", "mΩ")
+    assert row["actual"].endswith(" mΩ")
+
+
+def test_resistance_sibling(tmp_path: Path) -> None:
+    flywheel = ["flywheel-left-leader", "flywheel-right", "flywheel-left-follower"]
+    gold = GoldLake(tmp_path, matches=20, slots=flywheel)
+    for k, slot in enumerate(flywheel):
+        gold.set(slot, "supply_resistance_mohm", steady(40.0, 20, start=k))
+    worse = [v + (20.0 if i >= 15 else 0) for i, v in enumerate(steady(40.0, 20, start=2))]
+    gold.set("flywheel-left-follower", "supply_resistance_mohm", worse)
+    rows = [r for r in _rows(gold.write()) if r["method"] == "SIBLING"]
+    assert {r["metric"] for r in rows} == {"supply_resistance_mohm"}
+    # In a group of three each peer is the median of the other two, so the follower also pulls
+    # its siblings' peers up; it is the one furthest out.
+    worst = max(rows, key=lambda r: abs(r["max_z"]))
+    assert worst["subject"] == "ctre:FLYWHEEL-LEFT-FOLLOWER" and worst["max_z"] > 0
+
+
+def test_resistance_not_available_is_not_judged(tmp_path: Path) -> None:
+    gold = GoldLake(tmp_path, matches=25, slots=["steer-fl"])
+    gold.set("steer-fl", "supply_resistance_mohm", [None] * 25)  # low-current every match
+    computed = detect.compute(gold.write(), SETTINGS)
+    assert [r for r in computed.rows if r["metric"] == "supply_resistance_mohm"] == []
+
+
 def _two_events(root: Path, step_at: int) -> GoldLake:
     """10 matches at 2026aaa then 6 at 2026bbb; the hood's max temperature steps 45 -> 55 °C
     at match index `step_at`."""

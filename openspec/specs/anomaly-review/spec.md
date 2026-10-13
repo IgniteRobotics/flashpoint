@@ -17,7 +17,7 @@ In served mode, the app shell SHALL include an Anomalies view, built to the canv
 The view SHALL be absent in static mode. The selected tab, sensitivity, and anomaly SHALL be kept in the URL like other view state.
 
 #### Scenario: Queue from the corpus
-- **WHEN** the app is served on a lake built from corpus `2026-gacmp-q7`, and Anomalies is opened
+- **WHEN** the app is served on a lake built from corpus `2026-gacmp-q7` with a test configuration that sets the brownout threshold to 8.5 V and the sag threshold to 9.0 V (above Q7's lowest battery proxy voltage), and Anomalies is opened
 - **THEN** the OPEN tab lists the HIGH brownout anomaly for `power` first, and its detail panel shows its evidence and why it was flagged
 
 #### Scenario: Sensitivity

@@ -4,6 +4,11 @@
 robot = "2026-comp"
 season = 2026
 project = "Robot-2026"
+# The battery proxy: a slot whose supply voltage stands in for the battery (brownouts, the
+# Replay battery track, and supply path resistance). It must draw almost no current and be fed
+# from the main power bus, so its supply voltage tracks the bus: a gyro qualifies, a motor
+# does not (its own wiring drop under load would read as a brownout).
+battery_proxy = "gyro"
 
 # --- drivetrain (CANivore "DriveTrain") --------------------------------------------------
 [[slot]]

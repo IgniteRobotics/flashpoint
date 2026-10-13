@@ -38,6 +38,19 @@ def test_repo_2026_config_is_valid() -> None:
     assert {"intake", "shooter", "indexer", "hunter", "drivetrain"} <= subsystems
     cameras = {s.component for s in robot.signals if s.subsystem == "vision"}
     assert cameras == {"front-camera", "left-camera", "right-camera"}
+    assert robot.battery_proxy == "gyro"
+
+
+def test_battery_proxy_is_optional(tmp_path: Path) -> None:
+    assert load_robot(_write(tmp_path, BASE)).battery_proxy is None
+    declared = BASE.replace('project = "Robot-2026"', 'project = "Robot-2026"\nbattery_proxy = "a"')
+    assert load_robot(_write(tmp_path, declared)).battery_proxy == "a"
+
+
+def test_unknown_battery_proxy_rejected(tmp_path: Path) -> None:
+    text = BASE.replace('project = "Robot-2026"', 'project = "Robot-2026"\nbattery_proxy = "pdh"')
+    with pytest.raises(ConfigError, match="(?s)r.toml.*'pdh'"):
+        load_robot(_write(tmp_path, text))
 
 
 def test_unknown_key_rejected(tmp_path: Path) -> None:

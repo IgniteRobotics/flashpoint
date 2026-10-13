@@ -62,9 +62,9 @@ The system SHALL flag a match when a configured fixed limit is crossed. These li
 | stall time | ≥ 5 s | — |
 | reboots | any reboot not while enabled | any reboot while enabled |
 | longest isolated CAN gap | ≥ 0.25 s | ≥ 1 s |
-| brownouts (battery proxy below the brownout threshold for the hold time; subject is the robot's `power`) | — | ≥ 1 |
+| brownouts (battery proxy below the brownout threshold for the hold time, with the same proxy and rule as Replay's markers; subject is the robot's `power`) | — | ≥ 1 |
 
-A SPEC anomaly's severity SHALL be the highest severity reached in its episode. Its expected value SHALL state the limit. SPEC anomalies SHALL show at every sensitivity.
+A brownout anomaly's explanation SHALL name the battery proxy it used. A SPEC anomaly's severity SHALL be the highest severity reached in its episode. Its expected value SHALL state the limit. SPEC anomalies SHALL show at every sensitivity.
 
 #### Scenario: Roller reboot
 - **WHEN** detection runs on a synthetic copy of Johnson Q105, with a reboot while enabled on the intake roller leader after an 820 ms isolated gap
@@ -74,8 +74,12 @@ A SPEC anomaly's severity SHALL be the highest severity reached in its episode. 
 - **WHEN** a synthetic unit's maximum temperature is 66 °C in one match
 - **THEN** there is a MED SPEC anomaly with actual "66 °C" and expected "< 65 °C"
 
+#### Scenario: No brownouts from motor dips
+- **WHEN** detection runs on corpus `2026-gacmp-q7` with the shipped configuration
+- **THEN** there is no brownout anomaly, because the gyro's supply voltage stays above 6.75 V even where motors' supply voltages dip below it
+
 #### Scenario: Q7 brownouts
-- **WHEN** detection runs on corpus `2026-gacmp-q7`
+- **WHEN** detection runs on corpus `2026-gacmp-q7` with a test configuration that sets the brownout threshold to 8.5 V and the sag threshold to 9.0 V (above Q7's lowest battery proxy voltage)
 - **THEN** there is one HIGH SPEC brownout anomaly whose subject is `power` for robot `2026-comp`, and its actual value counts the brownout intervals in the match
 
 ### Requirement: Per-unit baselines (DRIFT and STEP)
@@ -84,7 +88,8 @@ For each unit and each baseline metric, the system SHALL compare the match value
 - stator current P95;
 - residual P95;
 - stall time;
-- isolated CAN gaps and frames missed per enabled minute.
+- isolated CAN gaps and frames missed per enabled minute;
+- supply path resistance, where available.
 
 The baseline SHALL be:
 - the median of the unit's previous matches, up to a window (default 20);
@@ -125,6 +130,10 @@ A STEP whose onset is the unit's first match at an event, when the unit played a
 #### Scenario: Step inside an event
 - **WHEN** the same step starts at the second event's third match
 - **THEN** the STEP anomaly is HIGH and has no event-boundary tag
+
+#### Scenario: Degrading connector
+- **WHEN** a synthetic unit's supply path resistance is 20 ± 1 mΩ for 15 matches, then 35 ± 1 mΩ from match 16
+- **THEN** after match 18 there is a STEP anomaly on supply path resistance with onset match 16
 
 #### Scenario: Building baseline
 - **WHEN** detection runs on a lake where a unit has played 3 matches
@@ -241,5 +250,5 @@ A detection run over one season of gold SHALL finish in under 5 seconds and unde
 - **THEN** it finishes in under 5 seconds with peak memory under 400 MB
 
 #### Scenario: Brownouts agree with Replay
-- **WHEN** detection and the Replay build both run on corpus `2026-gacmp-q7`
+- **WHEN** detection and the Replay build both run on corpus `2026-gacmp-q7` with a test configuration that sets the brownout threshold to 8.5 V and the sag threshold to 9.0 V (above Q7's lowest battery proxy voltage)
 - **THEN** the brownout anomaly's actual count equals the number of brownout FAULT markers in Q7's Replay data

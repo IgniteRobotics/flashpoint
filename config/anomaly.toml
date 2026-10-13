@@ -14,7 +14,7 @@ brownout_high = 1           # brownouts (battery proxy, same rule as Replay's FA
 [baseline]                  # DRIFT and STEP: each unit against its own history (median / MAD)
 metrics = [
   "temp_max_c", "temp_mean_c", "temp_rise_c_per_min", "stator_current_p95",
-  "residual_p95_a", "stall_s", "isolated_gaps", "missed_per_min",
+  "residual_p95_a", "stall_s", "isolated_gaps", "missed_per_min", "supply_resistance_mohm",
 ]
 window = 20                 # previous matches in the baseline
 min_baseline = 5            # fewer prior matches: "building baseline", no DRIFT/STEP
@@ -34,6 +34,7 @@ residual_p95_a = 5.0
 stall_s = 0.5
 isolated_gaps = 2.5
 missed_per_min = 1.0
+supply_resistance_mohm = 3.0  # supply path resistance (mΩ), only where it could be fitted
 
 [sibling]                   # SIBLING: a unit against the median of its group (robot TOML)
 z = 3.0

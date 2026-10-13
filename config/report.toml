@@ -4,12 +4,15 @@
 [thresholds]
 temp_warn_c = 65.0        # WARN marker, History health WARN, temperature reference line
 temp_fault_c = 75.0       # FAULT marker, History health HOT
-brownout_v = 6.75         # battery proxy (lowest device supply voltage) below this ...
-brownout_hold_s = 0.5    # ... for at least this long: FAULT
+brownout_v = 6.75         # battery proxy below this ...
+brownout_hold_s = 0.02    # ... for at least this long: FAULT
 sag_v = 8.0               # battery proxy below this: WARN
 voltage_danger_v = 7.0    # History min-voltage reference line
 sample_gap_s = 1.0        # a whole CAN bus silent this long during the match: WARN
 dropout_warn_s = 0.25     # one device's CAN frames stop this long, others still talking: WARN
+gap_limit_s = 0.1         # a battery proxy sample counts as low until the next, at most this long
+# The battery proxy is the robot's declared `battery_proxy` slot (config/robots), else the median
+# supply voltage across devices in each 20 ms bin (at least 3 devices).
 
 [advantagescope]
 # Empty: use the newest WPILib install, then a standalone install. On Windows, use single quotes

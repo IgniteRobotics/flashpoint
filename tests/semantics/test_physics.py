@@ -149,3 +149,83 @@ def test_hold_stops_at_a_break() -> None:
     assert broken["supply_energy_wh"] == pytest.approx(
         12 * (10 * 0.5 + 40 * 0.25 + 10 * 0.5) / 3600
     )
+
+
+# --- supply path resistance (spec: motor-physics / Supply path resistance) --------------------
+
+
+def _path(
+    amps: list[float], ohms: float = 0.020, start: float = 0.0, hz: float = 50.0
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """A motor drawing `amps` (one value per sample) through `ohms` from a bus that itself sags
+    with load, and the proxy (100 Hz) reading that bus with a fixed 40 mV calibration offset."""
+    times = [start + i / hz for i in range(len(amps))]
+    bus = [12.6 - 0.008 * a for a in amps]
+    motor = _frame(
+        _series("supply_current", list(zip(times, amps, strict=True))),
+        _series(
+            "supply_voltage", [(t, b - ohms * a) for t, b, a in zip(times, bus, amps, strict=True)]
+        ),
+    )
+    proxy = pl.DataFrame(
+        {
+            "t_us": [int((start + i / 100) * S) for i in range(2 * len(amps))],
+            "value": [bus[i // 2] + 0.04 for i in range(2 * len(amps))],
+        }
+    )
+    return motor, proxy
+
+
+def _sweep(lo: float, hi: float, n: int = 1000) -> list[float]:
+    return [lo + (hi - lo) * ((i * 37) % n) / n for i in range(n)]  # 20 s, scattered order
+
+
+def test_known_resistance() -> None:
+    motor, proxy = _path(_sweep(10.0, 60.0))
+    features = motor_features(motor, 0, 20 * S, proxy=proxy)
+    assert features["supply_resistance_mohm"] == pytest.approx(20.0, abs=1.0)
+    assert features["supply_resistance_flag"] is None
+
+
+def test_load_does_not_change_it() -> None:
+    light, proxy = _path(_sweep(10.0, 60.0))
+    heavy, heavy_proxy = _path(_sweep(20.0, 120.0))
+    one = motor_features(light, 0, 20 * S, proxy=proxy)["supply_resistance_mohm"]
+    two = motor_features(heavy, 0, 20 * S, proxy=heavy_proxy)["supply_resistance_mohm"]
+    assert one == pytest.approx(20.0, abs=1.0) and two == pytest.approx(20.0, abs=1.0)
+
+
+@pytest.mark.parametrize(
+    "amps",
+    [
+        _sweep(0.0, 8.0),  # a steer motor: never above 8 A
+        _sweep(0.0, 8.0)[:960] + [30.0] * 40,  # 0.8 s at or above 10 A
+        _sweep(10.0, 20.0),  # plenty of time, but a 10 A spread is too narrow to fit
+    ],
+)
+def test_too_little_current(amps: list[float]) -> None:
+    motor, proxy = _path(amps)
+    features = motor_features(motor, 0, 20 * S, proxy=proxy)
+    assert features["supply_resistance_mohm"] is None
+    assert features["supply_resistance_flag"] == "low-current"
+
+
+def test_no_proxy() -> None:
+    motor, _ = _path(_sweep(10.0, 60.0))
+    features = motor_features(motor, 0, 20 * S)
+    assert features["supply_resistance_mohm"] is None
+    assert features["supply_resistance_flag"] == "no-proxy"
+
+
+def test_negative_slope_is_no_fit() -> None:
+    motor, proxy = _path(_sweep(10.0, 60.0), ohms=-0.005)
+    features = motor_features(motor, 0, 20 * S, proxy=proxy)
+    assert features["supply_resistance_mohm"] is None
+    assert features["supply_resistance_flag"] == "no-fit"
+
+
+def test_resistance_thresholds_are_configurable() -> None:
+    motor, proxy = _path(_sweep(10.0, 20.0))
+    config = PhysicsConfig(resistance_min_a=5.0, resistance_min_spread_a=5.0, resistance_min_s=0.5)
+    features = motor_features(motor, 0, 20 * S, config, proxy=proxy)
+    assert features["supply_resistance_mohm"] == pytest.approx(20.0, abs=1.0)

@@ -5,8 +5,10 @@ import pytest
 from flashpoint import config
 from flashpoint.anomaly.settings import (
     BASELINE_METRICS,
+    METRIC_INFO,
     AnomalyConfig,
     AnomalyConfigError,
+    format_value,
     load_anomaly_config,
 )
 
@@ -37,6 +39,10 @@ def test_defaults() -> None:
     assert (cfg.baseline.step_z, cfg.baseline.step_persist, cfg.baseline.drift_z) == (3.5, 3, 2.5)
     assert tuple(cfg.baseline.metrics) == BASELINE_METRICS
     assert cfg.baseline.floors["residual_p95_a"] == 5.0
+    assert "supply_resistance_mohm" in cfg.baseline.metrics
+    assert cfg.baseline.floors["supply_resistance_mohm"] == 3.0
+    assert METRIC_INFO["supply_resistance_mohm"] == ("supply path resistance", "mΩ")
+    assert format_value("supply_resistance_mohm", 35.4) == "35.4 mΩ"
     assert cfg.sibling.z == 3.0
     assert (cfg.strict.step_z, cfg.strict.drift_z, cfg.strict.sibling_z) == (2.5, 1.5, 2.0)
     assert cfg.strict.persist == 2

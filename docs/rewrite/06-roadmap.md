@@ -219,15 +219,16 @@ Two improvements to the Replay board:
 >   - Every anomaly carries actual vs expected, confidence, a per-match evidence series with its expected band, a "why", causes from `config/anomaly-causes.toml`, and "seen this before".
 >   - The Anomalies view (queue, sensitivity, evidence, triage), a navigation badge, Replay badges (a snapshot in static exports), and anomaly-aware History health.
 >   - Triage is stored append-only in the ledger: local only, backed up, and kept across rebuilds (ADR-0015).
->   - `flashpoint backtest` scores `config/failure-labels.toml` (seeded with Johnson Q105 and GACMP Q7): caught or missed, lead time, and false positives per method per 10 robot-matches.
+>   - `flashpoint backtest` scores `config/failure-labels.toml` (seeded with Johnson Q105 and GACMP Q7; `battery-proxy` removed GACMP Q7, a wiring drop): caught or missed, lead time, and false positives per method per 10 robot-matches.
 > - **Measured:** detect on a 60 × 23 season takes 1.6 s and 222 MB; the backtest on two seasons takes 3.2 s and 256 MB; an uncached Q7 brownout count takes 0.10 s.
 > - **On real data:** the Johnson lake flags the Q105 roller reboot (HIGH) and its 820 ms gap (MED), intake stalls, and brownouts in all four matches. The Q105 extension-follower degradation is missed until more 2026 logs give it a baseline (3 of 5 matches).
 > - **Deferred:**
 >   - the Slack/Discord webhook, until the backtest shows a tolerable false-positive rate;
 >   - NOISE (idle-current jitter), which needs a commanded-off feature in gold;
 >   - STUMPY discords and River online learners;
->   - spin-test, battery-resistance, and current-limit-count metrics (no data yet);
->   - a Driver Station log reader (brownouts come from the battery proxy).
+>   - spin-test and current-limit-count metrics (no data yet);
+>   - a Driver Station log reader (brownouts come from the battery proxy). Still deferred after `battery-proxy`.
+> - **Follow-up, change `battery-proxy` (2026-10-12):** the battery proxy is the robot's declared low-current device (the gyro), with a per-20 ms median fallback, so a motor's wiring drop no longer reads as a brownout; the brownout hold is 0.02 s and a logging gap holds a low sample at most 0.1 s. The deferred battery-resistance metric shipped as **supply path resistance** per motor (mΩ, a baseline metric). See the [ADR-0010](../adr/0010-anomaly-v1-rules-baselines.md) amendment.
 
 - **Tier 1, rules:**
   - temperature thresholds (port 55 °C avg / 65 °C max);

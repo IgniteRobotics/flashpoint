@@ -27,7 +27,7 @@
     temp_max_c: 'peak_temp', temp_mean_c: 'peak_temp', temp_rise_c_per_min: 'peak_temp',
     stator_current_p95: 'current_p95', residual_p95_a: 'current_p95', stall_s: 'stall_s',
     reboots: 'reboots', isolated_gaps: 'isolated_gaps', missed_per_min: 'missed_per_min',
-    longest_gap_ms: 'longest_gap_ms',
+    longest_gap_ms: 'longest_gap_ms', supply_resistance_mohm: 'current_p95',
   };
   const MAX_OUTCOME = 500;
 

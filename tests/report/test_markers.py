@@ -22,16 +22,35 @@ def _quiet() -> list[dict[str, Any]]:
         rows += series(slot, "rotor_velocity_rps", 8, 175, 50, 40.0)
         rows += series(slot, "stall_current", 8, 9, 1, 300.0)
         rows += points(slot, "temp_c", [(8.0, 30.0), (100.0, 40.0)])
+    rows += series("gyro", "supply_voltage", 8, 175, 100, 12.0)  # the declared battery proxy
     return rows
 
 
 def _markers(
-    tmp_path: Path, rows: list[dict[str, Any]], config: ReportConfig | None = None
+    tmp_path: Path,
+    rows: list[dict[str, Any]],
+    config: ReportConfig | None = None,
+    proxy: str | None = "gyro",
 ) -> list[dict[str, Any]]:
     path = write_silver(tmp_path / "silver", rows)
     con = duckdb.connect()
     temps = temperature_points(con, path, WINDOW)
-    return match_markers(con, path, WINDOW, MATCH_END, temps, config or ReportConfig())
+    return match_markers(
+        con, path, WINDOW, MATCH_END, temps, config or ReportConfig(), proxy_slot=proxy
+    )
+
+
+def _set(
+    rows: list[dict[str, Any]], slots: set[str], start_s: float, end_s: float, v: float
+) -> None:
+    """Supply voltage of `slots` (silver time) set to `v` over [start, end)."""
+    for row in rows:
+        if (
+            row["slot_id"] in slots
+            and row["metric"] == "supply_voltage"
+            and start_s * S <= row["t_us"] < end_s * S
+        ):
+            row["value"] = v
 
 
 def test_quiet_match_has_no_markers(tmp_path: Path) -> None:
@@ -49,40 +68,76 @@ def test_temperature_warn_and_fault(tmp_path: Path) -> None:
     assert all(m["kind"] == "temperature" for m in markers)
 
 
-def test_brownout_is_one_fault_not_also_a_sag(tmp_path: Path) -> None:
-    rows = _quiet()
-    for row in rows:  # every device at 6.5 V for 0.6 s at T+97 s
-        if row["metric"] == "supply_voltage" and 107 * S <= row["t_us"] < 107.6 * S:
-            row["value"] = 6.5
+def test_brownout_marker_names_the_proxy(tmp_path: Path) -> None:
+    rows = _quiet()  # every device, the declared proxy included, at 6.5 V for 0.2 s at T+97 s
+    _set(rows, {*SLOTS, "gyro"}, 107, 107.2, 6.5)
     markers = _markers(tmp_path, rows)
-    assert len(markers) == 1
+    assert len(markers) == 1  # one FAULT, not also a sag
     marker = markers[0]
     assert (marker["level"], marker["source"], marker["kind"]) == ("FAULT", "power", "brownout")
     assert marker["t"] == pytest.approx(97.0)
-    assert marker["end"] == pytest.approx(97.6, abs=0.03)
-    assert "6.50 V" in marker["message"]
+    assert marker["end"] == pytest.approx(97.2, abs=0.02)
+    assert "6.50 V" in marker["message"] and "gyro" in marker["message"]
+
+
+def test_motor_dip_is_not_a_brownout(tmp_path: Path) -> None:
+    rows = _quiet()
+    _set(rows, {"drive-fl"}, 60, 61, 6.0)  # the proxy stays at 12 V
+    assert _markers(tmp_path, rows) == []
+
+
+def test_median_fallback(tmp_path: Path) -> None:
+    rows = _quiet()
+    rows = [r for r in rows if r["slot_id"] != "gyro"]
+    rows += series("steer-fl", "supply_voltage", 8, 175, 50, 11.0)
+    rows += series("steer-fr", "supply_voltage", 8, 175, 50, 11.0)
+    _set(rows, set(SLOTS), 107, 107.2, 6.5)  # 3 of 5 devices
+    markers = _markers(tmp_path, rows, proxy=None)
+    assert [(m["level"], m["source"], m["kind"]) for m in markers] == [
+        ("FAULT", "power", "brownout")
+    ]
+    assert markers[0]["t"] == pytest.approx(97.0, abs=0.02)
+    assert "median of 5 devices" in markers[0]["message"]
+
+
+def test_declared_proxy_not_logged_falls_back_to_median(tmp_path: Path) -> None:
+    rows = [r for r in _quiet() if r["slot_id"] != "gyro"]
+    _set(rows, set(SLOTS), 107, 107.2, 6.5)
+    (marker,) = _markers(tmp_path, rows)
+    assert "median of 3 devices" in marker["message"]
+
+
+def test_median_needs_three_devices(tmp_path: Path) -> None:
+    rows = [r for r in _quiet() if r["slot_id"] in ("drive-fl", "hood")]
+    _set(rows, {"drive-fl", "hood"}, 107, 108, 6.0)
+    assert _markers(tmp_path, rows, proxy=None) == []
+
+
+def test_logging_gap_does_not_stretch_a_dip(tmp_path: Path) -> None:
+    rows = [
+        r for r in _quiet() if not (r["slot_id"] == "gyro" and 107 * S <= r["t_us"] < 107.8 * S)
+    ]
+    rows += points("gyro", "supply_voltage", [(107.0, 6.5)])  # then nothing for 0.8 s
+    (marker,) = _markers(tmp_path, rows)
+    assert marker["kind"] == "brownout"
+    assert marker["end"] - marker["t"] == pytest.approx(0.1)
 
 
 def test_brief_dip_below_brownout_is_only_a_sag(tmp_path: Path) -> None:
-    rows = _quiet()
-    for row in rows:  # one device, one sample at 6.5 V held 10 ms (< the 500 ms minimum)
-        hood = row["slot_id"] == "hood" and row["metric"] == "supply_voltage"
-        if hood and 50 * S <= row["t_us"] < 50.01 * S:
-            row["value"] = 6.5
-    rows += points("hood", "supply_voltage", [(50.01, 12.0)])
+    rows = [r for r in _quiet() if not (r["slot_id"] == "gyro" and 50 * S <= r["t_us"] < 50.02 * S)]
+    # one proxy sample at 6.5 V held 10 ms (< the 20 ms minimum)
+    rows += points("gyro", "supply_voltage", [(50.0, 6.5), (50.01, 12.0)])
     markers = _markers(tmp_path, rows)
     assert [(m["level"], m["kind"], m["t"]) for m in markers] == [("WARN", "sag", 40.0)]
 
 
 def test_sag_warn(tmp_path: Path) -> None:
     rows = _quiet()
-    for row in rows:
-        drive = row["slot_id"] == "drive-fl" and row["metric"] == "supply_voltage"
-        if drive and 60 * S <= row["t_us"] < 61 * S:
-            row["value"] = 7.6
+    _set(rows, {"gyro"}, 60, 61, 7.6)
     markers = _markers(tmp_path, rows)
     assert [(m["level"], m["source"], m["kind"]) for m in markers] == [("WARN", "power", "sag")]
     assert markers[0]["t"] == pytest.approx(50.0) and "7.60 V" in markers[0]["message"]
+    assert "gyro" in markers[0]["message"]
 
 
 def test_stall_interval(tmp_path: Path) -> None:
@@ -207,9 +262,7 @@ def test_thresholds_from_config(tmp_path: Path) -> None:
 
 def test_markers_state_facts_only(tmp_path: Path) -> None:
     rows = _quiet()
-    for row in rows:
-        if row["metric"] == "supply_voltage" and 107 * S <= row["t_us"] < 107.6 * S:
-            row["value"] = 6.5
+    _set(rows, {*SLOTS, "gyro"}, 107, 107.6, 6.5)
     for marker in _markers(tmp_path, rows):
         assert set(marker) == {"level", "source", "kind", "t", "end", "message"}
         assert "cause" not in marker["message"].lower() and "fix" not in marker["message"].lower()

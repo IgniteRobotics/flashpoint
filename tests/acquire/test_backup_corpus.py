@@ -20,6 +20,7 @@ from flashpoint.cli import main
 from flashpoint.lake.paths import LakePaths
 from flashpoint.semantics.gold import gold_dir
 from tests.acquire.helpers import ledger_rows
+from tests.brownout_config import write_brownout_config
 
 pytestmark = pytest.mark.corpus
 
@@ -33,8 +34,9 @@ def restore_drill(
     corpus_dir: Path, tmp_path: Path, remote: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Ingest the corpus, back it up to `remote`, restore into a new lake, rebuild, compare."""
-    config_dir = tmp_path / "config"  # the robot configuration plus the backup remote
-    shutil.copytree(flashpoint_config.config_root(), config_dir)
+    # The robot configuration with the test brownout thresholds (so Q7 has a brownout to triage),
+    # plus the backup remote.
+    config_dir = write_brownout_config(tmp_path / "config")
     monkeypatch.setenv(flashpoint_config.CONFIG_ENV, str(config_dir))
     toml = f"[backup]\nremote = {json.dumps(remote)}\n"  # a JSON string is a TOML string
     (config_dir / "acquire.toml").write_text(toml, encoding="utf-8")
@@ -65,7 +67,8 @@ def restore_drill(
 
 
 def _resolve_one(lake: LakePaths) -> str:
-    """Resolve the corpus's brownout anomaly (Q7) through the triage write path."""
+    """Resolve the corpus's brownout anomaly (Q7, under the test thresholds) through the triage
+    write path."""
     from flashpoint.anomaly import detect
     from flashpoint.views.anomalies import AnomalyQueries
 

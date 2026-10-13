@@ -20,6 +20,7 @@ FEATURE_COLUMNS = (
     "stator_current_p95",
     "residual_p95_a",
     "stall_s",
+    "supply_resistance_mohm",
 )
 CAN_COLUMNS = ("reboots", "reboots_enabled", "isolated_gaps", "missed_per_min", "longest_gap_ms")
 DUCKDB_THREADS = 2  # per-thread buffers cost ~75 MB

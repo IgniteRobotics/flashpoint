@@ -24,13 +24,14 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.report import envelope, markers
 from flashpoint.report.names import download_name
 from flashpoint.report.paths import data_dir, file_stem, state_path
+from flashpoint.report.proxy import resolve as resolve_proxy
 from flashpoint.report.settings import ReportConfig, load_report_config
 from flashpoint.semantics import can_health
 from flashpoint.semantics.gold import gold_dir
 from flashpoint.semantics.robot_config import RobotConfig, load_robots
 from flashpoint.semantics.silver import silver_dir
 
-REPORT_VERSION = 3  # v3: CAN-health markers (reboot, dropout, bus gap) replace sample gaps
+REPORT_VERSION = 4  # v4: battery proxy (declared device or median); v3: CAN-health markers
 BUDGET_BYTES = 2_000_000
 MIN_BUCKETS = 100
 DUCKDB_MEMORY_LIMIT = "256MB"
@@ -461,6 +462,8 @@ class ReportBuilder:
         temps_window = envelope.window_for(match_start, match_end, self.buckets)
         temps = envelope.temperature_points(self.con, silver, temps_window)
         can_events = self._can_events(primary)
+        proxy_slot = robot.battery_proxy if robot else None
+        proxy = resolve_proxy(self.con, silver, temps_window.t0_us, temps_window.end_us, proxy_slot)
         found_markers = markers.match_markers(
             self.con,
             silver,
@@ -474,11 +477,12 @@ class ReportBuilder:
                 for bus in {e["bus"] for e in can_events}
                 if robot and (name := robot.bus_name_for(bus))
             },
+            proxy_slot=proxy_slot,
         )
         buckets = self.buckets
         while True:
             window = envelope.window_for(match_start, match_end, buckets)
-            payload = envelope.series_payload(self.con, silver, window, temps, match_end)
+            payload = envelope.series_payload(self.con, silver, window, temps, match_end, proxy)
             payload.update(
                 {
                     "version": REPORT_VERSION,
@@ -526,6 +530,9 @@ class ReportBuilder:
                         for slot_id, unit_ids in units
                     ],
                     "markers": found_markers,
+                    "battery_proxy": None
+                    if proxy is None
+                    else {"slot": proxy.slot, "devices": proxy.devices, "label": proxy.label},
                     "sources": sources,
                     "limits": {
                         "temp_warn_c": self.report.temp_warn_c,

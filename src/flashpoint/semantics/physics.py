@@ -7,6 +7,10 @@ sample is excluded rather than zero-filled. These fix legacy pitfalls #23, #26, 
 The current residual uses the motor model the device reports about itself (Phoenix 6
 MotorKV in rpm/V and MotorStallCurrent in A):
     expected stator current = (motor voltage - rotor speed * 60 / KV) * stall current / 12 V
+
+Supply path resistance is the slope of the drop (battery proxy voltage - the motor's supply
+voltage) against the motor's supply current. Output voltage never enters it, so voltage
+compensation and duty cycle can't bias it; the free intercept absorbs calibration offsets.
 """
 
 from collections.abc import Sequence
@@ -29,6 +33,9 @@ class PhysicsConfig:
     current_p: float = 0.95
     thermal_rise_c: float = 10.0  # a thermal cycle arms this far above the low since the last
     thermal_fall_c: float = 3.0  # and counts once the reading falls this far from its peak
+    resistance_min_a: float = 10.0  # supply path resistance: fit samples at or above this ...
+    resistance_min_s: float = 1.0  # ... when there are at least this many seconds of them
+    resistance_min_spread_a: float = 15.0  # ... spanning at least this much (P5 to P95)
 
 
 DEFAULT_CONFIG = PhysicsConfig()
@@ -93,16 +100,49 @@ def _constant(frame: pl.DataFrame, metric: str) -> float | None:
     return float(values.median()) if len(values) and values.median() is not None else None  # type: ignore[arg-type]
 
 
+def supply_resistance(
+    current: pl.DataFrame,
+    volts: pl.DataFrame,
+    proxy: pl.DataFrame | None,
+    config: PhysicsConfig = DEFAULT_CONFIG,
+) -> tuple[float | None, str | None]:
+    """Supply path resistance in mΩ from held supply current (t_us, value, w_s), the motor's own
+    supply voltage, and the proxy series (t_us, value): (value, None) or (None, reason)."""
+    if proxy is None or proxy.is_empty():
+        return None, "no-proxy"
+    tol = config.asof_tolerance_us
+    joined = (
+        _with(_with(current, volts, "volts", tol), proxy.sort("t_us"), "bus", tol)
+        .drop_nulls(["volts", "bus"])
+        .filter(pl.col("value") >= config.resistance_min_a)
+    )
+    amps, w = joined.get_column("value").to_numpy(), joined.get_column("w_s").to_numpy()
+    low, high = _quantile(amps, w, 0.05), _quantile(amps, w, 0.95)
+    if (
+        w.sum() < config.resistance_min_s
+        or low is None
+        or high is None
+        or high - low < config.resistance_min_spread_a
+    ):
+        return None, "low-current"
+    drop = (joined.get_column("bus") - joined.get_column("volts")).to_numpy()
+    x, y = amps - _mean(amps, w), drop - _mean(drop, w)  # weights sum to >= resistance_min_s
+    slope = float((w * x * y).sum() / (w * x * x).sum())
+    return (slope * 1000, None) if slope >= 0 else (None, "no-fit")
+
+
 def motor_features(
     frame: pl.DataFrame,
     start_us: int,
     end_us: int,
     config: PhysicsConfig = DEFAULT_CONFIG,
     breaks: Sequence[int] = (),
+    proxy: pl.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Features for one motor over [start, end). `frame` has columns metric, t_us, value.
 
-    `breaks` are times no sample holds past (see `_held`)."""
+    `breaks` are times no sample holds past (see `_held`). `proxy` is the battery proxy's
+    supply voltage (t_us, value); without it, supply path resistance is absent."""
     cap, tol = config.hold_cap_us, config.asof_tolerance_us
     held = {
         m: _held(frame, m, start_us, end_us, cap, breaks)
@@ -153,6 +193,10 @@ def motor_features(
             )
         else:
             out[f"{name}_energy_wh"] = None
+
+    out["supply_resistance_mohm"], out["supply_resistance_flag"] = supply_resistance(
+        get("supply_current"), get("supply_voltage"), proxy, config
+    )
 
     kv, stall = _constant(frame, "motor_kv_rpm_per_v"), _constant(frame, "stall_current")
     stator, velocity, motor_v = (

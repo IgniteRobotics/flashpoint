@@ -13,6 +13,9 @@ from typing import Any
 
 import duckdb
 
+from flashpoint.report.proxy import Proxy
+from flashpoint.report.proxy import series_sql as proxy_series_sql
+
 US_PER_S = 1_000_000
 BUCKETS = 1000
 PAD_US = 2 * US_PER_S
@@ -106,17 +109,19 @@ def slot_envelopes(
     return out
 
 
-def battery_envelope(con: duckdb.DuckDBPyConnection, silver: Path, window: Window) -> Envelope:
-    """The battery proxy (no battery voltage is logged): per bucket, the lowest device supply
-    voltage as the minimum, the median across devices as the mean, the highest as the max."""
+def battery_envelope(
+    con: duckdb.DuckDBPyConnection, silver: Path, window: Window, proxy: Proxy | None
+) -> Envelope:
+    """The battery proxy (no battery voltage is logged) per bucket; empty without a proxy."""
+    if proxy is None:
+        return _columns(window.n, [])
+    query, params = proxy_series_sql(proxy, silver, window.t0_us, window.end_us)
     rows = con.execute(
         f"""
-        SELECT (t_us - ?) // ? AS bucket, min(value), max(value), median(value)
-        FROM {_source(silver)}
-        WHERE metric = 'supply_voltage' AND t_us >= ? AND t_us < ?
-        GROUP BY ALL ORDER BY bucket
-        """,  # noqa: S608 - internal path
-        [window.t0_us, window.width_us, window.t0_us, window.end_us],
+        SELECT (t_us - ?) // ? AS bucket, min(value), max(value), avg(value)
+        FROM ({query}) GROUP BY ALL ORDER BY bucket
+        """,  # noqa: S608 - internal query
+        [window.t0_us, window.width_us, *params],
     ).fetchall()
     return _columns(window.n, rows)
 
@@ -160,11 +165,12 @@ def series_payload(
     window: Window,
     temps: dict[str, list[list[float]]],
     match_end: int,
+    proxy: Proxy | None,
 ) -> dict[str, Any]:
     """The time-series part of a match payload over `window`: series, battery, temps, maxima
     within the match, logging rates, and what each slot did not log."""
     envelopes = slot_envelopes(con, silver, window)
-    battery = battery_envelope(con, silver, window)
+    battery = battery_envelope(con, silver, window, proxy)
     rates = dict(
         con.execute(
             "SELECT slot_id, count(*) / ? FROM read_parquet(?)"

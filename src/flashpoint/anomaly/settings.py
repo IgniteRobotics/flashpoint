@@ -18,6 +18,7 @@ BASELINE_METRICS = (
     "stall_s",
     "isolated_gaps",
     "missed_per_min",
+    "supply_resistance_mohm",
 )
 # Metrics only SPEC limits judge; `brownouts` belongs to a robot's `power` subject.
 SPEC_ONLY_METRICS = ("reboots", "longest_gap_ms", "brownouts")
@@ -34,6 +35,7 @@ METRIC_INFO = {
     "stall_s": ("stall time", "s"),
     "isolated_gaps": ("isolated CAN gaps", "gaps"),
     "missed_per_min": ("CAN frames missed per enabled minute", "/min"),
+    "supply_resistance_mohm": ("supply path resistance", "mΩ"),
     "reboots": ("reboots", "reboots"),
     "longest_gap_ms": ("longest isolated CAN gap", "ms"),
     "brownouts": ("brownouts", "brownouts"),
@@ -63,6 +65,7 @@ DEFAULT_FLOORS = {
     "stall_s": 0.5,
     "isolated_gaps": 2.5,
     "missed_per_min": 1.0,
+    "supply_resistance_mohm": 3.0,  # Q7 drive motors read 14-18 mΩ
 }
 
 

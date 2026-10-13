@@ -83,3 +83,11 @@ def derived_corpus_lake(corpus_lake: Any) -> Any:
     finally:
         deriver.close()
     return corpus_lake
+
+
+@pytest.fixture(scope="session")
+def brownout_config(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """`config/` with brownout and sag thresholds above Q7's lowest proxy voltage."""
+    from tests.brownout_config import write_brownout_config
+
+    return write_brownout_config(tmp_path_factory.mktemp("brownout-config") / "config")

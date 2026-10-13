@@ -1,8 +1,10 @@
 """Brownouts per match for detection, counted with Replay's own marker rule (battery proxy below
-`brownout_v` for `brownout_hold_s`) over the same session and span, so the two always agree.
+`brownout_v` for `brownout_hold_s`) over the same session, span, and proxy, so the two always
+agree.
 
 Counts are cached in `gold/anomalies/power_counts.parquet`; a match is recounted only when its
-silver partition, its phases, or the brownout thresholds change, one match's silver at a time.
+silver partition, its phases, the brownout thresholds, or its robot's proxy change, one match's
+silver at a time.
 """
 
 import hashlib
@@ -15,10 +17,10 @@ import duckdb
 import polars as pl
 
 from flashpoint.lake.paths import LakePaths
-from flashpoint.report import envelope, markers
+from flashpoint.report import envelope, markers, proxy
 from flashpoint.report.build import LakeMeta, match_span, primary_session, silver_path
 from flashpoint.report.settings import ReportConfig
-from flashpoint.semantics.physics import DEFAULT_CONFIG
+from flashpoint.semantics.robot_config import RobotConfig
 
 POWER_FILE = "power_counts.parquet"
 SCHEMA: dict[str, pl.DataType] = {
@@ -27,7 +29,8 @@ SCHEMA: dict[str, pl.DataType] = {
     "season": pl.String(),
     "session_id": pl.String(),
     "brownouts": pl.Int64(),
-    "lowest_v": pl.Float64(),
+    "lowest_v": pl.Float64(),  # the battery proxy's lowest value in the span
+    "proxy": pl.String(),  # which proxy: the declared slot or "median of N devices"
     "fingerprint": pl.String(),
     "thresholds": pl.String(),
 }
@@ -47,8 +50,9 @@ def anomalies_dir(lake: LakePaths) -> Path:
     return lake.root / "gold" / "anomalies"
 
 
-def thresholds_hash(report: ReportConfig) -> str:
-    rule = [report.brownout_v, report.brownout_hold_s, DEFAULT_CONFIG.hold_cap_us]
+def thresholds_hash(report: ReportConfig, proxy_slot: str | None) -> str:
+    rule = [report.brownout_v, report.brownout_hold_s, report.gap_limit_s, proxy_slot,
+            proxy.FALLBACK_RULE]  # fmt: skip
     return hashlib.sha256(json.dumps(rule).encode()).hexdigest()[:16]
 
 
@@ -82,27 +86,34 @@ def write_parquet_atomic(path: Path, frame: pl.DataFrame) -> None:
 
 def _count(
     con: duckdb.DuckDBPyConnection, lake: LakePaths, meta: LakeMeta,
-    aligned: list[dict[str, Any]], report: ReportConfig,
-) -> tuple[int, float | None]:  # fmt: skip
+    aligned: list[dict[str, Any]], report: ReportConfig, proxy_slot: str | None,
+) -> tuple[int, float | None, str | None]:  # fmt: skip
     span = match_span(lake, meta, con, aligned)
     window = envelope.window_for(span.start_us, span.end_us)
-    found = markers.power_markers(con, span.silver, window, report)
-    brownouts = sum(1 for m in found if m["kind"] == "brownout" and m["level"] == "FAULT")
-    lowest = con.execute(
-        "SELECT min(value) FROM read_parquet(?) WHERE metric = 'supply_voltage'"
-        " AND t_us >= ? AND t_us < ?",
-        [str(span.silver / "*.parquet"), window.t0_us, window.end_us],
-    ).fetchone()
-    return brownouts, None if lowest is None or lowest[0] is None else float(lowest[0])
+    found = proxy.resolve(con, span.silver, window.t0_us, window.end_us, proxy_slot)
+    if found is None:
+        return 0, None, None
+    brownouts = sum(
+        1
+        for m in markers.power_markers(con, span.silver, window, report, found)
+        if m["kind"] == "brownout" and m["level"] == "FAULT"
+    )
+    query, params = proxy.series_sql(found, span.silver, window.t0_us, window.end_us)
+    lowest = con.execute(f"SELECT min(value) FROM ({query})", params).fetchone()  # noqa: S608
+    low = None if lowest is None or lowest[0] is None else float(lowest[0])
+    return brownouts, low, found.label
 
 
-def brownout_counts(lake: LakePaths, report: ReportConfig) -> PowerCounts:
-    """Brownout count per match key with aligned silver (matches without are left out)."""
+def brownout_counts(
+    lake: LakePaths, report: ReportConfig, robots: list[RobotConfig]
+) -> PowerCounts:
+    """Brownout count per match key with aligned silver (matches without are left out), on
+    each match's robot's declared battery proxy (or the median fallback)."""
     if not (lake.meta / "sessions.parquet").is_file():
         return PowerCounts()
     path = anomalies_dir(lake) / POWER_FILE
     previous = _previous(path)
-    thresholds = thresholds_hash(report)
+    declared = {r.robot: r.battery_proxy for r in robots}
     result = PowerCounts()
     con = duckdb.connect()
     try:
@@ -121,15 +132,17 @@ def brownout_counts(lake: LakePaths, report: ReportConfig) -> PowerCounts:
             silver = silver_path(lake, primary)
             assert silver is not None
             fingerprint = _fingerprint(lake, meta, primary, silver)
+            proxy_slot = declared.get(primary["robot"])
+            thresholds = thresholds_hash(report, proxy_slot)
             old = previous.get(key)
             if old and old["fingerprint"] == fingerprint and old["thresholds"] == thresholds:
                 result.counts[key] = old
                 continue
-            brownouts, lowest = _count(con, lake, meta, aligned, report)
+            brownouts, lowest, label = _count(con, lake, meta, aligned, report, proxy_slot)
             result.counts[key] = {
                 "match_key": key, "robot": primary["robot"], "season": primary["season"],
                 "session_id": primary["session_id"], "brownouts": brownouts, "lowest_v": lowest,
-                "fingerprint": fingerprint, "thresholds": thresholds,
+                "proxy": label, "fingerprint": fingerprint, "thresholds": thresholds,
             }  # fmt: skip
             result.recounted.append(key)
     finally:

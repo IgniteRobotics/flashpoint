@@ -92,7 +92,8 @@ def test_q7_logger_gaps_stay_quiet(built: Any) -> None:
     mark the bus."""
     data = _load(data_dir(built) / "2026gacmp_qm7.js")
     assert not [m for m in data["markers"] if m["kind"] in {"reboot", "dropout", "bus_gap"}]
-    assert data["version"] == 3
+    assert data["version"] == 4
+    assert data["battery_proxy"] == {"slot": "gyro", "devices": 1, "label": "gyro"}
 
 
 _BUILD = """

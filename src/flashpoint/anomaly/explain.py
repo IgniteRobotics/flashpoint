@@ -30,6 +30,7 @@ class Context:
     model: str | None
     cfg: AnomalyConfig
     low_alignment: frozenset[str] = field(default_factory=frozenset)  # match keys
+    proxies: dict[str, str] = field(default_factory=dict)  # power: match key -> battery proxy
 
 
 def z_severity(z: float, cfg: AnomalyConfig) -> str:
@@ -198,6 +199,10 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
     normal_known = [int(finding.normal.known_at[i]) for i in flagged if finding.normal.flagged[i]]
     power = finding.subject.startswith(f"{POWER}:")
     keys = [finding.keys[i] for i in flagged]
+    texts = _texts(finding, episode, z, ctx.cfg, changed)
+    used = sorted({ctx.proxies[k] for k in keys if k in ctx.proxies})
+    if power and used:
+        texts["why"] += f" Brownouts were judged on the battery proxy: {', '.join(used)}."
     return {
         "id": anomaly_id(finding.subject, finding.method, finding.metric,
                          finding.keys[episode.onset]),
@@ -207,7 +212,9 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
         "robot": ctx.robot,
         "season": ctx.season,
         "slot_id": POWER if power else ctx.slot_id,
-        "role": "battery (lowest device supply voltage)" if power else ctx.role,
+        "role": (f"battery proxy ({', '.join(used)})" if used else "battery proxy")
+        if power
+        else ctx.role,
         "subsystem": POWER if power else ctx.subsystem,
         "model": None if power else ctx.model,
         "method": finding.method,
@@ -221,7 +228,7 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
         "matches_affected": episode.matches,
         "detected_match_key": finding.keys[known] if known != NEVER else None,
         "detected_normal_match_key": finding.keys[min(normal_known)] if normal_known else None,
-        **_texts(finding, episode, z, ctx.cfg, changed),
+        **texts,
         "actual_value": _num(float(np.nanmax(finding.values[flagged]))
                              if finding.method == "SPEC"
                              else float(np.nanmedian(finding.values[flagged]))),

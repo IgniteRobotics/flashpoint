@@ -59,8 +59,18 @@ def test_q105_caught_and_degradation_needs_history(tmp_path: Path) -> None:
     follower = labels[("intake-extension-follower", "2026johnson_qm105")]
     assert follower["result"] == "missed"
     assert follower["reason"] == "building baseline (3 of 5)"
-    q7 = labels[("power", "2026gacmp_qm7")]
-    assert q7["result"] == "not evaluable" and "not in the lake" in q7["reason"]
+    assert len(labels) == 2
+
+
+def test_label_outside_the_lake_is_not_evaluable(tmp_path: Path) -> None:
+    lake = _johnson(tmp_path / "lake")
+    absent = (
+        '[[label]]\nrobot = "2026-comp"\nslot = "power"\nmatch = "2026gacmp_qm7"\n'
+        'kind = "failure"\nmetric = "brownouts"\nnote = "x"\n'
+    )
+    result = backtest.backtest(lake, _config(tmp_path, labels=absent))
+    (label,) = result.report["sensitivities"]["normal"]["labels"]
+    assert label["result"] == "not evaluable" and "not in the lake" in label["reason"]
 
 
 def test_equals_live_detection(tmp_path: Path) -> None:
@@ -152,7 +162,7 @@ def test_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: An
     monkeypatch.setenv(config.CONFIG_ENV, str(_config(tmp_path)))
     assert main(["backtest", "--lake", str(lake.root)]) == 0
     out = capsys.readouterr().out
-    assert "caught 1, missed 1, not evaluable 1" in out
+    assert "caught 1, missed 1, not evaluable 0" in out
     assert str(Path("report") / "backtest") in out
     bad = _config(tmp_path, labels=(
         '[[label]]\nrobot = "2026-comp"\nslot = "drive-xx"\nmatch = "2026johnson_qm105"\n'
