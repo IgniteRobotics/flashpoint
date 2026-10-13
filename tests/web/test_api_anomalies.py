@@ -5,15 +5,23 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
+import polars as pl
 import pytest
 
+from flashpoint import config
 from flashpoint.anomaly import detect
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.views.anomalies import NO_CAUSES, AnomalyQueries
 from flashpoint.web.server import FlashpointServer
-from tests.web.anomaly_lake import build_anomaly_lake, build_event_boundary_lake, ids
+from tests.web.anomaly_lake import (
+    build_anomaly_lake,
+    build_event_boundary_lake,
+    build_filter_lake,
+    ids,
+)
 
 
 @pytest.fixture
@@ -368,3 +376,79 @@ def test_event_boundary_tag(serve: Any, tmp_path: Path) -> None:
     step = next(a for a in app.json("/api/anomalies")[1]["items"] if a["method"] == "STEP")
     assert (step["severity"], step["event_boundary"]) == ("HIGH", "2026aaa → 2026bbb")
     assert app.json(f"/api/anomalies/{step['id']}")[1]["event_boundary"] == "2026aaa → 2026bbb"
+
+
+# --- shared view filters (spec: anomaly-review / Anomaly filters) ------------------------------
+
+
+@pytest.fixture
+def filtered(serve: Any, tmp_path: Path) -> tuple[Any, LakePaths, dict[str, str]]:
+    lake, found = build_filter_lake(tmp_path / "lake")
+    return serve(lake, anomalies=AnomalyQueries(lake, config.config_root())), lake, found
+
+
+def _ids(app: Any, query: str) -> list[str]:
+    return [i["id"] for i in app.json("/api/anomalies?" + query)[1]["items"]]
+
+
+def test_event_filter(filtered: tuple[Any, LakePaths, dict[str, str]]) -> None:
+    app, _, found = filtered
+    status, body = app.json("/api/anomalies?event=2026gacmp")
+    assert status == 200
+    assert [i["id"] for i in body["items"]] == [found["step"], found["brown1"]]  # not drift
+    assert body["counts"]["open"] == 2 and body["high"] == 1
+    assert _ids(app, "event=2026gadal") == [
+        found["step"], found["med"], found["brown2"], found["drift"],
+    ]  # fmt: skip
+
+
+def test_robot_and_season_filters(filtered: tuple[Any, LakePaths, dict[str, str]]) -> None:
+    app, _, found = filtered
+    _, body = app.json("/api/anomalies?robot=practice")
+    assert [i["id"] for i in body["items"]] == [found["med"]] and body["high"] == 0
+    assert _ids(app, "season=2025") == [found["old"]]
+    assert _ids(app, "season=2026&robot=comp&event=2026gacmp&unit=power%3Acomp") == [
+        found["brown1"]
+    ]
+
+
+def test_no_longer_detected_uses_its_onset(
+    filtered: tuple[Any, LakePaths, dict[str, str]],
+) -> None:
+    app, lake, found = filtered
+    drift = found["drift"]  # onset 2026gadal_qm1, on comp
+    assert _triage(app, drift, {"to": "dismissed", "outcome": "vent cleaned"})[0] == 200
+    table = detect.read_anomalies(lake).filter(pl.col("id") != drift)
+    table.write_parquet(detect.anomalies_dir(lake) / detect.ANOMALIES_FILE)
+    assert _ids(app, "tab=dismissed&event=2026gadal") == [drift]
+    assert _ids(app, "tab=dismissed&robot=comp") == [drift]
+    assert _ids(app, "tab=dismissed&event=2026gacmp") == []
+    assert _ids(app, "tab=dismissed&robot=practice") == []
+
+
+@pytest.mark.parametrize("key", ["season", "robot", "event"])
+def test_hostile_filter_value(filtered: tuple[Any, LakePaths, dict[str, str]], key: str) -> None:
+    app, lake, _ = filtered
+    before = (detect.anomalies_dir(lake) / detect.ANOMALIES_FILE).read_bytes()
+    status, body = app.json(f"/api/anomalies?{key}=" + quote("x' OR 1=1 --"))
+    assert status == 200 and body["items"] == [] and body["counts"]["open"] == 0
+    assert (detect.anomalies_dir(lake) / detect.ANOMALIES_FILE).read_bytes() == before
+
+
+def test_badge_and_open_units_ignore_filters(
+    filtered: tuple[Any, LakePaths, dict[str, str]],
+) -> None:
+    app, _, _ = filtered
+    app.json("/api/anomalies?robot=practice&event=2026gacmp")
+    assert app.json("/api/anomalies/summary")[1]["open"] == 6
+    units = app.server.anomalies.open_units()
+    assert units["ctre:12345"] == {"count": 2, "severity": "HIGH"}
+
+
+def test_filtered_queue_is_fast_on_a_season(serve: Any, tmp_path: Path) -> None:
+    lake, config_dir = build_anomaly_lake(tmp_path, matches=60, slots=None)
+    app = serve(lake, anomalies=AnomalyQueries(lake, config_dir))
+    everything = _ids(app, "")  # loads the anomaly table
+    started = time.perf_counter()
+    assert _ids(app, "season=2026&event=2026syn") == everything
+    assert time.perf_counter() - started < 2.0

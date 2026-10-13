@@ -217,3 +217,23 @@ def test_envelope_silver_missing(serve: Any, built_q7: MatchLake) -> None:
     status, body = serve(built_q7.lake).json("/api/envelope/2026gacmp_qm7?from=95&to=99")
     assert status == 200 and body["available"] is False and body["reason"]
     assert "series" not in body
+
+
+def test_filters_combos(app: Any) -> None:
+    status, body = app.json("/api/filters")
+    combos = body["combos"]
+    triples = [(c["season"], c["robot"], c["event"]) for c in combos]
+    assert status == 200 and len(triples) == len(set(triples)) and triples
+    assert all(set(c) == {"season", "robot", "event", "last"} for c in combos)
+    assert {c["event"] for c in combos} == set(body["values"]["event"])
+    assert {c["robot"] for c in combos} == set(body["values"]["robot"])
+
+
+@pytest.mark.parametrize("key", ["season", "robot", "event"])
+@pytest.mark.parametrize("endpoint", ["summary", "trend", "devices"])
+def test_hostile_filter_value_is_empty(app: Any, key: str, endpoint: str) -> None:
+    status, body = app.json(f"/api/{endpoint}?{key}=" + quote("x' OR 1=1 --"))
+    assert status == 200, body
+    empty = {"summary": lambda b: b["tiles"]["matches"] == 0, "trend": lambda b: b["points"] == [],
+             "devices": lambda b: b["rows"] == []}  # fmt: skip
+    assert empty[endpoint](body)

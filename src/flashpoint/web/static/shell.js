@@ -92,6 +92,14 @@
   };
 
   /* ---------- URL state (everything lives in the hash) ---------- */
+  /* The shared filters (spec: view-filters) are hash keys every view reads; 'all' is no filter.
+     An address with none of them is "fresh": only then does Replay apply its default. */
+  const ALL = 'all';
+  const SHARED = ['season', 'robot', 'event', 'unit'];
+  FP.ALL = ALL;
+  FP.SHARED = SHARED;
+  const kept = {}; // view id -> its own keys to restore from the nav (History's extra filters)
+  let current = null; // the mounted view
   FP.state = () => {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const out = {};
@@ -104,8 +112,30 @@
     for (const [k, v] of Object.entries(next)) if (v != null && v !== '') params.set(k, v);
     const hash = '#' + params.toString();
     if (hash !== window.location.hash) window.history.replaceState(null, '', hash);
+    if (current && current.keep) kept[current.id] = Object.fromEntries(current.keep.map((k) => [k, next[k]]));
+    updateNav(); // replaceState fires no hashchange, so the nav would keep stale filters
   };
-  FP.link = (state) => '#' + new URLSearchParams(Object.entries(state).filter(([, v]) => v != null && v !== '')).toString();
+  /* A link to `state`, carrying the current shared filters unless `state` sets the key (null
+     removes it). */
+  FP.link = (state) => {
+    const now = FP.state();
+    const out = { ...state };
+    for (const k of SHARED) if (out[k] === undefined && now[k]) out[k] = now[k];
+    return '#' + new URLSearchParams(Object.entries(out).filter(([, v]) => v != null && v !== '')).toString();
+  };
+  FP.filters = (state) => {
+    const s = state || FP.state();
+    return Object.fromEntries(SHARED.map((k) => [k, s[k] || ALL]));
+  };
+  FP.fresh = (state) => SHARED.every((k) => !(state || FP.state())[k]);
+  FP.filtered = (f) => SHARED.some((k) => f[k] !== ALL);
+  /* Write shared filters ('all' or a value); an 'all' unit leaves the address. */
+  FP.setFilters = (patch) => FP.setState(Object.fromEntries(Object.entries(patch)
+    .map(([k, v]) => [k, k === 'unit' && v === ALL ? null : v])));
+  const navHref = (id) => FP.link({ ...(kept[id] || {}), view: id });
+  function updateNav() {
+    document.querySelectorAll('nav.tabs a[data-view]').forEach((a) => a.setAttribute('href', navHref(a.dataset.view)));
+  }
 
   /* ---------- Data: script tags (work from file://, where fetch() does not; #59) ---------- */
   const matches = {};
@@ -208,6 +238,8 @@
   /* ---------- Charts: track() wraps uPlot with the shell theme ---------- */
   /* opts: { height, x: [...], series: [{ label, values, stroke, width, dash, fill, points, paths,
              band: { lower, upper } }], refs: [{ value, label }], shade: [{ from, to, alpha }],
+             marks: [{ x, label, line }]  labelled vertical lines (e.g. a competition boundary);
+                                         line: false draws the label only,
              cursor: () => x | null, onPick: (x) => void, gapX: number, xLabel: (x) => string,
              yLabel: (y) => string, ariaLabel: string,
              onSelect: (x0, x1) => void   shift-drag (a plain drag still picks),
@@ -259,6 +291,28 @@
     const drawOver = (u) => {
       const ctx = u.ctx;
       const px = window.devicePixelRatio || 1;
+      for (const mark of opts.marks || []) {
+        const x = u.valToPos(mark.x, 'x', true);
+        if (x < u.bbox.left - 1 || x > u.bbox.left + u.bbox.width + 1) continue;
+        ctx.save();
+        if (mark.line !== false) {
+          ctx.strokeStyle = t.amberDim;
+          ctx.lineWidth = px;
+          ctx.setLineDash([2 * px, 3 * px]);
+          ctx.beginPath();
+          ctx.moveTo(x, u.bbox.top);
+          ctx.lineTo(x, u.bbox.top + u.bbox.height);
+          ctx.stroke();
+        }
+        if (mark.label) {
+          ctx.fillStyle = t.amberDim;
+          ctx.font = (10 * px) + 'px ' + t.font;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(mark.label, x + 4 * px, u.bbox.top + 4 * px);
+        }
+        ctx.restore();
+      }
       for (const ref of opts.refs || []) {
         if (ref.value == null) continue;
         const y = u.valToPos(ref.value, 'y', true);
@@ -442,9 +496,125 @@
   /* An anomaly tagged `tag` (the lowest sensitivity that shows it) shows at `chosen`. */
   FP.shownAt = (tag, chosen) => FP.SENSITIVITIES.indexOf(tag) <= FP.SENSITIVITIES.indexOf(chosen);
 
+  /* ---------- The filter bar (spec: view-filters / One filter bar) ---------- */
+  const BAR = [['season', 'SEASON', 'All seasons'], ['robot', 'ROBOT', 'All robots'], ['event', 'EVENT', 'All events']];
+  /* Distinct values of `key` in `combos` ({ season, robot, event, last }), newest first: seasons
+     by value, the rest by their latest `last`. */
+  function newest(combos, key) {
+    const last = {};
+    for (const c of combos) {
+      const v = c[key];
+      if (v != null && (last[v] == null || String(c.last || '') > last[v])) last[v] = String(c.last || '');
+    }
+    const values = Object.keys(last);
+    return key === 'season' ? values.sort().reverse() : values.sort((a, b) => (last[b] > last[a] ? 1 : last[b] < last[a] ? -1 : 0));
+  }
+  /* The chosen shared values no combination holds, as "event 2019zzzz". */
+  FP.unknownFilters = (f, combos) => BAR.filter(([k]) => f[k] !== ALL && !combos.some((c) => c[k] === f[k])).map(([k]) => k + ' ' + f[k]);
+  /* Keep focus on the control with the same id when a re-render replaces it. */
+  FP.swap = (old, next) => {
+    const active = document.activeElement;
+    const id = active && old.contains(active) ? active.id : null;
+    old.replaceWith(next);
+    const again = id ? document.getElementById(id) : null;
+    if (again) again.focus();
+    return next;
+  };
+  /* The band under the header: SEASON, ROBOT, EVENT, the UNIT chip when set, the view's own
+     filters after a divider, and CLEAR FILTERS.
+     opts: { filters, combos, onChange(patch), extras: [{ key, label, allLabel, options: [[value,
+             text]], value (null: not set), fallback (shown when not set) }], only ('HISTORY ONLY'),
+             unitNote, seasonNote (a node: season can't be filtered), unknownText }
+     Clearing sends every shared key as 'all' and every extra as null. */
+  FP.filterBar = (opts) => {
+    const f = opts.filters;
+    const combos = opts.combos || [];
+    const extras = opts.extras || [];
+    const inSeason = f.season === ALL ? combos : combos.filter((c) => c.season === f.season);
+    const values = { season: newest(combos, 'season'), robot: newest(inSeason, 'robot'), event: newest(inSeason, 'event') };
+    const unknown = FP.unknownFilters(f, combos);
+    const change = (key, value) => {
+      const patch = { [key]: value };
+      if (key === 'season' && value !== ALL) {
+        // The robot and event lists narrow to the season; a choice outside it goes back to all.
+        for (const other of ['robot', 'event']) {
+          if (f[other] !== ALL && !combos.some((c) => c.season === value && c[other] === f[other])) patch[other] = ALL;
+        }
+      }
+      opts.onChange(patch);
+    };
+    const clear = () => {
+      const patch = Object.fromEntries(SHARED.map((k) => [k, ALL]));
+      for (const e of extras) patch[e.key] = null;
+      opts.onChange(patch);
+      const first = document.querySelector('#filter-bar select:not([disabled])');
+      if (first) first.focus();
+    };
+    const shared = BAR.map(([key, label, allLabel]) => {
+      const options = values[key].includes(f[key]) || f[key] === ALL ? values[key] : [f[key], ...values[key]];
+      const disabled = key === 'season' && Boolean(opts.seasonNote);
+      return h('div', { class: 'field' },
+        h('label', { class: 'group__label', for: 'f-' + key }, label),
+        h('select', { class: 'select', id: 'f-' + key, disabled, on: { change: (event) => change(key, event.target.value) } },
+          h('option', { value: ALL, selected: f[key] === ALL }, allLabel),
+          options.map((v) => h('option', { value: v, selected: f[key] === v }, v + (unknown.includes(key + ' ' + v) ? ' ' + (opts.unknownText || '(no data here)') : '')))),
+        disabled ? h('p', { class: 'meta filter-bar__note' }, opts.seasonNote) : null);
+    });
+    const unit = f.unit !== ALL ? h('div', { class: 'field', id: 'unit-chip' },
+      h('span', { class: 'group__label' }, 'UNIT'),
+      h('span', { class: 'row' },
+        h('button', { type: 'button', class: 'chip', id: 'unit-clear', 'aria-label': 'Remove the unit filter ' + f.unit, on: { click: () => opts.onChange({ unit: ALL }) } }, f.unit + ' ✕'),
+        opts.unitNote ? h('span', { class: 'meta filter-bar__na', id: 'unit-note' }, opts.unitNote) : null)) : null;
+    const own = extras.length ? [
+      h('span', { class: 'filter-bar__divider', 'aria-hidden': 'true' }),
+      h('span', { class: 'group__label filter-bar__only' }, opts.only || 'THIS VIEW ONLY'),
+      extras.map((e) => h('div', { class: 'field' },
+        h('label', { class: 'group__label', for: 'f-' + e.key }, e.label),
+        h('select', { class: 'select', id: 'f-' + e.key, dataset: { only: '' }, on: { change: (event) => opts.onChange({ [e.key]: event.target.value || null }) } },
+          e.allLabel ? h('option', { value: '' }, e.allLabel) : null,
+          e.options.map(([v, text]) => h('option', { value: v, selected: (e.value == null ? e.fallback : e.value) === v }, text))))),
+    ] : null;
+    const nothing = !FP.filtered(f) && extras.every((e) => e.value == null);
+    return h('section', { class: 'band filter-bar', id: 'filter-bar', role: 'group', 'aria-label': 'Filters' },
+      shared, unit, own,
+      h('button', { type: 'button', class: 'btn btn--sm filter-bar__clear', id: 'filters-clear', disabled: nothing, on: { click: clear } }, 'CLEAR FILTERS'));
+  };
+
+  /* ---------- Side rails: minimize to a strip, remembered per view and side (spec: match-reports) ---------- */
+  /* Returns { el, body }: the rail element (tag + attrs) and the box its content goes in. */
+  FP.rail = ({ view, side, label, tag, attrs }) => {
+    const key = 'flashpoint.rail.' + view + '.' + side;
+    const bodyId = 'rail-' + side + '-body';
+    const body = h('div', { class: 'rail__body', id: bodyId });
+    const name = label.toLowerCase();
+    const toggle = h('button', { type: 'button', class: 'btn btn--sm btn--ghost rail__toggle', id: 'rail-' + side + '-min',
+      'aria-expanded': 'true', 'aria-controls': bodyId, 'aria-label': 'Minimize ' + name, title: 'Minimize ' + name }, side === 'l' ? '◂' : '▸');
+    const strip = h('button', { type: 'button', class: 'rail__strip', id: 'rail-' + side + '-strip',
+      'aria-expanded': 'false', 'aria-controls': bodyId, 'aria-label': 'Restore ' + name, title: 'Restore ' + name },
+    h('span', { class: 'rail__strip-label' }, label.toUpperCase()));
+    const head = h('div', { class: 'rail__head' }, h('h2', { class: 'label rail__title' }, label), toggle);
+    const el = h(tag || 'aside', { ...attrs, class: (attrs && attrs.class ? attrs.class + ' ' : '') + 'rail rail--' + side }, head, strip, body);
+    const show = (collapsed) => {
+      el.classList.toggle('is-collapsed', collapsed);
+      head.hidden = collapsed;
+      body.hidden = collapsed;
+      strip.hidden = !collapsed;
+    };
+    const set = (collapsed) => {
+      show(collapsed);
+      try { window.localStorage.setItem(key, collapsed ? '1' : '0'); } catch (_) { /* storage unavailable */ }
+      (collapsed ? strip : toggle).focus();
+    };
+    toggle.addEventListener('click', () => set(true));
+    strip.addEventListener('click', () => set(false));
+    let stored = null;
+    try { stored = window.localStorage.getItem(key); } catch (_) { stored = null; }
+    show(stored === '1');
+    return { el, body };
+  };
+
   /* ---------- Views and the router ---------- */
   const views = [];
-  let current = null;
   FP.view = (view) => { views.push(view); };
   const available = () => views.filter((v) => !(v.needsApi && MODE.static));
 
@@ -465,7 +635,7 @@
 
   function header(active) {
     const nav = h('nav', { class: 'tabs', 'aria-label': 'Views' },
-      available().map((v) => h('a', { class: 'tab', href: '#view=' + encodeURIComponent(v.id), 'aria-current': v.id === active ? 'page' : null },
+      available().map((v) => h('a', { class: 'tab', href: navHref(v.id), dataset: { view: v.id }, 'aria-current': v.id === active ? 'page' : null },
         v.label.toUpperCase(),
         v.badge ? h('span', { class: 'tab__badge', dataset: { badge: v.id }, hidden: true }) : null)));
     const crt = h('button', { type: 'button', class: 'btn btn--sm btn--ghost', 'aria-pressed': 'true', title: 'Toggle scanline texture', on: { click: toggleCrt } }, 'CRT');

@@ -14,7 +14,15 @@ from flashpoint.views.anomalies import AnomalyQueries
 from flashpoint.views.queries import HistoryQueries
 from flashpoint.web.server import FlashpointServer
 from tests.web.anomaly_lake import build_anomaly_lake, build_event_boundary_lake, ids
-from tests.web.test_browser import NetworkServer, Recorder, _open, _stop
+from tests.web.test_browser import (
+    NetworkServer,
+    Recorder,
+    Watch,
+    _open,
+    _queued,
+    _stop,
+    _view_open,
+)
 
 pytestmark = pytest.mark.browser
 HOSTILE = "<img src=x onerror=alert(1)>"
@@ -75,6 +83,7 @@ def test_queue_and_detail(page: Any, site: dict[str, Any]) -> None:
     page.wait_for_selector("#detail #why")
     assert page.inner_text("#why").startswith("STEP:")
     assert "stepped up" in page.inner_text("#title")
+    page.wait_for_function("() => FP.anomalyChart() != null")  # drawn just after the text
     chart = page.evaluate("() => FP.anomalyChart()")
     assert chart["flagged"][-1] is not None
     assert page.locator("#causes li").count() >= 1
@@ -155,6 +164,7 @@ def test_link_keeps_the_selection(page: Any, site: dict[str, Any], browser: Any)
 def test_evidence_point_opens_replay(page: Any, site: dict[str, Any]) -> None:
     watch = _anomalies(page, site["url"], "&id=" + site["ids"]["step"])
     page.wait_for_selector("#evidence .u-over")
+    page.wait_for_function("() => FP.anomalyChart() != null")  # drawn just after the text
     points = page.evaluate("() => FP.anomalyChart()")
     onset = next(i for i, v in enumerate(points["flagged"]) if v is not None)
     over = page.locator("#evidence .u-over").bounding_box()
@@ -466,3 +476,117 @@ def test_history_health_from_an_anomaly(page: Any, tmp_path: Path) -> None:
         assert watch.clean(), watch
     finally:
         _stop(server)
+
+
+# --- Group by device (spec: anomaly-review / Group anomalies by device) -------------------------
+
+
+def _groups(page: Any) -> list[list[str]]:
+    rows = page.eval_on_selector_all(
+        "#queue .anom-group",
+        "gs => gs.map(g => [g.dataset.group, g.querySelector('.anom-group__name').textContent,"
+        " g.querySelector('.anom-group__count').textContent,"
+        " g.querySelector('.anom-group__sev').textContent])",
+    )
+    return [[str(x) for x in r] for r in rows]
+
+
+def _grouped(page: Any, url: str, extra: str = "") -> Any:
+    watch = _view_open(page, url, "anomalies", "&season=2026" + extra)
+    page.click("#grouping [data-group='device']")
+    page.wait_for_selector("#queue .anom-group")
+    return watch
+
+
+def test_two_anomalies_on_one_unit(page: Any, cross_site: dict[str, Any]) -> None:
+    found = cross_site["ids"]
+    watch = _grouped(page, cross_site["url"])
+    assert _groups(page) == [
+        ["ctre:12345", "hood · SN 12345", "2 anomalies", "HIGH"],
+        ["ctre:67890", "hood · SN 67890", "1 anomaly", "MED"],
+        ["power:comp", "Battery · comp", "2 anomalies", "LOW"],
+    ]
+    first = page.eval_on_selector_all(
+        "#queue .anom-group:first-child .anom", "els => els.map(e => e.dataset.id)"
+    )
+    assert first == [found["step"], found["drift"]]  # the queue order
+    assert "group=device" in page.url
+    assert watch.clean(), watch
+
+
+def test_battery_group(page: Any, cross_site: dict[str, Any]) -> None:
+    found = cross_site["ids"]
+    watch = _grouped(page, cross_site["url"], "&robot=comp")
+    battery = page.locator("#queue .anom-group[data-group='power:comp'] .anom")
+    assert sorted(battery.evaluate_all("els => els.map(e => e.dataset.id)")) == sorted(
+        [found["brown1"], found["brown2"]]
+    )
+    assert watch.clean(), watch
+
+
+def test_collapse_a_group(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _grouped(page, cross_site["url"])
+    head = "#queue .anom-group[data-group='ctre:12345'] .anom-group__head"
+    assert page.get_attribute(head, "aria-expanded") == "true"
+    page.focus(head)
+    page.keyboard.press("Enter")
+    assert page.get_attribute(head, "aria-expanded") == "false"
+    assert page.evaluate("() => document.activeElement.dataset.groupHead") == "0"
+    assert page.locator("#queue .anom-group[data-group='ctre:12345'] .anom").first.is_hidden()
+    assert _groups(page)[0] == ["ctre:12345", "hood · SN 12345", "2 anomalies", "HIGH"]
+    page.keyboard.press("Enter")
+    assert page.get_attribute(head, "aria-expanded") == "true"
+    assert watch.clean(), watch
+
+
+def test_link_keeps_the_grouping(page: Any, cross_site: dict[str, Any], browser: Any) -> None:
+    drift = cross_site["ids"]["drift"]
+    other = browser.new_page()
+    watch = _view_open(
+        other, cross_site["url"], "anomalies", f"&season=2026&group=device&id={drift}"
+    )
+    other.wait_for_selector("#queue .anom-group")
+    group = other.locator("#queue .anom-group[data-group='ctre:12345']")
+    assert group.locator(".anom-group__head").get_attribute("aria-expanded") == "true"
+    assert group.locator(f".anom[data-id='{drift}']").get_attribute("aria-pressed") == "true"
+    assert other.get_attribute("#grouping [data-group='device']", "aria-pressed") == "true"
+    other.close()
+    assert watch.clean(), watch
+
+
+def test_unknown_group_value(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _view_open(page, cross_site["url"], "anomalies", "&group=bogus")
+    assert page.locator("#queue .anom-group").count() == 0 and len(_queued(page)) == 6
+    assert page.get_attribute("#grouping [data-group='none']", "aria-pressed") == "true"
+    assert watch.clean(), watch
+
+
+# --- Competitions in the evidence (spec: anomaly-review) --------------------------------------
+
+
+def _detail(page: Any, url: str, anomaly: str) -> Watch:
+    watch = _view_open(page, url, "anomalies", f"&season=all&robot=all&event=all&id={anomaly}")
+    page.wait_for_selector("#detail #competitions")
+    page.wait_for_function("() => FP.anomalyChart() != null")
+    return watch
+
+
+def test_one_competition(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _detail(page, cross_site["url"], cross_site["ids"]["med"])
+    assert page.inner_text("#competitions") == "COMPETITION · GADAL"
+    assert page.evaluate("() => FP.anomalyMarks()") == [
+        {"x": -0.5, "label": "GADAL", "line": False}
+    ]
+    assert watch.clean(), watch
+
+
+def test_evidence_spans_competitions(page: Any, cross_site: dict[str, Any]) -> None:
+    watch = _detail(page, cross_site["url"], cross_site["ids"]["step"])
+    assert page.inner_text("#competitions") == (
+        "COMPETITIONS · GADAL · 3 MATCHES → GACMP · 2 MATCHES"
+    )
+    assert page.evaluate("() => FP.anomalyMarks()") == [
+        {"x": -0.5, "label": "GADAL", "line": False},
+        {"x": 2.5, "label": "GACMP", "line": True},
+    ]
+    assert watch.clean(), watch

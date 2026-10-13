@@ -295,6 +295,28 @@ class HistoryQueries:
             "metric": [{"id": k, "label": m.label, "unit": m.unit} for k, m in METRICS.items()],
         }
 
+    def filter_combos(self) -> list[dict[str, Any]]:
+        """The distinct (season, robot, event) in the lake, each with its latest match time, so
+        every view can narrow robot and event to a season (tens of rows)."""
+        return self._rows(
+            "SELECT season, robot, event, max(t) AS last FROM features"
+            " GROUP BY season, robot, event ORDER BY season, robot, event",
+            [],
+        )
+
+    def match_keys(self, season: str | None, robot: str | None, event: str | None) -> set[str]:
+        """The match keys in a season, robot, and event (None: any); values bind as parameters.
+        The event is the match key's prefix, as in `session_times`."""
+        clauses, params = [], []
+        for column, value in (("season", season), ("robot", robot),
+                              ("split_part(match_key, '_', 1)", event)):  # fmt: skip
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                params.append(value)
+        where = " AND ".join(clauses) or "true"
+        rows = self._rows(f"SELECT DISTINCT match_key FROM features WHERE {where}", params)  # noqa: S608 - fixed columns
+        return {r["match_key"] for r in rows}
+
     def matches(self, filters: Filters) -> list[dict[str, Any]]:
         """The x axis: every match in range, in time order."""
         self._check(filters)

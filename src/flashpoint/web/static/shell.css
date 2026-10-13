@@ -609,3 +609,61 @@ a.download:hover { border-color: var(--amber); color: var(--amber-hi); }
 @media (forced-colors: active) {
   .marker, .match-btn, .download { border: 1px solid CanvasText; }
 }
+
+/* ==========================================================================
+   Shared filters, rails, and grouping (ui-cross-tab-filters).
+   ========================================================================== */
+
+/* The filter bar: one band under the header on every view */
+#app { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.filter-bar { gap: var(--sp-3) var(--sp-5); padding-top: var(--sp-3); padding-bottom: var(--sp-3); align-items: flex-end; }
+.filter-bar .select { min-width: 140px; }
+.filter-bar__note { max-width: 32ch; }
+.filter-bar__na { color: var(--amber-muted); font-style: italic; }
+.filter-bar__divider { align-self: stretch; width: 1px; background: var(--line); }
+.filter-bar__only { align-self: center; border: 1px dotted var(--line); padding: 2px var(--sp-2); }
+.filter-bar__clear { margin-left: auto; }
+
+/* Side rails: a head with the minimize control; minimized, a strip that names the rail */
+.rail { --rail-collapsed: 36px; }
+.rail__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.rail__title { margin-bottom: 0; }
+.rail__toggle { min-width: var(--hit-sm); padding: 0 var(--sp-2); }
+.rail__strip {
+  display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: var(--hit);
+  padding: var(--sp-3) 0; background: var(--surface-2); border: 0; color: var(--amber-dim);
+  font-size: var(--fs-micro); letter-spacing: var(--track-label);
+}
+.rail__strip:hover { color: var(--amber-hi); background: var(--surface-raised); }
+.rail__strip-label { writing-mode: vertical-rl; }
+.rail--l .rail__strip-label { transform: rotate(180deg); }
+.layout > .rail.is-collapsed { flex: 0 0 var(--rail-collapsed); padding: 0; }
+
+/* Wide screens: on a view with rails, the header and bands stay put and each column scrolls on
+   its own. Views without rails (notices) scroll with the page. */
+@media (min-width: 1100px) {
+  body:has(.view > .layout) { height: 100vh; min-height: 0; }
+  .view > .layout { flex: 1 1 0; flex-wrap: nowrap; min-height: 0; }
+  .view > .layout > .rail-l, .view > .layout > .main, .view > .layout > .rail-r { overflow-y: auto; min-height: 0; }
+  /* overflow drops a flex item's automatic minimum to 0; keep the rails' content width */
+  .view > .layout > .rail-l, .view > .layout > .rail-r { min-width: min-content; }
+}
+/* Narrow screens: rails wrap and the page scrolls; a minimized rail is a one-line bar */
+@media (max-width: 1099px) {
+  .layout > .rail.is-collapsed { flex: 1 1 100%; }
+  .rail__strip { height: auto; min-height: var(--hit-sm); }
+  .rail__strip-label, .rail--l .rail__strip-label { writing-mode: horizontal-tb; transform: none; }
+}
+
+/* Anomalies grouped by device */
+.anom-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.anom-group + .anom-group { margin-top: var(--sp-3); }
+.anom-group__head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); width: 100%; min-height: var(--hit-sm);
+  padding: var(--sp-2) 0; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--amber); text-align: left;
+  font-size: var(--fs-xs); letter-spacing: .08em;
+}
+.anom-group__head:hover { color: var(--amber-hi); }
+.anom-group__name { flex: 1 1 auto; font-weight: 600; color: var(--amber-hi); }
+.anom-group__count { color: var(--amber-dim); }
+.anom-group__items { display: flex; flex-direction: column; gap: var(--sp-2); }
