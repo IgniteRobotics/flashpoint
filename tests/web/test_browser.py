@@ -1042,6 +1042,84 @@ def test_worsening_connector(page: Any, history_site: str) -> None:
     assert watch.clean(), watch
 
 
+# Season outliers (tests/views/season.py): flywheel-right 66 °C at match 42, indexer-main 76 °C
+# at match 50 (both in the match phase).
+HOT_KEY, HOTTER_KEY = match_key(42), match_key(50)
+
+
+def _point(page: Any, series: str, key: str) -> tuple[float, float]:
+    """The page coordinates of a plotted History point (the test hook, design §5)."""
+    page.wait_for_function("() => FP.historyChart() !== null")
+    at = page.evaluate(
+        "([s, k]) => FP.historyChart().at(s, FP.historyChart().matches.indexOf(k))", [series, key]
+    )
+    return at["x"], at["y"]
+
+
+def test_history_point_hook(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history")
+    x, y = _point(page, "ctre:FLYWHEEL-RIGHT", HOT_KEY)
+    page.mouse.move(x, y)
+    page.wait_for_function(
+        f"() => document.querySelector('#chart-hover').innerText.includes('{HOT_KEY}')"
+    )
+    assert watch.clean(), watch
+
+
+def test_hover_names_the_line_under_the_pointer(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history")
+    x, y = _point(page, "ctre:FLYWHEEL-RIGHT", HOT_KEY)
+    page.mouse.move(x, y)
+    page.wait_for_function("() => FP.historyChart().highlighted === 'ctre:FLYWHEEL-RIGHT'")
+    text = page.inner_text("#chart-hover")
+    assert HOT_KEY in text and "ctre:FLYWHEEL-RIGHT" in text and "66.0 °C" in text
+    assert "slot flywheel-right" in text and "alignment high" in text
+    assert watch.clean(), watch
+
+
+def test_hover_near_no_line(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history")
+    x, _ = _point(page, "ctre:FLYWHEEL-RIGHT", HOT_KEY)
+    over = page.locator("#chart .u-over").first.bounding_box()
+    assert over is not None
+    page.mouse.move(x, over["y"] + 3)  # above every line at that match (the 76 °C peak is later)
+    page.wait_for_function(
+        f"() => document.querySelector('#chart-hover').innerText.includes('{HOT_KEY}')"
+    )
+    assert "ctre:" not in page.inner_text("#chart-hover")
+    assert page.evaluate("() => FP.historyChart().highlighted") is None
+    assert watch.clean(), watch
+
+
+def test_selecting_a_line_selects_its_unit(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history")
+    page.mouse.click(*_point(page, "ctre:FLYWHEEL-RIGHT", HOT_KEY))
+    page.wait_for_function("() => location.hash.includes('unit=ctre%3AFLYWHEEL-RIGHT')")
+    assert "view=history" in page.url  # Replay did not open
+    page.wait_for_selector("button.dev-btn[data-unit='ctre:FLYWHEEL-RIGHT'][aria-pressed='true']")
+    page.wait_for_selector("#device .lifeline")
+    assert "flywheel" in page.inner_text("#device").lower()
+    assert watch.clean(), watch
+
+
+def test_selecting_another_units_line(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history&unit=ctre%3AHOOD-G")
+    page.wait_for_selector("#device .lifeline")
+    page.mouse.click(*_point(page, "ctre:INDEXER-MAIN", HOTTER_KEY))
+    page.wait_for_function("() => location.hash.includes('unit=ctre%3AINDEXER-MAIN')")
+    assert "view=history" in page.url
+    assert watch.clean(), watch
+
+
+def test_slot_line_opens_replay(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history&by=slot")
+    page.wait_for_selector("[data-by='slot'][aria-pressed='true']")
+    page.mouse.click(*_point(page, "2026-comp/intake-roller", match_key(4)))
+    page.wait_for_function(f"() => location.hash.includes('m={match_key(4)}')")
+    assert "view=replay" in page.url and "track=intake-roller" in page.url
+    assert watch.clean(), watch
+
+
 def test_unknown_unit_suggestions(page: Any, history_site: str) -> None:
     _open(page, history_site, "#view=history&unit=ctre%3AROLLER-Z")
     page.wait_for_selector(".suggestions")

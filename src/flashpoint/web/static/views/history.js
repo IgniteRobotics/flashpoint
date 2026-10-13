@@ -27,6 +27,7 @@
   const KIND = { 'first-seen': 'First seen', moved: 'Moved', 'replaced-by': 'Replaced by', 'last-seen': 'Last seen' };
 
   let ui = null;
+  const NEAR_PX = 10; // a line within this many pixels of the pointer is the one it is on
 
   /* Query parameters: the shared filters that are set, then History's own. */
   const filterParams = (s) => {
@@ -181,6 +182,7 @@
       const i = Math.round(v);
       return Math.abs(v - i) < 1e-6 && matches[i] ? matches[i].match_key.split('_')[1] : '';
     };
+    ui.hot = null;
     ui.chart = FP.track(box, {
       height: 318,
       x: matches.map((_, i) => i),
@@ -193,8 +195,9 @@
       yLabel: (v) => FP.fmt(v, Math.abs(v) >= 100 ? 0 : 1),
       ySize: 52,
       ariaLabel: trend.label + ' per match for ' + bySeries.size + ' ' + trend.by + ' lines' + (selected ? ', ' + selected + ' emphasised' : '') + '. Values are in the table below.',
+      highlight: () => (ui.hot && bySeries.has(ui.hot) ? { values: bySeries.get(ui.hot), stroke: tokens.amberHi, width: 2.5 } : null),
       hover: (idx) => showHover(idx, matches, trend),
-      onPick: (x) => pickMatch(Math.round(x), matches, trend),
+      onPick: (x, event) => pickMatch(Math.round(x), event, matches, trend),
     });
     FP.fill(document.getElementById('legend'),
       h('span', null, h('span', { class: 'hi' }, '━'), ' ', selected || 'select a unit to emphasise it'),
@@ -205,22 +208,50 @@
       h('span', null, 'Gaps = not installed. Lines follow the unit by serial, not the slot.'));
   }
 
-  function showHover(idx, matches, trend) {
-    const box = document.getElementById('chart-hover');
-    if (!box || idx == null || !matches[idx]) return;
-    const key = matches[idx].match_key;
-    const selected = selectedUnit();
-    const point = trend.points.find((p) => p.match_key === key && (!selected || p.series === selected));
-    FP.fill(box, key, ' · ', FP.when(matches[idx].t),
-      point ? [' · ', point.series, ' ', FP.fmt(point.value, 1), ' ', trend.unit, ' · alignment ', point.alignment || '—', point.slot_changed ? ' · slot changed to ' + point.slot_id : ''] : '');
+  /* The line nearest a pointer `top` px from the top of the plot at match idx, within NEAR_PX;
+     the selected unit wins a tie (overlapping lines). */
+  function nearest(idx, top) {
+    if (!ui.chart || idx == null || top == null || top < 0) return null;
+    const { u } = ui.chart;
+    const selected = ui.trend.by === 'unit' ? selectedUnit() : null;
+    let best = null; let gap = NEAR_PX;
+    u.series.forEach((s, i) => {
+      const v = i && s.label !== 'marks' ? u.data[i][idx] : null;
+      if (v == null) return;
+      const d = Math.abs(u.valToPos(v, 'y') - top);
+      if (d < gap || (d === gap && s.label === selected)) { best = s.label; gap = d; }
+    });
+    return best;
   }
 
-  function pickMatch(idx, matches, trend) {
-    if (!matches[idx]) return;
+  /* The readout and the emphasised line follow one rule: the line at the pointer, else the
+     selected unit's point, else only the match. */
+  function showHover(idx, matches, trend) {
+    const box = document.getElementById('chart-hover');
+    if (!box || !ui.chart) return;
+    const hot = idx == null ? null : nearest(idx, ui.chart.u.cursor.top);
+    if (hot !== ui.hot) { ui.hot = hot; ui.chart.redraw(); }
+    if (idx == null || !matches[idx]) return;
     const key = matches[idx].match_key;
-    const unit = selectedUnit();
-    const point = trend.points.find((p) => p.match_key === key && (!unit || p.series === unit));
-    if (unit && point) FP.go({ view: 'replay', m: key, track: point.slot_id });
+    const name = hot || (trend.by === 'unit' ? selectedUnit() : null);
+    const point = name ? trend.points.find((p) => p.match_key === key && p.series === name) : null;
+    FP.fill(box, key, ' · ', FP.when(matches[idx].t),
+      point ? [' · ', point.series, ' · ', FP.fmt(point.value, 1), ' ', trend.unit, ' · slot ', point.slot_id, ' · alignment ', point.alignment || '—', point.slot_changed ? ' · slot changed' : ''] : '');
+  }
+
+  /* A press on the chart: another unit's line selects that unit; the selected unit's point (its
+     line nearest, or no other line near) or a slot's line opens Replay; anything else only
+     updates the readout. Drag repeats (pointermove while held) are ignored. */
+  function pickMatch(idx, event, matches, trend) {
+    if (!matches[idx] || (event && event.type !== 'pointerdown')) return;
+    const key = matches[idx].match_key;
+    const top = event ? event.clientY - ui.chart.u.over.getBoundingClientRect().top : null;
+    const hot = nearest(idx, top);
+    const unit = trend.by === 'unit' ? selectedUnit() : null;
+    if (trend.by === 'unit' && hot && hot !== unit) { selectUnit(hot); return; }
+    const name = trend.by === 'slot' ? hot : unit;
+    const point = name ? trend.points.find((p) => p.match_key === key && p.series === name) : null;
+    if (point) FP.go({ view: 'replay', m: key, track: point.slot_id });
     else showHover(idx, matches, trend);
   }
 
@@ -345,10 +376,18 @@
   }
   function selectUnit(id) { setFilters({ unit: selectedUnit() === id ? ALL : id }); }
 
-  // For tests: the plotted series ({ name: values per match }) and the match keys.
+  // For tests: the plotted series ({ name: values per match }), the match keys, the emphasised
+  // line, and at(name, index): the page coordinates of a plotted point.
   FP.historyChart = () => (ui && ui.chart ? {
     matches: ui.trend.matches.map((m) => m.match_key),
     series: Object.fromEntries(ui.chart.u.series.slice(1).map((s, i) => [s.label, ui.chart.u.data[i + 1]])),
+    highlighted: ui.hot,
+    at: (name, index) => {
+      const { u } = ui.chart;
+      const i = u.series.findIndex((s) => s.label === name);
+      const box = u.over.getBoundingClientRect();
+      return { x: box.left + u.valToPos(index, 'x'), y: box.top + u.valToPos(u.data[i][index], 'y') };
+    },
   } : null);
 
   FP.view({

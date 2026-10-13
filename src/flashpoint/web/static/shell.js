@@ -241,6 +241,7 @@
              marks: [{ x, label, line }]  labelled vertical lines (e.g. a competition boundary);
                                          line: false draws the label only,
              cursor: () => x | null, onPick: (x) => void, gapX: number, xLabel: (x) => string,
+             highlight: () => ({ values, stroke, width }) | null  one series drawn over the rest,
              yLabel: (y) => string, ariaLabel: string,
              onSelect: (x0, x1) => void   shift-drag (a plain drag still picks),
              onZoom: (factor, x) => void  ctrl/meta+wheel or a Safari pinch; factor > 1 zooms in }
@@ -332,6 +333,29 @@
           ctx.textAlign = 'right';
           ctx.fillText(ref.label, u.bbox.left + u.bbox.width - 6 * px, y - 4 * px);
         }
+        ctx.restore();
+      }
+      const hl = opts.highlight ? opts.highlight() : null;
+      if (hl) {
+        ctx.save();
+        ctx.strokeStyle = hl.stroke;
+        ctx.fillStyle = hl.stroke;
+        ctx.lineWidth = hl.width * px;
+        ctx.beginPath();
+        let on = false;
+        hl.values.forEach((v, i) => {
+          if (v == null) { on = false; return; }
+          const x = u.valToPos(opts.x[i], 'x', true); const y = u.valToPos(v, 'y', true);
+          if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+          on = true;
+        });
+        ctx.stroke();
+        hl.values.forEach((v, i) => {
+          if (v == null) return;
+          ctx.beginPath();
+          ctx.arc(u.valToPos(opts.x[i], 'x', true), u.valToPos(v, 'y', true), 3 * px, 0, 2 * Math.PI);
+          ctx.fill();
+        });
         ctx.restore();
       }
       const at = opts.cursor ? opts.cursor() : null;
