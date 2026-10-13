@@ -10,5 +10,5 @@
 ## 3. Docs and gate
 
 - [x] 3.1 Add a dated follow-up note under P4 in docs/rewrite/06-roadmap.md (chart lines are identified by hover and selected by click; closes #46), and update the README's History paragraph if it describes the chart. Verify the links resolve
-- [ ] 3.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR into `rewrite` that closes #46, and verify CI is green on all blocking jobs
+- [x] 3.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR into `rewrite` that closes #46, and verify CI is green on all blocking jobs
 - [ ] 3.3 [HUMAN] On `~/flashpoint-lake`, open History on peak temperature for an event: hover the outlier line and confirm it is named correctly, click it to select it, and try a tap on a tablet or touchscreen if one is handy. Record the result in design.md
