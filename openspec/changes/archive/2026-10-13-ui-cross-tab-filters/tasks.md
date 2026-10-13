@@ -39,5 +39,5 @@
 ## 6. Docs and gate
 
 - [x] 6.1 Update docs/rewrite/06-roadmap.md (a dated note under the P4 and P5 follow-ups: shared filters, rails, grouping by device) and the README's view sections (one filter bar, CLEAR FILTERS clears everywhere, minimizing rails). Verify the links resolve
-- [ ] 6.2 Rebase onto `rewrite` once PRs #42 and #43 merge. Run the full gate locally (ruff, mypy, unit, corpus, browser), then open a PR into `rewrite`. Verify CI is green on all jobs
+- [x] 6.2 Rebase onto `rewrite` once PRs #42 and #43 merge. Run the full gate locally (ruff, mypy, unit, corpus, browser), then open a PR into `rewrite`. Verify CI is green on all jobs (2026-10-13: no rebase needed, the branch already held #42 and #43, which merged first; corpus 82 passed locally; PR #44 green on every blocking job, perf missed only the accepted detect budget, 5.24 s; merged)
 - [ ] 6.3 [HUMAN] On the pit laptop, served on `~/flashpoint-lake`: pick event GACMP in Replay, then check History and Anomalies are on GACMP. Clear on Anomalies, and check Replay lists every match. Minimize each rail on each view and reload. Group the queue by device. Record anything that feels wrong in design.md
