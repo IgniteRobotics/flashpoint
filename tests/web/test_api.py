@@ -237,3 +237,26 @@ def test_hostile_filter_value_is_empty(app: Any, key: str, endpoint: str) -> Non
     empty = {"summary": lambda b: b["tiles"]["matches"] == 0, "trend": lambda b: b["points"] == [],
              "devices": lambda b: b["rows"] == []}  # fmt: skip
     assert empty[endpoint](body)
+
+
+def test_devices_spark_lists(serve: Any, tmp_path: Path) -> None:
+    """The shared-scale fixture (issue #39): each unit's spark is its values in time order,
+    None where its row has no value."""
+    from tests.web.spark_lake import build_spark_lake
+
+    app = serve(build_spark_lake(tmp_path / "lake"))
+    status, body = app.json("/api/devices?metric=isolated_gaps")
+    assert status == 200
+    sparks = {r["unit_id"]: r["spark"] for r in body["rows"]}
+    assert sparks == {
+        "ctre:GAPPY": [10, None, None, 11, 12],
+        "ctre:HIGH": [7, 20, 1, 42],
+        "ctre:LOW": [3, 0, 1, 3],
+        "ctre:ONE": [4],
+        "ctre:PEAK": [5, 30, 8, 2, 9],
+    }
+    status, body = app.json("/api/devices?metric=current_p95")
+    values = [v for r in body["rows"] for v in r["spark"] if v is not None]
+    assert (min(values), max(values)) == (-2, 5)
+    status, body = app.json("/api/devices?metric=isolated_gaps&subsystem=shooter")
+    assert {r["unit_id"] for r in body["rows"]} == {"ctre:GAPPY", "ctre:PEAK"}

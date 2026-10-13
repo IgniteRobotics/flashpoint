@@ -32,6 +32,7 @@ from tests.views.season import (
     build_season,
     match_key,
 )
+from tests.web.spark_lake import build_spark_lake
 
 pytestmark = pytest.mark.browser
 playwright = pytest.importorskip("playwright.sync_api")
@@ -1080,6 +1081,82 @@ def test_history_empty_lake(page: Any, tmp_path: Path) -> None:
         assert str(lake.root) in page.inner_text(".notice")
     finally:
         _stop(server)
+
+
+# --- History: one sparkline scale for every row (issue #39) ---------------------------------
+
+
+READ_SPARKS = """() => Object.fromEntries([...document.querySelectorAll('#rows tr')].map((tr) => {
+  const c = tr.querySelector('canvas');
+  const { data, width, height } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+  const ys = []; const xs = [];
+  for (let p = 0; p < data.length / 4; p += 1) {
+    if (data[p * 4 + 3]) { ys.push(Math.floor(p / width)); xs.push(p % width); }
+  }
+  return [tr.querySelector('.dev-btn').dataset.unit, {
+    scale: c.dataset.scale, height, ys, xs,
+    title: tr.querySelector('.spark-cell').title, label: c.getAttribute('aria-label'),
+  }];
+}))"""
+
+
+@pytest.fixture(scope="module")
+def spark_site(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
+    server = _serve(build_spark_lake(tmp_path_factory.mktemp("spark") / "lake"))
+    yield f"http://127.0.0.1:{server.server_address[1]}/"
+    _stop(server)
+
+
+def _sparks(page: Any, url: str, fragment: str, rows: int) -> tuple[Watch, dict[str, Any]]:
+    """Open History and read each row's trend canvas: its scale and the painted pixel rows
+    and columns."""
+    watch = _open(page, url, "#view=history" + fragment)
+    page.wait_for_function(f"() => document.querySelectorAll('#rows tr canvas').length === {rows}")
+    sparks = page.evaluate(READ_SPARKS)
+    return watch, sparks
+
+
+def test_rows_share_one_scale(page: Any, spark_site: str) -> None:
+    watch, sparks = _sparks(page, spark_site, "&metric=isolated_gaps&subsystem=intake", 3)
+    assert {s["scale"] for s in sparks.values()} == {"0 42"}
+    low, high = sparks["ctre:LOW"], sparks["ctre:HIGH"]
+    bottom, plot, stroke = low["height"] - 1, low["height"] - 2, 1.5  # lines span y 1-23
+    assert low["ys"] and min(low["ys"]) >= bottom - plot * 0.1 - stroke  # the 0-3 unit
+    assert high["ys"] and min(high["ys"]) <= 1 + plot * 0.1  # the 42 reaches the top
+    assert watch.clean(), watch
+
+
+def test_negative_values_in_range(page: Any, spark_site: str) -> None:
+    watch, sparks = _sparks(page, spark_site, "&metric=current_p95", 5)
+    assert {s["scale"] for s in sparks.values()} == {"-2 5"}
+    assert watch.clean(), watch
+
+
+def test_unit_missing_values_keeps_gaps(page: Any, spark_site: str) -> None:
+    watch, sparks = _sparks(page, spark_site, "&metric=isolated_gaps&subsystem=shooter", 2)
+    assert {s["scale"] for s in sparks.values()} == {"0 30"}
+    xs = sparks["ctre:GAPPY"]["xs"]  # matches at x 1, 30.5, 60, 89.5, 119; no value in 2 and 3
+    assert xs and not [x for x in xs if 5 <= x <= 85]  # no line across the missing values
+    assert [x for x in xs if 95 <= x <= 115]  # the line from match 4 to 5
+    assert watch.clean(), watch
+
+
+def test_one_value_in_range(page: Any, spark_site: str) -> None:
+    watch, sparks = _sparks(page, spark_site, "&metric=isolated_gaps&subsystem=intake", 3)
+    assert sparks["ctre:ONE"]["ys"] == []  # no line
+    assert sparks["ctre:ONE"]["scale"] == "0 42"  # the scale of LOW and HIGH alone
+    assert watch.clean(), watch
+
+
+def test_trend_description_gives_both_ranges(page: Any, spark_site: str) -> None:
+    watch, sparks = _sparks(page, spark_site, "&metric=isolated_gaps&subsystem=intake", 3)
+    low, one = sparks["ctre:LOW"], sparks["ctre:ONE"]
+    assert low["title"] == "This unit 0–3 · shared scale 0–42 count"
+    assert one["title"] == "This unit 4 · shared scale 0–42 count"
+    assert low["label"] == low["title"] and one["label"] == one["title"]
+    watch, sparks = _sparks(page, spark_site, "&metric=current_p95", 5)
+    assert sparks["ctre:LOW"]["title"] == "This unit -2–3 · shared scale -2–5 A"
+    assert watch.clean(), watch
 
 
 @pytest.mark.corpus
