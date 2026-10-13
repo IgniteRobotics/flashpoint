@@ -8,7 +8,7 @@ Below the chart, History SHALL list every unit in range with:
 - a small trend line;
 - a health status.
 
-Every row's trend line SHALL be drawn on one vertical scale shared by all listed rows for the selected metric, so rows can be compared at a glance. The scale SHALL start at zero when no value in range is negative, and otherwise run from the lowest to the highest value in range. A match where the unit was not installed SHALL be a gap in its line and SHALL NOT widen the scale. A unit with fewer than two values in range SHALL show no line. Each trend line's description SHALL give the unit's own lowest and highest value in range and the shared scale, with the metric's unit.
+Every row's trend line SHALL be drawn on one vertical scale shared by all listed rows for the selected metric, so rows can be compared at a glance. The scale SHALL start at zero when no value in range is negative, and otherwise run from the lowest to the highest value in range. A match where the unit has no value for the metric (for example, temperature not logged) SHALL be a gap in its line and SHALL NOT widen the scale. A unit with fewer than two values in range SHALL show no line. Each trend line's description SHALL give the unit's own lowest and highest value in range and the shared scale, with the metric's unit.
 
 Health SHALL be the worse of two parts:
 - temperature limits: OK, WARN (a match maximum at or above the warning limit in range), or HOT (at or above the fault limit);
@@ -36,8 +36,8 @@ In served mode, a unit with open anomalies SHALL show their count and highest se
 - **WHEN** the selected metric's values in range run from −2 to 5
 - **THEN** every trend line is drawn on the scale −2 to 5
 
-#### Scenario: Unit missing from some matches
-- **WHEN** a unit was not installed in two matches in range and its other values are 10 to 12, and the highest value of any unit is 30
+#### Scenario: Unit missing values in some matches
+- **WHEN** a unit has no value in two matches in range and its other values are 10 to 12, and the highest value of any unit is 30
 - **THEN** its line has gaps at those two matches, and the shared scale is 0 to 30
 
 #### Scenario: One value in range

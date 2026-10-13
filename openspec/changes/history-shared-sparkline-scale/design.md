@@ -1,6 +1,6 @@
 ## Context
 
-`/api/devices` already returns every unit in range with its `spark` list (the selected metric per match, `null` where the unit was not installed), ordered by time. The device table draws each with `FP.spark(values)`, which scales to that list's own min and max plus 10 % padding (`shell.js`). The table renders every row the server returns, so the browser holds every value the shared scale needs. See proposal.md for why.
+`/api/devices` already returns every unit in range with its `spark` list (the selected metric per match, `null` where the unit has a row but no value; a match where it was not installed has no entry at all), ordered by time. The device table draws each with `FP.spark(values)`, which scales to that list's own min and max plus 10 % padding (`shell.js`). The table renders every row the server returns, so the browser holds every value the shared scale needs. See proposal.md for why.
 
 ## Goals / Non-Goals
 

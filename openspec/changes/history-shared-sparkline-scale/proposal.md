@@ -7,7 +7,7 @@ History's device table scales each unit's TREND sparkline to that unit's own ran
 - Every sparkline in the device table is drawn on **one y-scale shared by all rows** for the selected metric and the current filters.
 - The shared scale starts at **zero** when no value in range is negative (temperatures, counts, hours, resistance); otherwise it runs from the lowest to the highest value in range.
 - The trend cell's description (its tooltip) gives **the unit's own range and the shared scale**, with the metric's unit, replacing the fixed "This unit's own range".
-- Missing values (a unit not installed in a match) stay gaps and do not stretch the scale; a unit with fewer than two values shows no line, as today.
+- Missing values (a match where the unit has a row but no value, such as temperature not logged) stay gaps and do not stretch the scale; a unit with fewer than two values shows no line, as today.
 
 ## Capabilities
 

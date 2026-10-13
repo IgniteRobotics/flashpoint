@@ -224,11 +224,28 @@
     else showHover(idx, matches, trend);
   }
 
+  /* One trend scale for every row: from zero unless a value is negative (lowest to highest). */
+  const sharedRange = (rows) => {
+    const nums = rows.flatMap((r) => r.spark.filter((v) => v != null));
+    return nums.length ? [Math.min(0, ...nums), Math.max(...nums)] : null;
+  };
+
   function renderTable(rows, trend) {
+    const range = sharedRange(rows);
+    // Whole numbers (counts) print without decimals; anything else like the LATEST column.
+    const digits = rows.every((r) => r.spark.every((v) => v == null || Number.isInteger(v))) ? 0 : 1;
+    const span = (lo, hi) => (lo === hi ? FP.fmt(lo, digits) : FP.fmt(lo, digits) + '–' + FP.fmt(hi, digits));
+    const describe = (spark) => {
+      const nums = spark.filter((v) => v != null);
+      if (!range) return 'No values in range';
+      return 'This unit ' + (nums.length ? span(Math.min(...nums), Math.max(...nums)) : 'no values')
+        + ' · shared scale ' + span(...range) + ' ' + trend.unit;
+    };
     FP.fill(document.getElementById('table-title'), (trend.by === 'unit' ? 'Units' : 'Units') + ' · ' + rows.length + ' in range · ' + trend.label);
     FP.fill(document.getElementById('rows'), rows.map((r) => {
       const on = r.unit_id === selectedUnit();
       const [level, word] = HEALTH[r.health] || HEALTH['NO-DATA'];
+      const about = describe(r.spark);
       return h('tr', { class: on ? 'is-sel' : null },
         h('td', null, h('button', { type: 'button', class: 'dev-btn', 'aria-pressed': String(on), dataset: { unit: r.unit_id }, on: { click: () => selectUnit(r.unit_id) } },
           r.role || r.slot_id, h('span', { class: 'meta' }, ' · ' + r.slot_id))),
@@ -237,7 +254,7 @@
         h('td', { class: 'num' }, String(r.matches)),
         h('td', { class: 'num' }, FP.fmt(r.latest, 1)),
         h('td', { class: 'num' }, r.change == null ? '—' : (r.change >= 0 ? '+' : '') + FP.fmt(r.change, 1)),
-        h('td', { class: 'spark-cell', title: 'This unit\'s own range' }, FP.spark(r.spark, { stroke: on ? FP.tokens().amberHi : FP.tokens().amber })),
+        h('td', { class: 'spark-cell', title: about }, FP.spark(r.spark, { range, label: about, stroke: on ? FP.tokens().amberHi : FP.tokens().amber })),
         h('td', null, FP.status(level, word), r.anomalies ? [' ', h('a', {
           class: 'badge sev sev--' + r.anomalies.severity.toLowerCase(), dataset: { anomalies: r.unit_id },
           href: FP.link({ view: 'anomalies', tab: 'open', sens: 'normal', unit: r.unit_id }),

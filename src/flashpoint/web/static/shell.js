@@ -459,13 +459,20 @@
     };
   };
 
-  /* ---------- Sparkline (canvas: a tiny line in the row's own range) ---------- */
+  /* ---------- Sparkline (canvas: a tiny line in the row's own range, or in opts.range) ----------
+     With range [lo, hi] (a scale shared by several lines), lo sits on the bottom edge and only
+     the top is padded; opts.label names the line for a screen reader. */
   FP.spark = (values, opts = {}) => {
-    const canvas = h('canvas', { width: 120, height: 24, 'aria-hidden': 'true' });
+    const canvas = h('canvas', opts.label
+      ? { width: 120, height: 24, role: 'img', 'aria-label': opts.label }
+      : { width: 120, height: 24, 'aria-hidden': 'true' });
+    if (opts.range) canvas.dataset.scale = opts.range.join(' ');
     const nums = values.filter((v) => v != null);
     const ctx = canvas.getContext && canvas.getContext('2d');
     if (!ctx || nums.length < 2) return canvas;
-    const lo = Math.min(...nums); const hi = Math.max(...nums); const pad = (hi - lo) * 0.1 || 1;
+    const [lo, hi] = opts.range || [Math.min(...nums), Math.max(...nums)];
+    const pad = (hi - lo) * 0.1 || 1;
+    const below = opts.range ? 0 : pad;
     ctx.strokeStyle = opts.stroke || FP.tokens().amber;
     ctx.lineWidth = opts.width || 1.5;
     ctx.beginPath();
@@ -473,7 +480,7 @@
     values.forEach((v, i) => {
       if (v == null) { started = false; return; }
       const x = (i / (values.length - 1)) * 118 + 1;
-      const y = 23 - ((v - lo + pad) / (hi - lo + 2 * pad)) * 22;
+      const y = 23 - ((v - lo + below) / (hi - lo + below + pad)) * 22;
       if (started) ctx.lineTo(x, y); else ctx.moveTo(x, y);
       started = true;
     });
