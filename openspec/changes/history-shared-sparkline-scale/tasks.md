@@ -10,5 +10,5 @@
 ## 3. Docs and gate
 
 - [x] 3.1 Add a dated follow-up note under P4 in docs/rewrite/06-roadmap.md (History sparklines share one scale; closes #39), and update the README's History paragraph if it describes the trend column. Verify the links resolve
-- [ ] 3.2 Run the full gate locally (ruff, mypy, unit, corpus, browser), open a PR into `rewrite` that closes #39, and verify CI is green on all blocking jobs
+- [x] 3.2 Run the full gate locally (ruff, mypy, unit, corpus, browser), open a PR into `rewrite` that closes #39, and verify CI is green on all blocking jobs
 - [ ] 3.3 [HUMAN] On `~/flashpoint-lake`, open History on the can-health metrics (isolated CAN gaps, reboots) and on peak temperature: confirm rows compare at a glance and temperature rows stay readable against the zero baseline (design, Risks). Record the result in design.md
