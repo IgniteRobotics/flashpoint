@@ -144,7 +144,7 @@ Brownouts are judged on the **battery proxy**: the supply voltage of the robot's
 
 ```bash
 poetry run pytest                                   # unit tests (fast, no data needed)
-poetry run python tools/fetch-corpus.py             # golden log corpus (~180 MB, release corpus-v1)
+poetry run python tools/fetch-corpus.py             # golden log corpus (~180 MB, release corpus-v1; needs `gh auth login`)
 poetry run pytest -m "corpus and not perf"          # tests against real robot logs
 poetry run pytest -m perf -s                        # time and memory budgets
 poetry run playwright install chromium              # once, for the browser tests

@@ -61,6 +61,7 @@ jobs:
     timeout-minutes: 45
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
     steps:
       - uses: actions/checkout@v4
       - run: pipx install poetry
@@ -90,6 +91,7 @@ jobs:
     timeout-minutes: 30
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
     steps:
       - uses: actions/checkout@v4
       - run: pipx install poetry
@@ -117,6 +119,7 @@ jobs:
     continue-on-error: true
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
     steps:
       - uses: actions/checkout@v4
       - run: pipx install poetry
