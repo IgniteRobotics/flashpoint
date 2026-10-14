@@ -33,3 +33,7 @@ No D1–D11 decision is touched (view rendering only). No logs are read; per poi
 - [Dense clusters: 20+ lines within a few °C sit within 10 px of each other] → the nearest one wins and is named, so the user sees exactly which unit they are on; tighter clusters need zooming the range (filters), as today.
 - [A tap on a tablet selects a unit rather than showing a readout first] → intended: selecting is reversible (tap the row or line again), and the readout updates on the tap.
 - [Changing a click's meaning when a unit is selected] → kept narrow: Replay still opens unless the click is clearly on another unit's line.
+
+## Pit check (task 3.3)
+
+2026-10-14, on `~/flashpoint-lake`: History on peak temperature. Hovering the outlier line names the right unit, and clicking it selects that unit. Passed.
