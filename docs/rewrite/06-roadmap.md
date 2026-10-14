@@ -294,6 +294,9 @@ gitGraph
 - `main` stays on the legacy code (plus P0's docs and CI) until the rewrite is ready. Then `rewrite` merges into `main` once, replacing the legacy code entirely.
 - Keep `rewrite` current with any `main` hotfixes by merging `main` into `rewrite`. Never rebase it; it's shared.
 
+**When `rewrite` merges into `main`:**
+- Drop the `rewrite` branch from the install steps: `git switch rewrite` in `docs/guide/user-guide.md`, `docs/guide/developer-guide.md` and `deploy/README.md`, and `-- -b rewrite` in the README quickstart. Also update the branching section of `docs/guide/developer-guide.md`.
+
 ## 5. Quality gates (every phase)
 
 - **CI:** `pytest --strict-markers`, coverage on `src/flashpoint/{readers,lake,physics}` ≥ 85%, ruff, mypy `--strict`.

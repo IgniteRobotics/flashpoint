@@ -4,149 +4,48 @@
 > *also flash point.*
 > ### noun
 > 1: Also Physical Chemistry. the lowest temperature at which a liquid in a specified apparatus will give off sufficient vapor to ignite momentarily on application of a flame.
-> 
+>
 > 2: a critical point or stage at which something or someone suddenly causes or creates some significant action:
 
+Flashpoint is Ignite Robotics' robot telemetry platform. It reads the logs an FRC robot records, WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.hoot`), and tracks the health of every motor across the robot's whole life:
+- temperature, current, energy, and stall time;
+- brownouts;
+- CAN dropouts and reboots.
 
-The Flashpoint Robot Telemetry Platform analyzes FRC logs and telemetry over the life of a robot, to detect anomalies and eventually predict failures before they happen. It reads WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.hoot`) into a local Parquet lake and works offline on a pit laptop.
+It follows each physical motor by its serial number through swaps and rebuilds. It flags anomalies before they cost a match, with the goal of predicting failures before they happen. Everything runs offline on a pit laptop.
 
-- **Code:** the `flashpoint` package in `src/flashpoint/`, with the `flashpoint` CLI.
-- **Plan and research:** [`docs/rewrite/`](docs/rewrite/README.md). **Decisions:** [`docs/adr/`](docs/adr/README.md).
-- **Specs and changes:** [`openspec/`](openspec/). Current behavior is in `openspec/specs/`, and work in progress is in `openspec/changes/`.
-- **Legacy:** the pre-rewrite tree is preserved at the `legacy-2025` tag. All legacy code has been removed from this branch (`openspec/changes/retire-legacy-code`).
+You see the results in a local web app:
+- **Replay**: one match, with markers for heat, brownouts, stalls, and CAN faults;
+- **History**: every motor across matches, events, and seasons;
+- **Anomalies**: what Flashpoint flagged, with evidence and triage.
 
-## Getting started
+For a deep dive into a single log, it opens AdvantageScope.
 
-Requires Python 3.11–3.13 and [Poetry](https://python-poetry.org/).
+## Quickstart
 
-```bash
+Needs Python 3.11–3.13, [Poetry](https://python-poetry.org/), the [GitHub CLI](https://cli.github.com/) (logged in with `gh auth login`), and access to the IgniteRobotics organization.
+
+```sh
+gh repo clone IgniteRobotics/flashpoint -- -b rewrite
+cd flashpoint
 poetry install
-poetry run flashpoint doctor                      # environment, lake, owlet cache status
-poetry run flashpoint ingest path/to/logs/        # .wpilog and .hoot files or folders
-poetry run flashpoint ingest --profile all FILE   # export every hoot signal (about 3x larger)
+poetry run flashpoint ingest path/to/logs/
+poetry run flashpoint serve        # open http://127.0.0.1:8000/
 ```
 
-Run `flashpoint <command> --help` for options. The commands are: `ingest`, `derive`, `report`, `serve`, `acquire`, `backup`, `restore`, `rebuild` (reprocess files ingested by an older pipeline version, or after a `restore`), and `doctor`.
+To install it as a regular command on a pit laptop, see the [user guide](docs/guide/user-guide.md#install).
 
-- **Lake location:** `~/flashpoint-lake`, or set `$FLASHPOINT_LAKE` / `--lake`.
-- **What ingest does:** every file is copied to `raw/` (content-addressed). Samples go to `bronze/` as Parquet, and log metadata goes to `meta/`. Re-running ingest skips files it has already seen.
-- **owlet:** CTRE's hoot converter is downloaded on first use for the hoot's format version, checksum-verified, and cached in `~/.cache/flashpoint/owlet/`. Run once while online before taking a laptop to an event.
+## Documentation
 
-Query with DuckDB:
+- [User guide](docs/guide/user-guide.md): install, import logs, and use Replay, History, and Anomalies.
+- [Automatic import](docs/guide/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
+- [CLI reference](docs/guide/cli-reference.md): every `flashpoint` command.
+- [How it works](docs/guide/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
+- [Developer guide](docs/guide/developer-guide.md): build, test, CI, and how changes are made.
 
-```python
-from flashpoint.lake.paths import LakePaths
-from flashpoint.lake.query import connect
-from flashpoint import config
+## Project
 
-con = connect(LakePaths(config.lake_root(None)))
-con.sql("select filename, fms_event, fms_match_number from meta_logs").show()
-con.sql("""
-    select ts_us, v_f64 from samples
-    where log_id = (select log_id from meta_logs where filename like 'GACMP_Q7_rio%')
-      and signal = 'Phoenix6/TalonFX-1/SupplyCurrent'
-""").show()
-```
-
-### Robots, matches, and motor features (P2)
-
-Each robot is described in `config/robots/<robot>.toml` (slots: bus, model, CAN id, subsystem, role, optional gear ratio and swap dates). `flashpoint doctor` lists the configured robots. Ingest then runs `derive` automatically:
-- groups each wpilog with its hoots;
-- aligns their clocks;
-- maps devices to slots and physical units;
-- frames the match (auto, gap, teleop);
-- writes `silver/` (mapped samples) and `gold/match_features/` (one row per match × phase × motor).
-
-```bash
-poetry run flashpoint derive          # only sessions whose inputs changed
-poetry run flashpoint derive --all    # rebuild every session (e.g. after editing a robot config)
-```
-
-```python
-import duckdb
-gold = "~/flashpoint-lake/gold/match_features/*/*/*.parquet"
-duckdb.sql(f"""
-    SELECT match_key, slot_id, round(temp_max_c) AS max_c, round(supply_energy_wh, 2) AS wh
-    FROM read_parquet('{gold}', hive_partitioning = true)
-    WHERE phase = 'match' AND subsystem = 'drivetrain'
-    ORDER BY match_key, slot_id
-""").show()
-```
-
-### NetworkTables signals
-
-Signals that exist only in NetworkTables, such as subsystem telemetry and PhotonVision, are declared in the robot config. Each one names an entry under a root that `config/seasons/<year>.toml` defines; the full wpilog name is the root followed by the entry, matched exactly. To declare a signal, add one table and re-derive:
-
-```toml
-[[signal]]
-id = "intake-at-extension-setpoint"
-root = "robot"                      # NT:Robot/m_robotContainer/ in seasons/2026.toml
-entry = "Intake/At Extension Setpoint"
-subsystem = "intake"
-component = "extension"             # optional
-metric = "at_setpoint"              # snake_case
-```
-
-```bash
-poetry run flashpoint derive --all  # rewrites silver/signals/ from bronze; no re-ingest
-```
-
-Numeric values are stored as numbers and booleans as 1/0, in `silver/signals/` (the DuckDB view `signals`). Declared entries that a log lacks or that are not numeric are listed in `meta_missing_signals` and logged as a derive warning. `flashpoint doctor` shows each season's roots and how many signals each robot declares.
-
-### Acquiring logs (P3)
-
-`flashpoint acquire` pulls new logs from the roboRIO (SFTP) and from removable USB volumes into the lake's `inbox/`, verifies them by hash, then runs ingest and derive. It never writes to the robot or a stick.
-
-```bash
-poetry run flashpoint acquire --dry-run   # list what would be copied; changes nothing
-poetry run flashpoint acquire             # one cycle
-poetry run flashpoint acquire --watch     # keep going (Ctrl-C to stop)
-poetry run flashpoint backup              # rclone backup, if backup.remote is set
-poetry run flashpoint restore --lake NEW  # copy the backup into a new lake (then run rebuild on it)
-```
-
-Settings live in `acquire.toml` (hosts, roots, poll interval, rclone remote). Running it as a service (systemd user unit on Linux, scheduled task on Windows) and the full config are in [`deploy/README.md`](deploy/README.md).
-
-### Replay and History (P4)
-
-`flashpoint report` turns each match in the lake into Replay data (about 1 MB per match, rebuilt only when its inputs change). `flashpoint serve` runs the app: **Replay** for one match (tracks, markers, the hottest motor, and the raw logs: one click opens them in AdvantageScope on the machine running `serve`, or download them) and **History** for every unit and slot across matches, events, seasons, and robots.
-
-```bash
-poetry run flashpoint report                            # build or refresh every match
-poetry run flashpoint report --event 2026gacmp          # just one event (or --match 2026gacmp_qm7)
-poetry run flashpoint serve                             # builds, then serves http://127.0.0.1:8000/
-poetry run flashpoint serve --host 0.0.0.0 --port 8000  # share on the pit network (read-only, no password)
-poetry run flashpoint report --static /Volumes/USB/flashpoint   # Replay folder for a USB stick
-poetry run flashpoint report --static OUT --no-raw      # without the raw logs (smaller)
-```
-
-Every view shares one filter bar under the header: season, robot, event, and the unit picked in History. A filter set on one view applies on every view and stays in the address, so links keep it; CLEAR FILTERS clears them everywhere. History's own filters (type, phase, subsystem, slot) follow a divider and apply to History only. Replay doesn't apply the unit filter, because its index doesn't record which units played each match. On a wide screen each column scrolls on its own, and the ◂ / ▸ control on a side rail minimizes it to a strip (remembered per view on this machine).
-
-Open the static export by double-clicking `index.html`; it needs no server or network. History needs `serve`, because it queries the lake. Thresholds for markers and health (65/75 °C, brownout and sag voltages) live in `config/report.toml`. So does an optional AdvantageScope path. Without one, `serve` uses the newest WPILib install, and `flashpoint doctor` shows which one it found. Students can explore further with the marimo notebook in [`notebooks/`](notebooks/README.md).
-
-
-### Anomalies (P5)
-
-Every `derive` ends by running detection, so anomalies stay current with no extra step. `flashpoint detect` reruns it by hand, for example after editing `config/anomaly.toml`; no re-derive is needed. Detection flags fixed limits (SPEC), changes against each unit's own history (DRIFT, STEP), and units that leave their sibling group (SIBLING, groups in the robot config). `serve` adds an **Anomalies** view with the evidence, likely causes, and triage (investigate, resolve, dismiss), available on the machine running `serve` only. The queue follows the shared filters (the badge in the navigation always counts the whole lake), and GROUP DEVICE groups it by unit, with a robot's brownouts under its battery.
-
-```bash
-poetry run flashpoint detect            # recompute gold/anomalies/ (skips when nothing changed)
-poetry run flashpoint detect --all      # recompute even when nothing changed
-poetry run flashpoint backtest          # score config/failure-labels.toml; report in <lake>/report/backtest/
-poetry install --extras ml              # optional: the MODEL detector ([model] enabled = true in anomaly.toml)
-```
-
-Thresholds live in `config/anomaly.toml`, likely causes in `config/anomaly-causes.toml`, and known failures in `config/failure-labels.toml`. All three are team-edited and validated on load.
-
-Brownouts are judged on the **battery proxy**: the supply voltage of the robot's declared `battery_proxy` slot (a low-current device on the main power bus, such as the gyro), or, when there is none, the median across devices. A single motor's supply dip is its own wiring drop, not a brownout. That drop shows up instead as **supply path resistance** (mΩ per motor), a baseline metric, so a loosening connector or lead can show as a STEP, DRIFT, or SIBLING anomaly.
-
-### Tests
-
-```bash
-poetry run pytest                                   # unit tests (fast, no data needed)
-poetry run python tools/fetch-corpus.py             # golden log corpus (~180 MB, release corpus-v1; needs `gh auth login`)
-poetry run pytest -m "corpus and not perf"          # tests against real robot logs
-poetry run pytest -m perf -s                        # time and memory budgets
-poetry run playwright install chromium              # once, for the browser tests
-poetry run pytest -m browser                        # the web app in Chromium (served and file://)
-```
+- **Code:** the `flashpoint` package in `src/flashpoint/`.
+- **Specs and changes:** [`openspec/`](openspec/). Current behavior is in `openspec/specs/`; work in progress is in `openspec/changes/`.
+- **Decisions:** [`docs/adr/`](docs/adr/README.md). **Research and roadmap:** [`docs/rewrite/`](docs/rewrite/README.md).
+- **Legacy:** the pre-rewrite code is kept at the `legacy-2025` tag.
