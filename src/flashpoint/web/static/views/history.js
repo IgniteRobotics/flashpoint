@@ -69,6 +69,7 @@
           h('span', { class: 'seg', id: 'metrics', role: 'group', 'aria-label': 'Metric' }),
           h('span', { class: 'seg toggle', role: 'group', 'aria-label': 'Lines per' },
             ['unit', 'slot'].map((by) => h('button', { type: 'button', class: 'btn btn--sm', 'aria-pressed': String(ui.state.by === by), dataset: { by }, on: { click: () => setBy(by) } }, 'PER ' + by.toUpperCase()))))),
+      h('p', { class: 'meta mb-2', id: 'competitions' }),
       h('div', { class: 'chart-box', id: 'chart' }),
       h('p', { class: 'chart-hover', id: 'chart-hover', 'aria-live': 'polite' }),
       h('p', { class: 'legend', id: 'legend' }),
@@ -142,7 +143,10 @@
     const title = document.getElementById('metric-title');
     FP.fill(title, trend.label + ' ', h('span', { class: 'h-section__aside' }, 'per match · ' + trend.unit + (trend.reference != null ? ' · reference ' + trend.reference + ' ' + trend.unit : '')));
     const matches = trend.matches;
+    const named = document.getElementById('competitions');
+    ui.marks = null;
     if (!matches.length || !trend.points.length) {
+      FP.clear(named);
       const unknown = FP.unknownFilters(FP.filters(ui.state), ui.combos);
       FP.fill(box, h('div', { class: 'notice prose', id: 'chart-empty' },
         h('p', null, 'No matches in this range.'),
@@ -182,6 +186,9 @@
       const i = Math.round(v);
       return Math.abs(v - i) < 1e-6 && matches[i] ? matches[i].match_key.split('_')[1] : '';
     };
+    const runs = FP.competitions(matches.map((m) => m.event));
+    ui.marks = FP.competitionMarks(runs);
+    FP.fill(named, FP.competitionsText(runs));
     ui.hot = null;
     ui.chart = FP.track(box, {
       height: 318,
@@ -191,6 +198,7 @@
       series,
       refs: [{ value: trend.reference, label: trend.reference != null ? 'REF ' + trend.reference + ' ' + trend.unit : null }],
       shade,
+      marks: ui.marks,
       xLabel: label,
       yLabel: (v) => FP.fmt(v, Math.abs(v) >= 100 ? 0 : 1),
       ySize: 52,
@@ -377,9 +385,12 @@
   function selectUnit(id) { setFilters({ unit: selectedUnit() === id ? ALL : id }); }
 
   // For tests: the plotted series ({ name: values per match }), the match keys, the emphasised
-  // line, and at(name, index): the page coordinates of a plotted point.
+  // line, the competition marks passed to the chart and the labels it drew, and at(name, index):
+  // the page coordinates of a plotted point.
   FP.historyChart = () => (ui && ui.chart ? {
     matches: ui.trend.matches.map((m) => m.match_key),
+    marks: ui.marks,
+    drawn: ui.chart.drawnMarks(),
     series: Object.fromEntries(ui.chart.u.series.slice(1).map((s, i) => [s.label, ui.chart.u.data[i + 1]])),
     highlighted: ui.hot,
     at: (name, index) => {

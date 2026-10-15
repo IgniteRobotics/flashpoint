@@ -1050,6 +1050,8 @@ HOT_KEY, HOTTER_KEY = match_key(42), match_key(50)
 def _point(page: Any, series: str, key: str) -> tuple[float, float]:
     """The page coordinates of a plotted History point (the test hook, design §5)."""
     page.wait_for_function("() => FP.historyChart() !== null")
+    # The whole chart on screen: a click outside the viewport does not reach the page.
+    page.evaluate("() => document.getElementById('chart').scrollIntoView({ block: 'center' })")
     at = page.evaluate(
         "([s, k]) => FP.historyChart().at(s, FP.historyChart().matches.indexOf(k))", [series, key]
     )
@@ -1117,6 +1119,132 @@ def test_slot_line_opens_replay(page: Any, history_site: str) -> None:
     page.mouse.click(*_point(page, "2026-comp/intake-roller", match_key(4)))
     page.wait_for_function(f"() => location.hash.includes('m={match_key(4)}')")
     assert "view=replay" in page.url and "track=intake-roller" in page.url
+    assert watch.clean(), watch
+
+
+# --- competition boundaries (shared by History and the anomaly evidence) --------------------
+
+
+def _competitions(page: Any, keys: list[str]) -> dict[str, Any]:
+    return dict(
+        page.evaluate(
+            "keys => { const runs = FP.competitions(keys);"
+            " return { runs, text: FP.competitionsText(runs),"
+            " marks: FP.competitionMarks(runs) }; }",
+            keys,
+        )
+    )
+
+
+def test_competitions_one_event(page: Any, history_site: str) -> None:
+    _open(page, history_site, "#view=history")
+    got = _competitions(page, ["2026gadal"] * 4)
+    assert got["text"] == "COMPETITION · GADAL"
+    assert got["marks"] == [{"x": -0.5, "label": "GADAL", "line": False}]
+
+
+def test_competitions_span_events(page: Any, history_site: str) -> None:
+    _open(page, history_site, "#view=history")
+    got = _competitions(page, ["2026gadal"] * 3 + ["2026gacmp"] * 2)
+    assert got["text"] == "COMPETITIONS · GADAL · 3 MATCHES → GACMP · 2 MATCHES"
+    assert got["marks"] == [
+        {"x": -0.5, "label": "GADAL", "line": False},
+        {"x": 2.5, "label": "GACMP", "line": True},
+    ]
+
+
+def test_competitions_span_years(page: Any, history_site: str) -> None:
+    _open(page, history_site, "#view=history")
+    got = _competitions(page, ["2025gaalb"] * 2 + ["2026gadal"] * 3)
+    assert got["text"] == "COMPETITIONS · 2025 GAALB · 2 MATCHES → 2026 GADAL · 3 MATCHES"
+    assert got["marks"][1] == {"x": 1.5, "label": "2026 GADAL", "line": True}
+
+
+def test_competitions_split_on_the_event_key(page: Any, history_site: str) -> None:
+    _open(page, history_site, "#view=history")
+    got = _competitions(page, ["2025gacmp", "2026gacmp", "2026gacmp"])
+    assert [(r["event"], r["name"], r["start"], r["n"]) for r in got["runs"]] == [
+        ("2025gacmp", "2025 GACMP", 0, 1),
+        ("2026gacmp", "2026 GACMP", 1, 2),
+    ]
+
+
+CROWDED = """marks => new Promise((done, fail) => {
+  const el = document.createElement('div');
+  el.style.width = '300px';
+  document.body.append(el);
+  const x = Array.from({ length: 100 }, (_, i) => i);
+  const chart = FP.track(el, { height: 120, x, series: [{ label: 'v', values: x }], marks });
+  requestAnimationFrame(() => {
+    try { done(chart.drawnMarks()); } catch (err) { fail(err); }
+    finally { chart.destroy(); el.remove(); }
+  });
+})"""
+
+
+def test_crowded_mark_labels(page: Any, history_site: str) -> None:
+    _open(page, history_site, "#view=history")
+    close = [{"x": 49.5, "label": "AAAA", "line": True}, {"x": 50.5, "label": "BBBB", "line": True}]
+    apart = [{"x": 9.5, "label": "AAAA", "line": True}, {"x": 59.5, "label": "BBBB", "line": True}]
+    assert page.evaluate(CROWDED, close) == ["AAAA"]
+    assert page.evaluate(CROWDED, apart) == ["AAAA", "BBBB"]
+
+
+GADAL_GACMP = [
+    {"x": -0.5, "label": "GADAL", "line": False},
+    {"x": 29.5, "label": "GACMP", "line": True},
+]
+
+
+def _history_marks(page: Any) -> dict[str, Any]:
+    page.wait_for_function("() => FP.historyChart() && FP.historyChart().drawn.length > 0")
+    return dict(
+        page.evaluate("() => ({ marks: FP.historyChart().marks, drawn: FP.historyChart().drawn })")
+    )
+
+
+def test_history_season_spans_two_competitions(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history")
+    page.wait_for_selector("#rows tr")
+    assert page.inner_text("#competitions") == (
+        "COMPETITIONS · GADAL · 30 MATCHES → GACMP · 30 MATCHES"
+    )
+    assert _history_marks(page) == {"marks": GADAL_GACMP, "drawn": ["GADAL", "GACMP"]}
+    assert watch.clean(), watch
+
+
+def test_history_one_competition(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history&event=2026gacmp")
+    page.wait_for_selector("#rows tr")
+    assert page.inner_text("#competitions") == "COMPETITION · GACMP"
+    assert _history_marks(page)["marks"] == [{"x": -0.5, "label": "GACMP", "line": False}]
+    assert watch.clean(), watch
+
+
+def test_history_boundaries_follow_the_filters(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history&event=2026gacmp")
+    page.wait_for_selector("#rows tr")
+    page.evaluate("() => { window.notReloaded = true; }")
+    page.select_option("#f-event", "all")
+    page.wait_for_function("() => FP.historyChart() && FP.historyChart().marks.length === 2")
+    assert _history_marks(page)["marks"] == GADAL_GACMP
+    assert page.evaluate("() => window.notReloaded") is True
+    assert watch.clean(), watch
+
+
+def test_history_per_slot_lines_keep_the_boundaries(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history&by=slot")
+    page.wait_for_selector("[data-by='slot'][aria-pressed='true']")
+    assert _history_marks(page)["marks"] == GADAL_GACMP
+    assert watch.clean(), watch
+
+
+def test_history_no_matches_no_competitions(page: Any, history_site: str) -> None:
+    watch = _open(page, history_site, "#view=history&event=2026gacol")
+    page.wait_for_selector("#chart-empty")
+    assert "No matches in this range." in page.inner_text("#chart-empty")
+    assert page.inner_text("#competitions") == ""
+    assert page.evaluate("() => FP.historyChart()") is None
     assert watch.clean(), watch
 
 

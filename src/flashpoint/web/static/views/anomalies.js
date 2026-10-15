@@ -247,17 +247,6 @@
   // "2026gadal → 2026gacmp" -> "GADAL → GACMP"
   function eventText(s) { return s.replace(/\b\d{4}([a-z0-9]+)/g, (_, e) => e.toUpperCase()); }
 
-  // The evidence's competitions in match order: [{ name, start, n }], one per run of an event.
-  function competitions(points) {
-    const runs = [];
-    points.forEach((p, i) => {
-      const name = eventText(String(p.match_key || '').split('_')[0]);
-      if (runs.length && runs[runs.length - 1].name === name) runs[runs.length - 1].n += 1;
-      else runs.push({ name, start: i, n: 1 });
-    });
-    return runs;
-  }
-
   function markSelected() {
     document.querySelectorAll('#queue .anom').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === ui.id)));
   }
@@ -327,14 +316,11 @@
     const points = a.evidence.points;
     const box = h('div', { class: 'chart-box', id: 'evidence' });
     const legendPeer = a.evidence.peer;
-    const runs = competitions(points);
-    // Each competition is named where it starts; the first gets no line (it starts at the edge).
-    ui.marks = runs.map((r, i) => ({ x: r.start - 0.5, label: r.name, line: i > 0 }));
+    const runs = FP.competitions(points.map((p) => String(p.match_key || '').split('_')[0]));
+    ui.marks = FP.competitionMarks(runs);
     const section = h('section', null,
       h('h2', { class: 'h-section' }, 'Evidence ', h('span', { class: 'h-section__aside' }, a.metric_name + (a.metric_unit ? ' · ' + a.metric_unit : '') + ' · per match')),
-      h('p', { class: 'meta mb-2', id: 'competitions' }, runs.length === 1
-        ? 'COMPETITION · ' + runs[0].name
-        : 'COMPETITIONS · ' + runs.map((r) => r.name + ' · ' + r.n + (r.n === 1 ? ' MATCH' : ' MATCHES')).join(' → ')),
+      h('p', { class: 'meta mb-2', id: 'competitions' }, FP.competitionsText(runs)),
       box,
       h('p', { class: 'legend mt-2' },
         h('span', null, h('span', { class: 'hi' }, '━'), ' ', who(a)),
