@@ -15,4 +15,4 @@
 
 - [x] 4.1 Add a dated follow-up note under P4 in `docs/rewrite/06-roadmap.md` (History chart marks competition boundaries; shared with anomaly evidence). Update the History section of `docs/guide/user-guide.md` and the README's History paragraph if either describes the chart. Verify the docs link/drift tests pass
 - [x] 4.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR from `feature/history-competition-boundaries` into `rewrite`, and verify CI is green on all blocking jobs
-- [ ] 4.3 [HUMAN] On `~/flashpoint-lake`, open History for the 2026 season with no event filter: confirm the GADAL/GACMP (and any other event) boundaries sit where the match numbers restart, the labels are readable, and the competitions line matches. Record the result in design.md
+- [x] 4.3 [HUMAN] On `~/flashpoint-lake`, open History for the 2026 season with no event filter: confirm the GADAL/GACMP (and any other event) boundaries sit where the match numbers restart, the labels are readable, and the competitions line matches. Record the result in design.md
