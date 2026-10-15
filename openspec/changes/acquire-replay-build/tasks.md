@@ -15,5 +15,5 @@
 ## 4. Docs and gate
 
 - [x] 4.1 Update `docs/guide/auto-import.md` (the cycle now builds Replay data; reload the page to see a new match; the status lines), `docs/guide/cli-reference.md` (`report` exit 3 and its lock), and add a dated follow-up note under P3 in `docs/rewrite/06-roadmap.md` that also records the spec placement (design §5) for P3's archive. Verify the docs link/drift tests pass
-- [ ] 4.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR from `feature/acquire-replay-build` into `rewrite`, and verify CI is green on all blocking jobs
+- [x] 4.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR from `feature/acquire-replay-build` into `rewrite`, and verify CI is green on all blocking jobs (PR #59: all blocking jobs green; non-blocking perf failed only on the known Q7 ingest overrun, 40.5 s > 30 s, ingest path untouched here)
 - [ ] 4.3 [HUMAN] At the pit (or on `~/flashpoint-lake` with the robot or a stick): run the watch beside `flashpoint serve`, bring in a new match, and confirm it appears in Replay after a page reload with no restart; note the cycle time with the build. Record the result in design.md
