@@ -1,11 +1,13 @@
-"""One acquisition cycle: robot -> volumes -> ingest -> clear the inbox -> derive -> backup.
+"""One acquisition cycle: robot -> volumes -> ingest -> clear the inbox -> derive -> Replay build
+-> backup.
 
 A failure in one source never stops the others; every outcome lands in the `CycleResult`,
 which the watch loop writes as the status. Ingest (`--no-derive`) and derive run as separate
 subprocesses, each in its own process group, so the watch process stays small and a stop ends
 everything they started. Derive is retried on later cycles until it succeeds
 (`derive_pending`), so an inbox file can be cleared once ingested: raw storage holds it. The
-backup step is a hook called last.
+Replay build (`flashpoint report`) follows a successful derive and is retried the same way
+(`report_pending`). The backup step is a hook called last.
 """
 
 import contextlib
@@ -135,6 +137,8 @@ class CycleResult:
     derive: DeriveOutcome | None = None  # None: no derive owed, stopped, or dry run
     derive_pending: bool = False  # derive still owed: pass it to the next run_cycle
     detect: DeriveOutcome | None = None  # None: no baseline restart pending (derive detects)
+    report: DeriveOutcome | None = None  # None: no Replay build owed, derive failed, or stopped
+    report_pending: bool = False  # Replay build still owed: pass it to the next run_cycle
     failed_pulls: list[dict[str, Any]] = field(default_factory=list)
     raw_changed: bool = False  # new files reached raw storage (for backup)
     ledger_changed: bool = False  # pulls, files or warnings changed (for backup)
@@ -179,10 +183,15 @@ def derive_command(lake: LakePaths) -> list[str]:
 
 
 DETECT_LOCKED = 3  # `flashpoint detect`'s exit code when its lock is held (watch.EXIT_LOCKED)
+REPORT_LOCKED = 3  # `flashpoint report`'s, likewise
 
 
 def detect_command(lake: LakePaths) -> list[str]:
     return [sys.executable, "-m", "flashpoint", "detect", "--lake", str(lake.root)]
+
+
+def report_command(lake: LakePaths) -> list[str]:
+    return [sys.executable, "-m", "flashpoint", "report", "--lake", str(lake.root)]
 
 
 IngestCommand = Callable[[Sequence[Path], LakePaths], list[str]]
@@ -210,6 +219,8 @@ def run_cycle(
     derive_pending: bool = False,
     backup: Callable[["CycleResult"], None] | None = None,
     detect_command: DeriveCommand = detect_command,
+    report_command: DeriveCommand = report_command,
+    report_pending: bool = False,
 ) -> CycleResult:
     """Run one cycle. A set `stop` skips every remaining step.
 
@@ -219,9 +230,17 @@ def run_cycle(
     stays pending until it exits 0. `backup` is called last with the result (not on a dry run
     or a stop); g7 wires the rclone backup in here. Detection runs when a triage baseline
     restart is still pending (derive detects on its own; this catches a restart whose detect
-    lost the lock to the watch's derive).
+    lost the lock to the watch's derive). `report_pending` is the previous cycle's
+    `result.report_pending`: the Replay build runs after detection when it is set or when derive
+    succeeded in this cycle, never in a cycle whose derive failed, and stays pending until it
+    exits 0.
     """
-    result = CycleResult(started=_now(), dry_run=dry_run, derive_pending=derive_pending)
+    result = CycleResult(
+        started=_now(),
+        dry_run=dry_run,
+        derive_pending=derive_pending,
+        report_pending=report_pending,
+    )
     result.sources.append(
         _robot_step(config, pulls, lake, result, stop, include_active, dry_run, sleep, connect)
     )
@@ -246,6 +265,13 @@ def run_cycle(
         except Exception as exc:  # noqa: BLE001
             log.exception("detect step failed")
             result.errors.append(f"detect: {_describe(exc)}")
+    derive_failed = result.derive is not None and result.derive.returncode != 0
+    if not dry_run and result.report_pending and not derive_failed and not stop.is_set():
+        try:
+            _report_step(lake, result, stop, report_command)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Replay build step failed")
+            result.errors.append(f"report: {_describe(exc)}")
     if not dry_run:
         result.failed_pulls = pulls.failed()
         result.ledger_changed = result.ledger_changed or any(
@@ -556,6 +582,7 @@ def _derive_step(
         result.ledger_changed = True  # derive rewrites the derived tables
     if code == 0:
         result.derive_pending = False
+        result.report_pending = True
     elif not stop.is_set():
         log.warning("derive exited with %s; retrying next cycle\n%s", code, tail)
         result.errors.append(f"derive: exit {code}")
@@ -570,6 +597,23 @@ def _detect_step(
     if code not in (0, None, DETECT_LOCKED) and not stop.is_set():
         log.warning("detect exited with %s; retrying next cycle", code)
         result.errors.append(f"detect: exit {code}")
+
+
+def _report_step(
+    lake: LakePaths, result: CycleResult, stop: threading.Event, report_command: DeriveCommand
+) -> None:
+    if not (lake.meta / "sessions.parquet").is_file():
+        result.report_pending = False  # nothing derived yet: nothing to build
+        return
+    code, text = run_subprocess(report_command(lake), stop)
+    tail = text[-OUTPUT_TAIL_CHARS:]
+    result.report = DeriveOutcome(code, tail)
+    if code == 0:
+        result.report_pending = False
+    # Exit 3: another build holds the lock; the build stays owed for the next cycle.
+    elif code != REPORT_LOCKED and not stop.is_set():
+        log.warning("Replay build exited with %s; retrying next cycle\n%s", code, tail)
+        result.errors.append(f"report: exit {code}")
 
 
 def _new_process_group() -> dict[str, Any]:

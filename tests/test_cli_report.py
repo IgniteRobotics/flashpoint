@@ -1,12 +1,16 @@
 """`flashpoint report` and `flashpoint serve` (spec: match-reports / Served and static modes)."""
 
+import contextlib
+import os
 import signal
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 import pytest
 
+from flashpoint.acquire.watch import EXIT_LOCKED, AcquireLock
 from flashpoint.cli import EXIT_FAILED, EXIT_USAGE, main
 from tests.report.lake import MatchLake, quiet_rows
 
@@ -62,6 +66,82 @@ def test_report_bad_config(
     assert main(["report", "--lake", str(lake.root)]) == EXIT_USAGE
 
 
+HOLDER = """
+import os, sys, time
+from pathlib import Path
+from flashpoint.acquire.watch import AcquireLock
+AcquireLock(Path(sys.argv[1])).acquire()
+print("locked", os.getpid(), flush=True)
+time.sleep(120)
+"""
+
+
+def _report_tree(lake: MatchLake) -> dict[str, tuple[int, bytes]]:
+    """Every file under `report/` (data files, index, `site-state.json`) with mtime and bytes."""
+    root = lake.root / "report"
+    return {
+        p.relative_to(root).as_posix(): (p.stat().st_mtime_ns, p.read_bytes())
+        for p in sorted(root.rglob("*"))
+        if p.is_file()
+    }
+
+
+def test_report_lock_held_writes_nothing(
+    lake: MatchLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["report", "--lake", str(lake.root)]) == 0
+    capsys.readouterr()
+    before = _report_tree(lake)
+    assert "site-state.json" in before and "data/matches.js" in before
+    lock = lake.root / "meta" / "report.lock"
+
+    with AcquireLock(lock):
+        assert main(["report", "--lake", str(lake.root), "--all"]) == EXIT_LOCKED
+    err = capsys.readouterr().err
+    assert "Replay build is already running" in err and str(lock) in err
+    assert _report_tree(lake) == before
+
+
+def test_report_lock_of_a_killed_holder_is_taken_over(
+    lake: MatchLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lock = lake.root / "meta" / "report.lock"
+    proc = subprocess.Popen(  # noqa: S603
+        [sys.executable, "-c", HOLDER, str(lock)], stdout=subprocess.PIPE, text=True
+    )
+    try:
+        assert proc.stdout is not None
+        word, pid = proc.stdout.readline().split()
+        assert word == "locked"
+        assert main(["report", "--lake", str(lake.root)]) == EXIT_LOCKED
+        with contextlib.suppress(OSError):  # TerminateProcess on Windows
+            os.kill(int(pid), getattr(signal, "SIGKILL", signal.SIGTERM))
+        proc.kill()
+        proc.wait()
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+        assert proc.stdout is not None
+        proc.stdout.close()
+    assert lock.exists()  # the dead holder's file is left behind
+    capsys.readouterr()
+
+    assert main(["report", "--lake", str(lake.root)]) == 0
+    assert "built 2, unchanged 0" in capsys.readouterr().out
+
+
+def test_report_config_error_leaves_the_lock_free(
+    lake: MatchLake, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "report.toml").write_text("[thresholds]\nnope = 1\n")
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(tmp_path / "config"))
+    assert main(["report", "--lake", str(lake.root)]) == EXIT_USAGE
+    with AcquireLock(lake.root / "meta" / "report.lock"):
+        pass
+
+
 _SERVE = "import sys\nfrom flashpoint.cli import main\nsys.exit(main(sys.argv[1:]))\n"
 
 
@@ -87,6 +167,36 @@ def test_serve_builds_then_stops_cleanly(lake: MatchLake, build: bool) -> None:
         if process.poll() is None:
             process.kill()
             process.wait()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGINT semantics differ on Windows")
+def test_serve_starts_while_a_build_holds_the_lock(
+    lake: MatchLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["report", "--lake", str(lake.root)]) == 0
+    capsys.readouterr()
+    before = _report_tree(lake)
+    args = [sys.executable, "-c", _SERVE, "serve", "--lake", str(lake.root), "--port", "0"]
+    with AcquireLock(lake.root / "meta" / "report.lock"):
+        process = subprocess.Popen(  # noqa: S603
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        try:
+            assert process.stdout is not None
+            banner = process.stdout.readline()
+            assert banner.startswith(f"Flashpoint (lake {lake.root}) at http://127.0.0.1:")
+            url = banner.split(" at ", 1)[1].strip()
+            with urllib.request.urlopen(f"{url}/data/matches.js") as response:  # noqa: S310
+                assert response.read() == before["data/matches.js"][1]
+            process.send_signal(signal.SIGINT)
+            assert process.wait(timeout=10) == 0
+            assert process.stderr is not None
+            assert "Replay build is already running" in process.stderr.read()
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+    assert _report_tree(lake) == before
 
 
 def test_serve_host_warning_and_bad_port(

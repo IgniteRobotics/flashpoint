@@ -34,6 +34,7 @@ from flashpoint.readers.hoot import HootError
 
 if TYPE_CHECKING:
     from flashpoint.ingest import IngestReport
+    from flashpoint.report.build import ReportBuilder
 
 # The ingest, derive and robot-config modules pull in polars, duckdb and pyarrow; they are
 # imported inside the handlers that need them to keep `flashpoint acquire` small (watch RSS budget).
@@ -247,6 +248,9 @@ def _backtest(lake: LakePaths) -> int:
     return 0
 
 
+REPORT_LOCK = "report.lock"
+
+
 def _report(lake: LakePaths, args: argparse.Namespace) -> int:
     from flashpoint.report.build import ReportBuilder
     from flashpoint.report.settings import ReportConfigError
@@ -264,9 +268,18 @@ def _report(lake: LakePaths, args: argparse.Namespace) -> int:
         print(f"configuration error: {exc}", file=sys.stderr)
         return EXIT_USAGE
     try:
-        summary = builder.build(args.event, args.match, force=args.all)
+        with AcquireLock(lake.meta / REPORT_LOCK):
+            return _build_report(lake, builder, args)
+    except LockHeldError:
+        print(f"a Replay build is already running on this lake (lock: {lake.meta / REPORT_LOCK})",
+              file=sys.stderr)  # fmt: skip
+        return EXIT_LOCKED
     finally:
         builder.close()
+
+
+def _build_report(lake: LakePaths, builder: "ReportBuilder", args: argparse.Namespace) -> int:
+    summary = builder.build(args.event, args.match, force=args.all)
     print(
         f"built {len(summary.built)}, unchanged {len(summary.unchanged)},"
         f" removed {len(summary.removed)}; {summary.matches_listed} match(es) listed"
