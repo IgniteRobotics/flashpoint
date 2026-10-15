@@ -58,3 +58,7 @@ The year scenario is tested with a direct `page.evaluate` of `FP.competitions` a
 ## Migration Plan
 
 None. Frontend only; rollback is reverting the PR.
+
+## Pit check (task 4.3)
+
+2026-10-15, on `~/flashpoint-lake`: History for the 2026 season with no event filter. Boundaries sit where the match numbers restart, labels are readable, and the competitions line matches. Passed.
