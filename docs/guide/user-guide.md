@@ -138,6 +138,7 @@ Pick a match from the list on the left; matches are grouped by event. You'll see
 Pick a metric (maximum temperature, lowest voltage under load, energy, stall time, current, reboots, CAN gaps) to see one point per match:
 - By default there is one line per **unit**, the physical motor, followed by serial number across slots and robots. You can switch to one line per **slot**, the position on the robot.
 - Point at a line to see which motor it is.
+- Dashed lines mark where each competition starts, labelled with the event (for example GACMP); the line above the chart lists the competitions and their match counts.
 - Select a motor to highlight it, see its totals, and jump to its matches in Replay.
 
 ### Anomalies: what Flashpoint flagged

@@ -235,6 +235,31 @@
     ? 'raw/' + encodeURIComponent(source.download)
     : 'raw/' + encodeURIComponent(source.sha256) + '/' + encodeURIComponent(source.download));
 
+  /* ---------- Competitions: runs of one event along a chart's matches ---------- */
+  /* Event keys in match order ('2026gadal', ...) -> [{ event, name, start, n }], one per run.
+     A run splits on the key, so 2025gacmp then 2026gacmp is two. Names drop the year
+     ('GADAL') unless the keys span more than one year ('2025 GACMP'). */
+  FP.competitions = (keys) => {
+    const runs = [];
+    keys.forEach((key, i) => {
+      const last = runs[runs.length - 1];
+      if (last && last.event === key) last.n += 1;
+      else runs.push({ event: key, start: i, n: 1 });
+    });
+    const parts = (key) => /^(\d{4})(.*)$/.exec(String(key || '')) || [null, '', String(key || '')];
+    const years = new Set(runs.map((r) => parts(r.event)[1]));
+    for (const r of runs) {
+      const [, year, code] = parts(r.event);
+      r.name = (years.size > 1 && year ? year + ' ' : '') + code.toUpperCase();
+    }
+    return runs;
+  };
+  // The first competition is named at the chart's start; each later one gets a boundary line.
+  FP.competitionMarks = (runs) => runs.map((r, i) => ({ x: r.start - 0.5, label: r.name, line: i > 0 }));
+  FP.competitionsText = (runs) => (runs.length === 1
+    ? 'COMPETITION · ' + runs[0].name
+    : 'COMPETITIONS · ' + runs.map((r) => r.name + ' · ' + r.n + (r.n === 1 ? ' MATCH' : ' MATCHES')).join(' → '));
+
   /* ---------- Charts: track() wraps uPlot with the shell theme ---------- */
   /* opts: { height, x: [...], series: [{ label, values, stroke, width, dash, fill, points, paths,
              band: { lower, upper } }], refs: [{ value, label }], shade: [{ from, to, alpha }],
@@ -245,7 +270,7 @@
              yLabel: (y) => string, ariaLabel: string,
              onSelect: (x0, x1) => void   shift-drag (a plain drag still picks),
              onZoom: (factor, x) => void  ctrl/meta+wheel or a Safari pinch; factor > 1 zooms in }
-     Returns { u, redraw, destroy, setX(min, max), selecting() }. */
+     Returns { u, redraw, destroy, setX(min, max), selecting(), drawnMarks() }. */
   FP.track = (el, opts) => {
     const t = FP.tokens();
     const data = [opts.x];
@@ -289,9 +314,12 @@
         ctx.restore();
       }
     };
+    let drawnMarks = []; // the mark labels drawn last time (a crowded label is left off)
     const drawOver = (u) => {
       const ctx = u.ctx;
       const px = window.devicePixelRatio || 1;
+      drawnMarks = [];
+      let labelEnd = -Infinity; // right edge of the last label drawn
       for (const mark of opts.marks || []) {
         const x = u.valToPos(mark.x, 'x', true);
         if (x < u.bbox.left - 1 || x > u.bbox.left + u.bbox.width + 1) continue;
@@ -306,11 +334,16 @@
           ctx.stroke();
         }
         if (mark.label) {
-          ctx.fillStyle = t.amberDim;
           ctx.font = (10 * px) + 'px ' + t.font;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.fillText(mark.label, x + 4 * px, u.bbox.top + 4 * px);
+          const left = x + 4 * px;
+          if (left >= labelEnd + 6 * px) {
+            ctx.fillStyle = t.amberDim;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(mark.label, left, u.bbox.top + 4 * px);
+            labelEnd = left + ctx.measureText(mark.label).width;
+            drawnMarks.push(mark.label);
+          }
         }
         ctx.restore();
       }
@@ -480,6 +513,7 @@
       destroy: () => { observer.disconnect(); u.destroy(); },
       setX: (min, max) => u.setScale('x', { min, max }),
       selecting: () => (selection ? selection.slice() : null),
+      drawnMarks: () => drawnMarks.slice(),
     };
   };
 
