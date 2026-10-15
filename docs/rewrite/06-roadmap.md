@@ -121,12 +121,13 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 
 ### P3 — Acquire & automate (S)
 > **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on Linux and Windows (macOS passed 2026-10-05), the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
+> - **Follow-up, change `acquire-replay-build` (2026-10-15):** after a successful derive the acquire cycle (watch and one-shot, not a dry run) runs an incremental `flashpoint report` as its own process, between derive/detect and backup, so a new match reaches Replay without a restart; a running `serve` lists it after a page reload. A failed or locked build stays owed (persisted as `report` in the watch status, shown by `doctor`) and is retried each cycle. `flashpoint report` now holds `meta/report.lock` and exits 3 when another build has it. **Spec placement:** the requirements live in `match-reports` ("Replay data kept current by the acquire watch", "One Replay build at a time") because `acquisition-service` exists only in the unarchived `p3-log-acquisition` change. When P3 archives, add the Replay build step between derive and backup in `acquisition-service`'s "One-shot and watch modes" list.
 
 - **SFTP puller** (paramiko or asyncssh, [Background]):
   - copies to the inbox, verifies size and hash, and **never deletes on the robot by default**;
   - is aware of rotation: warn when robot free space is under 100 MB, since WPILib and Phoenix prune at 50 MB (WPILib Developers, 2026b; CTR Electronics, n.d.-a).
 - **Removable media:** USB sticks (macOS, Linux, Windows) are a pull source next to the robot, read-only and hash-verified. Manual inbox drops still work.
-- **Watcher:** `flashpoint acquire --watch` cycles robot, volumes, ingest, derive and backup.
+- **Watcher:** `flashpoint acquire --watch` cycles robot, volumes, ingest, derive, the Replay build and backup.
 - **Packaging:** a systemd user unit with a correct `ExecStart` (#7) and a Windows scheduled task. Windows is supported. The container is deferred out of P3.
 - **Backup:** `rclone` copy of `lake/raw` (immutable) and a `lake/meta` snapshot [Background]. Replaces `drive-backup.py`.
 - **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.

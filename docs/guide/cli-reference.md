@@ -72,7 +72,9 @@ flashpoint backtest
 
 ## `flashpoint report`
 
-Build the Replay data for each match, about 1 MB per match. Matches whose inputs haven't changed are skipped. `serve` runs this for you when it starts, so you only need it on its own for a static export.
+Build the Replay data for each match, about 1 MB per match. Matches whose inputs haven't changed are skipped. `serve` runs this for you when it starts, and `acquire` runs it after each cycle that derives something new, so you only need it on its own for a static export.
+
+Only one build runs on a lake at a time. While another build holds `<lake>/meta/report.lock`, `report` exits with code `3` and writes nothing; run it again when that build ends. `serve` started during a build skips its own build and serves the existing data.
 
 | Option | What it does |
 |---|---|

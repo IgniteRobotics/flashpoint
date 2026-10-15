@@ -4,7 +4,7 @@
 - When the robot is powered and on the same network, it pulls the new logs.
 - When someone plugs a USB stick into the laptop, it copies the logs off that too.
 
-Each new log is ingested, derived, and checked for anomalies within a cycle or two.
+Each new log is ingested, derived, checked for anomalies, and built into Replay within a cycle or two.
 
 This page assumes Flashpoint is installed and `flashpoint doctor` works ([User guide: Install](user-guide.md#install)).
 
@@ -15,7 +15,8 @@ Every cycle (default every 30 seconds) the watch does the following, in order:
 1. **Robot:** it tries each configured robot address until one answers, then lists the `.wpilog` and `.hoot` files in the log folders on the roboRIO (internal storage and its USB stick). New files are copied over SFTP into the lake's `inbox/`. Each copy is checked against the size and SHA-256 hash of the file on the robot.
 2. **USB drives:** it looks for removable drives plugged into this computer, finds `.wpilog` and `.hoot` files up to four folders deep, and copies the new ones with the same checks. When a drive is finished, the log says `volume <name> (<path>) is safe to remove`.
 3. **Ingest:** everything in `inbox/` is ingested, then derived, then run through detection. This includes files you drop in `inbox/` by hand.
-4. **Backup:** if a backup is configured and due, it runs.
+4. **Replay:** after a successful derive, it builds the Replay data for the new or changed matches only (the same build as `flashpoint report`). A running `flashpoint serve` lists a new match in Replay after you reload the page; you don't need to restart it. A build that fails, or that finds another build already running, is tried again next cycle, also after the watch restarts.
+5. **Backup:** if a backup is configured and due, it runs.
 
 **It never changes anything on the robot or the stick.** It doesn't delete, move, or rename anything there, and it has no option to.
 
@@ -176,6 +177,7 @@ The `acquire` section shows:
 - low-space warnings;
 - files that failed to copy, with the reason;
 - whether derive is pending or failed;
+- whether a Replay build is owed (`Replay build pending`) or failed (`Replay build error: ...`, with the end of its output);
 - the last backup.
 
 On Linux, `journalctl --user -u flashpoint-acquire` has the full log. Each cycle ends with a line like:
@@ -200,4 +202,6 @@ cycle done: robot 10.68.29.2 ok, volume ROBOT-USB ok; transfers {'verified': 3};
 | `another acquire is running on this lake (pid ... on ... since ...)` | Another `acquire`, or a `backup`, is using this lake | Stop the other one, or let it finish. If that process has already exited, just run again: the lock is released automatically, so there is never a stale lock to delete |
 | A `.part` file in `inbox/` | A copy was cut off: the watch was killed, or a stick was pulled mid-copy | Nothing. `.part` files are never ingested and are removed on the next start |
 | `ingest exited with N and changed nothing; inbox kept` | Ingest failed on something in the inbox | Run `flashpoint ingest <lake>/inbox` by hand to see the error |
+| `Replay build error: ...` in `doctor` | The Replay build after derive failed; the watch tries again every cycle | Run `flashpoint report` by hand to see the full error. Usually a configuration error in `config/robots/` or `report.toml` |
+| `a Replay build is already running on this lake` from `flashpoint report` | The watch (or another `report`) is building Replay data right now | Run it again once that build ends; there is never a stale lock to delete |
 | `failed ...` lines in `doctor` | A file failed its copy check three times, and the watch has stopped retrying it | Copy it by hand and run `flashpoint ingest` on it; if that fails too, the file on the robot is damaged |

@@ -748,3 +748,166 @@ def test_pending_restart_skipped_on_a_dry_run(
     result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, dry_run=True,
                   detect_command=_detect_marker(marker))  # fmt: skip
     assert result.detect is None and not marker.exists()
+
+
+# --- Replay build after derive ----------------------------------------------------------------
+
+
+def _step(
+    log: Path, name: str, code: int = 0, touch: Path | None = None
+) -> Callable[..., list[str]]:
+    """A fake child that appends `name` to `log` (and touches `touch`), then exits `code`."""
+    script = f"open({str(log)!r}, 'a').write({name + chr(10)!r})\n"
+    if touch is not None:
+        script += f"open({str(touch)!r}, 'a').close()\n"
+    script += f"print('{name} said boom')\nraise SystemExit({code})\n"
+
+    def command(*_args: object) -> list[str]:
+        return [sys.executable, "-c", script]
+
+    return command
+
+
+def _steps(log: Path) -> list[str]:
+    return log.read_text().split() if log.exists() else []
+
+
+@pytest.fixture
+def steps(tmp_path: Path) -> Path:
+    return tmp_path / "steps.log"
+
+
+def _derive_ok(lake: LakePaths, steps: Path) -> Callable[..., list[str]]:
+    lake.meta.mkdir(parents=True, exist_ok=True)
+    return _step(steps, "derive", touch=lake.meta / "sessions.parquet")
+
+
+def test_report_runs_after_derive_and_before_backup(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, steps: Path
+) -> None:
+    _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+
+    def backup(_result: CycleResult) -> None:
+        with steps.open("a") as f:
+            f.write("backup\n")
+
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, backup=backup,
+                  derive_command=_derive_ok(lake, steps),
+                  report_command=_step(steps, "report"))  # fmt: skip
+
+    assert _steps(steps) == ["derive", "report", "backup"]
+    assert result.report is not None and result.report.returncode == 0
+    assert not result.report_pending and result.errors == []
+    assert result.as_dict()["report"]["returncode"] == 0
+
+
+def test_report_skipped_when_derive_fails_even_if_owed(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, steps: Path
+) -> None:
+    _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+    lake.meta.mkdir(parents=True, exist_ok=True)
+    (lake.meta / "sessions.parquet").touch()
+
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, report_pending=True,
+                  derive_command=_step(steps, "derive", 4),
+                  report_command=_step(steps, "report"))  # fmt: skip
+
+    assert _steps(steps) == ["derive"]
+    assert result.report is None and result.report_pending  # still owed
+    assert "derive: exit 4" in result.errors
+
+
+def test_report_not_run_when_nothing_is_new_or_owed(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, steps: Path
+) -> None:
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot,
+                  derive_command=_derive_ok(lake, steps),
+                  report_command=_step(steps, "report"))  # fmt: skip
+
+    assert _steps(steps) == []
+    assert result.report is None and not result.report_pending
+
+
+def test_report_not_run_on_a_dry_run(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, steps: Path
+) -> None:
+    _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, dry_run=True,
+                  derive_pending=True, report_pending=True,
+                  derive_command=_derive_ok(lake, steps),
+                  report_command=_step(steps, "report"))  # fmt: skip
+
+    assert _steps(steps) == []
+    assert result.report is None
+
+
+def test_failing_report_stays_owed_and_is_retried_with_an_empty_inbox(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, steps: Path
+) -> None:
+    _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+    media = _media(pulls, lake)
+
+    failed = _run(config, lake, pulls, media, _no_robot,
+                  derive_command=_derive_ok(lake, steps),
+                  report_command=_step(steps, "report", 1))  # fmt: skip
+
+    assert failed.report is not None and failed.report.returncode == 1
+    assert "report said boom" in failed.report.output
+    assert "report: exit 1" in failed.errors and failed.report_pending
+    assert not failed.derive_pending  # a failed build never holds back derive
+
+    retry = _run(config, lake, pulls, media, _no_robot, report_pending=failed.report_pending,
+                 derive_command=_step(steps, "derive"),
+                 report_command=_step(steps, "report"))  # fmt: skip
+
+    assert retry.ingest is None and retry.derive is None  # nothing new: only the build runs
+    assert _steps(steps) == ["derive", "report", "report"]
+    assert retry.report is not None and retry.report.returncode == 0
+    assert not retry.report_pending and retry.errors == []
+
+
+def test_locked_report_stays_owed_without_an_error(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, steps: Path
+) -> None:
+    _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot,
+                  derive_command=_derive_ok(lake, steps),
+                  report_command=_step(steps, "report", 3))  # fmt: skip
+
+    assert result.report is not None and result.report.returncode == 3
+    assert result.report_pending and result.errors == []
+
+
+def test_set_stop_skips_the_report(
+    config: AcquireConfig,
+    lake: LakePaths,
+    pulls: PullLedger,
+    steps: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _put(lake.inbox, "FRC_20260315_120000_GACMP_Q9.wpilog", _wpilog(9.0), 100)
+    stop = threading.Event()
+
+    def stop_after_derive(_lake: LakePaths) -> bool:  # runs between derive and the build
+        stop.set()
+        return False
+
+    monkeypatch.setattr(cycle, "restart_pending", stop_after_derive)
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, stop=stop,
+                  derive_command=_derive_ok(lake, steps),
+                  report_command=_step(steps, "report"))  # fmt: skip
+
+    assert _steps(steps) == ["derive"]
+    assert result.report is None and result.report_pending and result.stopped
+
+
+def test_owed_report_cleared_when_there_are_no_sessions(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, steps: Path
+) -> None:
+    result = _run(config, lake, pulls, _media(pulls, lake), _no_robot, report_pending=True,
+                  report_command=_step(steps, "report"))  # fmt: skip
+
+    assert _steps(steps) == []
+    assert result.report is None and not result.report_pending

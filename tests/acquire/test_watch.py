@@ -562,6 +562,59 @@ def test_status_holds_sources_failed_files_derive_error_and_backup_slot(lake: La
     assert StatusTracker(lake.status).derive_pending  # a restarted watch still owes derive
 
 
+def test_status_holds_the_replay_build_debt_and_error(lake: LakePaths) -> None:
+    tracker = StatusTracker(lake.status)
+    tracker.record(CycleResult(started="t", report=DeriveOutcome(1, "KeyError: 'q7'"),
+                               report_pending=True, errors=["report: exit 1"]))  # fmt: skip
+    tracker.write()
+
+    status = json.loads(lake.status.read_text())
+    assert status["report"]["pending"] is True
+    assert status["report"]["error"] == "exit 1: KeyError: 'q7'"
+    restarted = StatusTracker(lake.status)
+    assert restarted.report_pending  # a restarted watch still owes the build
+
+    locked = restarted.record(
+        CycleResult(started="t", report=DeriveOutcome(3, "locked"), report_pending=True)
+    )
+    assert locked["report"] == {"pending": True, "error": "exit 1: KeyError: 'q7'"}  # kept
+    built = restarted.record(CycleResult(started="t", report=DeriveOutcome(0, "built 1")))
+    assert built["report"] == {"pending": False, "error": None}
+    only_locked = StatusTracker(lake.meta / "other-status.json").record(
+        CycleResult(started="t", report=DeriveOutcome(3, "locked"), report_pending=True)
+    )
+    assert only_locked["report"] == {"pending": True, "error": None}
+
+
+def test_status_without_a_report_entry_owes_no_build(lake: LakePaths) -> None:
+    tracker = StatusTracker(lake.status)
+    tracker.record(CycleResult(started="t", derive_pending=True))
+    tracker.write()
+    older = json.loads(lake.status.read_text())
+    del older["report"]
+    lake.status.write_text(json.dumps(older))
+
+    restarted = StatusTracker(lake.status)
+    assert restarted.derive_pending and not restarted.report_pending
+
+
+def test_owed_build_is_passed_to_the_first_cycle_after_a_restart(lake: LakePaths) -> None:
+    tracker = StatusTracker(lake.status)
+    tracker.record(CycleResult(started="t", report_pending=True))
+    tracker.write()
+    seen: list[bool] = []
+
+    def cycle(*_args: Any, report_pending: bool = False, **_kwargs: Any) -> CycleResult:
+        seen.append(report_pending)
+        return CycleResult(started="t", report=DeriveOutcome(0, "built 1"))
+
+    config = AcquireConfig(removable_media=False)
+    assert run_acquire(config, lake, stop=threading.Event(), cycle=cycle) == 0
+
+    assert seen == [True]
+    assert json.loads(lake.status.read_text())["report"] == {"pending": False, "error": None}
+
+
 # --- doctor ----------------------------------------------------------------------------------
 
 
@@ -587,6 +640,8 @@ def test_doctor_shows_the_acquire_status(
             failed_pulls=[failed],
             derive=DeriveOutcome(4, "ValueError: bad slot"),
             derive_pending=True,
+            report=DeriveOutcome(1, "KeyError: 'q7'"),
+            report_pending=True,
         )
     )
     tracker.write()
@@ -598,6 +653,8 @@ def test_doctor_shows_the_acquire_status(
     assert "low-space 10.68.29.2 /home/lvuser/logs: 52428800 bytes free" in out
     assert "failed volume VOL-1 logs/y.hoot: read-error" in out
     assert "derive error" in out and "ValueError: bad slot" in out
+    assert "Replay build error: exit 1: KeyError: 'q7'" in out
+    assert "Replay build pending" in out
     assert "last backup never" in out
 
 

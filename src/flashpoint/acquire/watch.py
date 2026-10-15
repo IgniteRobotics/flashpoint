@@ -27,7 +27,7 @@ from typing import Any, Self, TextIO
 from flashpoint.acquire import volumes
 from flashpoint.acquire.backup import BackupSchedule
 from flashpoint.acquire.config import AcquireConfig
-from flashpoint.acquire.cycle import Connect, CycleResult, SourceStatus, run_cycle
+from flashpoint.acquire.cycle import REPORT_LOCKED, Connect, CycleResult, SourceStatus, run_cycle
 from flashpoint.acquire.pulls import BUSY_TIMEOUT_MS, PullLedger
 from flashpoint.acquire.removable import RemovableMedia
 from flashpoint.acquire.robot import RobotClient
@@ -189,6 +189,8 @@ class StatusTracker:
         self.backup: dict[str, Any] = {"last_time": None, "result": None, "pending": False}
         self._derive_error: str | None = None
         self.derive_pending = False  # owed by an earlier run
+        self._report_error: str | None = None
+        self.report_pending = False  # a Replay build owed by an earlier run
         previous = read_status(path)
         if previous is not None and previous.get("version") == STATUS_VERSION:
             try:
@@ -207,6 +209,8 @@ class StatusTracker:
         backup = previous.get("backup") or {}
         derive = previous.get("derive") or {}
         error = derive.get("error")
+        report = previous.get("report") or {}  # absent before the watch built Replay data
+        report_error = report.get("error")
         self._low_space = low_space
         self.backup = {
             "last_time": backup.get("last_time"),
@@ -215,6 +219,8 @@ class StatusTracker:
         }
         self._derive_error = None if error is None else str(error)
         self.derive_pending = bool(derive.get("pending"))
+        self._report_error = None if report_error is None else str(report_error)
+        self.report_pending = bool(report.get("pending"))
 
     def record(self, result: CycleResult) -> dict[str, Any]:
         # A warning clears only when that root got a fresh reading. One robot answers on several
@@ -233,6 +239,13 @@ class StatusTracker:
             )
         elif not result.derive_pending:
             self._derive_error = None
+        report = result.report
+        if report is not None and report.returncode == 0:
+            self._report_error = None
+        elif report is not None and report.returncode not in (None, REPORT_LOCKED):
+            self._report_error = f"exit {report.returncode}: {report.output[-DERIVE_ERROR_CHARS:]}"
+        elif not result.report_pending:
+            self._report_error = None
         ingest = result.ingest
         self.status = {
             "version": STATUS_VERSION,
@@ -275,6 +288,7 @@ class StatusTracker:
                 "stopped": ingest.stopped,
             },
             "derive": {"pending": result.derive_pending, "error": self._derive_error},
+            "report": {"pending": result.report_pending, "error": self._report_error},
             "errors": list(result.errors),
             "backup": self.backup,
         }
@@ -381,6 +395,11 @@ def describe_status(status: dict[str, Any]) -> list[str]:
         lines.append(f"derive error: {derive['error']}")
     elif derive.get("pending"):
         lines.append("derive pending")
+    report = _dict(status.get("report"))
+    if report.get("error"):
+        lines.append(f"Replay build error: {report['error']}")
+    if report.get("pending"):
+        lines.append("Replay build pending")
     errors = status.get("errors", [])
     lines += [f"error: {e}" for e in (errors if isinstance(errors, list) else [errors])]
     backup = _dict(status.get("backup"))
@@ -447,7 +466,7 @@ def _loop(
     pulls = PullLedger(lake.ledger)
     media = RemovableMedia.from_config(config, pulls, lake.inbox, sleep=sleep, detect=detect)
     tracker = StatusTracker(lake.status)
-    derive_pending = tracker.derive_pending
+    derive_pending, report_pending = tracker.derive_pending, tracker.report_pending
     # Backup belongs to the watch; a one-shot acquire leaves it to `flashpoint backup`.
     backup = BackupSchedule(config.backup, lake, tracker, stop) if watch else None
     try:
@@ -456,8 +475,9 @@ def _loop(
             result = cycle(
                 config, lake, pulls, media, stop=stop, include_active=include_active,
                 sleep=sleep, connect=connect, derive_pending=derive_pending, backup=backup,
+                report_pending=report_pending,
             )  # fmt: skip
-            derive_pending = result.derive_pending
+            derive_pending, report_pending = result.derive_pending, result.report_pending
             tracker.record(result)
             tracker.write()
             _log_summary(result)
