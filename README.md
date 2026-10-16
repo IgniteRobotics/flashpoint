@@ -23,7 +23,7 @@ For a deep dive into a single log, it opens AdvantageScope.
 
 ## Quickstart
 
-Needs Python 3.11–3.13, [Poetry](https://python-poetry.org/), the [GitHub CLI](https://cli.github.com/) (logged in with `gh auth login`), and access to the IgniteRobotics organization.
+Needs Python 3.11–3.13, [Poetry](https://python-poetry.org/) 2 (not Ubuntu's apt package, which is 1.x; see [Ubuntu notes](docs/guide/developer-guide.md#ubuntu-notes)), the [GitHub CLI](https://cli.github.com/) (logged in with `gh auth login`), and access to the IgniteRobotics organization.
 
 ```sh
 gh repo clone IgniteRobotics/flashpoint -- -b rewrite
