@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live · Flashpoint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+<div id="app-header" data-active="live"></div>
+
+<section class="band" aria-label="Match clock">
+  <div class="clock">
+    <span class="clock__match">QUAL 42 · BLUE 2</span>
+    <span class="clock__time" id="clock">1:06</span>
+    <span class="clock__phase" id="phase">TELEOP</span>
+  </div>
+  <div class="timeline">
+    <div class="phasebar" id="phasebar"></div>
+    <div class="timeline__axis"><span>0:00</span><span id="tlabel">T+84.0 s</span><span>2:30</span></div>
+  </div>
+  <div class="seg" style="gap:6px">
+    <button type="button" class="btn btn--outline" id="pause">PAUSE</button>
+    <button type="button" class="btn" data-speed="1" aria-pressed="true">1×</button>
+    <button type="button" class="btn" data-speed="4" aria-pressed="false">4×</button>
+    <button type="button" class="btn btn--ghost" id="restart">RESTART</button>
+  </div>
+  <span class="pill pill--rec"><span class="pill__dot" aria-hidden="true">●</span> REC Q42.wpilog</span>
+</section>
+
+<div class="layout">
+  <main class="main pad stack" id="main">
+    <div class="vitals" id="vitals"></div>
+    <section aria-label="Mechanisms">
+      <h2 class="section-label"><span id="mech-label">Mechanisms</span><span style="text-transform:none;letter-spacing:.04em">current A · temp °C · last 20 s</span></h2>
+      <div class="mechs" id="mechs"></div>
+    </section>
+    <section aria-label="Event log">
+      <h2 class="section-label"><span>Event log · newest first</span></h2>
+      <div class="log" id="log" aria-live="polite" style="min-height:220px"></div>
+    </section>
+  </main>
+  <aside class="rail-r panel panel--rail-r stack" aria-label="Focus and alerts">
+    <section id="focus" aria-label="Focused mechanism"></section>
+    <section aria-label="Alerts">
+      <h2 class="section-label"><span id="alerts-label">Alerts</span></h2>
+      <div id="alerts" style="display:flex;flex-direction:column;gap:8px"></div>
+    </section>
+  </aside>
+</div>
+
+<footer class="footer">
+  <span>nt4 <b>ws://10.68.29.2:5810</b></span><span>50 Hz in · 2 Hz render</span><span>rx <span id="rx">3.1</span> ms</span><span>dropped 0</span><span>logging Q42.wpilog</span>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/live.js"></script>
+</body>
+</html>

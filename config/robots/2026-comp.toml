@@ -1,0 +1,670 @@
+# 2026 competition robot (Robot-2026).
+# Sources: Robot-2026 `development`: generated/TunerConstants.java (swerve IDs and ratios) and the
+# subsystem constants (intake, indexer, shooter); motor models from hoot ConnectedMotor (GACMP Q7).
+robot = "2026-comp"
+season = 2026
+project = "Robot-2026"
+# The battery proxy: a slot whose supply voltage stands in for the battery (brownouts, the
+# Replay battery track, and supply path resistance). It must draw almost no current and be fed
+# from the main power bus, so its supply voltage tracks the bus: a gyro qualifies, a motor
+# does not (its own wiring drop under load would read as a brownout).
+battery_proxy = "gyro"
+
+# --- drivetrain (CANivore "DriveTrain") --------------------------------------------------
+[[slot]]
+id = "drive-fl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 11
+subsystem = "drivetrain"
+role = "front-left drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-fl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 12
+subsystem = "drivetrain"
+role = "front-left steer"
+gear_ratio = 21.428571428571427
+
+[[slot]]
+id = "drive-fr"
+bus = "canivore"
+model = "TalonFX"
+can_id = 21
+subsystem = "drivetrain"
+role = "front-right drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-fr"
+bus = "canivore"
+model = "TalonFX"
+can_id = 22
+subsystem = "drivetrain"
+role = "front-right steer"
+gear_ratio = 21.428571428571427
+
+[[slot]]
+id = "drive-bl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 31
+subsystem = "drivetrain"
+role = "back-left drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-bl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 32
+subsystem = "drivetrain"
+role = "back-left steer"
+gear_ratio = 21.428571428571427
+
+[[slot]]
+id = "drive-br"
+bus = "canivore"
+model = "TalonFX"
+can_id = 41
+subsystem = "drivetrain"
+role = "back-right drive"
+gear_ratio = 6.746031746031747
+
+[[slot]]
+id = "steer-br"
+bus = "canivore"
+model = "TalonFX"
+can_id = 42
+subsystem = "drivetrain"
+role = "back-right steer"
+gear_ratio = 21.428571428571427
+
+# --- intake (rio) --------------------------------------------------------------------------
+[[slot]]
+id = "intake-extension"
+bus = "rio"
+model = "TalonFX"
+can_id = 1
+subsystem = "intake"
+role = "extension leader"
+
+[[slot]]
+id = "intake-extension-follower"
+bus = "rio"
+model = "TalonFX"
+can_id = 14
+subsystem = "intake"
+role = "extension follower"   # added after GACMP; not in the 2026 corpus
+
+[[slot]]
+id = "intake-roller"
+bus = "rio"
+model = "TalonFX"
+can_id = 2
+subsystem = "intake"
+role = "roller leader"
+
+[[slot]]
+id = "intake-roller-follower"
+bus = "rio"
+model = "TalonFX"
+can_id = 10
+subsystem = "intake"
+role = "roller follower"
+
+# --- indexer (rio) -------------------------------------------------------------------------
+[[slot]]
+id = "indexer-accelerator"
+bus = "rio"
+model = "TalonFX"
+can_id = 3
+subsystem = "indexer"
+role = "accelerator"
+
+[[slot]]
+id = "indexer-main"
+bus = "rio"
+model = "TalonFX"
+can_id = 4
+subsystem = "indexer"
+role = "main"
+
+# --- shooter (rio) -------------------------------------------------------------------------
+[[slot]]
+id = "flywheel-left-leader"
+bus = "rio"
+model = "TalonFX"
+can_id = 5
+subsystem = "shooter"
+role = "flywheel left leader"
+
+[[slot]]
+id = "flywheel-right"
+bus = "rio"
+model = "TalonFX"
+can_id = 6
+subsystem = "shooter"
+role = "flywheel right"
+
+[[slot]]
+id = "flywheel-left-follower"
+bus = "rio"
+model = "TalonFX"
+can_id = 7
+subsystem = "shooter"
+role = "flywheel left follower"
+
+[[slot]]
+id = "hood"
+bus = "rio"
+model = "TalonFX"
+can_id = 8
+subsystem = "shooter"
+role = "hood"
+
+# --- sensors (CANivore) ------------------------------------------------------------------
+[[slot]]
+id = "gyro"
+bus = "canivore"
+model = "Pigeon2"
+can_id = 10
+subsystem = "drivetrain"
+role = "gyro"
+
+[[slot]]
+id = "encoder-fl"
+bus = "canivore"
+model = "CANcoder"
+can_id = 13
+subsystem = "drivetrain"
+role = "front-left steer encoder"
+
+[[slot]]
+id = "encoder-fr"
+bus = "canivore"
+model = "CANcoder"
+can_id = 23
+subsystem = "drivetrain"
+role = "front-right steer encoder"
+
+[[slot]]
+id = "encoder-bl"
+bus = "canivore"
+model = "CANcoder"
+can_id = 33
+subsystem = "drivetrain"
+role = "back-left steer encoder"
+
+[[slot]]
+id = "encoder-br"
+bus = "canivore"
+model = "CANcoder"
+can_id = 43
+subsystem = "drivetrain"
+role = "back-right steer encoder"
+
+# --- CAN buses: robot-code name -> the bus its hoots carry -------------------------------
+[[bus]]
+name = "rio"
+hoot = "rio"
+
+[[bus]]
+name = "DriveTrain"
+hoot = "canivore"
+
+# --- sibling groups: slots that do the same job, compared with each other (SIBLING anomalies) ---
+[[siblings]]
+name = "drive"
+slots = ["drive-fl", "drive-fr", "drive-bl", "drive-br"]
+
+[[siblings]]
+name = "steer"
+slots = ["steer-fl", "steer-fr", "steer-bl", "steer-br"]
+
+[[siblings]]
+name = "flywheel"
+slots = ["flywheel-left-leader", "flywheel-right", "flywheel-left-follower"]
+
+[[siblings]]
+name = "intake-roller"
+slots = ["intake-roller", "intake-roller-follower"]
+
+[[siblings]]
+name = "intake-extension"
+slots = ["intake-extension", "intake-extension-follower"]
+
+# --- NetworkTables signals (roots: config/seasons/2026.toml) ------------------------
+
+# intake
+[[signal]]
+id = "intake-extension-output"
+root = "robot"
+entry = "Intake/extensionMotor/Value"
+subsystem = "intake"
+component = "intake-extension"
+metric = "output"
+
+[[signal]]
+id = "intake-roller-output"
+root = "robot"
+entry = "Intake/rollerLeader/Value"
+subsystem = "intake"
+component = "intake-roller"
+metric = "output"
+
+[[signal]]
+id = "intake-roller-follower-output"
+root = "robot"
+entry = "Intake/rollerFollower/Value"
+subsystem = "intake"
+component = "intake-roller-follower"
+metric = "output"
+
+[[signal]]
+id = "intake-extension-target"
+root = "robot"
+entry = "Intake/Extension Target"
+subsystem = "intake"
+component = "extension"
+metric = "target"
+
+[[signal]]
+id = "intake-at-extension-setpoint"
+root = "robot"
+entry = "Intake/At Extension Setpoint"
+subsystem = "intake"
+component = "extension"
+metric = "at_setpoint"
+
+[[signal]]
+id = "intake-beyond-roller-setpoint"
+root = "robot"
+entry = "Intake/Beyond Roller Setpoint"
+subsystem = "intake"
+component = "roller"
+metric = "beyond_setpoint"
+
+[[signal]]
+id = "intake-compliant-mode"
+root = "robot"
+entry = "Intake/Compliant Mode Enabled"
+subsystem = "intake"
+component = "extension"
+metric = "compliant_mode"
+
+[[signal]]
+id = "intake-below-compliant-current-limit"
+root = "robot"
+entry = "Intake/Below Complaint Current Limit"
+subsystem = "intake"
+component = "extension"
+metric = "below_compliant_current_limit"
+
+
+# indexer
+[[signal]]
+id = "indexer-main-output"
+root = "robot"
+entry = "Indexer/indexerMotor/Value"
+subsystem = "indexer"
+component = "indexer-main"
+metric = "output"
+
+[[signal]]
+id = "indexer-accelerator-output"
+root = "robot"
+entry = "Indexer/acceleratorMotor/Value"
+subsystem = "indexer"
+component = "indexer-accelerator"
+metric = "output"
+
+
+# shooter
+[[signal]]
+id = "flywheel-left-leader-output"
+root = "robot"
+entry = "Shooter/flywheelMotorLeftLeader/Value"
+subsystem = "shooter"
+component = "flywheel-left-leader"
+metric = "output"
+
+[[signal]]
+id = "flywheel-left-follower-output"
+root = "robot"
+entry = "Shooter/flywheelMotorLeftFollower/Value"
+subsystem = "shooter"
+component = "flywheel-left-follower"
+metric = "output"
+
+[[signal]]
+id = "flywheel-right-output"
+root = "robot"
+entry = "Shooter/flywheelMotorRight/Value"
+subsystem = "shooter"
+component = "flywheel-right"
+metric = "output"
+
+[[signal]]
+id = "hood-output"
+root = "robot"
+entry = "Shooter/hoodMotor/Value"
+subsystem = "shooter"
+component = "hood"
+metric = "output"
+
+[[signal]]
+id = "shooter-velocity-target"
+root = "robot"
+entry = "Shooter/Velocity Target RPS"
+subsystem = "shooter"
+component = "flywheel"
+metric = "velocity_target_rps"
+
+[[signal]]
+id = "shooter-hood-target"
+root = "robot"
+entry = "Shooter/Hood Target (radians)"
+subsystem = "shooter"
+component = "hood"
+metric = "angle_target_rad"
+
+[[signal]]
+id = "shooter-hood-angle"
+root = "robot"
+entry = "Shooter/Hood Angle Rotations"
+subsystem = "shooter"
+component = "hood"
+metric = "angle_rot"
+
+[[signal]]
+id = "shooter-at-hood-setpoint"
+root = "robot"
+entry = "Shooter/At Hood Setpoint"
+subsystem = "shooter"
+component = "hood"
+metric = "at_setpoint"
+
+
+# hunter
+[[signal]]
+id = "hunter-lemons-found"
+root = "robot"
+entry = "Hunter/Lemon Hunter/Lemons Found This Cycle"
+subsystem = "hunter"
+component = "lemon-hunter"
+metric = "lemons_found"
+
+[[signal]]
+id = "hunter-best-cluster-size"
+root = "robot"
+entry = "Hunter/Lemon Hunter/Best Cluster Size"
+subsystem = "hunter"
+component = "lemon-hunter"
+metric = "best_cluster_size"
+
+
+# drivetrain
+[[signal]]
+id = "drivetrain-rotation-pid-error"
+root = "robot"
+entry = "Drivetrain/getRotationPIDController/error"
+subsystem = "drivetrain"
+component = "rotation-pid"
+metric = "error"
+
+[[signal]]
+id = "drivetrain-rotation-pid-setpoint"
+root = "robot"
+entry = "Drivetrain/getRotationPIDController/setpoint"
+subsystem = "drivetrain"
+component = "rotation-pid"
+metric = "setpoint"
+
+[[signal]]
+id = "drivetrain-translation-pid-error"
+root = "robot"
+entry = "Drivetrain/getTranslationPIDController/error"
+subsystem = "drivetrain"
+component = "translation-pid"
+metric = "error"
+
+[[signal]]
+id = "drivetrain-translation-pid-setpoint"
+root = "robot"
+entry = "Drivetrain/getTranslationPIDController/setpoint"
+subsystem = "drivetrain"
+component = "translation-pid"
+metric = "setpoint"
+
+
+# vision (PhotonVision)
+[[signal]]
+id = "vision-front-camera-has-target"
+root = "photonvision"
+entry = "FRONT-CAMERA/hasTarget"
+subsystem = "vision"
+component = "front-camera"
+metric = "has_target"
+
+[[signal]]
+id = "vision-front-camera-latency-ms"
+root = "photonvision"
+entry = "FRONT-CAMERA/latencyMillis"
+subsystem = "vision"
+component = "front-camera"
+metric = "latency_ms"
+
+[[signal]]
+id = "vision-front-camera-fps"
+root = "photonvision"
+entry = "FRONT-CAMERA/fps"
+subsystem = "vision"
+component = "front-camera"
+metric = "fps"
+
+[[signal]]
+id = "vision-front-camera-target-yaw"
+root = "photonvision"
+entry = "FRONT-CAMERA/targetYaw"
+subsystem = "vision"
+component = "front-camera"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-front-camera-target-pitch"
+root = "photonvision"
+entry = "FRONT-CAMERA/targetPitch"
+subsystem = "vision"
+component = "front-camera"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-front-camera-target-area"
+root = "photonvision"
+entry = "FRONT-CAMERA/targetArea"
+subsystem = "vision"
+component = "front-camera"
+metric = "target_area"
+
+[[signal]]
+id = "vision-left-camera-has-target"
+root = "photonvision"
+entry = "LEFT-CAMERA/hasTarget"
+subsystem = "vision"
+component = "left-camera"
+metric = "has_target"
+
+[[signal]]
+id = "vision-left-camera-latency-ms"
+root = "photonvision"
+entry = "LEFT-CAMERA/latencyMillis"
+subsystem = "vision"
+component = "left-camera"
+metric = "latency_ms"
+
+[[signal]]
+id = "vision-left-camera-fps"
+root = "photonvision"
+entry = "LEFT-CAMERA/fps"
+subsystem = "vision"
+component = "left-camera"
+metric = "fps"
+
+[[signal]]
+id = "vision-left-camera-target-yaw"
+root = "photonvision"
+entry = "LEFT-CAMERA/targetYaw"
+subsystem = "vision"
+component = "left-camera"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-left-camera-target-pitch"
+root = "photonvision"
+entry = "LEFT-CAMERA/targetPitch"
+subsystem = "vision"
+component = "left-camera"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-left-camera-target-area"
+root = "photonvision"
+entry = "LEFT-CAMERA/targetArea"
+subsystem = "vision"
+component = "left-camera"
+metric = "target_area"
+
+[[signal]]
+id = "vision-right-camera-has-target"
+root = "photonvision"
+entry = "RIGHT-CAMERA/hasTarget"
+subsystem = "vision"
+component = "right-camera"
+metric = "has_target"
+
+[[signal]]
+id = "vision-right-camera-latency-ms"
+root = "photonvision"
+entry = "RIGHT-CAMERA/latencyMillis"
+subsystem = "vision"
+component = "right-camera"
+metric = "latency_ms"
+
+[[signal]]
+id = "vision-right-camera-fps"
+root = "photonvision"
+entry = "RIGHT-CAMERA/fps"
+subsystem = "vision"
+component = "right-camera"
+metric = "fps"
+
+[[signal]]
+id = "vision-right-camera-target-yaw"
+root = "photonvision"
+entry = "RIGHT-CAMERA/targetYaw"
+subsystem = "vision"
+component = "right-camera"
+metric = "target_yaw"
+
+[[signal]]
+id = "vision-right-camera-target-pitch"
+root = "photonvision"
+entry = "RIGHT-CAMERA/targetPitch"
+subsystem = "vision"
+component = "right-camera"
+metric = "target_pitch"
+
+[[signal]]
+id = "vision-right-camera-target-area"
+root = "photonvision"
+entry = "RIGHT-CAMERA/targetArea"
+subsystem = "vision"
+component = "right-camera"
+metric = "target_area"
+
+# can: bus status from CanBusStatusLogger (Robot-2026#108), 10 Hz, written on change.
+# `Status` is skipped: an enum code, not a measure.
+
+[[signal]]
+id = "can-rio-utilization"
+root = "flashpoint"
+entry = "CANBus/rio/Utilization"
+subsystem = "can"
+component = "rio"
+metric = "utilization"
+
+[[signal]]
+id = "can-rio-bus-off-count"
+root = "flashpoint"
+entry = "CANBus/rio/BusOffCount"
+subsystem = "can"
+component = "rio"
+metric = "bus_off_count"
+
+[[signal]]
+id = "can-rio-tx-full-count"
+root = "flashpoint"
+entry = "CANBus/rio/TxFullCount"
+subsystem = "can"
+component = "rio"
+metric = "tx_full_count"
+
+[[signal]]
+id = "can-rio-receive-error-count"
+root = "flashpoint"
+entry = "CANBus/rio/ReceiveErrorCount"
+subsystem = "can"
+component = "rio"
+metric = "receive_error_count"
+
+[[signal]]
+id = "can-rio-transmit-error-count"
+root = "flashpoint"
+entry = "CANBus/rio/TransmitErrorCount"
+subsystem = "can"
+component = "rio"
+metric = "transmit_error_count"
+
+[[signal]]
+id = "can-drivetrain-utilization"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/Utilization"
+subsystem = "can"
+component = "DriveTrain"
+metric = "utilization"
+
+[[signal]]
+id = "can-drivetrain-bus-off-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/BusOffCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "bus_off_count"
+
+[[signal]]
+id = "can-drivetrain-tx-full-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/TxFullCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "tx_full_count"
+
+[[signal]]
+id = "can-drivetrain-receive-error-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/ReceiveErrorCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "receive_error_count"
+
+[[signal]]
+id = "can-drivetrain-transmit-error-count"
+root = "flashpoint"
+entry = "CANBus/DriveTrain/TransmitErrorCount"
+subsystem = "can"
+component = "DriveTrain"
+metric = "transmit_error_count"

@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flashpoint.local/schemas/match-log.schema.json",
+  "title": "MatchLog",
+  "description": "A parsed match for Replay. Tracks are downsampled; full-rate slices on demand.",
+  "type": "object",
+  "required": [
+    "id",
+    "label",
+    "status",
+    "phases",
+    "tracks",
+    "events"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "string"
+    },
+    "battery": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "parsed",
+        "parsing",
+        "no-log",
+        "error"
+      ]
+    },
+    "sourceFile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "start": {
+            "type": "number"
+          },
+          "end": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "unit",
+          "dt",
+          "values"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "signal": {
+            "type": "string",
+            "description": "Source topic/log entry"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "range": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "threshold": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "label": {
+                "type": "string"
+              }
+            }
+          },
+          "dt": {
+            "type": "number",
+            "description": "Seconds between samples"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "time",
+          "level",
+          "src",
+          "msg"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "time": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seconds since match start"
+          },
+          "level": {
+            "enum": [
+              "INFO",
+              "WARN",
+              "FAULT"
+            ]
+          },
+          "src": {
+            "type": "string",
+            "description": "Mechanism slot, 'power', 'can', 'loop', 'fms', 'auto'…"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "cause": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Heuristic likely cause (rule table). Label as heuristic in the UI."
+          },
+          "fix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Heuristic suggested fix"
+          }
+        }
+      }
+    }
+  }
+}

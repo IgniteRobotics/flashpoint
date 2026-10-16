@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flashpoint.local/schemas/device-metrics.schema.json",
+  "title": "DeviceMetrics",
+  "description": "Per-match aggregates for one device (rows) over a range.",
+  "type": "object",
+  "required": [
+    "serial",
+    "rows"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "serial": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "match"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "match": {
+            "type": "string"
+          },
+          "slot": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "peakTempC": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tempRisePer100As": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "meanCurrentA": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "peakCurrentA": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "limitHits": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "faultCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "idleCurrentStdA": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "spinTestA": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "irMilliOhm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "minBatteryV": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "brownouts": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

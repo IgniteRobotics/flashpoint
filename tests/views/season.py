@@ -1,0 +1,242 @@
+"""A synthetic season lake for History queries: gold match features and unit usage, plus
+the meta snapshots they join to.
+
+60 matches (30 at 2026gadal, 28 quals + 2 eliminations at 2026gacmp) x 3 phases x the 23
+slots of `2026-comp`, plus 5 practice sessions on `2026-practice`. Scenarios:
+- swap: intake-roller holds ctre:ROLLER-A for matches 0-29, then ctre:ROLLER-B
+- gap: hood holds ctre:HOOD-G except matches 10-20, when ctre:HOOD-T is installed
+- move: ctre:MOVER sits in the practice robot's drive-fl, then the comp robot's drive-fr
+- legacy: steer-fl is a legacy unit for matches 0-4, then ctre:STEER-FL (inventory)
+- temperatures: flywheel-right reaches 66 C at match 42 (WARN), indexer-main 76 C at 50 (HOT)
+- alignment: match 7 is low confidence
+- CAN health: intake-extension-follower has 13, 46, 14, then 101 isolated gaps over matches
+  0-3 and reboots once in match 3; match 5 has no hoot, so no CAN-health rows
+"""
+
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import polars as pl
+
+from flashpoint import config
+from flashpoint.lake.paths import LakePaths
+from flashpoint.semantics.robot_config import RobotConfig, load_robot
+
+HOSTILE_ROLE = "<img src=x onerror=alert(1)>"
+MATCHES = 60
+PRACTICE = 5
+NO_HOOT_MATCH = 5
+WORSENING = (13, 46, 14, 101)  # isolated gaps of intake-extension-follower, matches 0-3
+START = datetime(2026, 3, 6, 9, 0, tzinfo=UTC)
+
+
+@dataclass(frozen=True)
+class SeasonLake:
+    lake: LakePaths
+    robots: list[RobotConfig]
+    match_keys: list[str]
+
+
+def comp_robot() -> RobotConfig:
+    return load_robot(config.config_root() / "robots" / "2026-comp.toml")
+
+
+def practice_robot() -> RobotConfig:
+    return comp_robot().model_copy(update={"robot": "2026-practice", "project": "Practice-2026"})
+
+
+def match_key(i: int) -> str:
+    if i < 30:
+        return f"2026gadal_qm{i + 1}"
+    if i < 58:
+        return f"2026gacmp_qm{i - 29}"
+    return f"2026gacmp_e{i - 57}"
+
+
+def unit_for(slot_id: str, i: int) -> str:
+    if slot_id == "intake-roller":
+        return "ctre:ROLLER-A" if i < 30 else "ctre:ROLLER-B"
+    if slot_id == "hood":
+        return "ctre:HOOD-T" if 10 <= i <= 20 else "ctre:HOOD-G"
+    if slot_id == "drive-fr":
+        return "ctre:MOVER"
+    if slot_id == "steer-fl" and i < 5:
+        return "legacy:2026-comp:steer-fl:0"
+    return f"ctre:{slot_id.upper()}"
+
+
+def _temp(slot_index: int, slot_id: str, i: int) -> float:
+    if slot_id == "flywheel-right" and i == 42:
+        return 66.0
+    if slot_id == "indexer-main" and i == 50:
+        return 76.0
+    return 30.0 + (i % 7) + slot_index * 0.5
+
+
+def _write(path: Path, rows: list[dict[str, Any]], schema: dict[str, Any] | None = None) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame(rows, schema=schema, infer_schema_length=None).write_parquet(path)
+
+
+def build_season(root: Path, hostile: bool = False) -> SeasonLake:
+    lake = LakePaths(root)
+    comp, practice = comp_robot(), practice_robot()
+    sessions, logs, observations = [], [], []
+    keys = [match_key(i) for i in range(MATCHES)]
+    gold = lake.root / "gold"
+    for p in range(PRACTICE):
+        sid, start = f"p{p:03d}", START - timedelta(days=7) + timedelta(hours=p)
+        sessions.append(_session(sid, "2026-practice", None))
+        logs.append(_log(sid, start))
+        observations.append(_observation(sid, "drive-fl", "ctre:MOVER"))
+        _write(
+            gold / "unit_usage" / "season=2026" / f"session_id={sid}" / "part-0.parquet",
+            [_usage(sid, "2026-practice", None, practice, "drive-fl", "ctre:MOVER", start, 0)],
+        )
+    for i, key in enumerate(keys):
+        sid, start = f"s{i:03d}", START + timedelta(hours=i * 2 if i < 30 else 24 * 30 + i)
+        sessions.append(_session(sid, "2026-comp", key))
+        logs.append(_log(sid, start))
+        features, usage = [], []
+        for slot_index, slot in enumerate(comp.slots):
+            unit = unit_for(slot.id, i)
+            observations.append(_observation(sid, slot.id, unit))
+            role = HOSTILE_ROLE if hostile and slot.id == "hood" else slot.role
+            temp = _temp(slot_index, slot.id, i)
+            for phase in ("auto", "teleop", "match"):
+                scale = {"auto": 0.1, "teleop": 0.9, "match": 1.0}[phase]
+                features.append(
+                    {
+                        "match_key": key, "session_id": sid, "robot": "2026-comp",
+                        "phase": phase, "slot_id": slot.id, "unit_id": unit,
+                        "subsystem": slot.subsystem, "role": role,
+                        "alignment": "low" if i == 7 else "high", "source_logs": f"w{sid}",
+                        "supply_current_p95": 20.0 + slot_index + i % 5,
+                        "supply_voltage_min": 11.0 - (i % 9) * 0.3 - slot_index * 0.01,
+                        "temp_max_c": temp - (0 if phase != "auto" else 5),
+                        "supply_energy_wh": scale * (1.0 + slot_index * 0.1),
+                        "stall_s": scale * (2.0 if slot.subsystem == "intake" else 0.0),
+                        "flags": "",
+                    }
+                )  # fmt: skip
+            usage.append(_usage(sid, "2026-comp", key, comp, slot.id, unit, start, slot_index))
+        _write(
+            gold / "match_features" / "season=2026" / f"session_id={sid}" / "part-0.parquet",
+            features,
+        )
+        _write(gold / "unit_usage" / "season=2026" / f"session_id={sid}" / "part-0.parquet", usage)
+        if i != NO_HOOT_MATCH:
+            _write(
+                gold / "can_health" / "season=2026" / f"session_id={sid}" / "part-0.parquet",
+                [_can(f, i) for f in features],
+            )
+    lake.meta.mkdir(parents=True, exist_ok=True)
+    _write(lake.meta / "sessions.parquet", sessions)
+    _write(lake.meta / "logs.parquet", logs)
+    _write(lake.meta / "slot_observations.parquet", observations)
+    return SeasonLake(lake, [comp, practice], keys)
+
+
+def _can(feature: dict[str, Any], i: int) -> dict[str, Any]:
+    worsening = feature["slot_id"] == "intake-extension-follower" and i < len(WORSENING)
+    gaps = WORSENING[i] if worsening else i % 3
+    return {
+        **{k: feature[k] for k in ("match_key", "session_id", "robot", "phase", "slot_id",
+                                   "unit_id", "subsystem", "role", "alignment", "source_logs")},
+        "bus": "rio", "reboots": int(worsening and i == 3),
+        "reboots_enabled": int(worsening and i == 3),
+        "isolated_gaps": gaps, "missed_per_min": gaps / 2.5, "longest_gap_ms": 20.0 + gaps,
+        "reset_count_logged": True,
+    }  # fmt: skip
+
+
+def _session(sid: str, robot: str, key: str | None) -> dict[str, Any]:
+    return {
+        "session_id": sid, "wpilog_id": f"w{sid}", "robot": robot, "season": "2026",
+        "match_key": key, "match_source": "fms" if key else "none",
+        "kind": "match" if key else "non-match", "warnings": None,
+    }  # fmt: skip
+
+
+def _log(sid: str, start: datetime) -> dict[str, Any]:
+    return {
+        "log_id": f"w{sid}",
+        "kind": "wpilog",
+        "season": "2026",
+        "filename": f"FRC_{start:%Y%m%d_%H%M%S}.wpilog",
+        "utc_start": start.isoformat(),
+    }
+
+
+def _observation(sid: str, slot_id: str, unit: str) -> dict[str, Any]:
+    return {"session_id": sid, "slot_id": slot_id, "unit_id": unit,
+            "source": "legacy" if unit.startswith("legacy:") else "inventory",
+            "from_ts_us": None, "to_ts_us": None}  # fmt: skip
+
+
+def _usage(
+    sid: str, robot: str, key: str | None, config_: RobotConfig, slot_id: str, unit: str,
+    start: datetime, slot_index: int,
+) -> dict[str, Any]:  # fmt: skip
+    slot = next(s for s in config_.slots if s.id == slot_id)
+    return {
+        "session_id": sid, "season": "2026", "robot": robot, "match_key": key,
+        "alignment": "high", "session_start": start.isoformat(), "slot_id": slot_id,
+        "unit_id": unit, "subsystem": slot.subsystem, "role": slot.role, "powered_s": 360.0,
+        "enabled_s": 150.0, "supply_energy_wh": 1.0 + slot_index * 0.1,
+        "motor_energy_wh": 0.5, "stall_s": 0.0, "thermal_cycles": 1,
+        "temp_max_c": 40.0, "flags": "",
+    }  # fmt: skip
+
+
+# --- a built Replay lake for the match list filters and timeline zoom (replay-ux) -------------
+
+# key, robot, season, start: two seasons, three robots (one 2025-only), three events;
+# 2026gacmp is the latest
+REPLAY_MATCHES = (
+    ("2025gaalb_qm1", "comp", "2025", "2025-03-01T15:00:00+00:00"),
+    ("2025gaalb_qm2", "practice", "2025", "2025-03-01T16:00:00+00:00"),
+    ("2025gaalb_qm3", "2025-bot", "2025", "2025-03-01T17:00:00+00:00"),  # a 2025-only robot
+    ("2026gadal_qm1", "comp", "2026", "2026-03-06T15:00:00+00:00"),
+    ("2026gadal_qm2", "practice", "2026", "2026-03-06T16:00:00+00:00"),
+    ("2026gadal_qm3", "comp", "2026", "2026-03-07T15:00:00+00:00"),
+    ("2026gacmp_qm7", "comp", "2026", "2026-04-09T21:50:34+00:00"),
+    ("2026gacmp_qm8", "comp", "2026", "2026-04-10T15:00:00+00:00"),
+)
+
+
+def zoom_rows() -> list[dict[str, Any]]:
+    """Q7 for zoom: a brownout at T+97 s (lake 107 s; the match starts at lake 10 s) and hood
+    temperature WARNs at T+20 s and T+120 s, each side of a T+95-99 s window."""
+    from tests.report.lake import quiet_rows
+    from tests.report.silver import points, series
+
+    rows = [r for r in quiet_rows() if not (r["slot_id"] == "hood" and r["metric"] == "temp_c")]
+    for row in rows:
+        if row["metric"] == "supply_voltage" and 107.0 * 1e6 <= row["t_us"] < 107.5 * 1e6:
+            row["value"] = 6.0
+    rows += points("hood", "temp_c", [(0.0, 25.0), (30.0, 66.0), (60.0, 30.0), (130.0, 66.0)])
+    rows += series("hood", "supply_current", 107.0, 107.004, 1000, 150.0)  # a 4 ms spike
+    return rows
+
+
+def build_replay_season(root: Path, events: tuple[str, ...] | None = None) -> LakePaths:
+    """REPLAY_MATCHES (or those of `events`), built with `flashpoint report` (Q7 from
+    `zoom_rows`)."""
+    from flashpoint.report.build import ReportBuilder
+    from tests.report.lake import MatchLake, quiet_rows
+
+    lake = MatchLake(root)
+    for key, robot, season, start in REPLAY_MATCHES:
+        if events is not None and key.split("_")[0] not in events:
+            continue
+        rows = zoom_rows() if key == "2026gacmp_qm7" else quiet_rows(hz=10)
+        lake.add_match(key, key, rows, robot=robot, season=season, start_utc=start)
+    builder = ReportBuilder(lake.write_meta(), config.config_root())
+    try:
+        builder.build()
+    finally:
+        builder.close()
+    return lake.lake

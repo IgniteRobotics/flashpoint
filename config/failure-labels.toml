@@ -1,0 +1,23 @@
+# Known failures and repairs, for `flashpoint backtest`. A label is caught when an anomaly on its
+# unit or slot (and metric, when given) is open at its match or within the 5 matches before it.
+# Keys: robot, unit (serial or legacy id) and/or slot (`power` for brownouts), match (key) or
+# date (YYYY-MM-DD), kind (failure | degradation | repair), note, and optionally metric.
+
+[[label]]
+robot = "2026-comp"
+slot = "intake-roller"
+match = "2026johnson_qm105"
+kind = "failure"
+metric = "reboots"
+note = "Intake roller leader rebooted while enabled after an 820 ms CAN dropout."
+
+[[label]]
+robot = "2026-comp"
+slot = "intake-extension-follower"
+match = "2026johnson_qm105"
+kind = "degradation"
+metric = "isolated_gaps"
+note = "Intake-extension follower's isolated CAN gaps rose (7, 20, 1, then 42 over Q15-Q105)."
+
+# Not GACMP Q7: no brownout was seen there. Its motors' supply dips are wiring drops; the gyro
+# (the battery proxy) stays above 8 V.

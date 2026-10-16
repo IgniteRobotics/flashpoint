@@ -1,0 +1,293 @@
+"""Robot configuration: which device fills which role (slot) on which robot, plus the
+NetworkTables signals it publishes, named relative to its season's roots."""
+
+import re
+import tomllib
+from datetime import date
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+CANIVORE_ID = re.compile(r"^[0-9A-Fa-f]{32}$")
+SNAKE_CASE = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$")
+
+
+class ConfigError(Exception):
+    pass
+
+
+def _check_bus(value: str) -> str:
+    if value in ("rio", "canivore") or CANIVORE_ID.match(value):
+        return value
+    raise ValueError("bus must be 'rio', 'canivore', or a 32-hex CANivore id")
+
+
+def _bus_matches(declared: str, bus: str) -> bool:
+    """`canivore` matches any non-rio bus: hoot files name it by its hex id, while the
+    diagnostics server (CAN inventory) reports its configured name, e.g. "DriveTrain"."""
+    if declared == "canivore":
+        return bus.lower() != "rio"
+    return declared.lower() == bus.lower()
+
+
+class Slot(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str
+    bus: str  # "rio", "canivore" (any CANivore), or a specific 32-hex CANivore id
+    model: str
+    can_id: int = Field(ge=0, le=62)
+    subsystem: str
+    role: str
+    gear_ratio: float | None = None
+    swaps: list[date] = Field(default_factory=list)
+
+    @field_validator("bus")
+    @classmethod
+    def _bus(cls, value: str) -> str:
+        return _check_bus(value)
+
+    def matches_bus(self, bus: str) -> bool:
+        return _bus_matches(self.bus, bus)
+
+
+class Bus(BaseModel):
+    """A CAN bus as robot code names it (e.g. "DriveTrain"), tied to the bus its hoots carry."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1)
+    hoot: str  # "rio", "canivore" (any CANivore), or a specific 32-hex CANivore id
+
+    @field_validator("hoot")
+    @classmethod
+    def _hoot(cls, value: str) -> str:
+        return _check_bus(value)
+
+
+class SeasonRoots(BaseModel):
+    """Every root is spelled out in full: `NT:Robot/...` and `NT:/photonvision/` really differ."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    robot: str = Field(min_length=1)
+    photonvision: str = Field(min_length=1)
+    camera_publisher: str = Field(min_length=1)
+    preferences: str = Field(min_length=1)
+    fms: str = Field(min_length=1)
+    # Entries robot code writes straight to the wpilog for Flashpoint (e.g. "/Flashpoint/").
+    flashpoint: str | None = Field(default=None, min_length=1)
+
+
+class SeasonConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    season: int
+    roots: SeasonRoots
+
+    def root_names(self) -> dict[str, str]:
+        return self.roots.model_dump(exclude_none=True)
+
+
+class Signal(BaseModel):
+    """A NetworkTables entry, named relative to a season root, with stable labels."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str = Field(min_length=1)
+    root: str
+    entry: str = Field(min_length=1)
+    subsystem: str = Field(min_length=1)
+    component: str | None = None
+    metric: str
+
+    @field_validator("metric")
+    @classmethod
+    def _metric(cls, value: str) -> str:
+        if SNAKE_CASE.match(value):
+            return value
+        raise ValueError(f"metric {value!r} must be snake_case")
+
+
+class SiblingGroup(BaseModel):
+    """Slots that do the same job (e.g. the four drive motors), compared with each other."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1)
+    slots: list[str]
+
+    @model_validator(mode="after")
+    def _members(self) -> "SiblingGroup":
+        if len(set(self.slots)) < 2:
+            raise ValueError(f"sibling group {self.name!r} needs at least two slots")
+        repeated = sorted({s for s in self.slots if self.slots.count(s) > 1})
+        if repeated:
+            raise ValueError(f"sibling group {self.name!r} lists {repeated[0]!r} twice")
+        return self
+
+
+class RobotConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    robot: str
+    season: int
+    project: str
+    slots: list[Slot] = Field(alias="slot")
+    signals: list[Signal] = Field(default_factory=list, alias="signal")
+    buses: list[Bus] = Field(default_factory=list, alias="bus")
+    siblings: list[SiblingGroup] = Field(default_factory=list)
+    # A low-current slot on the main power bus whose supply voltage stands in for the battery.
+    battery_proxy: str | None = None
+
+    @model_validator(mode="after")
+    def _known_battery_proxy(self) -> "RobotConfig":
+        if self.battery_proxy is not None and self.battery_proxy not in {s.id for s in self.slots}:
+            raise ValueError(f"battery proxy {self.battery_proxy!r} is not one of the slots")
+        return self
+
+    @model_validator(mode="after")
+    def _unique_buses(self) -> "RobotConfig":
+        names = [b.name for b in self.buses]
+        duplicates = sorted({n for n in names if names.count(n) > 1})
+        if duplicates:
+            raise ValueError(f"duplicate bus names {duplicates}")
+        return self
+
+    def bus_name_for(self, hoot_bus: str) -> str | None:
+        """The robot-code name of a hoot's bus; an exact CANivore id beats `canivore`."""
+        matches = [b for b in self.buses if _bus_matches(b.hoot, hoot_bus)]
+        matches.sort(key=lambda b: b.hoot == "canivore")
+        return matches[0].name if matches else None
+
+    @model_validator(mode="after")
+    def _unique_signals(self) -> "RobotConfig":
+        ids: dict[str, Signal] = {}
+        names: dict[tuple[str, str], Signal] = {}
+        for signal in self.signals:
+            if signal.id in ids:
+                raise ValueError(
+                    f"duplicate signal id {signal.id!r}: entries"
+                    f" {ids[signal.id].entry!r} and {signal.entry!r}"
+                )
+            key = (signal.root, signal.entry)
+            if key in names:
+                raise ValueError(f"signals {names[key].id!r} and {signal.id!r} both map {key}")
+            ids[signal.id] = signal
+            names[key] = signal
+        return self
+
+    def signal_names(self, season: SeasonConfig) -> dict[str, Signal]:
+        """Full wpilog entry name (season root + entry, exact concatenation) -> signal."""
+        roots = season.root_names()
+        return {roots[s.root] + s.entry: s for s in self.signals}
+
+    @model_validator(mode="after")
+    def _unique_slots(self) -> "RobotConfig":
+        seen: dict[tuple[str, str, int], str] = {}
+        ids: set[str] = set()
+        for slot in self.slots:
+            key = (slot.bus.lower(), slot.model, slot.can_id)
+            if key in seen:
+                raise ValueError(
+                    f"slots {seen[key]!r} and {slot.id!r} declare the same device {key}"
+                )
+            if slot.id in ids:
+                raise ValueError(f"duplicate slot id {slot.id!r}")
+            seen[key] = slot.id
+            ids.add(slot.id)
+        return self
+
+    @model_validator(mode="after")
+    def _valid_siblings(self) -> "RobotConfig":
+        ids = {s.id for s in self.slots}
+        names: set[str] = set()
+        owner: dict[str, str] = {}
+        for group in self.siblings:
+            if group.name in names:
+                raise ValueError(f"duplicate sibling group {group.name!r}")
+            names.add(group.name)
+            for slot in group.slots:
+                if slot not in ids:
+                    raise ValueError(f"sibling group {group.name!r} names unknown slot {slot!r}")
+                if slot in owner:
+                    raise ValueError(
+                        f"sibling group {group.name!r}: slot {slot!r} is already in"
+                        f" group {owner[slot]!r}"
+                    )
+                owner[slot] = group.name
+        return self
+
+    def sibling_group(self, slot_id: str) -> SiblingGroup | None:
+        return next((g for g in self.siblings if slot_id in g.slots), None)
+
+    def slot_for(self, bus: str, model: str, can_id: int) -> Slot | None:
+        model = model.replace(" ", "")  # inventory reports "Talon FX"; hoot says "TalonFX"
+        for slot in self.slots:
+            if slot.model == model and slot.can_id == can_id and slot.matches_bus(bus):
+                return slot
+        return None
+
+
+def load_season(path: Path) -> SeasonConfig:
+    try:
+        with path.open("rb") as f:
+            season = SeasonConfig.model_validate(tomllib.load(f))
+    except (tomllib.TOMLDecodeError, ValidationError) as exc:
+        raise ConfigError(f"{path.name}: {exc}") from exc
+    if path.stem != str(season.season):
+        raise ConfigError(f"{path.name}: season {season.season} does not match the file name")
+    return season
+
+
+def load_seasons(directory: Path) -> dict[int, SeasonConfig]:
+    """Season configs by year, from `config/seasons/<year>.toml` (empty if the dir is absent)."""
+    seasons = [load_season(path) for path in sorted(directory.glob("*.toml"))]
+    return {s.season: s for s in seasons}
+
+
+def load_robot(path: Path, seasons: dict[int, SeasonConfig] | None = None) -> RobotConfig:
+    """Load and validate one robot; signals are checked against `seasons` (default: the
+    `seasons/` directory next to the robot's directory)."""
+    if seasons is None:
+        seasons = load_seasons(path.parent.parent / "seasons")
+    try:
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+        robot = RobotConfig.model_validate(data)
+    except (tomllib.TOMLDecodeError, ValidationError) as exc:
+        raise ConfigError(f"{path.name}: {exc}") from exc
+    if robot.signals:
+        season = seasons.get(robot.season)
+        if season is None:
+            raise ConfigError(
+                f"{path.name}: declares signals, but season {robot.season} has no"
+                f" seasons/{robot.season}.toml"
+            )
+        for signal in robot.signals:
+            if signal.root not in season.root_names():
+                raise ConfigError(
+                    f"{path.name}: signal {signal.id!r} names root {signal.root!r},"
+                    f" which season {robot.season} does not define"
+                )
+    return robot
+
+
+def load_robots(
+    directory: Path, seasons: dict[int, SeasonConfig] | None = None
+) -> list[RobotConfig]:
+    if seasons is None:
+        seasons = load_seasons(directory.parent / "seasons")
+    return [load_robot(path, seasons) for path in sorted(directory.glob("*.toml"))]
+
+
+def select_robot(robots: list[RobotConfig], project: str | None, season: str) -> RobotConfig | None:
+    """The robot whose code project and season match a log (None if no unique match).
+
+    Without a project (hoot-only sessions have no wpilog), the season's only robot is used.
+    """
+    in_season = [r for r in robots if str(r.season) == season]
+    if project is None:
+        return in_season[0] if len(in_season) == 1 else None
+    matches = [r for r in in_season if r.project == project]
+    return matches[0] if len(matches) == 1 else None

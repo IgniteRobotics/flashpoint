@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, rewrite]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -13,6 +13,7 @@ jobs:
   lint-test:
     name: lint-test (py${{ matrix.python }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -24,17 +25,43 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: poetry
-      - run: poetry install --no-interaction
+      # py3.12 adds the optional `ml` extra (the MODEL detector); py3.11 tests without it.
+      - run: poetry install --no-interaction ${{ matrix.python == '3.12' && '--extras ml' || '' }}
       - run: poetry run ruff check .
       - run: poetry run ruff format --check .
       - run: poetry run mypy src tests tools
-      - run: poetry run pytest -m "not corpus"
+      - run: poetry run pytest -m "not corpus and not browser and not perf"
+      - name: Verify systemd user unit
+        run: |
+          # verify checks that ExecStart exists; stand in for the pipx-installed binary
+          mkdir -p "$HOME/.local/bin"
+          printf '#!/bin/sh\nexit 0\n' > "$HOME/.local/bin/flashpoint"
+          chmod +x "$HOME/.local/bin/flashpoint"
+          systemd-analyze verify --user deploy/systemd/flashpoint-acquire.service
+
+  windows:
+    name: windows (py3.12)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction
+      - run: poetry run ruff check .
+      - run: poetry run mypy src tests tools
+      - run: poetry run pytest -m "not corpus and not browser and not perf"
 
   corpus:
     name: corpus
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
     steps:
       - uses: actions/checkout@v4
       - run: pipx install poetry
@@ -47,5 +74,67 @@ jobs:
         with:
           path: .corpus
           key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/flashpoint/owlet
+          key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
       - run: poetry run python tools/fetch-corpus.py
-      - run: poetry run pytest -m corpus
+      - name: Fetch the legacy-2025 tag (legacy migration corpus test)
+        run: git fetch --depth=1 origin +refs/tags/legacy-2025:refs/tags/legacy-2025
+      - name: Install rclone (restore drill)
+        run: sudo apt-get update && sudo apt-get install -y rclone
+      - run: poetry run pytest -m "corpus and not perf and not browser"
+
+  browser:
+    name: browser (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction
+      - run: poetry run playwright install --with-deps chromium
+      - uses: actions/cache@v4
+        with:
+          path: .corpus
+          key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/flashpoint/owlet
+          key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
+      - run: poetry run python tools/fetch-corpus.py
+      - run: poetry run pytest -m "browser and not perf"
+
+  perf:
+    name: perf (budgets, non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    env:
+      FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction
+      - uses: actions/cache@v4
+        with:
+          path: .corpus
+          key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/flashpoint/owlet
+          key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
+      - run: poetry run python tools/fetch-corpus.py
+      - run: poetry run pytest -m perf -s

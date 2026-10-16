@@ -7,12 +7,17 @@ Usage:
 Files land in $FLASHPOINT_CORPUS_DIR/<version>/ (default ~/.cache/flashpoint/corpus/<version>/).
 Existing files with a matching hash are left alone, so re-runs are cheap.
 Zero-byte entries are created locally (GitHub releases reject empty assets).
+The repository is private, so downloads go through `gh release download` when the GitHub CLI
+is installed (log in with `gh auth login`, or set GH_TOKEN). Without gh, a plain HTTPS download
+is tried, which only works for a public release.
 """
 
 import argparse
 import hashlib
 import os
+import re
 import shutil
+import subprocess
 import sys
 import tomllib
 import urllib.request
@@ -23,6 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = REPO_ROOT / "tests" / "corpus" / "manifest.toml"
 DEFAULT_CORPUS_DIR = Path.home() / ".cache" / "flashpoint" / "corpus"
 CHUNK_SIZE = 1 << 20
+GITHUB_RELEASE_URL = re.compile(r"https://github\.com/([^/]+/[^/]+)/releases/download/([^/]+)/?")
 
 
 def sha256_of(path: Path) -> str:
@@ -41,6 +47,27 @@ def is_valid(path: Path, entry: dict[str, Any]) -> bool:
     )
 
 
+def github_release(release_url: str) -> tuple[str, str] | None:
+    """Return (owner/repo, tag) for a GitHub release download URL, else None."""
+    match = GITHUB_RELEASE_URL.fullmatch(release_url)
+    return (match[1], match[2]) if match else None
+
+
+def download(name: str, release_url: str, out: Path) -> None:
+    gh = shutil.which("gh")
+    release = github_release(release_url)
+    if gh is not None and release is not None:
+        repo, tag = release
+        cmd = [gh, "release", "download", tag, "--repo", repo, "--pattern", name]
+        try:
+            subprocess.run([*cmd, "--output", str(out), "--clobber"], check=True)
+        except subprocess.CalledProcessError as exc:
+            raise OSError(f"gh release download failed (exit {exc.returncode})") from exc
+        return
+    with urllib.request.urlopen(f"{release_url}/{name}") as response, out.open("wb") as f:
+        shutil.copyfileobj(response, f, CHUNK_SIZE)
+
+
 def fetch_entry(entry: dict[str, Any], dest: Path, release_url: str, source: Path | None) -> None:
     tmp = dest.with_suffix(dest.suffix + ".part")
     if entry["size"] == 0:
@@ -48,9 +75,11 @@ def fetch_entry(entry: dict[str, Any], dest: Path, release_url: str, source: Pat
     elif source is not None:
         shutil.copyfile(source / entry["name"], tmp)
     else:
-        url = f"{release_url}/{entry['name']}"
-        with urllib.request.urlopen(url) as response, tmp.open("wb") as out:
-            shutil.copyfileobj(response, out, CHUNK_SIZE)
+        try:
+            download(entry["name"], release_url, tmp)
+        except OSError:
+            tmp.unlink(missing_ok=True)
+            raise
     if not is_valid(tmp, entry):
         tmp.unlink(missing_ok=True)
         raise ValueError(f"checksum or size mismatch for {entry['name']}")

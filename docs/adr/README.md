@@ -13,12 +13,16 @@ These record the rewrite's key decisions (D1–D11 in [05-target-architecture.md
 | [0003](0003-wpilog-reader-robotpy-wpiutil.md) | wpilog reader: robotpy-wpiutil | Proposed |
 | [0004](0004-owlet-registry-by-compliancy.md) | owlet: fetched registry chosen by hoot compliancy | Proposed |
 | [0005](0005-temperature-source.md) | Temperature source: hoot DeviceTemp (logs are Pro) | Proposed |
-| [0006](0006-per-match-ui-static-site.md) | Per-match UI: static site | Proposed |
-| [0007](0007-lifetime-ui-marimo.md) | Lifetime UI: marimo | Proposed |
+| [0006](0006-per-match-ui-static-site.md) | Per-match UI: static site (amended: Replay static export) | Proposed |
+| [0007](0007-lifetime-ui-marimo.md) | Lifetime UI: marimo | Superseded by 0013 |
 | [0008](0008-deep-dive-link-advantagescope.md) | Deep dive: link to AdvantageScope | Proposed |
-| [0009](0009-deploy-pipx-single-container.md) | Deploy: pipx + optional single container | Proposed |
-| [0010](0010-anomaly-v1-rules-baselines.md) | Anomaly v1: rules + baselines + residuals | Proposed |
+| [0009](0009-deploy-pipx-single-container.md) | Deploy: pipx + per-user services (container deferred) | Proposed |
+| [0010](0010-anomaly-v1-rules-baselines.md) | Anomaly v1: rules + baselines + residuals | Accepted with amendments (P5) |
 | [0011](0011-device-identity-ctre-serials.md) | Device identity: CTRE serial numbers | **Accepted** |
+| [0012](0012-clock-alignment-shared-payload.md) | Hoot-to-wpilog clock alignment by shared payload | Proposed |
+| [0013](0013-views-one-local-app.md) | Views: one local app in the canvas shell | Proposed (amended by 0014, 0015) |
+| [0014](0014-guarded-advantagescope-launch.md) | Guarded local AdvantageScope launch | Proposed (amended by 0015) |
+| [0015](0015-anomaly-triage-writes.md) | Anomaly triage writes | Proposed |
 
 ## Template
 

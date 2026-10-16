@@ -26,23 +26,23 @@ flowchart LR
       USB[USB<br>ctre-logs/*.hoot]
     end
     subgraph Pit laptop / server
-      ACQ[flashpoint acquire<br>SFTP pull + verify]
+      ACQ[flashpoint acquire<br>SFTP pull + USB scan + verify]
       INBOX[(inbox/)]
       ING[flashpoint ingest<br>core library]
       LAKE[(lake/<br>Parquet, hive-partitioned)]
       DUCK[DuckDB views]
-      SITE[static match reports]
-      NB[marimo notebooks/apps]
-      GRAF[Grafana + DuckDB plugin]
+      APP[flashpoint serve<br>Replay + History, one app]
+      SITE[Replay static export]
+      NB[marimo notebooks, optional]
     end
     TBA[(The Blue Alliance API)]
     AS[AdvantageScope<br>user's machine]
 
     RIO -->|SFTP lvuser| ACQ
-    USB -->|manual copy| INBOX
+    USB -->|acquire: removable volumes, read-only| ACQ
     ACQ --> INBOX --> ING --> LAKE --> DUCK
     TBA -.optional enrich.-> ING
-    DUCK --> SITE & NB & GRAF
+    DUCK --> APP & SITE & NB
     LAKE -->|download .wpilog link| AS
 ```
 
@@ -52,47 +52,49 @@ flowchart LR
 flowchart TD
     F[new file in inbox] --> H[sha256 → ledger lookup]
     H -->|seen & success| SKIP[skip]
-    H -->|new| RAW[copy to raw/sha256.ext<br>ledger: status=received]
+    H -->|new| RAW[raw/sha256.ext<br>ledger: received]
     RAW --> T{type?}
-    T -->|.hoot| OV[owlet registry<br>pick version → hoot→wpilog<br>--check-pro]
+    T -->|.hoot| OV[owlet registry<br>compliancy byte 70 → owlet build<br>health profile, --check-pro]
     T -->|.wpilog| RD
-    T -->|.revlog .dslog| LATER[future readers]
-    OV --> RD[wpiutil.log.DataLogReader<br>→ Arrow batches]
-    RD --> B[bronze: signals<br>log_id, signal, ts_us, value_*]
-    RD --> META[log metadata<br>FMSInfo, git, systemTime anchor]
-    RD --> INV[CAN inventory parser<br>CANInventory entry → serial per slot]
-    INV --> UNITS[(meta/device_observations)]
-    META --> ID[match identity resolver<br>FMSInfo → filename → TBA]
-    ID --> GRP[session grouping<br>wpilog + N hoots by time overlap]
-    B --> SIL[silver: mapped + framed<br>robot config → component, metric, unit<br>match phases auto/teleop]
-    GRP --> SIL
-    UNITS --> SIL
-    SIL --> GOLD[gold: per match × slot × unit features<br>stats, energy, residuals, thermal]
-    GOLD --> AN[anomaly scoring<br>rules → z-score → PyOD/River]
-    AN --> LED[ledger: status=success<br>pipeline_version]
+    OV --> RD[streaming wpilog scanner<br>32 MB windows → Arrow]
+    RD --> B[bronze: samples per log<br>+ log metadata, inventory]
     OV -. error .-> Q[quarantine + reason]
-    RD -. corrupt tail .-> Q
+    B --> DER{{flashpoint derive<br>separate process}}
+    DER --> SES[sessions: wpilog + hoot groups<br>match key: FMS → filename]
+    SES --> AL[clock alignment<br>payload-match → enable-edges → wall-clock]
+    AL --> ID[device identity<br>slots → units: serial or legacy epoch]
+    ID --> FR[match framing<br>hoot RobotMode → DS fallback]
+    FR --> SIL[silver: mapped device samples<br>wpilog clock, phase, match time]
+    SIL --> GOLD[gold: match × phase × slot × unit<br>physics features]
+    GOLD --> AN["anomaly scoring - P5"]
 ```
 
-Notes on the design:
-- **Pairing hoot files with a wpilog by time overlap** uses the `systemTime` anchor (WPILib, n.d.-a). It replaces filename substring matching (#20, #21). Hoot files are per CAN bus and named differently (CTR Electronics, n.d.-a).
-- **`pipeline_version` in the ledger.** Bumping it marks silver and gold for rebuild. Raw files are never re-pulled.
-- **Quarantine instead of `sys.exit`** (#57). One bad file never blocks a batch.
+Implementation notes (P1 + P2, 2026-10-04):
+- Ingest and derive run in separate processes so peak memory is the larger of the two, not their sum (Q7: 870 MB and 593 MB).
+- Derive is fingerprinted per session, so a repeat run is a no-op. `--all` forces a rebuild.
+- Alignment: see ADR-0012. Identity: see ADR-0011.
 
 ## 4. Data model (lake layout)
 
 ```
 lake/
   raw/<sha256>.{wpilog,hoot}                       # immutable originals
-  bronze/signals/season=2026/event=GADAL/log_id=<sha>/part-0.parquet
-  silver/samples/season=2026/event=GADAL/match=Q12/part-0.parquet
-  gold/match_slot_features/season=2026/part-0.parquet
+  bronze/samples/season=2026/log_id=<sha>/part-0.parquet   # sorted per row group (P1)
+  silver/samples/season=2026/session_id=<id>/part-*.parquet          # P2: one per hoot in the session
+  silver/signals/season=2026/session_id=<id>/part-0.parquet          # declared NT signals (wpilog only)
+  gold/match_features/season=2026/session_id=<id>/part-0.parquet      # P2
+  gold/can_health/season=2026/session_id=<id>/part-0.parquet         # CAN health per (match, phase, slot, unit)
+  gold/can_bus_health/season=2026/session_id=<id>/part-0.parquet     # logger gaps + bus status per (match, phase, bus)
+  gold/can_events/season=2026/session_id=<id>/part-0.parquet         # reboots, dropouts >= 0.1 s, bus gaps
   gold/anomalies/season=2026/part-0.parquet
-  meta/ledger.parquet  meta/logs.parquet  meta/matches.parquet
+  meta/flashpoint.sqlite (ledger, WAL)  meta/*.parquet (snapshots: files, logs, hoot_logs, entries, inventory)
   meta/units.parquet   meta/device_observations.parquet   # physical-device registry
 config/
-  seasons/2026.toml        # NT prefixes, owlet version, match framing rules
-  robots/2026-comp.toml    # slots: (bus, model, CAN id) → subsystem/role, gear ratio, motor model
+  seasons/2026.toml        # NT roots: robot, photonvision, camera_publisher, preferences, fms;
+                           # optional flashpoint root for /Flashpoint/ wpilog entries
+  robots/2026-comp.toml    # slots: (bus, model, CAN id) → subsystem/role, gear ratio, motor model;
+                           # signals: (season root, NT entry) → id, subsystem, component, metric
+                           # buses: robot-code bus name (e.g. DriveTrain) → hoot bus
 ```
 
 ```mermaid
@@ -241,19 +243,22 @@ erDiagram
 flashpoint/
   pyproject.toml
   src/flashpoint/
-    readers/      wpilog.py (wpiutil.log), hoot.py (owlet registry), dslog.py, revlog.py
+    readers/      wpilog.py (compiled streaming scanner), hoot.py (owlet registry + owlet-manifest.toml), dslog.py, revlog.py
     identity/     match.py (FMSInfo/filename/TBA), session.py (time-overlap grouping),
                   inventory.py (CANInventory → slot/unit resolution)
     config/       models.py (pydantic), loader.py (TOML)
     lake/         ledger.py, bronze.py, silver.py, gold.py, paths.py
     physics/      motor_models.py (DCMotor constants), power.py, residuals.py
     anomaly/      rules.py, baseline.py (robust z), models.py (PyOD/River)
-    acquire/      sftp.py, watcher.py
-    report/       site.py (static), templates/
-    cli.py        typer: acquire | ingest | rebuild | report | doctor
+    acquire/      config.py, pulls.py, robot.py (paramiko), transfer.py, volumes/ (macos, linux, windows),
+                  removable.py, cycle.py, watch.py, backup.py (rclone)
+    report/       envelope.py, markers.py, build.py (per-match data + index), export.py (static)
+    views/        queries.py (parameterised DuckDB SQL behind the History API)
+    web/          server.py (stdlib HTTP), api.py; static/ (shell, views/, vendor/uplot, fonts)
+    cli.py        argparse: acquire | backup | restore | ingest | derive | rebuild | report | serve | doctor
   tests/          unit/, golden/ (real small logs + expected parquet), e2e/
-  notebooks/      marimo apps
-  tools/owlet/    fetch script + checksum manifest (binaries NOT in git)
+  notebooks/      README + example marimo notebook over views/queries.py (optional)
+  tools/          fetch-corpus.py, update-owlet-manifest.py (owlet binaries are never in git)
 ```
 
 ## 6. Key decisions
@@ -265,14 +270,17 @@ flashpoint/
 | D3 | wpilog reader | **`robotpy-wpiutil`** | Vendored `datalog.py`: no build dependency, pure-Python speed |
 | D4 | owlet distribution | **Fetch script + checksum manifest, cached under `~/.cache/flashpoint/owlet/`. Select by hoot `--compliancy`** | Commit binaries (today: repo bloat); Git LFS |
 | D5 | Temperature source | **Hoot `DeviceTemp`. P0 confirmed the logs are Pro-licensed. Record `pro_licensed` per log** | Robot-side NT logging (fallback only) |
-| D6 | Per-match UI | **Static site generated from gold/silver** (reuse power-tracking SPA, payload ≤ 2 MB) | Streamlit (server, cache pitfalls) |
-| D7 | Lifetime UI | **marimo app** (Python, Git-friendly) | Grafana + DuckDB plugin (needs glibc Linux server, unsigned plugin); Streamlit |
-| D8 | Deep dive | **Link to AdvantageScope** (download raw wpilog) | Rebuild graphs (don't) |
-| D9 | Deploy | **`pipx install` + optional single container** (multi-arch, no X11) | Three-service compose (today) |
-| D10 | Anomaly v1 | **Rules + robust z-score vs per-unit history + DCMotor residual** | Jump to ML (not enough data in season 1) |
+| D6 | Per-match UI | **Replay view with a static export** generated from gold/silver (canvas UX, ~1000-bucket envelopes, payload ≤ 2 MB; ADR-0006 amended) | Streamlit (server, cache pitfalls) |
+| D7 | Lifetime UI | **History view in one local app** (`flashpoint serve`, DuckDB API; ADR-0013 supersedes the marimo plan) | marimo (can't render the canvas shell); Grafana + DuckDB plugin (glibc server, unsigned plugin); Streamlit |
+| D8 | Deep dive | **Link to AdvantageScope**: a guarded one-click launch on the machine running `serve` (ADR-0014), otherwise download the raw logs | Rebuild graphs (don't) |
+| D9 | Deploy | **`pipx install` + per-user services** (systemd user unit, Windows scheduled task; container deferred) | Three-service compose (today) |
+| D10 | Anomaly v1 (**decided**, P5) | **Rules (SPEC) + robust z-score vs per-unit history (DRIFT, STEP) + sibling comparison, residual as a baseline metric; optional isolation forest off by default** (ADR-0010, accepted with amendments; triage writes ADR-0015) | Jump to ML (not enough data in season 1) |
 | D11 | Device identity (**decided**) | **Serial-number units from the robot-logged CAN inventory, plus config-declared legacy epochs** | CAN-ID only (swaps corrupt baselines); manual maintenance log only |
 
 ## 7. Shrinking the per-match payload (fix for #37)
+
+**[P4, measured]** Implemented differently from the plan below: about **1000 min/max/mean buckets** per match window (bucket width rounded up to 10 ms; Q7 ≈ 170 ms), temperature as change points, 3 significant figures, delivered as script files so they load from file://. Q7 is 1.07 MB. Fixed 10 ms bins measured 20 MB for Q7 and were dropped. See ADR-0006 (amended) and ADR-0013.
+
 
 **[Background — engineering estimate]**
 - Store silver as Parquet and have the static site read it, either from JSON pre-binned per **10 ms with min/max envelopes** or through DuckDB-WASM over Parquet.

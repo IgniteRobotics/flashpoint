@@ -1,0 +1,262 @@
+"""Rule-based Replay markers: fixed, configurable thresholds; facts only, no cause or fix."""
+
+from pathlib import Path
+from typing import Any
+
+import duckdb
+import numpy as np
+import polars as pl
+
+from flashpoint.report.envelope import Window
+from flashpoint.report.proxy import Proxy
+from flashpoint.report.proxy import resolve as resolve_proxy
+from flashpoint.report.proxy import series_sql as proxy_series_sql
+from flashpoint.report.settings import ReportConfig
+from flashpoint.semantics.physics import DEFAULT_CONFIG, PhysicsConfig
+
+US_PER_S = 1_000_000
+MERGE_US = US_PER_S  # intervals closer than this are one event
+
+
+def _source(path: Path) -> str:
+    return "read_parquet('" + str(path / "*.parquet").replace("'", "''") + "')"
+
+
+def _marker(
+    level: str, source: str, kind: str, window: Window, start: int, end: int | None, message: str
+) -> dict[str, Any]:
+    return {
+        "level": level,
+        "source": source,
+        "kind": kind,
+        "t": round(window.seconds(start), 3),
+        "end": round(window.seconds(end), 3) if end is not None else None,
+        "message": message,
+    }
+
+
+def _intervals(
+    starts: np.ndarray,
+    ends: np.ndarray,
+    values: np.ndarray,
+    labels: list[str] | None = None,
+    merge_us: int = MERGE_US,
+) -> list[tuple[int, int, float, float, str]]:
+    """Union of [start, end) intervals (merging gaps < merge_us):
+    (start, end, min, max, label of the minimum)."""
+    order = np.argsort(starts, kind="stable")
+    merged: list[list[Any]] = []
+    for i in order:
+        s, e, v = int(starts[i]), int(ends[i]), float(values[i])
+        label = labels[i] if labels else ""
+        if merged and s <= merged[-1][1] + merge_us:
+            last = merged[-1]
+            if v < last[2]:
+                last[2], last[4] = v, label
+            last[1], last[3] = max(last[1], e), max(last[3], v)
+        else:
+            merged.append([s, e, v, v, label])
+    return [(s, e, lo, hi, label) for s, e, lo, hi, label in merged]
+
+
+def _held(frame: pl.DataFrame, end_us: int, cap_us: int) -> pl.DataFrame:
+    """Adds `held_end`: each sample holds until the next one of its slot (capped)."""
+    return frame.sort("slot_id", "t_us").with_columns(
+        pl.min_horizontal(
+            pl.col("t_us").shift(-1).over("slot_id").fill_null(end_us),
+            pl.col("t_us") + cap_us,
+        ).alias("held_end")
+    )
+
+
+def temperature_markers(
+    temps: dict[str, list[list[float]]], config: ReportConfig
+) -> list[dict[str, Any]]:
+    out = []
+    for slot, changes in temps.items():
+        previous = float("-inf")
+        for t, value in changes:
+            for level, limit in (("WARN", config.temp_warn_c), ("FAULT", config.temp_fault_c)):
+                if previous < limit <= value:
+                    out.append(
+                        {"level": level, "source": slot, "kind": "temperature", "t": t,
+                         "end": None, "message": f"Temperature {value:.0f} °C"}
+                    )  # fmt: skip
+            previous = value
+    return out
+
+
+def power_markers(
+    con: duckdb.DuckDBPyConnection,
+    silver: Path,
+    window: Window,
+    config: ReportConfig,
+    proxy: Proxy | None,
+) -> list[dict[str, Any]]:
+    """Brownout (FAULT, held >= brownout_hold_s) and sag (WARN) on the battery proxy. A sample
+    holds until the proxy's next one, never longer than `gap_limit_s`."""
+    if proxy is None:
+        return []
+    query, params = proxy_series_sql(proxy, silver, window.t0_us, window.end_us)
+    # Only samples below the sag threshold leave DuckDB, each with the time it holds until.
+    held = con.execute(
+        f"""
+        SELECT t_us, value, held_end FROM (
+            SELECT t_us, value,
+                least(coalesce(lead(t_us) OVER (ORDER BY t_us), ?), t_us + ?) AS held_end
+            FROM ({query})
+        ) WHERE value < ?
+        """,  # noqa: S608 - internal query
+        [window.end_us, round(config.gap_limit_s * US_PER_S), *params,
+         max(config.sag_v, config.brownout_v)],
+    ).pl()  # fmt: skip
+    if held.is_empty():
+        return []
+
+    def below(threshold: float) -> list[tuple[int, int, float, float, str]]:
+        low = held.filter(pl.col("value") < threshold)
+        return _intervals(
+            low["t_us"].to_numpy(), low["held_end"].to_numpy(), low["value"].to_numpy()
+        )
+
+    def message(lowest: float, threshold: float, start: int, end: int) -> str:
+        return (
+            f"Battery proxy ({proxy.label}) {lowest:.2f} V (below {threshold:.2f} V)"
+            f" for {(end - start) / US_PER_S:.2f} s"
+        )
+
+    hold_us = config.brownout_hold_s * US_PER_S
+    brownouts = [i for i in below(config.brownout_v) if i[1] - i[0] >= hold_us]
+    out = [
+        _marker("FAULT", "power", "brownout", window, s, e, message(lo, config.brownout_v, s, e))
+        for s, e, lo, _, _ in brownouts
+    ]
+    for s, e, lo, _, _ in below(config.sag_v):
+        if any(b[0] < e and b[1] > s for b in brownouts):
+            continue  # the brownout marker already covers this dip
+        out.append(_marker("WARN", "power", "sag", window, s, e, message(lo, config.sag_v, s, e)))
+    return out
+
+
+def stall_markers(
+    con: duckdb.DuckDBPyConnection,
+    silver: Path,
+    window: Window,
+    physics: PhysicsConfig = DEFAULT_CONFIG,
+) -> list[dict[str, Any]]:
+    """Stall intervals as motor physics defines them: stator current at or above a fraction of
+    the motor's stall current while the rotor is (nearly) still."""
+    source = _source(silver)
+    stall = dict(
+        con.execute(
+            f"SELECT slot_id, median(value) FROM {source}"  # noqa: S608
+            " WHERE metric = 'stall_current' GROUP BY slot_id"
+        ).fetchall()
+    )
+    frame = con.execute(
+        f"SELECT slot_id, metric, t_us, value FROM {source}"  # noqa: S608
+        " WHERE metric IN ('stator_current', 'rotor_velocity_rps') AND t_us >= ? AND t_us < ?",
+        [window.t0_us, window.end_us],
+    ).pl()
+    out = []
+    for slot, stall_amps in sorted(stall.items()):
+        if not stall_amps:
+            continue
+        mine = frame.filter(pl.col("slot_id") == slot)
+        stator = _held(
+            mine.filter(pl.col("metric") == "stator_current").drop("metric"),
+            window.end_us,
+            physics.hold_cap_us,
+        )
+        velocity = (
+            mine.filter(pl.col("metric") == "rotor_velocity_rps")
+            .select("t_us", pl.col("value").alias("rps"))
+            .sort("t_us")
+        )
+        if stator.is_empty() or velocity.is_empty():
+            continue
+        joined = stator.join_asof(
+            velocity, on="t_us", strategy="backward", tolerance=physics.asof_tolerance_us
+        ).filter(
+            (pl.col("value").abs() >= physics.stall_current_fraction * stall_amps)
+            & (pl.col("rps").abs() < physics.stall_velocity_rps)
+        )
+        for s, e, _, hi, _ in _intervals(
+            joined["t_us"].to_numpy(),
+            joined["held_end"].to_numpy(),
+            joined["value"].abs().to_numpy(),
+        ):
+            out.append(
+                _marker("WARN", slot, "stall", window, s, e,
+                        f"Stalled {(e - s) / US_PER_S:.1f} s, stator up to {hi:.0f} A")
+            )  # fmt: skip
+    return out
+
+
+def can_markers(
+    events: list[dict[str, Any]],
+    window: Window,
+    match_end_us: int | None,
+    config: ReportConfig,
+    bus_names: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Reboots (FAULT) and long isolated dropouts (WARN) on a mapped device's slot, and whole-bus
+    silences (WARN) on the bus, from CAN-health events during the match."""
+    end = match_end_us if match_end_us is not None else window.end_us
+    names = bus_names or {}
+    out = []
+    for e in events:
+        t = e["t_us"]
+        if t is None or not window.match_start_us <= t <= end:
+            continue
+        duration_us = round((e["duration_ms"] or 0) * 1000)
+        if e["kind"] == "reboot" and e["slot_id"]:
+            counts = (
+                f" (reset count {e['reset_before']} → {e['reset_after']})"
+                if e["reset_before"] is not None
+                else ""
+            )
+            out.append(
+                _marker(
+                    "FAULT", e["slot_id"], "reboot", window, t, None, "Device rebooted" + counts
+                )
+            )
+        elif (
+            e["kind"] == "dropout"
+            and e["slot_id"]
+            and duration_us >= config.dropout_warn_s * US_PER_S
+        ):
+            out.append(
+                _marker("WARN", e["slot_id"], "dropout", window, t, t + duration_us,
+                        f"No CAN frames for {duration_us / US_PER_S:.2f} s")
+            )  # fmt: skip
+        elif e["kind"] == "bus_gap" and duration_us >= config.sample_gap_s * US_PER_S:
+            source = "bus:" + names.get(e["bus"], e["bus"])
+            out.append(
+                _marker("WARN", source, "bus_gap", window, t, t + duration_us,
+                        f"Whole bus silent for {duration_us / US_PER_S:.1f} s")
+            )  # fmt: skip
+    return out
+
+
+def match_markers(
+    con: duckdb.DuckDBPyConnection,
+    silver: Path,
+    window: Window,
+    match_end_us: int | None,
+    temps: dict[str, list[list[float]]],
+    config: ReportConfig,
+    can_events: list[dict[str, Any]] | None = None,
+    bus_names: dict[str, str] | None = None,
+    physics: PhysicsConfig = DEFAULT_CONFIG,
+    proxy_slot: str | None = None,
+) -> list[dict[str, Any]]:
+    """Every rule's markers, in time order. `proxy_slot` is the robot's declared battery proxy."""
+    proxy = resolve_proxy(con, silver, window.t0_us, window.end_us, proxy_slot)
+    markers = (
+        temperature_markers(temps, config)
+        + power_markers(con, silver, window, config, proxy)
+        + stall_markers(con, silver, window, physics)
+        + can_markers(can_events or [], window, match_end_us, config, bus_names)
+    )
+    return sorted(markers, key=lambda m: (m["t"], m["source"], m["kind"]))
