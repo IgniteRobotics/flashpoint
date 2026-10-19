@@ -25,6 +25,8 @@ flowchart LR
     P3 --> P4f[Live import updates]
     P4 --> P4f
     P4f --> P4c
+    P3 --> P4g[Team setup]
+    P4 --> P4g
     P4 --> P4d[Replay UX]
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
@@ -176,6 +178,15 @@ A view in the P4 shell that answers three questions about the lake: **are we mis
   - framing: matches whose `match_phases` came from a fallback source.
 - **Shape:** a table per event, one row per match, a status light per check, and drill-through to Replay and AdvantageScope. It is read-only, like the other P4 views. Re-ingest or re-derive stays on the CLI.
 - **Exit:** after an event, a student can see in one screen which matches are missing logs, which imported with warnings, and which have suspect clock alignment, without SQL.
+
+### Team setup (L, follow-up to P3 and P4)
+> **Tracking:** [#82](https://github.com/IgniteRobotics/flashpoint/issues/82) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-setup`.
+
+Make Flashpoint usable by any FRC team, not just 6829 with access to a private repo:
+- **Public install:** the repo goes public and Flashpoint is published to PyPI, so `pipx install flashpoint` works as ADR-0009 assumed. Bundled defaults ship in the package; Ignite's robots and units stay in the repo's `config/`, out of the wheel.
+- **Configuration home:** a per-user folder created by `flashpoint init` (team number, lake folder). The fallback to a checkout's `config/` goes away (fixes #54). The team number drives the robot addresses.
+- **Setup view:** the whole configuration and every setup check (`doctor` uses the same checks), editing of team, robots and slots, thresholds and units with the loading rules and backups, drafting a robot from a log, and guarded fix actions (create config, owlet, AdvantageScope, acquire service). Read-only when shared on the network.
+- **Needs first:** a human review of what going public exposes (corpus match logs, CAN ids and serials).
 
 ### Replay UX (S, follow-up to P4)
 > **Tracking:** [#73](https://github.com/IgniteRobotics/flashpoint/issues/73) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
