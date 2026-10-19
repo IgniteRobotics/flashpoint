@@ -81,4 +81,4 @@ operations:
       - New code goes in src/flashpoint/
   archive:
     guidance:
-      - Update docs/rewrite/06-roadmap.md phase status when archiving a phase change
+      - Roadmap status lives on the Flashpoint GitHub project (https://github.com/orgs/IgniteRobotics/projects/3), not in docs/rewrite/06-roadmap.md. When archiving a phase change, comment on its `roadmap` issue with what shipped and the archive PR, set its Target date, and close it once no [HUMAN] task is left. When archiving a follow-up change, comment on its phase issue
