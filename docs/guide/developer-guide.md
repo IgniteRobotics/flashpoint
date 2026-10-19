@@ -31,6 +31,14 @@ poetry run flashpoint ingest ~/.cache/flashpoint/corpus/corpus-v1/
 poetry run flashpoint serve
 ```
 
+### Ubuntu notes
+
+Ubuntu sets up a few traps for a fresh install:
+
+- **Poetry 1.x from apt.** `apt install python3-poetry` gives you Poetry 1.8. It can't read the `[project]` table in `pyproject.toml`, so `poetry install` fails with "the Poetry configuration is invalid" and complains that `name`, `version`, `description`, and `authors` are missing. Remove it (`sudo apt remove python3-poetry`) and install Poetry 2 with pipx: `sudo apt install pipx && pipx ensurepath`, open a new shell, then `pipx install poetry`.
+- **pyenv shims exit with status 127.** That means the selected Python doesn't have the command Poetry ran. If you use pyenv, make a virtualenv and select it in the checkout: `pyenv install 3.12`, `pyenv virtualenv 3.12 flashpoint`, `pyenv local flashpoint` (or `pyenv activate flashpoint` for one shell). With `pyenv global system`, the failing command is `python`: Ubuntu only ships `python3`. Run `poetry env use python3`, or `sudo apt install python-is-python3`.
+- **No `venv` in the system Python.** If Poetry builds its venv from Ubuntu's own Python and fails with an `ensurepip` error, run `sudo apt install python3-venv` and try again.
+
 ## Code layout
 
 | Path | What's there |
