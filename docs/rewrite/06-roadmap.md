@@ -20,6 +20,11 @@ flowchart LR
     P3 --> P4b
     P3 --> P4c[Import status view]
     P4 --> P4c
+    P4 --> P4e[Live CAN health]
+    P4e --> P4b
+    P3 --> P4f[Live import updates]
+    P4 --> P4f
+    P4f --> P4c
     P4 --> P4d[Replay UX]
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
@@ -134,6 +139,23 @@ The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 lef
 - the Pit board's checks and GO / DECIDE / NO-GO verdict;
 - both as views in the P4 shell: one file in `web/static/views/` and one `FP.view` call each, no restyling.
 - **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.
+
+### Live CAN health (M, follow-up to P4 and CAN health)
+> **Tracking:** [#80](https://github.com/IgniteRobotics/flashpoint/issues/80) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `live-can-health`.
+
+Split out of Live & Pit views so the pit crew gets live feedback during shake tests (disabled) and drive tests (enabled):
+- **Robot side:** robot code publishes running totals per CTRE device over NetworkTables under `/Flashpoint/Live/CANHealth/` (dropouts, worst signal age, resets, fault bits, lowest supply voltage), plus bus status and `Enabled`. Totals, so a 40 ms dropout still counts over a link that updates about every 100 ms. This repo carries the contract, a guide and a suggested Java sample; the robot change is a Robot-2026 PR.
+- **Laptop side:** one NetworkTables connection in `serve`, events from what changed between updates, the `can-health` sibling rule (isolated vs bus-wide), and a Live CAN view with marks.
+- **Live only:** nothing written to the lake. The Pit board can use its results later.
+
+### Live import updates (M, follow-up to P3 and P4)
+> **Tracking:** [#81](https://github.com/IgniteRobotics/flashpoint/issues/81) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+
+During an event, logs arrive every few minutes through the `acquire` watch, but the app only shows them after a restart or `flashpoint report` (#65), and import problems stay in `doctor` output and log lines.
+- **Views update as imports happen:** `serve` notices lake changes made by other processes and pushes them to open browsers. Replay's match list gains new matches, an open match reloads in place, History and Anomalies refresh. Fixes #65.
+- **Import activity in the shell:** a header indicator (idle / pulling / importing / building Replay) and a feed of pulled, imported, warned and quarantined files.
+- **Problems as they happen,** linked to their match: import problems (quarantine, `incomplete-read`, `short-coverage`, truncation, failed pulls, low robot space) and data problems (missing bus hoot, missing declared signals, unmapped devices, no CAN inventory, suspect clock alignment, no match key).
+- **One problem list:** this change defines it; the Import status view builds its per-event table on it. Read-only; retries stay on the CLI (#64).
 
 ### Import status view (S–M, follow-up to P3 and P4)
 > **Tracking:** [#76](https://github.com/IgniteRobotics/flashpoint/issues/76) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
