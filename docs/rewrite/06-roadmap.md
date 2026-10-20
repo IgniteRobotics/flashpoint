@@ -27,6 +27,7 @@ flowchart LR
     P4f --> P4c
     P3 --> P4g[Team setup]
     P4 --> P4g
+    P4g --> P4h[Team branding]
     P4 --> P4d[Replay UX]
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
@@ -187,6 +188,15 @@ Make Flashpoint usable by any FRC team, not just 6829 with access to a private r
 - **Configuration home:** a per-user folder created by `flashpoint init` (team number, lake folder). The fallback to a checkout's `config/` goes away (fixes #54). The team number drives the robot addresses.
 - **Setup view:** the whole configuration and every setup check (`doctor` uses the same checks), editing of team, robots and slots, thresholds and units with the loading rules and backups, drafting a robot from a log, and guarded fix actions (create config, owlet, AdvantageScope, acquire service). Read-only when shared on the network.
 - **Needs first:** a human review of what going public exposes (corpus match logs, CAN ids and serials).
+
+### Team branding (S–M, follow-up to Team setup)
+> **Tracking:** [#86](https://github.com/IgniteRobotics/flashpoint/issues/86) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-branding`.
+
+Each team sees its own name and colours instead of Ignite's:
+- **Team name** in the header and page title, set in `theme.toml`, by `flashpoint init`, or in the Setup view.
+- **Palette:** presets (`amber`, today's look, stays the default) or a custom primary, background and warning colour, with every shade derived from them.
+- **Readable by rule:** text keeps 4.5:1 contrast on every surface and warnings stay distinct from the primary colour; a failing palette is refused with a suggested fix.
+- Applies to every view, the charts and static exports. Colour tokens are renamed from amber to roles (`--accent*`, `--warn`).
 
 ### Replay UX (S, follow-up to P4)
 > **Tracking:** [#73](https://github.com/IgniteRobotics/flashpoint/issues/73) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
