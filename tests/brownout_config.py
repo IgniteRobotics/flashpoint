@@ -18,7 +18,7 @@ def write_brownout_config(target: Path) -> Path:
     """Copy the repo configuration to `target` with the test thresholds; returns `target`."""
     shutil.copytree(config.config_root(), target)
     report = target / "report.toml"
-    text = report.read_text(encoding="utf-8")
+    text = config.config_file(target, "report.toml").read_text(encoding="utf-8")
     text = re.sub(r"(?m)^brownout_v = [0-9.]+", f"brownout_v = {BROWNOUT_V}", text)
     text = re.sub(r"(?m)^sag_v = [0-9.]+", f"sag_v = {SAG_V}", text)
     report.write_text(text, encoding="utf-8")

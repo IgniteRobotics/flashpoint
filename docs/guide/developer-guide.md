@@ -17,7 +17,7 @@ poetry install
 poetry run flashpoint doctor
 ```
 
-`poetry install` installs the package in editable mode, along with the dev tools (pytest, ruff, mypy, Playwright, robotpy-wpiutil). In a checkout, Flashpoint reads the robot configuration from the repo's `config/` folder automatically; `FLASHPOINT_CONFIG` overrides that. Optional extras:
+`poetry install` installs the package in editable mode, along with the dev tools (pytest, ruff, mypy, Playwright, robotpy-wpiutil). The repo's `config/` folder is Ignite's team configuration and the tests' fixture. Flashpoint doesn't find it on its own: set `export FLASHPOINT_CONFIG=config` (from the repo root) in a checkout, or `flashpoint` uses your per-user folder instead. The tests set it themselves (`tests/conftest.py`). The shared defaults every team starts from live in `src/flashpoint/defaults/` and ship in the package. Optional extras:
 
 ```sh
 poetry install --extras ml        # scikit-learn, for the optional MODEL anomaly detector

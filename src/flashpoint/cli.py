@@ -1,5 +1,5 @@
-"""`flashpoint` command line: ingest, rebuild, derive, detect, backtest, report, serve, acquire,
-backup, restore, doctor."""
+"""`flashpoint` command line: init, ingest, rebuild, derive, detect, backtest, report, serve,
+acquire, backup, restore, doctor."""
 
 import argparse
 import logging
@@ -30,7 +30,6 @@ from flashpoint.acquire.watch import (
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
-from flashpoint.readers.hoot import HootError
 
 if TYPE_CHECKING:
     from flashpoint.ingest import IngestReport
@@ -53,6 +52,14 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument(
             "--lake", type=Path, help="lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake)"
         )
+
+    init = sub.add_parser(
+        "init", help="create your configuration (team number, lake folder, default settings)"
+    )
+    init.add_argument("--team", metavar="NUMBER", help="your FRC team number (asked if omitted)")
+    init.add_argument(
+        "--lake", type=Path, help="lake folder for your logs (asked if omitted; ~/flashpoint-lake)"
+    )
 
     ingest = sub.add_parser("ingest", help="ingest .wpilog/.hoot files or directories")
     ingest.add_argument("paths", nargs="+", type=Path)
@@ -155,6 +162,41 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _init(team_text: str | None, lake: Path | None) -> int:
+    from flashpoint.setup.init import InitError, default_lake, init_config, parse_team
+
+    root = config.config_root()
+    interactive = sys.stdin.isatty()
+    try:
+        if team_text is None:
+            if not interactive:
+                print("pass --team NUMBER (and --lake FOLDER) when not in a terminal",
+                      file=sys.stderr)  # fmt: skip
+                return EXIT_USAGE
+            team_text = input("FRC team number: ")
+        team = parse_team(team_text)
+        if lake is None:
+            answer = input(f"Lake folder [{default_lake()}]: ") if interactive else ""
+            lake = Path(answer.strip()) if answer.strip() else default_lake()
+        result = init_config(root, team, lake)
+    except InitError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_USAGE
+    if not result.created and result.existing:
+        print(f"a configuration already exists in {root}; nothing changed:")
+        for path in result.existing:
+            print(f"  {path.relative_to(root).as_posix()}")
+        print(f"to change the team number, edit `team` in {root / 'acquire.toml'}")
+        return 0
+    print(f"created the configuration in {root}:")
+    for path in result.created:
+        print(f"  {path.relative_to(root).as_posix()}")
+    for path in result.existing:
+        print(f"  {path.relative_to(root).as_posix()} (already there, kept)")
+    print(f"next: add your robot file to {root / 'robots'}, then run `flashpoint doctor`")
+    return 0
+
+
 def _summarize(report: "IngestReport") -> None:
     for result in report.results:
         if result.status == "quarantined":
@@ -171,8 +213,15 @@ def _derive(lake: LakePaths, force: bool) -> int:
     from flashpoint.semantics.derive import Deriver
     from flashpoint.semantics.robot_config import ConfigError
 
+    root = config.config_root()
+    if not (root / "acquire.toml").is_file():
+        print(f"warning: no configuration in {root}: run `flashpoint init`. Until then no robot,"
+              " slot or signal is mapped.", file=sys.stderr)  # fmt: skip
+    elif not any((root / "robots").glob("*.toml")):
+        print(f"warning: no robot configured in {root / 'robots'}: slots and signals stay"
+              " unmapped until you add one", file=sys.stderr)  # fmt: skip
     try:
-        deriver = Deriver(lake, config.config_root())
+        deriver = Deriver(lake, root)
     except ConfigError as exc:
         print(f"robot configuration error: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -363,6 +412,13 @@ def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
     except AcquireConfigError as exc:
         print(f"acquire configuration error: {exc}", file=sys.stderr)
         return EXIT_USAGE
+    if not settings.robot_hosts():
+        print(
+            "no robot address: no team number and no hosts in"
+            f" {config.config_root() / 'acquire.toml'}; run `flashpoint init --team <number>`",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
     return run_acquire(
         settings,
         lake,
@@ -462,12 +518,18 @@ def _acquire_status(lake: LakePaths) -> list[str]:
         return [f"unreadable acquire status {lake.status}: {exc}"]
 
 
+CHECK_MARKS = {"ok": "ok", "warning": "WARN", "problem": "PROBLEM", "n/a": "n/a"}
+
+
 def _doctor(lake: LakePaths) -> int:
-    from flashpoint.semantics.robot_config import ConfigError, load_robots, load_seasons
+    from flashpoint.semantics.robot_config import ConfigError, load_config_seasons, load_robots
+    from flashpoint.setup.checks import CheckContext, has_problem, run_checks
     from flashpoint.web import advantagescope
 
+    root = config.config_root()
     print(f"flashpoint {flashpoint.__version__} (pipeline v{config.PIPELINE_VERSION})")
     print(f"python     {platform.python_version()} on {hoot.platform_key()}")
+    print(f"config     {root}{'' if root.is_dir() else ' (missing: run `flashpoint init`)'}")
     print(f"lake       {lake.root}{'' if lake.root.exists() else ' (not created yet)'}")
     if lake.ledger.is_file():
         ledger = Ledger(lake.ledger)
@@ -482,41 +544,45 @@ def _doctor(lake: LakePaths) -> int:
         if stale:
             print(f"  {stale} file(s) from an older pipeline version: run `flashpoint rebuild`")
         ledger.close()
-    seasons_dir = config.config_root() / "seasons"
-    print(f"seasons    {seasons_dir}")
     try:
-        seasons = load_seasons(seasons_dir)
-        for season in seasons.values():
-            roots = " ".join(f"{k}={v}" for k, v in season.root_names().items())
-            print(f"  {season.season}  {roots}")
-    except ConfigError as exc:
-        seasons = None
-        print(f"  INVALID: {exc}")
-    robots_dir = config.config_root() / "robots"
+        seasons = load_config_seasons(root)
+    except ConfigError:
+        seasons = None  # the checks below name the bad file
+    print("seasons")
+    for season in (seasons or {}).values():
+        roots = " ".join(f"{k}={v}" for k, v in season.root_names().items())
+        print(f"  {season.season}  {roots}")
+    robots_dir = root / "robots"
     print(f"robots     {robots_dir}")
     try:
         for robot in load_robots(robots_dir, seasons):
             counts = f"{len(robot.slots)} slots, {len(robot.signals)} signals"
             print(f"  {robot.robot:<14} season {robot.season} project {robot.project}: {counts}")
-    except ConfigError as exc:
-        print(f"  INVALID: {exc}")
+    except ConfigError:
+        pass  # reported by the checks
     registry = hoot.default_registry(config.cache_root())
     print(f"owlet cache {registry.cache_dir}")
-    for compliancy in registry.compliancies():
-        try:
-            registry.binary_for(compliancy, download=False)
-            state = "cached"
-        except HootError as exc:
-            state = exc.reason
-        print(f"  C{compliancy:<3} owlet {registry.version_for(compliancy):<10} {state}")
     print("acquire")
     for line in _acquire_status(lake):
         print(f"  {line}")
-    install, problem = advantagescope.find(config.config_root())
+    install, problem = advantagescope.find(root)
     for line in advantagescope.doctor_lines(
         install, problem, advantagescope.staging_root(), lake.raw
     ):
         print(line)
+    results = run_checks(CheckContext.default(root, lake))
+    defaults = [r.source for r in results if r.default and r.source]
+    if defaults:
+        print(f"defaults   {', '.join(defaults)} (bundled with Flashpoint)")
+    print("checks")
+    for result in results:
+        print(f"  {CHECK_MARKS[result.status]:<8} {result.title:<28} {result.message}")
+        if result.status in ("warning", "problem") and result.command:
+            print(f"  {'':<8} {'':<28} fix: {result.command}")
+    problems = sum(r.status == "problem" for r in results)
+    if has_problem(results):
+        print(f"{problems} problem(s)")
+        return EXIT_FAILED
     return 0
 
 
@@ -525,6 +591,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command is None:
         _parser().print_help()
         return 0
+    if args.command == "init":
+        return _init(args.team, args.lake)
     lake = LakePaths(config.lake_root(args.lake))
     if args.command == "doctor":
         return _doctor(lake)

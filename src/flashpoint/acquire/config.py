@@ -4,9 +4,15 @@ import tomllib
 from pathlib import Path
 from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 CONFIG_FILE = "acquire.toml"
+USB_HOST = "172.22.11.2"
+
+
+def team_hosts(team: int) -> list[str]:
+    """The roboRIO addresses for a team: 10.TE.AM.2, its mDNS name, then USB."""
+    return [f"10.{team // 100}.{team % 100}.2", f"roborio-{team}-frc.local", USB_HOST]
 
 
 class AcquireConfigError(ValueError):
@@ -23,7 +29,9 @@ class BackupConfig(BaseModel):
 class AcquireConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    hosts: list[str] = ["10.68.29.2", "roborio-6829-frc.local", "172.22.11.2"]
+    team: int | None = Field(default=None, ge=1, le=99999, strict=True)
+    lake: Path | None = None
+    hosts: list[str] = []
     user: str = "lvuser"
     password: str = ""
     roots: list[str] = ["/home/lvuser/logs", "/u/logs"]
@@ -32,6 +40,12 @@ class AcquireConfig(BaseModel):
     low_space_mb: int = 100
     removable_media: bool = True
     backup: BackupConfig = BackupConfig()
+
+    def robot_hosts(self) -> list[str]:
+        """Configured hosts, else the team's addresses, else none (acquire refuses)."""
+        if self.hosts:
+            return list(self.hosts)
+        return team_hosts(self.team) if self.team is not None else []
 
     @classmethod
     def load(cls, config_root: Path) -> Self:

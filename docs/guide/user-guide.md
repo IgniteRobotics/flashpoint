@@ -235,9 +235,9 @@ You probably won't need to change these, but they're all team-editable and check
 
 | File | Controls |
 |---|---|
-| [`config/report.toml`](../../config/report.toml) | Replay marker and History limits: temperatures, brownout and sag voltages, CAN gap lengths. Also an optional AdvantageScope path |
-| [`config/anomaly.toml`](../../config/anomaly.toml) | Anomaly thresholds. After editing, run `flashpoint detect` |
-| [`config/anomaly-causes.toml`](../../config/anomaly-causes.toml) | The "likely causes" text on each anomaly |
+| [`config/report.toml`](../../src/flashpoint/defaults/report.toml) | Replay marker and History limits: temperatures, brownout and sag voltages, CAN gap lengths. Also an optional AdvantageScope path |
+| [`config/anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml) | Anomaly thresholds. After editing, run `flashpoint detect` |
+| [`config/anomaly-causes.toml`](../../src/flashpoint/defaults/anomaly-causes.toml) | The "likely causes" text on each anomaly |
 | [`config/failure-labels.toml`](../../config/failure-labels.toml) | Real failures, used by `flashpoint backtest` to check detection |
 | [`config/units/`](../../config/units/README.md) | The list of every physical motor the team owns, by serial number, with its label |
 
@@ -248,8 +248,9 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 | Section | What to look for |
 |---|---|
 | `lake` | The folder you expect, and how many files are at each stage. "N file(s) from an older pipeline version" means a Flashpoint update needs `flashpoint rebuild` |
-| `seasons`, `robots` | Each configured season and robot. `INVALID` means a config file has a mistake, and the message says where. An empty list means `FLASHPOINT_CONFIG` isn't set |
-| `owlet cache` | `cached` for this season's version, or you can't convert hoots offline |
+| `seasons`, `robots` | Each configured season and robot. An empty robot list means `FLASHPOINT_CONFIG` isn't set, or no robot file was added yet |
+| `checks` | One line per setup check. `PROBLEM` lines say what's wrong and the fix under them; `doctor` then exits `1`. See the [CLI reference](cli-reference.md#flashpoint-doctor) |
+| `owlet cache` | Where owlet is kept. The owlet check says whether each version your logs need is downloaded; if not, you can't convert hoots offline |
 | `acquire` | The last automatic import and backup ([automatic import](auto-import.md#check-the-status)) |
 | `AdvantageScope` | Which install "Open in AdvantageScope" uses |
 

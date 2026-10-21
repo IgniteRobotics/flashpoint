@@ -7,21 +7,21 @@
 
 ## 2. Package and bundled defaults
 
-- [ ] 2.1 Write failing tests that the built wheel contains `flashpoint/defaults/` (season roots, `report.toml`, `anomaly.toml`, `anomaly-causes.toml`, units header) and no robot file, units rows, `.wpilog` or `.hoot` ("No team data in the package"); move the shared files to `src/flashpoint/defaults/` and set package data; verify `poetry build` and the tests pass, and the wheel is under 5 MB
+- [x] 2.1 Write failing tests that the built wheel contains `flashpoint/defaults/` (season roots, `report.toml`, `anomaly.toml`, `anomaly-causes.toml`, units header) and no robot file, units rows, `.wpilog` or `.hoot` ("No team data in the package"); move the shared files to `src/flashpoint/defaults/` and set package data; verify `poetry build` and the tests pass, and the wheel is under 5 MB
 - [ ] 2.2 Add PyPI metadata (description, license, URLs, classifiers, Python 3.11–3.13) and `.github/workflows/release.yml` (build on `v*` tag, trusted publishing, version from the tag); verify a dry run against TestPyPI installs with `pipx install --index-url https://test.pypi.org/simple/ flashpoint`
-- [ ] 2.3 Add a CI job that installs the built wheel into a clean venv on macOS, Windows and Ubuntu and runs `flashpoint --version` and `flashpoint doctor` with no configuration ("Clean install"); verify it passes
+- [x] 2.3 Add a CI job that installs the built wheel into a clean venv on macOS, Windows and Ubuntu and runs `flashpoint --version` and `flashpoint doctor` with no configuration ("Clean install"); verify it passes
 
 ## 3. Configuration home and init
 
-- [ ] 3.1 Write failing tests for root resolution (explicit, `FLASHPOINT_CONFIG`, per-user folder per platform, no checkout fallback) and per-file default fallback ("Per-user folder", "Default thresholds"); implement in `config.py` and the loaders; set `FLASHPOINT_CONFIG` in `tests/conftest.py`; verify the full suite passes
-- [ ] 3.2 Write failing tests for `acquire.toml` `team` and `lake`, `lake_root()` order, and derived hosts ("Four-digit team", "Short and long team numbers", "No team"); implement; verify tests pass
-- [ ] 3.3 Write failing tests for `flashpoint init` ("First run", "Second run", "Bad team number", prompts only on a terminal); implement; verify tests pass, and `cli-reference.md` gains `init` (the CLI drift test passes)
-- [ ] 3.4 Write a failing test for "Derive without configuration" (warning naming `flashpoint init`, #54); implement; verify it passes, then close #54 when merged
+- [x] 3.1 Write failing tests for root resolution (explicit, `FLASHPOINT_CONFIG`, per-user folder per platform, no checkout fallback) and per-file default fallback ("Per-user folder", "Default thresholds"); implement in `config.py` and the loaders; set `FLASHPOINT_CONFIG` in `tests/conftest.py`; verify the full suite passes
+- [x] 3.2 Write failing tests for `acquire.toml` `team` and `lake`, `lake_root()` order, and derived hosts ("Four-digit team", "Short and long team numbers", "No team"); implement; verify tests pass
+- [x] 3.3 Write failing tests for `flashpoint init` ("First run", "Second run", "Bad team number", prompts only on a terminal); implement; verify tests pass, and `cli-reference.md` gains `init` (the CLI drift test passes)
+- [x] 3.4 Write a failing test for "Derive without configuration" (warning naming `flashpoint init`, #54); implement; verify it passes, then close #54 when merged
 
 ## 4. Setup checks
 
-- [ ] 4.1 Write failing tests for the check registry: each check's ok, warning and problem cases (configuration root, each file loads, team set, robot for the current season, lake writable, owlet per Phoenix version in the lake, AdvantageScope, acquire service on Linux and Windows and "not applicable" on macOS, Python version); implement `flashpoint.setup.checks`; verify tests pass and the full run takes < 2 s on the corpus lake
-- [ ] 4.2 Rebuild `doctor` on the registry, keeping its informational lines, and make it exit 1 on any problem ("Missing configuration", "Invalid robot file"); verify `pytest tests/test_cli.py` passes and update `cli-reference.md`
+- [x] 4.1 Write failing tests for the check registry: each check's ok, warning and problem cases (configuration root, each file loads, team set, robot for the current season, lake writable, owlet per Phoenix version in the lake, AdvantageScope, acquire service on Linux and Windows and "not applicable" on macOS, Python version); implement `flashpoint.setup.checks`; verify tests pass and the full run takes < 2 s on the corpus lake
+- [x] 4.2 Rebuild `doctor` on the registry, keeping its informational lines, and make it exit 1 on any problem ("Missing configuration", "Invalid robot file"); verify `pytest tests/test_cli.py` passes and update `cli-reference.md`
 - [ ] 4.3 Run the first-release checkpoint: groups 1–4 merged, tag `v0.2.0`, install with `pipx install flashpoint` on a clean machine, run `flashpoint init` and ingest the corpus; verify `doctor` reports only "no robot configured"
 
 ## 5. Guarded writes and fix actions

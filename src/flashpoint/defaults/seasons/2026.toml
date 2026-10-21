@@ -1,0 +1,12 @@
+# 2026 NetworkTables roots shared by every WPILib robot. Add your robot code's root, then rerun
+# `flashpoint derive`. Until it is set, robot-code signals are reported as missing.
+season = 2026
+
+[roots]
+# robot = "NT:Robot/m_robotContainer/"   # your robot code's NetworkTables root
+photonvision = "NT:/photonvision/"
+camera_publisher = "NT:/CameraPublisher/"
+preferences = "NT:/Preferences/"
+fms = "NT:/FMSInfo/"
+# Entries robot code writes straight to the wpilog for Flashpoint (not NetworkTables).
+flashpoint = "/Flashpoint/"

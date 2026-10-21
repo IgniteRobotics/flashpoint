@@ -6,7 +6,7 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
-from flashpoint.config import CAN_EVENT_FLOOR_S
+from flashpoint.config import CAN_EVENT_FLOOR_S, config_file
 
 
 class ReportConfigError(Exception):
@@ -30,7 +30,7 @@ _TABLES = {"thresholds", "advantagescope"}
 
 
 def _load(config_dir: Path) -> dict[str, Any]:
-    path = config_dir / "report.toml"
+    path = config_file(config_dir, "report.toml")
     if not path.is_file():
         return {}
     try:
