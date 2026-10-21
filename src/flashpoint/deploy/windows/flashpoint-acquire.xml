@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Import: schtasks /Create /XML deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
+  Import: schtasks /Create /XML src\flashpoint\deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
   The Command path is where pipx installs flashpoint.exe on Windows
   (%USERPROFILE%\.local\bin). Edit it if your pipx bin directory differs (run: pipx environment).
 -->

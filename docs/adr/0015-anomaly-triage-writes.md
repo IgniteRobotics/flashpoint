@@ -2,6 +2,7 @@
 
 - Status: Proposed
 - Date: 2026-10-11
+- Amended by: [0017](0017-config-writes-and-setup-actions.md) (the guard also covers configuration saves and setup actions, marker `setup`, 256 KB bodies)
 - Amends: [0013](0013-views-one-local-app.md) (the read-only app) and [0014](0014-guarded-advantagescope-launch.md) (its one write route)
 - Deciders: Josh
 - Refs: openspec change `p5-anomaly-detection` (design.md D7, D8), D10, canvas board "Anomalies"

@@ -7,6 +7,7 @@ anything, and the whole run stays under 2 s.
 
 import datetime as dt
 import platform
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -91,6 +92,9 @@ class CheckContext:
     python: tuple[int, int] = (sys.version_info.major, sys.version_info.minor)
     run: Runner = _run
     find_advantagescope: Finder = _find_advantagescope
+    registry: Callable[[Path], hoot.OwletRegistry] = hoot.default_registry
+    home: Path = field(default_factory=Path.home)
+    which: Callable[[str], str | None] = shutil.which
 
     @classmethod
     def default(cls, config_root: Path, lake: LakePaths) -> "CheckContext":
@@ -297,10 +301,15 @@ def _lake_compliancies(lake: LakePaths) -> list[int]:
     return sorted(int(r["compliancy"]) for r in rows)
 
 
-def _owlet(ctx: CheckContext) -> list[CheckResult]:
-    registry = hoot.default_registry(ctx.cache_root)
+def owlet_compliancies(ctx: CheckContext) -> tuple[list[int], bool]:
+    """The hoot formats the lake holds (True), else the newest the registry knows (False)."""
     in_lake = _lake_compliancies(ctx.lake)
-    wanted = in_lake or registry.compliancies()[-1:]
+    return (in_lake, True) if in_lake else (ctx.registry(ctx.cache_root).compliancies()[-1:], False)
+
+
+def _owlet(ctx: CheckContext) -> list[CheckResult]:
+    registry = ctx.registry(ctx.cache_root)
+    wanted, in_lake = owlet_compliancies(ctx)
     results = []
     for compliancy in wanted:
         check_id, title = f"owlet:C{compliancy}", f"owlet for hoot format C{compliancy}"

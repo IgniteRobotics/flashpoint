@@ -4,8 +4,8 @@ Files for running `flashpoint acquire --watch` as a per-user background service.
 
 | File | For | Runs |
 |---|---|---|
-| [`systemd/flashpoint-acquire.service`](systemd/flashpoint-acquire.service) | Linux, systemd user unit | `%h/.local/bin/flashpoint acquire --watch`, restarted on failure; environment from `~/.config/flashpoint/env` |
-| [`windows/flashpoint-acquire.xml`](windows/flashpoint-acquire.xml) | Windows, Task Scheduler | `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarted up to 3 times |
+| [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../src/flashpoint/deploy/systemd/flashpoint-acquire.service) | Linux, systemd user unit | `%h/.local/bin/flashpoint acquire --watch`, restarted on failure; environment from `~/.config/flashpoint/env` |
+| [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](../src/flashpoint/deploy/windows/flashpoint-acquire.xml) | Windows, Task Scheduler | `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarted up to 3 times |
 
 macOS has no service file yet; see [Automatic import: macOS](../docs/guide/auto-import.md#macos).
 
@@ -23,7 +23,7 @@ If `pipx environment --value PIPX_BIN_DIR` isn't `~/.local/bin`, edit the path i
 
 ```sh
 mkdir -p ~/.config/systemd/user
-cp deploy/systemd/flashpoint-acquire.service ~/.config/systemd/user/
+cp src/flashpoint/deploy/systemd/flashpoint-acquire.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now flashpoint-acquire
 ```
@@ -31,7 +31,7 @@ systemctl --user enable --now flashpoint-acquire
 ## Windows
 
 ```bat
-schtasks /Create /XML deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
+schtasks /Create /XML src\flashpoint\deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
 schtasks /Run /TN flashpoint-acquire
 ```
 
