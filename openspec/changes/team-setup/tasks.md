@@ -9,7 +9,7 @@
 
 - [x] 2.1 Write failing tests that the built wheel contains `flashpoint/defaults/` (season roots, `report.toml`, `anomaly.toml`, `anomaly-causes.toml`, units header) and no robot file, units rows, `.wpilog` or `.hoot` ("No team data in the package"); move the shared files to `src/flashpoint/defaults/` and set package data; verify `poetry build` and the tests pass, and the wheel is under 5 MB
 - [ ] 2.2 Add PyPI metadata (description, license, URLs, classifiers, Python 3.11–3.13) and `.github/workflows/release.yml` (build on `v*` tag, trusted publishing, version from the tag); verify a dry run against TestPyPI installs with `pipx install --index-url https://test.pypi.org/simple/ flashpoint`
-- [ ] 2.3 Add a CI job that installs the built wheel into a clean venv on macOS, Windows and Ubuntu and runs `flashpoint --version` and `flashpoint doctor` with no configuration ("Clean install"); verify it passes
+- [x] 2.3 Add a CI job that installs the built wheel into a clean venv on macOS, Windows and Ubuntu and runs `flashpoint --version` and `flashpoint doctor` with no configuration ("Clean install"); verify it passes
 
 ## 3. Configuration home and init
 
