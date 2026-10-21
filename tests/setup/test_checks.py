@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -141,7 +142,13 @@ def test_lake_states(tmp_path: Path) -> None:
     assert _by_id(run_checks(_context(root, tmp_path / "lake")))["lake"].status == "ok"
 
 
-@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs POSIX permissions")
+def _posix_non_root() -> bool:
+    if sys.platform == "win32":
+        return False
+    return os.geteuid() != 0
+
+
+@pytest.mark.skipif(not _posix_non_root(), reason="needs POSIX permissions, not as root")
 def test_lake_not_writable(tmp_path: Path) -> None:
     lake = tmp_path / "lake"
     lake.mkdir()
