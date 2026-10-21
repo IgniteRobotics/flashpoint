@@ -1,3 +1,4 @@
+import os
 import tomllib
 from pathlib import Path
 
@@ -97,7 +98,8 @@ def test_no_prompt_without_a_terminal(
 
 
 def test_lake_path_with_quotes_and_backslashes(root: Path, tmp_path: Path) -> None:
-    lake = tmp_path / "it's a \\ lake"
+    # Windows paths carry backslashes already, and can't hold one in a folder name.
+    lake = tmp_path / ("it's a lake" if os.name == "nt" else "it's a \\ lake")
     init_config(root, team=254, lake=lake)
     with (root / "acquire.toml").open("rb") as f:
         assert Path(tomllib.load(f)["lake"]) == lake
