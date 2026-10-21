@@ -20,6 +20,14 @@ flowchart LR
     P3 --> P4b
     P3 --> P4c[Import status view]
     P4 --> P4c
+    P4 --> P4e[Live CAN health]
+    P4e --> P4b
+    P3 --> P4f[Live import updates]
+    P4 --> P4f
+    P4f --> P4c
+    P3 --> P4g[Team setup]
+    P4 --> P4g
+    P4g --> P4h[Team branding]
     P4 --> P4d[Replay UX]
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
@@ -135,6 +143,23 @@ The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 lef
 - both as views in the P4 shell: one file in `web/static/views/` and one `FP.view` call each, no restyling.
 - **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.
 
+### Live CAN health (M, follow-up to P4 and CAN health)
+> **Tracking:** [#80](https://github.com/IgniteRobotics/flashpoint/issues/80) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `live-can-health`.
+
+Split out of Live & Pit views so the pit crew gets live feedback during shake tests (disabled) and drive tests (enabled):
+- **Robot side:** robot code publishes running totals per CTRE device over NetworkTables under `/Flashpoint/Live/CANHealth/` (dropouts, worst signal age, resets, fault bits, lowest supply voltage), plus bus status and `Enabled`. Totals, so a 40 ms dropout still counts over a link that updates about every 100 ms. This repo carries the contract, a guide and a suggested Java sample; the robot change is a Robot-2026 PR.
+- **Laptop side:** one NetworkTables connection in `serve`, events from what changed between updates, the `can-health` sibling rule (isolated vs bus-wide), and a Live CAN view with marks.
+- **Live only:** nothing written to the lake. The Pit board can use its results later.
+
+### Live import updates (M, follow-up to P3 and P4)
+> **Tracking:** [#81](https://github.com/IgniteRobotics/flashpoint/issues/81) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+
+During an event, logs arrive every few minutes through the `acquire` watch, but the app only shows them after a restart or `flashpoint report` (#65), and import problems stay in `doctor` output and log lines.
+- **Views update as imports happen:** `serve` notices lake changes made by other processes and pushes them to open browsers. Replay's match list gains new matches, an open match reloads in place, History and Anomalies refresh. Fixes #65.
+- **Import activity in the shell:** a header indicator (idle / pulling / importing / building Replay) and a feed of pulled, imported, warned and quarantined files.
+- **Problems as they happen,** linked to their match: import problems (quarantine, `incomplete-read`, `short-coverage`, truncation, failed pulls, low robot space) and data problems (missing bus hoot, missing declared signals, unmapped devices, no CAN inventory, suspect clock alignment, no match key).
+- **One problem list:** this change defines it; the Import status view builds its per-event table on it. Read-only; retries stay on the CLI (#64).
+
 ### Import status view (S–M, follow-up to P3 and P4)
 > **Tracking:** [#76](https://github.com/IgniteRobotics/flashpoint/issues/76) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
@@ -154,6 +179,24 @@ A view in the P4 shell that answers three questions about the lake: **are we mis
   - framing: matches whose `match_phases` came from a fallback source.
 - **Shape:** a table per event, one row per match, a status light per check, and drill-through to Replay and AdvantageScope. It is read-only, like the other P4 views. Re-ingest or re-derive stays on the CLI.
 - **Exit:** after an event, a student can see in one screen which matches are missing logs, which imported with warnings, and which have suspect clock alignment, without SQL.
+
+### Team setup (L, follow-up to P3 and P4)
+> **Tracking:** [#82](https://github.com/IgniteRobotics/flashpoint/issues/82) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-setup`.
+
+Make Flashpoint usable by any FRC team, not just 6829 with access to a private repo:
+- **Public install:** the repo goes public and Flashpoint is published to PyPI, so `pipx install flashpoint` works as ADR-0009 assumed. Bundled defaults ship in the package; Ignite's robots and units stay in the repo's `config/`, out of the wheel.
+- **Configuration home:** a per-user folder created by `flashpoint init` (team number, lake folder). The fallback to a checkout's `config/` goes away (fixes #54). The team number drives the robot addresses.
+- **Setup view:** the whole configuration and every setup check (`doctor` uses the same checks), editing of team, robots and slots, thresholds and units with the loading rules and backups, drafting a robot from a log, and guarded fix actions (create config, owlet, AdvantageScope, acquire service). Read-only when shared on the network.
+- **Needs first:** a human review of what going public exposes (corpus match logs, CAN ids and serials).
+
+### Team branding (S–M, follow-up to Team setup)
+> **Tracking:** [#86](https://github.com/IgniteRobotics/flashpoint/issues/86) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-branding`.
+
+Each team sees its own name and colours instead of Ignite's:
+- **Team name** in the header and page title, set in `theme.toml`, by `flashpoint init`, or in the Setup view.
+- **Palette:** presets (`amber`, today's look, stays the default) or a custom primary, background and warning colour, with every shade derived from them.
+- **Readable by rule:** text keeps 4.5:1 contrast on every surface and warnings stay distinct from the primary colour; a failing palette is refused with a suggested fix.
+- Applies to every view, the charts and static exports. Colour tokens are renamed from amber to roles (`--accent*`, `--warn`).
 
 ### Replay UX (S, follow-up to P4)
 > **Tracking:** [#73](https://github.com/IgniteRobotics/flashpoint/issues/73) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
