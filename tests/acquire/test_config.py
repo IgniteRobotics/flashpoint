@@ -2,7 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, BackupConfig
+from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, BackupConfig, team_hosts
+from flashpoint.cli import main
 
 FULL_TOML = """
 hosts = ["192.0.2.1"]
@@ -21,7 +22,9 @@ interval_min = 5
 
 def test_defaults_when_no_file(tmp_path: Path) -> None:
     config = AcquireConfig.load(tmp_path)
-    assert config.hosts == ["10.68.29.2", "roborio-6829-frc.local", "172.22.11.2"]
+    assert config.hosts == []
+    assert config.team is None and config.lake is None
+    assert config.robot_hosts() == []
     assert config.user == "lvuser"
     assert config.password == ""
     assert config.roots == ["/home/lvuser/logs", "/u/logs"]
@@ -95,3 +98,44 @@ def test_override_of_unknown_field_is_rejected() -> None:
 def test_override_is_validated() -> None:
     with pytest.raises(AcquireConfigError, match="poll_s"):
         AcquireConfig().with_overrides(poll_s="soon")
+
+
+def test_four_digit_team(tmp_path: Path) -> None:
+    (tmp_path / "acquire.toml").write_text("team = 6829\n")
+    config = AcquireConfig.load(tmp_path)
+    assert config.robot_hosts() == ["10.68.29.2", "roborio-6829-frc.local", "172.22.11.2"]
+
+
+@pytest.mark.parametrize(
+    ("team", "first"), [(254, "10.2.54.2"), (12345, "10.123.45.2"), (1, "10.0.1.2")]
+)
+def test_short_and_long_team_numbers(team: int, first: str) -> None:
+    assert team_hosts(team)[0] == first
+    assert team_hosts(team)[1] == f"roborio-{team}-frc.local"
+
+
+def test_configured_hosts_replace_the_team_addresses(tmp_path: Path) -> None:
+    (tmp_path / "acquire.toml").write_text('team = 254\nhosts = ["192.0.2.9"]\n')
+    assert AcquireConfig.load(tmp_path).robot_hosts() == ["192.0.2.9"]
+
+
+@pytest.mark.parametrize("team", ["0", "100000", "-5", '"254"'])
+def test_bad_team_is_refused(tmp_path: Path, team: str) -> None:
+    (tmp_path / "acquire.toml").write_text(f"team = {team}\n")
+    with pytest.raises(AcquireConfigError, match="team"):
+        AcquireConfig.load(tmp_path)
+
+
+def test_lake_is_read(tmp_path: Path) -> None:
+    (tmp_path / "acquire.toml").write_text("lake = '/data/lake'\n")
+    assert AcquireConfig.load(tmp_path).lake == Path("/data/lake")
+
+
+def test_no_team_refuses_to_acquire(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(tmp_path / "cfg"))
+    lake = tmp_path / "lake"
+    assert main(["acquire", "--no-usb", "--lake", str(lake)]) != 0
+    assert "flashpoint init" in capsys.readouterr().err
+    assert not lake.exists()  # nothing transferred, not even a lock file

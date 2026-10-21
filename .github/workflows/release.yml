@@ -1,0 +1,78 @@
+name: release
+
+# A `v*` tag builds the sdist and wheel with the version taken from the tag and publishes them
+# to PyPI by trusted publishing (OIDC, no stored token). A manual run publishes a dry run to
+# TestPyPI instead, under the version given.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for the TestPyPI dry run (e.g. 0.2.0.dev1)"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set the version
+        env:
+          VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+        run: poetry version "${VERSION#v}"
+      - run: poetry build
+      - name: Check the wheel holds no team data and stays under 5 MB
+        run: |
+          python - <<'EOF'
+          import pathlib, zipfile
+          (wheel,) = pathlib.Path("dist").glob("*.whl")
+          names = zipfile.ZipFile(wheel).namelist()
+          bad = [n for n in names if "/robots/" in n or n.endswith((".wpilog", ".hoot"))]
+          assert not bad, bad
+          assert "flashpoint/defaults/report.toml" in names
+          assert wheel.stat().st_size < 5 * 1024 * 1024, wheel.stat().st_size
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/flashpoint
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  testpypi:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/flashpoint
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

@@ -209,7 +209,7 @@ class RobotClient:
         """
         store = KnownRobots(known_robots or cache_root() / KNOWN_ROBOTS_FILE)
         gate = throttle or _DEFAULT_THROTTLE
-        for candidate in config.hosts:
+        for candidate in config.robot_hosts():
             host, port = split_address(candidate)
             try:
                 sock = socket.create_connection((host, port), timeout=tcp_timeout)

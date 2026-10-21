@@ -10,6 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from flashpoint.anomaly.settings import METHODS, METRICS, POWER
+from flashpoint.config import config_file
 from flashpoint.semantics.robot_config import RobotConfig
 
 CAUSES_FILE = "anomaly-causes.toml"
@@ -89,7 +90,7 @@ def _read(path: Path, table: str) -> list[Any]:
 
 
 def load_causes(config_dir: Path) -> list[Cause]:
-    path = config_dir / CAUSES_FILE
+    path = config_file(config_dir, CAUSES_FILE)
     causes = []
     for n, item in enumerate(_read(path, "cause"), start=1):
         try:

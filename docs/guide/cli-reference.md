@@ -8,11 +8,26 @@ In a source checkout, put `poetry run` in front of each command (`poetry run fla
 
 | Setting | Default | Change it with |
 |---|---|---|
-| Lake (where logs and results are stored) | `~/flashpoint-lake` | `--lake PATH` on any command, or `FLASHPOINT_LAKE` |
-| Config folder (robots, seasons, thresholds) | the checkout's `config/`, else `~/.config/flashpoint/` | `FLASHPOINT_CONFIG` |
+| Lake (where logs and results are stored) | `lake` in `acquire.toml`, else `~/flashpoint-lake` | `--lake PATH` on any command, or `FLASHPOINT_LAKE` |
+| Config folder (team, robots, seasons, thresholds) | `~/.config/flashpoint/` (Windows: `%APPDATA%\flashpoint`) | `FLASHPOINT_CONFIG` |
+
+A settings file missing from the config folder falls back to the default that ships with Flashpoint (thresholds, anomaly settings, season roots). `doctor` lists which files are defaults.
 | Download cache (owlet) | `~/.cache/flashpoint/` | `FLASHPOINT_CACHE` |
 
 Exit codes: `0` success, `1` failed (or a file was quarantined), `2` usage or configuration error, `3` another Flashpoint process holds the lock, `130` interrupted with Ctrl-C.
+
+## `flashpoint init`
+
+Create your config folder: `acquire.toml` with your team number and lake folder, plus copies of the default settings files to edit. Without `--team` or `--lake` it asks for them (in a terminal only). It never overwrites a file: run it again and it lists what already exists and changes nothing. The robot addresses acquire tries come from the team number.
+
+| Option | What it does |
+|---|---|
+| `--team NUMBER` | Your FRC team number, 1 to 99999 |
+| `--lake PATH` | Where logs and results are stored. Default `~/flashpoint-lake` |
+
+```sh
+flashpoint init --team 254 --lake ~/frc-lake
+```
 
 ## `flashpoint ingest`
 
@@ -52,7 +67,7 @@ flashpoint derive --all
 
 ## `flashpoint detect`
 
-Recompute anomalies. `derive` already does this, so you only need it after editing [`config/anomaly.toml`](../../config/anomaly.toml); no re-derive is needed. It skips the work when nothing changed.
+Recompute anomalies. `derive` already does this, so you only need it after editing [`config/anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml); no re-derive is needed. It skips the work when nothing changed.
 
 | Option | What it does |
 |---|---|
@@ -146,16 +161,30 @@ flashpoint rebuild --lake ~/flashpoint-lake-restored
 
 ## `flashpoint doctor`
 
-Check the setup. It reports:
+Check the setup. It shows:
 - the Flashpoint and Python versions;
+- the config folder, and which settings files are the bundled defaults;
 - where the lake is, and how many files it holds at each stage;
 - files that need a `rebuild`;
-- the seasons and robots configured, and whether those files are valid;
-- which owlet versions are cached;
+- the seasons and robots configured;
 - the last acquire and backup;
 - which AdvantageScope install was found.
 
-It changes nothing. Run it first whenever something looks wrong.
+Then it runs the setup checks, one line each, marked `ok`, `WARN`, `PROBLEM` or `n/a`, with the fix under each warning or problem:
+
+| Check | A problem when |
+|---|---|
+| Configuration | the config folder doesn't exist (fix: `flashpoint init`) |
+| Each settings file (`acquire.toml`, `report.toml`, `anomaly.toml`, `anomaly-causes.toml`, seasons, robots, `failure-labels.toml`) | it doesn't load; the message names the file and the bad key |
+| Team | there's no team number and no `hosts` in `acquire.toml`, so acquire can't find the robot |
+| Robot for this season | no robot file is for the current season |
+| Lake | the lake folder can't be written (not created yet is only a warning) |
+| owlet, per hoot format in the lake | the matching owlet isn't downloaded, or its checksum doesn't match |
+| AdvantageScope | the configured path is wrong (not found at all is a warning) |
+| Acquire service | never a problem: a warning when it isn't installed or running (Linux and Windows), `n/a` on macOS |
+| Python | the version isn't 3.11 to 3.13 |
+
+It changes nothing and downloads nothing. It exits `1` when any check is a problem, else `0`. Run it first whenever something looks wrong.
 
 ```sh
 flashpoint doctor

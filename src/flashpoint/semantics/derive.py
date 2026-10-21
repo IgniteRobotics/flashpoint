@@ -42,8 +42,8 @@ from flashpoint.semantics.match_identity import identify
 from flashpoint.semantics.robot_config import (
     RobotConfig,
     SeasonConfig,
+    load_config_seasons,
     load_robots,
-    load_seasons,
     select_robot,
 )
 from flashpoint.semantics.sessions import HootGroup, HootLog, Session, WpilogLog, group_sessions
@@ -69,7 +69,7 @@ class Deriver:
     def __init__(self, lake: LakePaths, config_dir: Path) -> None:
         self.lake = lake
         self.ledger = Ledger(lake.ledger)
-        self.seasons: dict[int, SeasonConfig] = load_seasons(config_dir / "seasons")
+        self.seasons: dict[int, SeasonConfig] = load_config_seasons(config_dir)
         self.robots: list[RobotConfig] = (
             load_robots(config_dir / "robots", self.seasons)
             if (config_dir / "robots").is_dir()

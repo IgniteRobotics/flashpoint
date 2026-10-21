@@ -55,6 +55,51 @@ jobs:
       - run: poetry run mypy src tests tools
       - run: poetry run pytest -m "not corpus and not browser and not perf"
 
+  clean-install:
+    # The built wheel in an empty venv, with no configuration: what `pipx install` gives a team.
+    name: clean install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: poetry build -f wheel -o "$RUNNER_TEMP/dist"
+      - name: Install into a clean venv
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -d "$RUNNER_TEMP/venv/Scripts" ]; then bin="$RUNNER_TEMP/venv/Scripts"; else bin="$RUNNER_TEMP/venv/bin"; fi
+          "$bin/python" -m pip install --quiet "$RUNNER_TEMP"/dist/*.whl
+          echo "FP_BIN=$bin" >> "$GITHUB_ENV"
+      - name: --version matches the package version
+        run: |
+          expected="flashpoint $(poetry version --short)"
+          actual="$("$FP_BIN/flashpoint" --version)"
+          echo "$actual"
+          [ "$actual" = "$expected" ]
+      - name: doctor with no configuration names flashpoint init
+        working-directory: ${{ runner.temp }}  # away from the checkout's config/
+        env:
+          FLASHPOINT_LAKE: ${{ runner.temp }}/lake
+        run: |
+          set +e
+          "$FP_BIN/flashpoint" doctor > doctor.txt
+          code=$?
+          set -e
+          cat doctor.txt
+          [ "$code" = 1 ]
+          grep -q "no configuration in" doctor.txt
+          grep -q "flashpoint init" doctor.txt
+
   corpus:
     name: corpus
     runs-on: ubuntu-latest
