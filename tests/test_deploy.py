@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-DEPLOY = Path(__file__).resolve().parents[1] / "deploy"
+DEPLOY = Path(__file__).resolve().parents[1] / "src" / "flashpoint" / "deploy"
 NS = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
 
 

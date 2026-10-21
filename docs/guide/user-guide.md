@@ -27,47 +27,51 @@ Everything runs on one laptop with no internet.
 You need a computer running macOS, Linux, or Windows, with:
 - Python 3.11, 3.12, or 3.13. Not 3.14: Flashpoint doesn't support it yet. Check with `python3 --version`.
 - [pipx](https://pipx.pypa.io/), which installs command-line tools in their own space (`brew install pipx` on macOS, `python3 -m pip install --user pipx` elsewhere).
-- The [GitHub CLI](https://cli.github.com/) (`gh`). The repository is private, so you need to be in the IgniteRobotics GitHub organization. Ask a mentor if you aren't.
 
 Then, once:
 
 ```sh
-gh auth login
+pipx install --python python3.12 flashpoint
+flashpoint init --team 1234
+flashpoint doctor
+```
+
+`--python` picks which Python pipx uses. Name any 3.11–3.13 you have installed. On Windows, use `py -3.12` to find it, or give the full path.
+
+`flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, and copies of the default settings. Without `--team` it asks. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
+
+`doctor` then lists the setup checks. Right after `init`, the only problem should be "no robot configured": add your robot from the [Setup view](#setup-checks-and-configuration), and run `doctor` again.
+
+### Updating
+
+```sh
+pipx upgrade flashpoint
+```
+
+Your config folder and lake are kept.
+
+### Installing without internet
+
+On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `pipx install --python python3.12 /Volumes/USB/flashpoint-0.2.0-py3-none-any.whl` (or `E:\...` on Windows). pipx still needs Flashpoint's dependencies, so do this on a laptop that has installed it once before, or bring their wheels too.
+
+### Installing from a checkout
+
+Until Flashpoint is on PyPI, and for Ignite's own laptops, install from the repository (`gh` and access to IgniteRobotics are needed):
+
+```sh
 gh repo clone IgniteRobotics/flashpoint
 cd flashpoint
 git switch rewrite
 pipx install --python python3.12 .
 ```
 
-`--python` picks which Python pipx uses. Name any 3.11–3.13 you have installed. On Windows, use `py -3.12` to find it, or give the full path.
-
-Last, tell Flashpoint where the robot configuration is. A pipx install can't find the checkout's `config/` folder on its own. Add this to your shell profile (`~/.zshrc` or `~/.bashrc`), using the folder you cloned into:
+Ignite's configuration (robots, units, failure labels) is the checkout's `config/` folder. Point Flashpoint at it in your shell profile (`~/.zshrc` or `~/.bashrc`), or copy it to `~/.config/flashpoint`:
 
 ```sh
 export FLASHPOINT_CONFIG="$HOME/flashpoint/config"
 ```
 
-On Windows, set it once with `setx FLASHPOINT_CONFIG "%USERPROFILE%\flashpoint\config"`, then open a new terminal.
-
-Check it worked:
-
-```sh
-flashpoint doctor
-```
-
-Under `robots` you should see `2025-comp` and `2026-comp`. If nothing is listed there, `FLASHPOINT_CONFIG` isn't set in this terminal.
-
-### Updating
-
-```sh
-cd flashpoint
-git pull
-pipx install --force --python python3.12 .
-```
-
-### Installing without GitHub access
-
-A mentor can copy the `flashpoint` folder to a USB stick, and you can install from there: `pipx install --python python3.12 /Volumes/USB/flashpoint` (or `E:\flashpoint` on Windows). Then set `FLASHPOINT_CONFIG` to a copy of its `config/` folder that you keep on the laptop.
+On Windows, set it once with `setx FLASHPOINT_CONFIG "%USERPROFILE%\flashpoint\config"`, then open a new terminal. To update a checkout install: `git pull`, then `pipx install --force --python python3.12 .`.
 
 ## Before an event: get ready offline
 
@@ -78,13 +82,14 @@ flashpoint ingest path/to/a/recent.hoot
 flashpoint doctor
 ```
 
-`doctor` lists each owlet version under `owlet cache`. The one for this season's hoots must say `cached`. Older seasons can say `owlet-not-cached` until you need them.
+`doctor` checks owlet for each hoot format in your lake: each must say `downloaded, verified`. With no hoots yet, it checks this season's owlet. In the Setup view, **Download owlet** does the same without a hoot.
 
 ## Where your data lives: the lake
 
 Flashpoint keeps everything in one folder, the **lake**, at `~/flashpoint-lake` by default. To use another folder, such as a bigger drive:
 - put `--lake PATH` on any command, or
-- set `FLASHPOINT_LAKE` in your shell profile, the same way as `FLASHPOINT_CONFIG`.
+- set `lake` in `acquire.toml` in your config folder (`flashpoint init --lake PATH` does this), or
+- set `FLASHPOINT_LAKE` in your shell profile.
 
 The lake keeps an untouched copy of every log, so you can delete the copies you imported from. Don't edit files inside the lake by hand. [How it works](how-it-works.md#the-lake) explains what each folder holds.
 
@@ -168,6 +173,20 @@ The bar under the header filters by season, robot, event, and unit. A filter set
 
 On a wide screen each column scrolls on its own, and the ◂ / ▸ control on a side rail shrinks it to a strip. This laptop remembers that per view.
 
+### Setup: checks and configuration
+
+The **Setup** tab shows what `flashpoint doctor` checks, and your whole configuration, and lets you change it without editing files.
+
+- **Checks:** one line per check, marked ✓, `!` (warning) or ✕ (problem). Known problems have a button: **Create configuration** (as `flashpoint init`), **Download owlet**, **Set AdvantageScope path**, **Install** or **Start the acquire service** (Linux and Windows). The checks run again after each fix. Anything else shows the command to run.
+- **Configuration:** your team number and robot addresses, each robot's slots, buses and signals, the report and anomaly thresholds, and the units list, each with the file it comes from. `DEFAULT` marks a file that ships with Flashpoint; saving it writes your own copy. Each section has its own **SAVE**:
+  - a save is checked with the same rules as loading the file, and refused with the same message if something is wrong (two slots with the same CAN id, a signal under a root the season doesn't have);
+  - a save is refused if someone changed the file by hand since you opened it: reload and redo the edit;
+  - comments and the order of everything you didn't change are kept, and the previous version goes to `.backups/` in the config folder (the last 20 of each file);
+  - after a save, the view says what to run: `flashpoint derive` after a robot change, `flashpoint detect` after an anomaly threshold, `flashpoint report` after a report threshold. Saving never changes the lake.
+- **Draft robot:** pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Give each slot an id, subsystem and role, then **SAVE ROBOT**. A log with no hoots can't be drafted from.
+
+Fixes and saves only run on the computer running `flashpoint serve`. Opened from another computer, or with `--host 0.0.0.0`, Setup is read-only and shows commands instead of buttons.
+
 ### Showing other people on the pit network
 
 ```sh
@@ -186,7 +205,7 @@ This writes a folder that opens by double-clicking `index.html`, on any computer
 
 ## Describe a robot
 
-Flashpoint needs to know which motor is which. Each robot has a file in [`config/robots/`](../../config/robots/), such as [`2026-comp.toml`](../../config/robots/2026-comp.toml). Each motor is a slot:
+Flashpoint needs to know which motor is which. Each robot has a file in the `robots/` folder of your config folder, such as Ignite's [`2026-comp.toml`](../../config/robots/2026-comp.toml). The quickest start is **Draft robot** in the [Setup view](#setup-checks-and-configuration); you can also edit the file by hand. Each motor is a slot:
 
 ```toml
 [[slot]]
@@ -208,7 +227,7 @@ Flashpoint picks the robot file from the robot code's project name (`project = "
 
 ### NetworkTables signals
 
-To bring a NetworkTables value (subsystem state, PhotonVision) into Flashpoint, add a `[[signal]]` table to the robot file. `root` names an entry in the season file, [`config/seasons/2026.toml`](../../config/seasons/2026.toml), and `entry` is the rest of the name:
+To bring a NetworkTables value (subsystem state, PhotonVision) into Flashpoint, add a `[[signal]]` table to the robot file. `root` names an entry in the season file, `seasons/2026.toml` in your config folder, and `entry` is the rest of the name. The season file that ships with Flashpoint has the roots every WPILib robot shares; add your robot code's own root as `robot` (Ignite's is in [`config/seasons/2026.toml`](../../config/seasons/2026.toml)):
 
 ```toml
 [[signal]]
@@ -231,15 +250,15 @@ You don't need to re-ingest.
 
 ### Thresholds and the motor list
 
-You probably won't need to change these, but they're all team-editable and checked when Flashpoint loads them:
+You probably won't need to change these, but they're all team-editable (in the Setup view or by hand, in your config folder) and checked when Flashpoint loads them. A file missing from your config folder uses the default that ships with Flashpoint:
 
 | File | Controls |
 |---|---|
-| [`config/report.toml`](../../src/flashpoint/defaults/report.toml) | Replay marker and History limits: temperatures, brownout and sag voltages, CAN gap lengths. Also an optional AdvantageScope path |
-| [`config/anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml) | Anomaly thresholds. After editing, run `flashpoint detect` |
-| [`config/anomaly-causes.toml`](../../src/flashpoint/defaults/anomaly-causes.toml) | The "likely causes" text on each anomaly |
-| [`config/failure-labels.toml`](../../config/failure-labels.toml) | Real failures, used by `flashpoint backtest` to check detection |
-| [`config/units/`](../../config/units/README.md) | The list of every physical motor the team owns, by serial number, with its label |
+| `report.toml` ([default](../../src/flashpoint/defaults/report.toml)) | Replay marker and History limits: temperatures, brownout and sag voltages, CAN gap lengths. Also an optional AdvantageScope path |
+| `anomaly.toml` ([default](../../src/flashpoint/defaults/anomaly.toml)) | Anomaly thresholds. After editing, run `flashpoint detect` |
+| `anomaly-causes.toml` ([default](../../src/flashpoint/defaults/anomaly-causes.toml)) | The "likely causes" text on each anomaly |
+| `failure-labels.toml` (Ignite's: [config/](../../config/failure-labels.toml)) | Real failures, used by `flashpoint backtest` to check detection. No default |
+| `units/units-seed.csv` ([how to fill it in](../../config/units/README.md)) | The list of every physical motor the team owns, by serial number, with its label |
 
 ## Check the setup: `flashpoint doctor`
 
@@ -248,7 +267,9 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 | Section | What to look for |
 |---|---|
 | `lake` | The folder you expect, and how many files are at each stage. "N file(s) from an older pipeline version" means a Flashpoint update needs `flashpoint rebuild` |
-| `seasons`, `robots` | Each configured season and robot. An empty robot list means `FLASHPOINT_CONFIG` isn't set, or no robot file was added yet |
+| `config` | The config folder in use. "missing" means run `flashpoint init` (or set `FLASHPOINT_CONFIG` for a checkout's `config/`) |
+| `defaults` | Settings files that come from the defaults shipped with Flashpoint, because your config folder has no copy |
+| `seasons`, `robots` | Each season's roots and each robot. An empty robot list means no robot file was added yet |
 | `checks` | One line per setup check. `PROBLEM` lines say what's wrong and the fix under them; `doctor` then exits `1`. See the [CLI reference](cli-reference.md#flashpoint-doctor) |
 | `owlet cache` | Where owlet is kept. The owlet check says whether each version your logs need is downloaded; if not, you can't convert hoots offline |
 | `acquire` | The last automatic import and backup ([automatic import](auto-import.md#check-the-status)) |
@@ -257,9 +278,9 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 ## Event-day checklist
 
 **The week before:**
-- [ ] `git pull` and reinstall ([Updating](#updating)), while you have internet.
-- [ ] Ingest a recent hoot so this season's owlet is cached, and check with `flashpoint doctor`.
-- [ ] Confirm the robot file in `config/robots/` matches the robot: CAN IDs, swaps since last event.
+- [ ] Update Flashpoint ([Updating](#updating)) while you have internet, and run `flashpoint doctor`.
+- [ ] Make sure this season's owlet is downloaded: **Download owlet** in Setup, or ingest a recent hoot.
+- [ ] Confirm the robot in Setup matches the robot: CAN IDs, swaps since last event.
 - [ ] If you use [automatic import](auto-import.md), run `flashpoint acquire --dry-run` with the robot on.
 
 **At the event:**
@@ -269,4 +290,4 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 
 **After the event:**
 - [ ] Back up the lake ([backup](auto-import.md#backup-and-restore)).
-- [ ] Add any real failures to `config/failure-labels.toml`.
+- [ ] Add any real failures to `failure-labels.toml` in your config folder.

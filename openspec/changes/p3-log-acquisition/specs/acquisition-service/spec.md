@@ -70,8 +70,12 @@ After every cycle, the system SHALL write a machine-readable status to the lake'
 Acquisition settings SHALL be read from an `acquire.toml` in the configuration root. The settings are robot hosts and credentials, robot log roots, poll interval, free-space threshold, whether removable media is scanned, and the backup remote. Command-line options SHALL override file settings. Missing settings SHALL use the defaults in these specs. An invalid file SHALL stop acquire before any transfer, with a message naming the bad key.
 
 #### Scenario: No config file
-- **WHEN** no `acquire.toml` exists
-- **THEN** acquire runs with the default hosts, roots, 30 s poll, 100 MB threshold, removable media on, and no backup
+- **WHEN** no `acquire.toml` exists and no `--host` is given
+- **THEN** acquire exits non-zero naming `flashpoint init`, and nothing is transferred (changed by `team-setup`: robot addresses come from the team number in `acquire.toml`)
+
+#### Scenario: Defaults with a team
+- **WHEN** `acquire.toml` holds only a team number
+- **THEN** acquire runs with that team's robot addresses, the default roots, 30 s poll, 100 MB threshold, removable media on, and no backup
 
 #### Scenario: Bad key
 - **WHEN** `acquire.toml` contains an unknown key

@@ -26,29 +26,29 @@
 
 ## 5. Guarded writes and fix actions
 
-- [ ] 5.1 Write ADR-0017 (config writes and setup actions, amending ADR-0013 and ADR-0015) and add it to `docs/adr/README.md`; verify `pytest tests/test_docs.py` passes
-- [ ] 5.2 Generalise the ADR-0015 guard for `X-Flashpoint: setup` with a 256 KB body limit; write failing tests for "Request without the guard" and "Shared on the network" (refused from a non-loopback client, `writable: false` in `/api/setup/checks`); implement; verify tests pass
-- [ ] 5.3 Write failing tests for each fix action (init, owlet download and verify, AdvantageScope path, service install, service start), each run twice; implement as an allow-list; verify "Download owlet from the view" with a fake registry, and that the checks re-run after a fix
+- [x] 5.1 Write ADR-0017 (config writes and setup actions, amending ADR-0013 and ADR-0015) and add it to `docs/adr/README.md`; verify `pytest tests/test_docs.py` passes
+- [x] 5.2 Generalise the ADR-0015 guard for `X-Flashpoint: setup` with a 256 KB body limit; write failing tests for "Request without the guard" and "Shared on the network" (refused from a non-loopback client, `writable: false` in `/api/setup/checks`); implement; verify tests pass
+- [x] 5.3 Write failing tests for each fix action (init, owlet download and verify, AdvantageScope path, service install, service start), each run twice; implement as an allow-list; verify "Download owlet from the view" with a fake registry, and that the checks re-run after a fix
 
 ## 6. Config editor backend
 
-- [ ] 6.1 Write failing tests for the save pipeline: tomlkit round-trip, validation through the loader models (including cross-file robot checks), atomic write, SHA-256 conflict check, backups pruned to 20 ("Valid slot edit", "Duplicate slot refused", "Changed on disk"); implement `flashpoint.setup.editor`; verify the untouched parts of `2026-comp.toml` are byte-identical after a slot edit
-- [ ] 6.2 Write failing tests for `GET /api/config` (sections, source file, default flag, load errors: "Ignite configuration", "Broken file") and `PUT /api/config/<section>` for team, robots, thresholds and units ("Duplicate serial", reused label); implement; verify tests pass
-- [ ] 6.3 Write failing tests for "What an edit affects" (each section names its command; the lake hash is unchanged after saves); implement; verify tests pass
+- [x] 6.1 Write failing tests for the save pipeline: tomlkit round-trip, validation through the loader models (including cross-file robot checks), atomic write, SHA-256 conflict check, backups pruned to 20 ("Valid slot edit", "Duplicate slot refused", "Changed on disk"); implement `flashpoint.setup.editor`; verify the untouched parts of `2026-comp.toml` are byte-identical after a slot edit
+- [x] 6.2 Write failing tests for `GET /api/config` (sections, source file, default flag, load errors: "Ignite configuration", "Broken file") and `PUT /api/config/<section>` for team, robots, thresholds and units ("Duplicate serial", reused label); implement; verify tests pass
+- [x] 6.3 Write failing tests for "What an edit affects" (each section names its command; the lake hash is unchanged after saves); implement; verify tests pass
 
 ## 7. Robot draft
 
-- [ ] 7.1 Write failing tests for drafting from a session: devices from bronze, serials from the CAN inventory, bus names from bus-status entries, project and season ("Draft from Q7": 22 devices; "Log without hoots"; "Existing robot id"); implement; verify tests pass and Q7 drafts in < 1 s
+- [x] 7.1 Write failing tests for drafting from a session: devices from bronze, serials from the CAN inventory, bus names from bus-status entries, project and season ("Draft from Q7": 22 devices; "Log without hoots"; "Existing robot id"); implement; verify tests pass and Q7 drafts in < 1 s
 
 ## 8. Setup view
 
-- [ ] 8.1 Add `web/static/views/setup.js` (`needsApi: true`) with the Checks tab: status per check, fix buttons when writable, commands otherwise; verify browser tests for a missing-owlet fix and for read-only when shared
-- [ ] 8.2 Add the Configuration tab: sections with source file and default flag, inline edit forms, save per section, refusal messages shown in place, "what to run" after save; verify browser tests "Valid slot edit", "Duplicate slot refused" and keyboard reachability
-- [ ] 8.3 Add the Draft robot tab: pick a session, complete the slots, save; verify a browser test that drafts from Q7 and saves a new robot file that `doctor` loads
+- [x] 8.1 Add `web/static/views/setup.js` (`needsApi: true`) with the Checks tab: status per check, fix buttons when writable, commands otherwise; verify browser tests for a missing-owlet fix and for read-only when shared
+- [x] 8.2 Add the Configuration tab: sections with source file and default flag, inline edit forms, save per section, refusal messages shown in place, "what to run" after save; verify browser tests "Valid slot edit", "Duplicate slot refused" and keyboard reachability
+- [x] 8.3 Add the Draft robot tab: pick a session, complete the slots, save; verify a browser test that drafts from Q7 and saves a new robot file that `doctor` loads
 
 ## 9. Docs and roadmap
 
-- [ ] 9.1 Rewrite the user guide's Install section for `pipx install flashpoint` and `flashpoint init`, add a Setup view section, and add a robot-side page with suggested Java samples for the CAN inventory and bus-status loggers; update the developer guide (`FLASHPOINT_CONFIG=config` in a checkout); verify `pytest tests/test_docs.py` passes
-- [ ] 9.2 Update `docs/rewrite/06-roadmap.md` §Team setup and ADR-0009 (PyPI is now real); note in `p3-log-acquisition`'s `acquisition-service` delta that "No config file" now refuses naming `flashpoint init`; verify `openspec validate --all` passes
-- [ ] 9.3 Run the full suite (`PYENV_VERSION=flashpoint poetry run pytest`, `-m browser`, `-m corpus`) and `openspec validate team-setup --strict`; verify all pass
+- [x] 9.1 Rewrite the user guide's Install section for `pipx install flashpoint` and `flashpoint init`, add a Setup view section, and add a robot-side page with suggested Java samples for the CAN inventory and bus-status loggers; update the developer guide (`FLASHPOINT_CONFIG=config` in a checkout); verify `pytest tests/test_docs.py` passes
+- [x] 9.2 Update `docs/rewrite/06-roadmap.md` §Team setup and ADR-0009 (PyPI is now real); note in `p3-log-acquisition`'s `acquisition-service` delta that "No config file" now refuses naming `flashpoint init`; verify `openspec validate --all` passes
+- [x] 9.3 Run the full suite (`PYENV_VERSION=flashpoint poetry run pytest`, `-m browser`, `-m corpus`) and `openspec validate team-setup --strict`; verify all pass
 - [ ] 9.4 [HUMAN] New-team walkthrough: on a clean laptop with no Flashpoint history, a student who hasn't used it installs from PyPI, runs init, drafts a robot from a log, fixes every Setup problem from the view, and imports a match; record where they got stuck

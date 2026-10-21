@@ -91,11 +91,11 @@ dry run: 2 file(s), 41127424 bytes would be copied; nothing changed
 
 ### Linux (systemd user service)
 
-Flashpoint ships a unit file, [`deploy/systemd/flashpoint-acquire.service`](../../deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where pipx puts it. Install it:
+Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../../src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where pipx puts it. Install it:
 
 ```sh
 mkdir -p ~/.config/systemd/user
-cp deploy/systemd/flashpoint-acquire.service ~/.config/systemd/user/
+cp src/flashpoint/deploy/systemd/flashpoint-acquire.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now flashpoint-acquire
 journalctl --user -u flashpoint-acquire -f      # watch its log
@@ -117,10 +117,10 @@ For USB drives on a computer with no desktop, the watch only sees drives that ar
 
 ### Windows (scheduled task)
 
-Flashpoint ships a task definition, [`deploy/windows/flashpoint-acquire.xml`](../../deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. Install it from the checkout folder:
+Flashpoint ships a task definition, [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](../../src/flashpoint/deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. Install it from the checkout folder:
 
 ```bat
-schtasks /Create /XML deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
+schtasks /Create /XML src\flashpoint\deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
 schtasks /Run /TN flashpoint-acquire
 ```
 

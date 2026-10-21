@@ -25,8 +25,8 @@ On the machine running `serve`, the Setup view SHALL let the user add, change an
 When the app is shared on the network or opened as a static export, the configuration SHALL be read-only.
 
 #### Scenario: Valid slot edit
-- **WHEN** the user changes `drive-fl`'s CAN id from 11 to 21 and saves
-- **THEN** `robots/2026-comp.toml` holds CAN id 21, its comments are unchanged, and the previous version is in the backups folder
+- **WHEN** the user changes `drive-fl`'s CAN id from 11 to 19 and saves
+- **THEN** `robots/2026-comp.toml` holds CAN id 19, its comments are unchanged, and the previous version is in the backups folder
 
 #### Scenario: Duplicate slot refused
 - **WHEN** the user changes `steer-fl`'s CAN id to 11, which `drive-fl` already uses on the same bus and model, and saves

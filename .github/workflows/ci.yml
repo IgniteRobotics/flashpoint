@@ -37,7 +37,7 @@ jobs:
           mkdir -p "$HOME/.local/bin"
           printf '#!/bin/sh\nexit 0\n' > "$HOME/.local/bin/flashpoint"
           chmod +x "$HOME/.local/bin/flashpoint"
-          systemd-analyze verify --user deploy/systemd/flashpoint-acquire.service
+          systemd-analyze verify --user src/flashpoint/deploy/systemd/flashpoint-acquire.service
 
   windows:
     name: windows (py3.12)

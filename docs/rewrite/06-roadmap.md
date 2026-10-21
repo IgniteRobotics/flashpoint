@@ -188,6 +188,7 @@ Make Flashpoint usable by any FRC team, not just 6829 with access to a private r
 - **Configuration home:** a per-user folder created by `flashpoint init` (team number, lake folder). The fallback to a checkout's `config/` goes away (fixes #54). The team number drives the robot addresses.
 - **Setup view:** the whole configuration and every setup check (`doctor` uses the same checks), editing of team, robots and slots, thresholds and units with the loading rules and backups, drafting a robot from a log, and guarded fix actions (create config, owlet, AdvantageScope, acquire service). Read-only when shared on the network.
 - **Needs first:** a human review of what going public exposes (corpus match logs, CAN ids and serials).
+- **Status (2026-10-21):** implemented in two PRs into `rewrite`: packaging, config home, `init` and setup checks ([#88](https://github.com/IgniteRobotics/flashpoint/pull/88)), then the Setup view, editor, fix actions and robot draft (ADR-0017). Still with a human: going public, claiming the PyPI name and the first release (`v0.2.0`), and the new-team walkthrough.
 
 ### Team branding (S–M, follow-up to Team setup)
 > **Tracking:** [#86](https://github.com/IgniteRobotics/flashpoint/issues/86) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-branding`.
