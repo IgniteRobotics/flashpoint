@@ -50,5 +50,5 @@
 
 - [x] 9.1 Rewrite the user guide's Install section for `pipx install flashpoint` and `flashpoint init`, add a Setup view section, and add a robot-side page with suggested Java samples for the CAN inventory and bus-status loggers; update the developer guide (`FLASHPOINT_CONFIG=config` in a checkout); verify `pytest tests/test_docs.py` passes
 - [x] 9.2 Update `docs/rewrite/06-roadmap.md` §Team setup and ADR-0009 (PyPI is now real); note in `p3-log-acquisition`'s `acquisition-service` delta that "No config file" now refuses naming `flashpoint init`; verify `openspec validate --all` passes
-- [ ] 9.3 Run the full suite (`PYENV_VERSION=flashpoint poetry run pytest`, `-m browser`, `-m corpus`) and `openspec validate team-setup --strict`; verify all pass
+- [x] 9.3 Run the full suite (`PYENV_VERSION=flashpoint poetry run pytest`, `-m browser`, `-m corpus`) and `openspec validate team-setup --strict`; verify all pass
 - [ ] 9.4 [HUMAN] New-team walkthrough: on a clean laptop with no Flashpoint history, a student who hasn't used it installs from PyPI, runs init, drafts a robot from a log, fixes every Setup problem from the view, and imports a match; record where they got stuck
