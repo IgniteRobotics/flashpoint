@@ -87,6 +87,19 @@ def test_invalid_robot_file(tmp_path: Path) -> None:
     assert "steer-fl" in bad.message
 
 
+def test_robot_for_a_season_with_no_season_file(tmp_path: Path) -> None:
+    root = _ignite(tmp_path)
+    robot = root / "robots" / "2026-comp.toml"
+    text = robot.read_text().replace("season = 2026", "season = 2027", 1)
+    (root / "robots" / "2027-comp.toml").write_text(text.replace('"2026-comp"', '"2027-comp"', 1))
+    checks = _by_id(run_checks(_context(root, tmp_path / "lake", season=2027)))
+    bad = checks["file:robots/2027-comp.toml"]
+    assert bad.status == "problem" and "seasons/2027.toml" in bad.message
+    # The fix is the season file, not the robot file.
+    assert bad.command is not None and "seasons/2027.toml" in bad.command
+    assert "seasons/2026.toml" in bad.command
+
+
 def test_broken_threshold_file(tmp_path: Path) -> None:
     root = _ignite(tmp_path)
     (root / "report.toml").write_text("[thresholds]\nnope = 1\n")

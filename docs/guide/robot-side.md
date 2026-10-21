@@ -6,8 +6,9 @@ Flashpoint reads the logs your robot already writes. Two small additions to robo
 |---|---|---|
 | **CAN inventory** | Each motor's factory serial number, so its history follows the physical motor through swaps and rebuilds | History is kept per slot (CAN id), split at the swap dates you declare in the robot file |
 | **CAN bus status** | Bus utilisation and error counts per bus, per match phase, in CAN health | Those columns read "not logged" |
+| **Build info** | The robot code's project name, which picks the robot file when a season has more than one robot (a practice bot and a comp bot) | Works with one robot per season. With two, matches go to robot "unknown" |
 
-Both write to the WPILib DataLog (`.wpilog`) under `/Flashpoint/`, the season root named `flashpoint`. The samples below are suggestions, not a library: copy them into your robot project and adapt them. Check them against your Phoenix 6 version before an event.
+The first two write to the WPILib DataLog (`.wpilog`) under `/Flashpoint/`, the season root named `flashpoint`; build info uses a `MetaData` entry ([below](#build-info)). The samples below are suggestions, not a library: copy them into your robot project and adapt them. Check them against your Phoenix 6 version before an event.
 
 These samples assume `DataLogManager.start()` runs in `robotInit()`, as most WPILib robots already do.
 
@@ -183,3 +184,16 @@ public final class CanBusStatusLogger {
 Create it once in `robotInit()`, for example `new CanBusStatusLogger("rio", "DriveTrain");`, and keep a reference so the `Notifier` isn't garbage collected.
 
 Then tell Flashpoint about the bus names in your robot file. In the Setup view, the robot's **BUSES** table ties each name to its hoot bus (`rio`, or `canivore`). Declare the five signals per bus under the `flashpoint` root, as `robots/2026-comp.toml` does for Ignite. A bus whose status isn't logged reads "not logged" in CAN health, never zero.
+
+## Build info
+
+Flashpoint reads a string entry named `MetaData` in the wpilog. Each value is one `Key: value` line. It uses `Project Name` to pick the robot file, and also keeps `Git Branch` and `GitDirty`. Ignite writes these from the [gversion](https://github.com/lessthanoptimal/gversion) Gradle plugin's `BuildConstants`, which many WPILib teams already use:
+
+```java
+StringLogEntry meta = new StringLogEntry(DataLogManager.getLog(), "MetaData");
+meta.append("Project Name: " + BuildConstants.MAVEN_NAME);
+meta.append("Git Branch: " + BuildConstants.GIT_BRANCH);
+meta.append("GitDirty: " + (BuildConstants.DIRTY == 1 ? "Uncommitted changes" : "All changes committed"));
+```
+
+Log it once in `robotInit()`, after `DataLogManager.start()`. The project name must equal `project` in the robot file. **Draft robot** in the Setup view fills `project` in from the log.

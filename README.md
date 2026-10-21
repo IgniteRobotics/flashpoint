@@ -25,6 +25,8 @@ For a deep dive into a single log, it opens AdvantageScope.
 
 Needs Python 3.11–3.13 and [pipx](https://pipx.pypa.io/).
 
+> Flashpoint isn't on PyPI yet, so `pipx install flashpoint` doesn't work today. Until it is, [install from a checkout](docs/guide/user-guide.md#installing-from-a-checkout).
+
 ```sh
 pipx install flashpoint
 flashpoint init --team <your team number>
