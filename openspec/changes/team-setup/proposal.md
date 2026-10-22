@@ -1,6 +1,6 @@
 ## Why
 
-Flashpoint works only for team 6829, and only for whoever can clone a private repo. The robot addresses are hard-coded for 6829 (`acquire/config.py`), Ignite's robots and seasons ship inside the package's `config/`, and a pipx install finds no configuration unless `FLASHPOINT_CONFIG` is set, and then fails silently (#54). Configuration means hand-editing TOML, and install problems surface as `doctor` lines at best. Another team can't start without a mentor who knows the code.
+Flashpoint works only for team 6829, and only for whoever can clone a private repo. The robot addresses are hard-coded for 6829 (`acquire/config.py`), Ignite's robots and seasons ship inside the package's `config/`, and a pipx install finds no configuration unless `FLASHPOINT_CONFIG` is set, and then fails silently (flashpoint-private#54). Configuration means hand-editing TOML, and install problems surface as `doctor` lines at best. Another team can't start without a mentor who knows the code.
 
 This extends D9 / ADR-0009 (`pipx install flashpoint`, which assumed a public package that doesn't exist yet), ADR-0013 (one local app) and ADR-0015 (guarded writes). It follows P3 and P4 on the roadmap (`06-roadmap.md`).
 
@@ -40,4 +40,4 @@ None in `openspec/specs/`. Acquire's default hosts change through `team-setup`. 
 - New CLI command `flashpoint init`; `doctor` gains checks; `config_root()` changes.
 - New Setup view, new guarded write routes in `web/server.py`, and a new ADR amending ADR-0013 and ADR-0015.
 - Docs: install, init and Setup rewritten for any team; the CLI reference gains `init`.
-- Pitfalls fixed: none from `03`; fixes #54.
+- Pitfalls fixed: none from `03`; fixes flashpoint-private#54.

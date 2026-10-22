@@ -2,7 +2,7 @@
 
 Once any team can install Flashpoint (`team-setup`), every team still sees Ignite: the header reads "telemetry // ignite robotics" and the whole app is Ignite's amber. A team's students use it more when it looks like theirs, and a pit display that shows the team's name and colours reads as the team's tool, not a borrowed one. The shell already routes every colour through design tokens (`tokens.css`, `FP.tokens()` for charts), so a palette can be swapped in one place.
 
-This follows Team setup (#82) on the roadmap (`06-roadmap.md`) and extends the one-app shell of ADR-0013 (D6/D7).
+This follows Team setup (#24) on the roadmap (`06-roadmap.md`) and extends the one-app shell of ADR-0013 (D6/D7).
 
 ## What Changes
 
@@ -35,5 +35,5 @@ None in `openspec/specs/`. The shell's "same colours across views" and 4.5:1 con
 - `tokens.css`: amber-named colour tokens become role-named (`--accent`, `--accent-hi`, …). The 19 hard-coded `rgba(255,176,0,…)` glows and grid lines become tokens. `FP.tokens()` keys are renamed to match.
 - The server injects the palette and name. `flashpoint report --static` writes them into the export.
 - `init` gains `--team-name` and `--palette`. The Setup view gains Appearance.
-- Depends on `team-setup` (#82) for `init`, the configuration home and the guarded save.
+- Depends on `team-setup` (#24) for `init`, the configuration home and the guarded save.
 - Pitfalls fixed: none.

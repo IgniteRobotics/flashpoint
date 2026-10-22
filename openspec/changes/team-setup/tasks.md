@@ -16,7 +16,7 @@
 - [x] 3.1 Write failing tests for root resolution (explicit, `FLASHPOINT_CONFIG`, per-user folder per platform, no checkout fallback) and per-file default fallback ("Per-user folder", "Default thresholds"); implement in `config.py` and the loaders; set `FLASHPOINT_CONFIG` in `tests/conftest.py`; verify the full suite passes
 - [x] 3.2 Write failing tests for `acquire.toml` `team` and `lake`, `lake_root()` order, and derived hosts ("Four-digit team", "Short and long team numbers", "No team"); implement; verify tests pass
 - [x] 3.3 Write failing tests for `flashpoint init` ("First run", "Second run", "Bad team number", prompts only on a terminal); implement; verify tests pass, and `cli-reference.md` gains `init` (the CLI drift test passes)
-- [x] 3.4 Write a failing test for "Derive without configuration" (warning naming `flashpoint init`, #54); implement; verify it passes, then close #54 when merged
+- [x] 3.4 Write a failing test for "Derive without configuration" (warning naming `flashpoint init`, flashpoint-private#54); implement; verify it passes, then close flashpoint-private#54 when merged
 
 ## 4. Setup checks
 

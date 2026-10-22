@@ -31,8 +31,8 @@ HEADER_SIZE = 72
 COMPLIANCY_OFFSET = 70
 MIN_COMPLIANCY = 6  # Phoenix 2024; older hoots cannot be decoded
 OWLET_TIMEOUT_S = 600
-OWLET_ATTEMPTS = 2  # one retry: the Linux owlet fails at random on healthy hoots (#17)
-# owlet also drops the tail of an export at random, with exit 0 and no marker (#17). Export
+OWLET_ATTEMPTS = 2  # one retry: the Linux owlet fails at random on healthy hoots (issue #4)
+# owlet also drops the tail of an export at random, with exit 0 and no marker (issue #4). Export
 # twice, a third time if the two differ, and keep the largest output.
 OWLET_EXPORT_RUNS_MAX = 3
 # owlet prints this when a hoot ends mid-record (e.g. the robot lost power). It still
@@ -186,7 +186,7 @@ class _OwletOutput:
 
 
 def _run(args: list[str]) -> _OwletOutput:
-    """Run owlet; a failed run is retried once (#17: the Linux owlet fails at random).
+    """Run owlet; a failed run is retried once (issue #4: the Linux owlet fails at random).
 
     An incomplete read is a result, not a failure, and a timeout is not retried.
     """

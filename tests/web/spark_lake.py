@@ -1,4 +1,4 @@
-"""A small History lake for the device table's shared sparkline scale (issue #39).
+"""A small History lake for the device table's shared sparkline scale (flashpoint-private#39).
 
 Five matches of 2026-comp (2026gacmp_qm1..5), match phase only. Isolated CAN gaps (a count):
 - intake: ctre:LOW 3, 0, 1, 3 and ctre:HIGH 7, 20, 1, 42 (qm1-4); ctre:ONE 4 (qm5 only)

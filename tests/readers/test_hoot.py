@@ -229,7 +229,7 @@ def test_timeout_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(calls) == 1
 
 
-# --- tail loss (#17): owlet drops the end of the export at random, exit 0, no marker ---
+# --- tail loss (issue #4): owlet drops the end of the export at random, exit 0, no marker ---
 
 
 def _export_sizes(monkeypatch: pytest.MonkeyPatch, *sizes: int | HootError) -> list[Path]:

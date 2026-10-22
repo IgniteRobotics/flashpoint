@@ -7,11 +7,10 @@ For people who change Flashpoint's code. Read [How it works](how-it-works.md) fi
 You need:
 - Python 3.11, 3.12, or 3.13 (`requires-python = ">=3.11,<3.14"`). [pyenv](https://github.com/pyenv/pyenv) is the easy way to get one;
 - [Poetry](https://python-poetry.org/) 2;
-- the [GitHub CLI](https://cli.github.com/), because the repository and the golden corpus are private.
+- optionally, the [GitHub CLI](https://cli.github.com/): `tools/fetch-corpus.py` uses it when it is installed.
 
 ```sh
-gh auth login
-gh repo clone IgniteRobotics/flashpoint && cd flashpoint
+git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint
 git switch rewrite
 poetry install
 poetry run flashpoint doctor
@@ -99,7 +98,7 @@ About 180 MB of real robot logs (release `corpus-v1`), described with sizes and 
 poetry run python tools/fetch-corpus.py
 ```
 
-It downloads through `gh release download` (the release is private, so run `gh auth login` first), checks every hash, and stores the files in `~/.cache/flashpoint/corpus/corpus-v1/`. Set `FLASHPOINT_CORPUS_DIR` to put them elsewhere, or `--from DIR` to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release.
+It downloads with `gh release download` if the GitHub CLI is installed (run `gh auth login` first), otherwise over plain HTTPS, checks every hash, and stores the files in `~/.cache/flashpoint/corpus/corpus-v1/`. Set `FLASHPOINT_CORPUS_DIR` to put them elsewhere, or `--from DIR` to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release.
 
 ## CI
 

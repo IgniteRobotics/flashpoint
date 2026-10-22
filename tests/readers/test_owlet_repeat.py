@@ -1,4 +1,4 @@
-"""How often does owlet fail on healthy corpus hoots? (#17; perf job, non-blocking.)
+"""How often does owlet fail on healthy corpus hoots? (issue #4; perf job, non-blocking.)
 
 Runs each conversion several times with no retry and prints every failure's exit code and
 last stderr line. Asserts only what the retry relies on: no two runs in a row both fail.
