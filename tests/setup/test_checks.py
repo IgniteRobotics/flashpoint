@@ -95,9 +95,9 @@ def test_robot_for_a_season_with_no_season_file(tmp_path: Path) -> None:
     checks = _by_id(run_checks(_context(root, tmp_path / "lake", season=2027)))
     bad = checks["file:robots/2027-comp.toml"]
     assert bad.status == "problem" and "seasons/2027.toml" in bad.message
-    # The fix is the season file, not the robot file.
-    assert bad.command is not None and "seasons/2027.toml" in bad.command
-    assert "seasons/2026.toml" in bad.command
+    # The fix is the season file, not the robot file (native separators: a path to type).
+    assert bad.command is not None and str(root / "seasons" / "2027.toml") in bad.command
+    assert str(root / "seasons" / "2026.toml") in bad.command
 
 
 def test_broken_threshold_file(tmp_path: Path) -> None:
