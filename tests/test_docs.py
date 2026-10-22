@@ -69,6 +69,42 @@ def test_relative_links_resolve() -> None:
     assert problems == [], "\n".join(problems)
 
 
+REPO_URL = re.compile(r"^https://github\.com/IgniteRobotics/flashpoint/(?:blob|tree)/main/([^#]*)")
+
+
+def readme_link_problems(path: Path, root: Path) -> list[str]:
+    """README is also the PyPI page, where relative links break: every link must be absolute,
+    and a link into this repository must name a file or folder that exists."""
+    problems: list[str] = []
+    in_fence = False
+    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if raw.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for match in LINK.finditer(INLINE_CODE.sub("", raw)):
+            target = match[1]
+            if not SCHEME.match(target):
+                problems.append(f"{number}: relative link {target} (breaks on PyPI)")
+            elif (repo := REPO_URL.match(target)) and not (root / repo[1]).exists():
+                problems.append(f"{number}: {target} names a path that doesn't exist")
+    return problems
+
+
+def test_fixture_readme_links() -> None:
+    assert readme_link_problems(FIXTURES / "readme.md", REPO) == [
+        "3: relative link docs/guide/README.md (breaks on PyPI)",
+        "4: https://github.com/IgniteRobotics/flashpoint/blob/main/docs/nope.md"
+        " names a path that doesn't exist",
+    ]
+
+
+def test_readme_links_work_on_pypi() -> None:
+    problems = readme_link_problems(REPO / "README.md", REPO)
+    assert problems == [], "\n".join(problems)
+
+
 def test_every_subcommand_is_in_the_cli_reference() -> None:
     text = CLI_REFERENCE.read_text(encoding="utf-8") if CLI_REFERENCE.exists() else ""
     headings = set(re.findall(r"^## `flashpoint ([a-z-]+)`", text, flags=re.MULTILINE))

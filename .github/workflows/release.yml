@@ -36,6 +36,8 @@ jobs:
           bad = [n for n in names if "/robots/" in n or n.endswith((".wpilog", ".hoot"))]
           assert not bad, bad
           assert "flashpoint/defaults/report.toml" in names
+          assert "flashpoint/web/static/index.html" in names  # the frontend ships as-is
+          assert any(n.endswith(".dist-info/licenses/LICENSE") for n in names)
           assert wheel.stat().st_size < 5 * 1024 * 1024, wheel.stat().st_size
           EOF
       - uses: actions/upload-artifact@v4
