@@ -82,14 +82,18 @@ flashpoint ingest path/to/a/recent.hoot
 flashpoint doctor
 ```
 
-`doctor` checks owlet for each hoot format in your lake: each must say `downloaded, verified`. With no hoots yet, it checks this season's owlet. In the Setup view, **Download owlet** does the same without a hoot.
+`doctor` checks owlet for each hoot format in your lake: each must say `downloaded, verified`. With no hoots yet, it checks the newest owlet this version of Flashpoint knows. In the Setup view, **Download owlet** does the same without a hoot.
+
+That newest owlet may be last season's. If CTRE changes the hoot format for a new season, only a Flashpoint update can read the new hoots, and `doctor` can't tell until it sees one. So ingest a hoot from **this season's** robot code before an event (see [Starting a new season](#starting-a-new-season)).
 
 ## Where your data lives: the lake
 
-Flashpoint keeps everything in one folder, the **lake**, at `~/flashpoint-lake` by default. To use another folder, such as a bigger drive:
-- put `--lake PATH` on any command, or
-- set `lake` in `acquire.toml` in your config folder (`flashpoint init --lake PATH` does this), or
-- set `FLASHPOINT_LAKE` in your shell profile.
+Flashpoint keeps everything in one folder, the **lake**, at `~/flashpoint-lake` by default. To use another folder, such as a bigger drive, use one of these. When more than one is set, the first in this list wins:
+1. `--lake PATH` on any command;
+2. `FLASHPOINT_LAKE` in your shell profile;
+3. `lake` in `acquire.toml` in your config folder (`flashpoint init --lake PATH` does this).
+
+A leftover `FLASHPOINT_LAKE` hides what `acquire.toml` says. `flashpoint doctor` shows the lake in use.
 
 The lake keeps an untouched copy of every log, so you can delete the copies you imported from. Don't edit files inside the lake by hand. [How it works](how-it-works.md#the-lake) explains what each folder holds.
 
@@ -218,12 +222,46 @@ role = "front-left drive"
 gear_ratio = 6.746031746031747
 ```
 
-The file also names:
-- the **battery proxy**: a low-current device on the main power bus, like the gyro, whose voltage stands in for the battery;
-- **sibling groups**: motors that do the same job and are compared with each other;
-- **swap dates** for older logs that have no CAN inventory.
+A whole robot file, with most slots left out (the sibling group names three drive slots that aren't shown):
 
-Flashpoint picks the robot file from the robot code's project name (`project = "Robot-2026"`) and the log's year.
+```toml
+robot = "2026-comp"        # keep it the same as the file name: robots/2026-comp.toml
+season = 2026
+project = "Robot-2026"     # the robot code's project name (see below)
+battery_proxy = "gyro"     # optional: a slot id
+
+[[slot]]
+id = "drive-fl"
+bus = "canivore"
+model = "TalonFX"
+can_id = 11
+subsystem = "drivetrain"
+role = "front-left drive"
+swaps = [2026-03-02]       # optional: dates this motor was replaced, for logs with no CAN inventory
+
+[[slot]]
+id = "gyro"
+bus = "canivore"
+model = "Pigeon2"
+can_id = 1
+subsystem = "drivetrain"
+role = "gyro"
+
+[[bus]]                    # optional: the robot code's name for a bus, tied to its hoot bus
+name = "DriveTrain"
+hoot = "canivore"
+
+[[siblings]]               # optional: slots that do the same job, compared with each other
+name = "drive"
+slots = ["drive-fl", "drive-fr", "drive-bl", "drive-br"]
+```
+
+- `bus` is `rio`, `canivore` (any CANivore), or a CANivore's 32-character hex id when the robot has more than one.
+- The **battery proxy** is a low-current device on the main power bus, like the gyro, whose voltage stands in for the battery. A motor is a bad choice: its own wiring drop under load reads as a brownout.
+- A **sibling group** needs at least two slots, and a slot can be in only one group.
+- **Swap dates** split a slot's history for logs that have no [CAN inventory](robot-side.md#can-inventory). With an inventory, Flashpoint follows serial numbers and doesn't need them.
+
+**Which robot file a log uses.** A log's season is the calendar year it was recorded in. Flashpoint takes the robot files for that season. If there's only one, that's the one. If there are several (a practice bot and a comp bot), it picks the one whose `project` matches the project name the robot code wrote into the log ([build info](robot-side.md#build-info)). With no match, the log's matches show robot "unknown" and their motors stay unmapped. Logs from December testing of next season's robot count as this season, so give that robot a file for this season too, or wait until January.
 
 ### NetworkTables signals
 
@@ -260,6 +298,18 @@ You probably won't need to change these, but they're all team-editable (in the S
 | `failure-labels.toml` (Ignite's: [config/](../../config/failure-labels.toml)) | Real failures, used by `flashpoint backtest` to check detection. No default |
 | `units/units-seed.csv` ([how to fill it in](../../config/units/README.md)) | The list of every physical motor the team owns, by serial number, with its label |
 
+## Starting a new season
+
+Flashpoint doesn't need to be reinstalled each year, but a new season needs a few things before its first event. Do them after kickoff, when the new robot code first runs:
+
+1. **Update Flashpoint** (`pipx upgrade flashpoint`). A new season's CTRE hoot format needs a Flashpoint that knows its owlet; an older one says the lake "has C*N* hoots, which this Flashpoint can't read".
+2. **Add the season file.** Copy `seasons/<last year>.toml` in your config folder to `seasons/<this year>.toml`, change `season =` to this year, and check each root against the new robot code, especially `robot`. Flashpoint ships season files only for the years it knows, and `flashpoint init` copies only those, so a new year's file is yours to add. Without it, a robot file that declares signals doesn't load; `doctor` names the file to create.
+3. **Add the robot file.** Ingest a log from the new robot (with internet, so owlet downloads), then use **Draft robot** in the Setup view. It names the robot `<year>-comp` (then `<year>-practice` for a second one), with this season's year and project name, and saves it as `robots/<robot>.toml`. Last season's robot file stays, so its logs keep their mapping.
+4. **Check the robot code still writes** the [CAN inventory, bus status and build info](robot-side.md) entries. A new robot project is easy to start without them.
+5. **Run `flashpoint doctor`.** From January 1 it checks for a robot for the new year; "Robot for *year*" should say ok, and the owlet check should name the format your new hoots use.
+
+The motor list (`units/units-seed.csv`) carries over. Add the new season's motors, and don't remove or relabel old ones: a motor reused on the new robot keeps its history by serial number.
+
 ## Check the setup: `flashpoint doctor`
 
 Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
@@ -278,6 +328,7 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 ## Event-day checklist
 
 **The week before:**
+- [ ] First event of a season? Do [Starting a new season](#starting-a-new-season) first.
 - [ ] Update Flashpoint ([Updating](#updating)) while you have internet, and run `flashpoint doctor`.
 - [ ] Make sure this season's owlet is downloaded: **Download owlet** in Setup, or ingest a recent hoot.
 - [ ] Confirm the robot in Setup matches the robot: CAN IDs, swaps since last event.
