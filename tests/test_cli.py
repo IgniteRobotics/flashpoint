@@ -121,7 +121,7 @@ def _ingested(tmp_path: Path) -> Path:
 def test_derive_without_configuration_warns(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#54: an empty configuration root no longer derives silently."""
+    """flashpoint-private#54: an empty configuration root no longer derives silently."""
     lake = _ingested(tmp_path)
     (tmp_path / "empty").mkdir()
     monkeypatch.setenv("FLASHPOINT_CONFIG", str(tmp_path / "empty"))

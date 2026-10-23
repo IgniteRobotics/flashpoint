@@ -4,7 +4,7 @@
 - Date: 2026-10-21
 - Amends: [0013](0013-views-one-local-app.md) (the read-only app) and [0015](0015-anomaly-triage-writes.md) (its guarded writes)
 - Deciders: Josh
-- Refs: openspec change `team-setup` (design.md D-e, D-f, D-g), D9, issue #54
+- Refs: openspec change `team-setup` (design.md D-e, D-f, D-g), D9, issue [flashpoint-private#54](https://github.com/IgniteRobotics/flashpoint-private/issues/54)
 
 ## Context
 Another team can't start with Flashpoint without a mentor who knows the code. Configuration means hand-editing TOML files whose mistakes show up later as unmapped slots, and install problems show as `doctor` lines. The `team-setup` change adds a Setup view that shows the configuration and the setup checks, and lets a team fix what it finds without leaving the app.

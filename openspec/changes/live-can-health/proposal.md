@@ -2,7 +2,7 @@
 
 The pit crew hunts loose CAN and power connectors with shake tests (disabled, wiggle each harness) and drive tests (enabled, drive hard). Today the only feedback is a stuttering motor, or `can-health` counts minutes later, after the hoots are pulled. A 40 ms dropout is invisible to the eye and to a 2 Hz dashboard. The crew needs to see, while they work, which device dropped, rebooted or faulted, and whether it was one device or the whole bus.
 
-This is the first slice of **Live & Pit views** (`06-roadmap.md` §Live & Pit views, #75), split out as its own change. It reads the robot, not the lake, and reuses the CAN-health ideas (`can-health` spec: own-period gaps, the sibling rule) and device identity (`05-target-architecture.md` §4a).
+This is the first slice of **Live & Pit views** (`06-roadmap.md` §Live & Pit views, #18), split out as its own change. It reads the robot, not the lake, and reuses the CAN-health ideas (`can-health` spec: own-period gaps, the sibling rule) and device identity (`05-target-architecture.md` §4a).
 
 ## What Changes
 
@@ -27,7 +27,7 @@ None. The live topics are written to the wpilog as `NT:/Flashpoint/Live/...`, wh
 ## Non-goals
 
 - Writing anything to the lake: no recorded test sessions, no exported event logs, marks live only in the browser.
-- The Pit board and its GO / DECIDE / NO-GO verdict (the rest of #75).
+- The Pit board and its GO / DECIDE / NO-GO verdict (the rest of #18).
 - Reading the bus when robot code is not running (the Phoenix diagnostics server was considered and dropped).
 - REV and other non-CTRE devices.
 - Chain-order localisation of a break (deferred, as in `can-health`).

@@ -77,7 +77,7 @@ Severity: 🔴 data loss/corruption or won't run · 🟠 wrong results · 🟡 p
 
 | # | Sev | Issue |
 |---|---|---|
-| 60 | 🔴 | No CI and no tests on main, ever. The rename-vs-PR conflict (#1, #2) would have been caught by a single smoke test |
+| 60 | 🔴 | No CI and no tests on main, ever. The rename-vs-PR conflict ([flashpoint-private#1](https://github.com/IgniteRobotics/flashpoint-private/pull/1), [#2](https://github.com/IgniteRobotics/flashpoint-private/pull/2)) would have been caught by a single smoke test |
 | 61 | 🔴 | Merges were reverted as an undo button, and main was pushed directly ([02 §5](02-branch-survey.md#5-mergerevert-churn-on-main-oct-2125-2025)) |
 | 62 | 🟠 | About 150 commits sit on long-lived unmerged branches, and two teams went in different directions |
 | 63 | 🟠 | `requirements.txt` is a 99-line `pip freeze` of a dev machine (black, ipython, casadi, duckdb, pyntcore), and all of it is unused by ingest |

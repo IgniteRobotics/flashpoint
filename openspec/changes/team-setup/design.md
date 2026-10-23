@@ -2,7 +2,7 @@
 
 See proposal.md for the motivation and the two specs for behaviour. What the code does today:
 
-- **Config root** (`config.py:config_root`): explicit path, then `FLASHPOINT_CONFIG`, then the checkout's `config/` (`parents[2]`, only exists in a source checkout), then `~/.config/flashpoint`. A pipx install lands on the last one, which usually doesn't exist, and nothing says so (#54).
+- **Config root** (`config.py:config_root`): explicit path, then `FLASHPOINT_CONFIG`, then the checkout's `config/` (`parents[2]`, only exists in a source checkout), then `~/.config/flashpoint`. A pipx install lands on the last one, which usually doesn't exist, and nothing says so (flashpoint-private#54).
 - **Config files** in `config/`: `seasons/*.toml`, `robots/*.toml`, `units/units-seed.csv`, `report.toml`, `anomaly.toml`, `anomaly-causes.toml`, `failure-labels.toml`, and optional `acquire.toml`. All are read with `tomllib` into pydantic models with `extra="forbid"`.
 - **6829 is hard-coded** only in `AcquireConfig.hosts`.
 - **`doctor`** (`cli.py:_doctor`) prints versions, the lake, ledger stages, seasons, robots, the owlet cache, AdvantageScope and acquire status, as text. It has no structured checks and no exit status for problems.
@@ -38,7 +38,7 @@ See proposal.md for the motivation and the two specs for behaviour. What the cod
 - The repo's `config/` keeps Ignite's robots, units, failure labels and season `robot` roots. It is excluded from the wheel and used as the test fixture and as Ignite's own `FLASHPOINT_CONFIG`.
 - **File resolution** is per file: configuration root first, then bundled default. Robots and units have no default.
 - The `parents[2]` checkout fallback is removed. That's the **BREAKING** part: a developer checkout must set `FLASHPOINT_CONFIG=config`. The test conftest already sets it explicitly; the developer guide says so.
-- *Alternative:* keep the checkout fallback for developers. Rejected: it's the reason #54 is silent, and it makes the installed and dev behaviour differ.
+- *Alternative:* keep the checkout fallback for developers. Rejected: it's the reason flashpoint-private#54 is silent, and it makes the installed and dev behaviour differ.
 
 ### D-c. Per-user folder without a new dependency
 - **Linux and macOS:** `$XDG_CONFIG_HOME/flashpoint`, else `~/.config/flashpoint`. That's what `config_root()` already falls back to, and what the guide tells users.
@@ -109,7 +109,7 @@ Forms are built with `h()`, with text only, as in every other view.
 
 ## Risks / Trade-offs
 
-- [Going public exposes Ignite's match logs (corpus release), robot files (CAN ids, serials) and history] → [HUMAN] review before flipping the repo (task 1.1). Options: keep the corpus in a separate private repo with fetch-corpus pointed at it, or accept that it's public.
+- [Going public exposes Ignite's match logs (corpus release), robot files (CAN ids, serials) and history] → [HUMAN] review before flipping the repo (task 1.1). Options: keep the corpus in a separate private repo with fetch-corpus pointed at it, or accept that it's public. **Decided 2026-10-22:** the corpus stays public. Before going public, the history was rewritten into a new `IgniteRobotics/flashpoint` without the CTRE owlet binaries (pitfall #65) and with contributors' personal emails replaced by GitHub noreply addresses. The old repository is `IgniteRobotics/flashpoint-private`; closed issues and merged PRs stay there.
 - [Removing the checkout fallback breaks every developer's local setup once] → The developer guide and the conftest set `FLASHPOINT_CONFIG`. `doctor` names the fix.
 - [A second team's season roots differ (their `robot` root)] → `init` leaves the `robot` root empty with a comment. Signals stay unmapped and reported as `missing` until it's set, which is the existing behaviour.
 - [Fix actions that install services touch the OS] → An allow-list, local only, guarded. Each action is idempotent, and its result says what changed.

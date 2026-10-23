@@ -35,7 +35,7 @@ flowchart LR
 ## 2. Phases
 
 ### P0 — Stabilize & decide (S)
-> **Tracking:** [#66](https://github.com/IgniteRobotics/flashpoint/issues/66) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [#16](https://github.com/IgniteRobotics/flashpoint/issues/16) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Repo:**
   - Tag the current `main` as `legacy-2025`.
@@ -57,7 +57,7 @@ flowchart LR
 - **Exit:** ADRs merged, corpus available, CI skeleton green, `/Flashpoint/CANInventory` present in a fresh log from every robot.
 
 ### P1 — Core readers & lake (L)
-> **Tracking:** [#67](https://github.com/IgniteRobotics/flashpoint/issues/67) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [flashpoint-private#67](https://github.com/IgniteRobotics/flashpoint-private/issues/67) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **wpilog reader** on `robotpy-wpiutil` (RobotPy, n.d.). Stream it into Arrow record batches and write bronze Parquet. Handle struct-typed entries (WPILib Developers, 2023).
 - **owlet registry:**
@@ -73,7 +73,7 @@ flowchart LR
   - Ingesting a full qual match **(wpilog + 2 hoots) takes under 30 s and under 1 GB RAM** on a pit laptop. Benchmark it in CI.
 
 ### P2 — Semantics & physics (M)
-> **Tracking:** [#68](https://github.com/IgniteRobotics/flashpoint/issues/68) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [flashpoint-private#68](https://github.com/IgniteRobotics/flashpoint-private/issues/68) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Config:**
   - Season TOML and robot TOML, validated with pydantic.
@@ -94,7 +94,7 @@ flowchart LR
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
 ### NetworkTables signal mapping (S–M, follow-up to P2)
-> **Tracking:** [#69](https://github.com/IgniteRobotics/flashpoint/issues/69) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [flashpoint-private#69](https://github.com/IgniteRobotics/flashpoint-private/issues/69) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 P2 mapped CAN devices (slots and units) into robot config, and deliberately left out signals that only exist in NetworkTables: subsystem telemetry the robot code publishes, and vision. They are still described only by legacy files, which is the last thing blocking `retire-legacy-code` stage 2b-ii.
 - **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config2025.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
@@ -104,7 +104,7 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 - **Exit:** every row of the two 2025 maps and every prefix in `config2025.json` is covered by config, verified by a test against the tag. `retire-legacy-code` 3b can then delete `datamaps/` and `log_configs/`.
 
 ### P3 — Acquire & automate (S)
-> **Tracking:** [#70](https://github.com/IgniteRobotics/flashpoint/issues/70) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [#17](https://github.com/IgniteRobotics/flashpoint/issues/17) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **SFTP puller** (paramiko or asyncssh, [Background]):
   - copies to the inbox, verifies size and hash, and **never deletes on the robot by default**;
@@ -116,7 +116,7 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 - **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.
 
 ### P4 — Views (M)
-> **Tracking:** [#71](https://github.com/IgniteRobotics/flashpoint/issues/71) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [flashpoint-private#71](https://github.com/IgniteRobotics/flashpoint-private/issues/71) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Per-match static site:**
   - Rebuild the power-tracking SPA on silver and gold.
@@ -132,10 +132,10 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 - **Exit:** a drive coach can answer "is FL-drive running hotter than last event?" in two clicks, offline.
 
 ### AdvantageScope launch (S, follow-up to P4)
-> **Tracking:** [#72](https://github.com/IgniteRobotics/flashpoint/issues/72) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [flashpoint-private#72](https://github.com/IgniteRobotics/flashpoint-private/issues/72) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 ### Live & Pit views (M, follow-up to P4)
-> **Tracking:** [#75](https://github.com/IgniteRobotics/flashpoint/issues/75) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [#18](https://github.com/IgniteRobotics/flashpoint/issues/18) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 left them out. They become one change after P4 and P3:
 - an NT4 client (or a small relay so one robot connection serves many viewers) feeding Live at about 2 Hz;
@@ -144,7 +144,7 @@ The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 lef
 - **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.
 
 ### Live CAN health (M, follow-up to P4 and CAN health)
-> **Tracking:** [#80](https://github.com/IgniteRobotics/flashpoint/issues/80) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `live-can-health`.
+> **Tracking:** [#22](https://github.com/IgniteRobotics/flashpoint/issues/22) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `live-can-health`.
 
 Split out of Live & Pit views so the pit crew gets live feedback during shake tests (disabled) and drive tests (enabled):
 - **Robot side:** robot code publishes running totals per CTRE device over NetworkTables under `/Flashpoint/Live/CANHealth/` (dropouts, worst signal age, resets, fault bits, lowest supply voltage), plus bus status and `Enabled`. Totals, so a 40 ms dropout still counts over a link that updates about every 100 ms. This repo carries the contract, a guide and a suggested Java sample; the robot change is a Robot-2026 PR.
@@ -152,16 +152,16 @@ Split out of Live & Pit views so the pit crew gets live feedback during shake te
 - **Live only:** nothing written to the lake. The Pit board can use its results later.
 
 ### Live import updates (M, follow-up to P3 and P4)
-> **Tracking:** [#81](https://github.com/IgniteRobotics/flashpoint/issues/81) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [#23](https://github.com/IgniteRobotics/flashpoint/issues/23) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 During an event, logs arrive every few minutes through the `acquire` watch, but the app only shows them after a restart or `flashpoint report` (#65), and import problems stay in `doctor` output and log lines.
-- **Views update as imports happen:** `serve` notices lake changes made by other processes and pushes them to open browsers. Replay's match list gains new matches, an open match reloads in place, History and Anomalies refresh. Fixes #65.
+- **Views update as imports happen:** `serve` notices lake changes made by other processes and pushes them to open browsers. Replay's match list gains new matches, an open match reloads in place, History and Anomalies refresh. Fixes [#15](https://github.com/IgniteRobotics/flashpoint/issues/15).
 - **Import activity in the shell:** a header indicator (idle / pulling / importing / building Replay) and a feed of pulled, imported, warned and quarantined files.
 - **Problems as they happen,** linked to their match: import problems (quarantine, `incomplete-read`, `short-coverage`, truncation, failed pulls, low robot space) and data problems (missing bus hoot, missing declared signals, unmapped devices, no CAN inventory, suspect clock alignment, no match key).
-- **One problem list:** this change defines it; the Import status view builds its per-event table on it. Read-only; retries stay on the CLI (#64).
+- **One problem list:** this change defines it; the Import status view builds its per-event table on it. Read-only; retries stay on the CLI ([#14](https://github.com/IgniteRobotics/flashpoint/issues/14)).
 
 ### Import status view (S–M, follow-up to P3 and P4)
-> **Tracking:** [#76](https://github.com/IgniteRobotics/flashpoint/issues/76) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [#19](https://github.com/IgniteRobotics/flashpoint/issues/19) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 A view in the P4 shell that answers three questions about the lake: **are we missing logs, did they all import clean, and do the clocks line up?** Most of the data is already in the ledger. Little of it is visible today outside `flashpoint doctor` and SQL.
 - **Missing logs:**
@@ -172,7 +172,7 @@ A view in the P4 shell that answers three questions about the lake: **are we mis
   - `files.stage`, `reason` and `warnings` (quarantined, `incomplete-read`, `short-coverage`);
   - `logs.truncated_bytes` and `orphan_records`, `hoot_logs.read_status` and `integrity`;
   - `unmapped_devices` and logs with no CAN inventory (legacy epochs);
-  - **new:** record when owlet exports of a hoot differed in size (#17 tail loss). Today that is only a log line, so it can't be counted.
+  - **new:** record when owlet exports of a hoot differed in size ([#4](https://github.com/IgniteRobotics/flashpoint/issues/4) tail loss). Today that is only a log line, so it can't be counted.
 - **Timing:**
   - per hoot: `session_hoots.offset_us`, `method`, `confidence`, `spread_us`, `bus_agreement_us`, with low-confidence or disagreeing alignments flagged;
   - per wpilog: `anchor_source` and `utc_offset_us`, flagging logs anchored by fallback instead of `systemTime`;
@@ -181,17 +181,17 @@ A view in the P4 shell that answers three questions about the lake: **are we mis
 - **Exit:** after an event, a student can see in one screen which matches are missing logs, which imported with warnings, and which have suspect clock alignment, without SQL.
 
 ### Team setup (L, follow-up to P3 and P4)
-> **Tracking:** [#82](https://github.com/IgniteRobotics/flashpoint/issues/82) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-setup`.
+> **Tracking:** [#24](https://github.com/IgniteRobotics/flashpoint/issues/24) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-setup`.
 
 Make Flashpoint usable by any FRC team, not just 6829 with access to a private repo:
 - **Public install:** the repo goes public and Flashpoint is published to PyPI, so `pipx install flashpoint` works as ADR-0009 assumed. Bundled defaults ship in the package; Ignite's robots and units stay in the repo's `config/`, out of the wheel.
-- **Configuration home:** a per-user folder created by `flashpoint init` (team number, lake folder). The fallback to a checkout's `config/` goes away (fixes #54). The team number drives the robot addresses.
+- **Configuration home:** a per-user folder created by `flashpoint init` (team number, lake folder). The fallback to a checkout's `config/` goes away (fixes [flashpoint-private#54](https://github.com/IgniteRobotics/flashpoint-private/issues/54)). The team number drives the robot addresses.
 - **Setup view:** the whole configuration and every setup check (`doctor` uses the same checks), editing of team, robots and slots, thresholds and units with the loading rules and backups, drafting a robot from a log, and guarded fix actions (create config, owlet, AdvantageScope, acquire service). Read-only when shared on the network.
 - **Needs first:** a human review of what going public exposes (corpus match logs, CAN ids and serials).
-- **Status (2026-10-21):** implemented in two PRs into `rewrite`: packaging, config home, `init` and setup checks ([#88](https://github.com/IgniteRobotics/flashpoint/pull/88)), then the Setup view, editor, fix actions and robot draft (ADR-0017). Still with a human: going public, claiming the PyPI name and the first release (`v0.2.0`), and the new-team walkthrough.
+- **Status (2026-10-21):** implemented in two PRs into `rewrite`: packaging, config home, `init` and setup checks ([flashpoint-private#88](https://github.com/IgniteRobotics/flashpoint-private/pull/88)), then the Setup view, editor, fix actions and robot draft (ADR-0017). Still with a human: going public, claiming the PyPI name and the first release (`v0.2.0`), and the new-team walkthrough.
 
 ### Team branding (S–M, follow-up to Team setup)
-> **Tracking:** [#86](https://github.com/IgniteRobotics/flashpoint/issues/86) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-branding`.
+> **Tracking:** [#25](https://github.com/IgniteRobotics/flashpoint/issues/25) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-branding`.
 
 Each team sees its own name and colours instead of Ignite's:
 - **Team name** in the header and page title, set in `theme.toml`, by `flashpoint init`, or in the Setup view.
@@ -200,7 +200,7 @@ Each team sees its own name and colours instead of Ignite's:
 - Applies to every view, the charts and static exports. Colour tokens are renamed from amber to roles (`--accent*`, `--warn`).
 
 ### Replay UX (S, follow-up to P4)
-> **Tracking:** [#73](https://github.com/IgniteRobotics/flashpoint/issues/73) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [flashpoint-private#73](https://github.com/IgniteRobotics/flashpoint-private/issues/73) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 Two improvements to the Replay board:
 - **Match list filters:** filter the left match list by season (year), robot, and competition (event). The filters combine, live in the URL like the rest of Replay's state, and default to the most recent event. The static export filters the same way over the matches it contains.
@@ -211,7 +211,7 @@ Two improvements to the Replay board:
 - **Exit:** a drive coach finds a match by year, robot, and event in two clicks, and can zoom to a two-second brownout without leaving Replay.
 
 ### CAN health (S–M, precursor to P5)
-> **Tracking:** [#74](https://github.com/IgniteRobotics/flashpoint/issues/74) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [flashpoint-private#74](https://github.com/IgniteRobotics/flashpoint-private/issues/74) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Change:** `can-health`. It needs Robot-2026#108 on the robot for bus status.
 - **What it adds:**
@@ -227,7 +227,7 @@ Two improvements to the Replay board:
 - **Deferred:** chain-order localisation, to the 2027 robot.
 
 ### P5 — Anomaly detection (L)
-> **Tracking:** [#77](https://github.com/IgniteRobotics/flashpoint/issues/77) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [#20](https://github.com/IgniteRobotics/flashpoint/issues/20) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Tier 1, rules:**
   - temperature thresholds (port 55 °C avg / 65 °C max);
@@ -247,7 +247,7 @@ Two improvements to the Replay board:
   - False-positive rate is low enough that students don't learn to ignore it.
 
 ### P6 — Prediction & fleet (L, stretch)
-> **Tracking:** [#78](https://github.com/IgniteRobotics/flashpoint/issues/78) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+> **Tracking:** [#21](https://github.com/IgniteRobotics/flashpoint/issues/21) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - Label failures from pit notes and maintenance records to make a `maintenance_events` table keyed by **serial number**. Unit identity makes these labels reliable.
 - Model time to failure or degradation slopes per component (thermal rise rate, residual drift). Literature shows measurable current and speed shifts before faults (Jin et al., 2014).
@@ -271,7 +271,7 @@ Two improvements to the Replay board:
 ```mermaid
 gitGraph
     commit id: "legacy main"
-    commit id: "P0 (#9)"
+    commit id: "P0 (PR 9)"
     branch rewrite
     branch feature/p1-core-ingest-lake
     commit id: "P1"

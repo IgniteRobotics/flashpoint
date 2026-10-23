@@ -1289,7 +1289,7 @@ def test_history_empty_lake(page: Any, tmp_path: Path) -> None:
         _stop(server)
 
 
-# --- History: one sparkline scale for every row (issue #39) ---------------------------------
+# --- History: one sparkline scale for every row (flashpoint-private#39) ---------------------------
 
 
 READ_SPARKS = """() => Object.fromEntries([...document.querySelectorAll('#rows tr')].map((tr) => {

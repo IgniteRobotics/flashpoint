@@ -7,8 +7,8 @@ The repository has 224 commits across 9 branches and 5 contributors (Joshua/Josh
 | Branch | vs main (main-only / branch-only) | Last commit | Status | One-liner |
 |---|---|---|---|---|
 | `main` | — | 2025-10-25 | Broken entry points | Pushed directly as "New HEAD with feature/hoot-support code" |
-| `feature/ingest-updates` | 49 / 0 | 2025-08 | Merged (PR #1) | raw → telemetry → stats schema rewrite |
-| `feature/drive-backup` | 15 / 0 | 2025-10 | Merged (PR #4) | Docker, puller, Drive backup |
+| `feature/ingest-updates` | 49 / 0 | 2025-08 | Merged ([flashpoint-private#1](https://github.com/IgniteRobotics/flashpoint-private/pull/1)) | raw → telemetry → stats schema rewrite |
+| `feature/drive-backup` | 15 / 0 | 2025-10 | Merged ([flashpoint-private#4](https://github.com/IgniteRobotics/flashpoint-private/pull/4)) | Docker, puller, Drive backup |
 | `feature/hoot-support` | 5 / 3 | 2025-10-25 | **Obsolete** | Merging it would delete the Docker stack |
 | `feature/docker` | 0 / 14 | 2025-11-05 | Superseded | OS-specific owlet, first `ingest_dir.py` |
 | `feature/dataviz` | 0 / 44 | 2026-04-02 | Superseded by development | Filters, AdvantageScope launcher, puller/importer split |
@@ -26,10 +26,10 @@ timeline
     2024-04 : Seed — datalog.py, csv_converter, ingest_file.py, single metrics table, Streamlit + PyGWalker
     2025-02 : "Performance" WIP — actually idempotency: file_metadata hash ledger, summary_metrics.py
     2025-07 : Excalidraw architecture — raw → telemetry → stats per domain
-    2025-07..08 : PR #1 ingest-updates — typed raw/telemetry/stats tables
-    2025-08..09 : PR #2 annual-support — datamaps/YEAR, log_configs/configYEAR.json
+    2025-07..08 : PR 1 ingest-updates — typed raw/telemetry/stats tables
+    2025-08..09 : PR 2 annual-support — datamaps/YEAR, log_configs/configYEAR.json
     2025-09..10 : hoot-support — owlet.exe, ingest_library split, match join of wpilog + 2 hoots
-    2025-09..10 : PR #4 drive-backup — Docker, sshpass puller, Drive copy. GRITS event
+    2025-09..10 : PR 4 drive-backup — Docker, sshpass puller, Drive copy. GRITS event
     2025-10-21..25 : Merge/revert churn, main force-advanced
     2025-11..2026-04 : docker → dataviz → development — puller/importer split, filters, AdvantageScope launch, 2026 owlet
     2026-04-15..27 : static-site → power-tracking — spec-driven TDD utils package, PDF + Plotly SPA
@@ -109,7 +109,7 @@ flowchart TB
 ### History worth knowing
 - `0df7fa6` "wip on performance updates" was **idempotency** work: a SHA-256 ledger and two-phase success flags. It did not touch speed.
 - DuckDB has been pinned in `requirements.txt` since 2025 but **was never imported**.
-- `ingest_file.py` was renamed to `ingest_rio_log.py`, then to `ingest_library.py`. PR #4 was branched before the rename and kept calling `ingest_file.py`. Git couldn't flag this semantic conflict, and with no CI nothing else caught it either.
+- `ingest_file.py` was renamed to `ingest_rio_log.py`, then to `ingest_library.py`. [flashpoint-private#4](https://github.com/IgniteRobotics/flashpoint-private/pull/4) was branched before the rename and kept calling `ingest_file.py`. Git couldn't flag this semantic conflict, and with no CI nothing else caught it either.
 
 ## 5. Merge/revert churn on main (Oct 21–25, 2025)
 

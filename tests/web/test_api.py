@@ -240,8 +240,8 @@ def test_hostile_filter_value_is_empty(app: Any, key: str, endpoint: str) -> Non
 
 
 def test_devices_spark_lists(serve: Any, tmp_path: Path) -> None:
-    """The shared-scale fixture (issue #39): each unit's spark is its values in time order,
-    None where its row has no value."""
+    """The shared-scale fixture (flashpoint-private#39): each unit's spark is its values in
+    time order, None where its row has no value."""
     from tests.web.spark_lake import build_spark_lake
 
     app = serve(build_spark_lake(tmp_path / "lake"))
