@@ -30,10 +30,12 @@ Importing from cloud folders (Google Drive, Dropbox, network shares) isn't suppo
 
 ## Configure it: `acquire.toml`
 
-With no config file, the defaults work for team 6829 on the usual robot addresses. To change anything, create `acquire.toml` in the config folder: the `FLASHPOINT_CONFIG` folder you set at install, or `~/.config/flashpoint/` if you didn't set one. Unknown keys are an error, so typos are caught.
+`flashpoint init` writes `acquire.toml` in the config folder (`~/.config/flashpoint/`, `%APPDATA%\flashpoint` on Windows, or the `FLASHPOINT_CONFIG` folder) with your team number and lake. The robot addresses come from the team number. Without a team number or `hosts`, acquire refuses to start and names `flashpoint init`. Unknown keys are an error, so typos are caught. Every key:
 
 ```toml
-hosts = ["10.68.29.2", "roborio-6829-frc.local", "172.22.11.2"]
+team = 6829
+lake = "/home/pit/flashpoint-lake"
+hosts = []
 user = "lvuser"
 password = ""
 roots = ["/home/lvuser/logs", "/u/logs"]
@@ -49,7 +51,9 @@ interval_min = 15
 
 | Key | Default | What it does |
 |---|---|---|
-| `hosts` | `10.68.29.2`, `roborio-6829-frc.local`, `172.22.11.2` | Robot addresses to try, in order: radio network, mDNS, and USB tether |
+| `team` | none | Your team number. Acquire tries `10.TE.AM.2` (team 6829: `10.68.29.2`, team 254: `10.2.54.2`), then `roborio-TEAM-frc.local`, then the USB tether `172.22.11.2` |
+| `lake` | `~/flashpoint-lake` | The lake folder for every command. `--lake` and `FLASHPOINT_LAKE` override it |
+| `hosts` | `[]` (use the team's addresses) | Robot addresses to try instead, in order |
 | `user` | `lvuser` | SSH user on the roboRIO |
 | `password` | `""` (none) | SSH password, if the rio has one |
 | `roots` | `/home/lvuser/logs`, `/u/logs` | Log folders on the robot: internal storage, and the robot's USB stick |
@@ -87,11 +91,11 @@ dry run: 2 file(s), 41127424 bytes would be copied; nothing changed
 
 ### Linux (systemd user service)
 
-Flashpoint ships a unit file, [`deploy/systemd/flashpoint-acquire.service`](../../deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where pipx puts it. Install it:
+Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../../src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where pipx puts it. Install it:
 
 ```sh
 mkdir -p ~/.config/systemd/user
-cp deploy/systemd/flashpoint-acquire.service ~/.config/systemd/user/
+cp src/flashpoint/deploy/systemd/flashpoint-acquire.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now flashpoint-acquire
 journalctl --user -u flashpoint-acquire -f      # watch its log
@@ -113,10 +117,10 @@ For USB drives on a computer with no desktop, the watch only sees drives that ar
 
 ### Windows (scheduled task)
 
-Flashpoint ships a task definition, [`deploy/windows/flashpoint-acquire.xml`](../../deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. Install it from the checkout folder:
+Flashpoint ships a task definition, [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](../../src/flashpoint/deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. Install it from the checkout folder:
 
 ```bat
-schtasks /Create /XML deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
+schtasks /Create /XML src\flashpoint\deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
 schtasks /Run /TN flashpoint-acquire
 ```
 
@@ -192,7 +196,7 @@ cycle done: robot 10.68.29.2 ok, volume ROBOT-USB ok; transfers {'verified': 3};
 
 | You see | What it means | What to do |
 |---|---|---|
-| `robot: unreachable` in the dry run, or `unreachable` in `doctor` | None of `hosts` answered. That's normal when the robot is off, and the watch keeps trying | Check that the robot is on and this computer is on its network (radio or USB tether). Try `flashpoint acquire --dry-run --host 10.68.29.2`. If your team number isn't 6829, set `hosts` |
+| `robot: unreachable` in the dry run, or `unreachable` in `doctor` | None of `hosts` answered. That's normal when the robot is off, and the watch keeps trying | Check that the robot is on and this computer is on its network (radio or USB tether). Try `flashpoint acquire --dry-run --host 10.68.29.2`. Check `team` in `acquire.toml` |
 | `robot <host>: cannot open a session: ...` | The robot answered but SSH login failed | Check `user` and `password` in `acquire.toml` |
 | A USB stick is plugged in but nothing is copied | The drive isn't seen as removable, isn't mounted, or has no logs within four folders of its top | Make sure the drive shows up in Finder, File Explorer, or `lsblk`. On a Linux computer with no desktop, set up udiskie. Check that `removable_media` isn't `false` |
 | `removable volume detection failed, skipping USB this cycle` | The operating system's drive listing failed | It retries next cycle. If it repeats, run the watch in a terminal to see the full error |

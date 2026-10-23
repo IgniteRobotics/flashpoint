@@ -2,9 +2,10 @@
 
 Routes: `/` and `/static/*` from the package, `/data/*` from `<lake>/report/data/`,
 `/raw/<sha256>/<name>` for ledger hashes only, and `/api/*`. Everything else is 404.
-The non-GET routes are the guarded `POST /api/launch` (ADR-0014) and
-`POST /api/anomalies/<id>/triage` (ADR-0015). Logs and derived layers stay read-only; the one
-write is an appended triage row in the ledger.
+The non-GET routes are the guarded `POST /api/launch` (ADR-0014),
+`POST /api/anomalies/<id>/triage` (ADR-0015), and the setup writes of ADR-0017:
+`POST /api/setup/fix/<action>` and `PUT /api/config/<section>`. Logs and derived layers stay
+read-only; the writes are an appended triage row in the ledger, and configuration files.
 """
 
 import contextlib
@@ -13,6 +14,7 @@ import json
 import re
 import shutil
 import sys
+import threading
 from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,6 +27,10 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
 from flashpoint.report.names import safe_name
 from flashpoint.report.paths import data_dir
+from flashpoint.setup import checks as setup_checks
+from flashpoint.setup import config_api, draft
+from flashpoint.setup.checks import CheckContext
+from flashpoint.setup.fixes import FIXES, Fix, FixError
 from flashpoint.views.anomalies import AnomalyQueries, TriageError
 from flashpoint.views.queries import HistoryQueries
 from flashpoint.web.advantagescope import Launcher, spawn
@@ -38,6 +44,14 @@ _DATA_NAME = re.compile(r"^[A-Za-z0-9_.-]+\.js$")
 LAUNCH_PATH = "/api/launch"
 TRIAGE_PATH = re.compile(r"^/api/anomalies/([0-9a-f]{16})/triage$")
 MAX_LAUNCH_BODY = 4096  # also the triage body limit
+MAX_SETUP_BODY = 256 * 1024  # configuration saves: a robot file is about 20 KB
+SETUP_CHECKS_PATH = "/api/setup/checks"
+CONFIG_PATH = "/api/config"
+SESSIONS_PATH = "/api/setup/sessions"
+DRAFT_PATH = "/api/setup/draft"
+CONFIG_PREFIX = "/api/config/"
+FIX_PREFIX = "/api/setup/fix/"
+FIX_PATH = re.compile(r"^/api/setup/fix/([a-z-]+)$")
 GUARD_HEADERS = ("Host", "Origin", "X-Flashpoint", "Content-Type")
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -93,6 +107,13 @@ class FlashpointServer(ThreadingHTTPServer):
         self.static_dir = static_dir
         self.launcher = launcher or Launcher(None)
         self.spawner = spawner  # starts `flashpoint detect` after a baseline restart
+        self.config_dir = config_root()
+        self.check_context: Callable[[], CheckContext] = lambda: CheckContext.default(
+            self.config_dir, self.lake
+        )
+        self.fixes: dict[str, Fix] = dict(FIXES)
+        # One setup write at a time: a save's hash check and its write must not interleave.
+        self.setup_lock = threading.Lock()
 
     @property
     def bound_local(self) -> bool:
@@ -166,6 +187,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._data(path.removeprefix("/data/"))
             elif path.startswith("/raw/"):
                 self._raw(path.removeprefix("/raw/"))
+            elif url.path == SETUP_CHECKS_PATH:
+                self._send_json(HTTPStatus.OK, self._checks())
+            elif url.path == SESSIONS_PATH:
+                self._send_json(HTTPStatus.OK, {"sessions": draft.list_sessions(self.server.lake)})
+            elif url.path == DRAFT_PATH:
+                self._draft(parse_qs(url.query))
+            elif url.path == CONFIG_PATH:
+                sections = config_api.config_view(self.server.config_dir)
+                payload = {
+                    "writable": self._writable(),
+                    "config_root": str(self.server.config_dir),
+                    "sections": sections,
+                }
+                self._send_json(HTTPStatus.OK, payload)
             elif url.path == LAUNCH_PATH:
                 self._send_json(
                     HTTPStatus.OK,
@@ -183,26 +218,88 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
+    def _draft(self, params: dict[str, list[str]]) -> None:
+        session = params.get("session", [])
+        if len(session) != 1 or set(params) != {"session"}:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"error": "expected ?session=<id>"})
+            return
+        try:
+            body = draft.draft_robot(self.server.lake, self.server.config_dir, session[0])
+        except draft.DraftError as exc:
+            self._send_json(exc.status, {"error": str(exc)})
+            return
+        self._send_json(HTTPStatus.OK, body)
+
     def _method_not_allowed(self) -> None:
         self._send_bytes(
             HTTPStatus.METHOD_NOT_ALLOWED, b"read-only\n", "text/plain", {"Allow": "GET, HEAD"}
         )
 
-    do_PUT = do_DELETE = do_PATCH = _method_not_allowed  # noqa: N815
+    do_DELETE = do_PATCH = _method_not_allowed  # noqa: N815
+
+    def do_PUT(self) -> None:  # noqa: N802 - stdlib naming
+        path = urlsplit(self.path).path
+        if not path.startswith(CONFIG_PREFIX):
+            self._method_not_allowed()
+            return
+        with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+            ok, body = self._guarded_body("setup", {"saved": False}, MAX_SETUP_BODY)
+            if not ok:
+                return
+            section = unquote(path.removeprefix(CONFIG_PREFIX))
+            with self.server.setup_lock:
+                status, payload = config_api.save_section(self.server.config_dir, section, body)
+            self._send_json(status, payload)
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib naming
         path = urlsplit(self.path).path
         triage = TRIAGE_PATH.match(path)
-        if path != LAUNCH_PATH and triage is None:
+        fix = FIX_PATH.match(path)
+        is_fix = path.startswith(FIX_PREFIX)  # an unknown action gets 404, after the guard
+        if path != LAUNCH_PATH and triage is None and not is_fix:
             self._method_not_allowed()
             return
         with contextlib.suppress(BrokenPipeError, ConnectionResetError):
             if triage is not None:
                 self._triage(triage.group(1))
-            else:
+            elif path == LAUNCH_PATH:
                 self._launch()
+            else:
+                self._fix(fix.group(1) if fix else None)
 
-    def _guarded_body(self, marker: str, refused: dict[str, Any]) -> tuple[bool, Any]:
+    def _writable(self) -> bool:
+        """Whether this client may make setup writes (the view shows buttons, not commands)."""
+        return self.server.bound_local and is_local(_unmapped(self.client_address[0]))
+
+    def _checks(self) -> dict[str, Any]:
+        results = setup_checks.run_checks(self.server.check_context())
+        return {
+            "writable": self._writable(),
+            "config_root": str(self.server.config_dir),
+            "checks": [r.to_dict() for r in results],
+        }
+
+    def _fix(self, action: str | None) -> None:
+        refused = {"ok": False}
+        ok, body = self._guarded_body("setup", refused, MAX_SETUP_BODY)
+        if not ok:
+            return
+        run = self.server.fixes.get(action) if action else None
+        if run is None:
+            self._send_json(HTTPStatus.NOT_FOUND, {**refused, "reason": "no such fix"})
+            return
+        try:
+            with self.server.setup_lock:
+                result = run(self.server.check_context(), body)
+        except FixError as exc:
+            payload = {**refused, "reason": str(exc), **self._checks()}
+            self._send_json(HTTPStatus.BAD_REQUEST, payload)
+            return
+        self._send_json(HTTPStatus.OK, {**result, **self._checks()})
+
+    def _guarded_body(
+        self, marker: str, refused: dict[str, Any], limit: int = MAX_LAUNCH_BODY
+    ) -> tuple[bool, Any]:
         """The JSON body of a guarded write, or (False, None) after sending the refusal."""
         server = self.server
         # Header names are case-insensitive; look each one up through the message.
@@ -217,7 +314,7 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = -1
-        if length < 0 or length > MAX_LAUNCH_BODY:
+        if length < 0 or length > limit:
             self.close_connection = True
             self._send_json(
                 HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {**refused, "reason": "body too large"}
@@ -295,6 +392,16 @@ class Handler(BaseHTTPRequestHandler):
             {"Content-Disposition": f'attachment; filename="{safe_name(name)}"'},
             "application/octet-stream",
         )
+
+
+def _unmapped(host: str) -> str:
+    """`::ffff:127.0.0.1` as `127.0.0.1`."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    mapped = getattr(address, "ipv4_mapped", None)
+    return str(mapped) if mapped else host
 
 
 def is_local(host: str) -> bool:

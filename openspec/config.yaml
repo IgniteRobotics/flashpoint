@@ -6,9 +6,9 @@ context: |
   and tracks motor and robot health across a robot's whole life. The goal is
   to detect anomalies and eventually predict failures before they happen.
 
-  Status: ground-up rewrite. All legacy code has been removed from
-  `rewrite` through the retire-legacy-code change. The pre-rewrite tree is
-  preserved at the legacy-2025 tag. The research
+  Status: ground-up rewrite, merged into `main` on 2026-10-22. All legacy
+  code was removed through the retire-legacy-code change. The pre-rewrite
+  tree is preserved at the legacy-2025 tag. The research
   and roadmap live in docs/rewrite/ and are the source of truth for these
   changes:
     - 01-current-capabilities.md   what exists today on every branch
@@ -16,8 +16,8 @@ context: |
     - 05-target-architecture.md    design; decisions D1-D11 (D11 decided)
     - 06-roadmap.md                phases P0-P6 (each P is one change here)
     - 99-ctre-device-serial-numbers.md   CAN inventory / serial identity
-  Salvage sources: the origin/development and origin/feature/power-tracking
-  branches, plus the archive/static-site tag.
+  Salvage sources: the archive/development, archive/power-tracking and
+  archive/static-site tags.
 
   Target stack (proposed; confirm per ADR):
     - Python 3.11+, Poetry, pytest with --strict-markers, ruff, mypy --strict
@@ -51,10 +51,9 @@ context: |
   PascalCase classes, SCREAMING_SNAKE_CASE constants, type hints everywhere.
   Imports go external, then internal, then local.
 
-  Branching: the rewrite integrates on the long-lived `rewrite` branch.
-  Each change is a `feature/<name>` branch cut from `rewrite`, and merges
-  back into `rewrite` through a PR with CI (never push directly). `main`
-  keeps the legacy code until `rewrite` merges into it once, replacing it.
+  Branching: `main` is the only long-lived branch. Each change is a
+  `feature/<name>` branch cut from `main`, and merges back into `main`
+  through a PR with CI (never push directly).
 
 rules:
   proposal:
@@ -81,4 +80,4 @@ operations:
       - New code goes in src/flashpoint/
   archive:
     guidance:
-      - Update docs/rewrite/06-roadmap.md phase status when archiving a phase change
+      - Roadmap status lives on the Flashpoint GitHub project (https://github.com/orgs/IgniteRobotics/projects/3), not in docs/rewrite/06-roadmap.md. When archiving a phase change, comment on its `roadmap` issue with what shipped and the archive PR, set its Target date, and close it once no [HUMAN] task is left. When archiving a follow-up change, comment on its phase issue

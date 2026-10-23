@@ -7,9 +7,20 @@ from typing import Any
 
 import pytest
 
+# The repo's config/ is Ignite's team configuration and the tests' fixture. Flashpoint no
+# longer finds it on its own (no checkout fallback), so name it for every test and subprocess.
+REPO_CONFIG = Path(__file__).resolve().parents[1] / "config"
+os.environ["FLASHPOINT_CONFIG"] = str(REPO_CONFIG)
+
 MANIFEST_PATH = Path(__file__).parent / "corpus" / "manifest.toml"
 DEFAULT_CORPUS_DIR = Path.home() / ".cache" / "flashpoint" / "corpus"
 THREAD_GRACE_S = 2.0
+
+
+@pytest.fixture(autouse=True)
+def fixture_season(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The setup checks want a robot for the current season; the fixture robots are 2026's."""
+    monkeypatch.setattr("flashpoint.setup.checks.current_season", lambda: 2026)
 
 
 @pytest.fixture(autouse=True)

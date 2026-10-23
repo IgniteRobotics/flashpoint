@@ -6,7 +6,7 @@ Current state (see proposal.md for why this matters):
 - `deploy/README.md` covers the acquisition service well. Its install line (`pipx install flashpoint`) points at a package that isn't published.
 - `notebooks/README.md` is current, and the guides link to it.
 - `docs/rewrite/` and `docs/adr/` are the research and the decision log. They are accurate but written for the rewrite's planners, not for operators.
-- The repository is private on GitHub (`IgniteRobotics/flashpoint`, made private 2026-10-14). Cloning it and fetching the golden corpus both need GitHub credentials (`gh auth login`, PR #52). `main` still holds the legacy code until `rewrite` merges into it once (06-roadmap.md §4).
+- The repository is private on GitHub (`IgniteRobotics/flashpoint`, made private 2026-10-14). Cloning it and fetching the golden corpus both need GitHub credentials (`gh auth login`, flashpoint-private#52). `main` still holds the legacy code until `rewrite` merges into it once (06-roadmap.md §4).
 - The CLI is one argparse parser built by `flashpoint.cli._parser()`, with 11 subcommands: `ingest`, `rebuild`, `derive`, `detect`, `backtest`, `report`, `serve`, `acquire`, `backup`, `restore`, `doctor`.
 
 None of D1–D11 is touched. The guides describe D1 (Parquet lake and DuckDB), D2 (Polars), D3/D4 (readers and the owlet registry), D6/D7 (views, as amended by ADR-0013), and D11 (serial identity) as built. They link to the ADRs instead of restating them. No ADR is needed.

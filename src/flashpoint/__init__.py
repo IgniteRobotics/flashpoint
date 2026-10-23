@@ -1,3 +1,6 @@
 """Flashpoint: FRC robot telemetry platform."""
 
-__version__ = "0.1.0"
+from importlib import metadata
+
+# The release workflow sets the package version from the tag; this reads it back.
+__version__ = metadata.version("flashpoint")

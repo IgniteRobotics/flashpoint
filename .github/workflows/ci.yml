@@ -3,15 +3,64 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, rewrite]
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Docs-only changes skip the expensive jobs. "Docs" is prose the code never reads: docs/,
+  # openspec/, media/, .claude/, and Markdown outside src/ and tests/ (tests/ fixtures are code).
+  # Anything else, or a diff we can't compute, runs everything.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "no usable base ($BASE): running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          code=$(git diff --name-only "$BASE" "$GITHUB_SHA" | awk '
+            /^(docs|openspec|media|\.claude)\// { next }
+            /\.md$/ && !/^(src|tests)\// { next }
+            { print }')
+          echo "files that need the full run:"; echo "${code:-  (none)}"
+          echo "code=$([ -n "$code" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  docs:
+    # Docs-only changes still get the link and CLI-reference checks.
+    name: docs
+    needs: changes
+    if: needs.changes.outputs.code != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction
+      - run: poetry run pytest tests/test_docs.py
+
   lint-test:
     name: lint-test (py${{ matrix.python }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -37,10 +86,12 @@ jobs:
           mkdir -p "$HOME/.local/bin"
           printf '#!/bin/sh\nexit 0\n' > "$HOME/.local/bin/flashpoint"
           chmod +x "$HOME/.local/bin/flashpoint"
-          systemd-analyze verify --user deploy/systemd/flashpoint-acquire.service
+          systemd-analyze verify --user src/flashpoint/deploy/systemd/flashpoint-acquire.service
 
   windows:
     name: windows (py3.12)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -55,13 +106,62 @@ jobs:
       - run: poetry run mypy src tests tools
       - run: poetry run pytest -m "not corpus and not browser and not perf"
 
+  clean-install:
+    # The built wheel in an empty venv, with no configuration: what `pipx install` gives a team.
+    name: clean install (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: poetry build -f wheel -o "$RUNNER_TEMP/dist"
+      - name: Install into a clean venv
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -d "$RUNNER_TEMP/venv/Scripts" ]; then bin="$RUNNER_TEMP/venv/Scripts"; else bin="$RUNNER_TEMP/venv/bin"; fi
+          "$bin/python" -m pip install --quiet "$RUNNER_TEMP"/dist/*.whl
+          echo "FP_BIN=$bin" >> "$GITHUB_ENV"
+      - name: --version matches the package version
+        run: |
+          expected="flashpoint $(poetry version --short)"
+          actual="$("$FP_BIN/flashpoint" --version)"
+          echo "$actual"
+          [ "$actual" = "$expected" ]
+      - name: doctor with no configuration names flashpoint init
+        working-directory: ${{ runner.temp }}  # away from the checkout's config/
+        env:
+          FLASHPOINT_LAKE: ${{ runner.temp }}/lake
+        run: |
+          set +e
+          "$FP_BIN/flashpoint" doctor > doctor.txt
+          code=$?
+          set -e
+          cat doctor.txt
+          [ "$code" = 1 ]
+          grep -q "no configuration in" doctor.txt
+          grep -q "flashpoint init" doctor.txt
+
   corpus:
     name: corpus
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
-      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
+      GH_TOKEN: ${{ github.token }}  # fetch-corpus.py downloads through gh, which needs a token
     steps:
       - uses: actions/checkout@v4
       - run: pipx install poetry
@@ -87,11 +187,13 @@ jobs:
 
   browser:
     name: browser (Chromium)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
-      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
+      GH_TOKEN: ${{ github.token }}  # fetch-corpus.py downloads through gh, which needs a token
     steps:
       - uses: actions/checkout@v4
       - run: pipx install poetry
@@ -114,12 +216,15 @@ jobs:
 
   perf:
     name: perf (budgets, non-blocking)
+    # Not on pull requests: perf is non-blocking, so it only needs to run once a change lands.
+    needs: changes
+    if: github.event_name != 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     continue-on-error: true
     env:
       FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
-      GH_TOKEN: ${{ github.token }}  # the corpus release is private; fetch-corpus.py uses gh
+      GH_TOKEN: ${{ github.token }}  # fetch-corpus.py downloads through gh, which needs a token
     steps:
       - uses: actions/checkout@v4
       - run: pipx install poetry
@@ -138,3 +243,20 @@ jobs:
           key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
       - run: poetry run python tools/fetch-corpus.py
       - run: poetry run pytest -m perf -s
+
+  # The one required check. Skipped matrix jobs report under their unexpanded name
+  # ("lint-test (py${{ matrix.python }})"), so branch protection can't require them directly.
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [changes, docs, lint-test, corpus]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e '.changes.result == "success"
+            and (to_entries | all(.value.result == "success" or .value.result == "skipped"))
+            and (.docs.result == "success" or ."lint-test".result == "success")' >/dev/null

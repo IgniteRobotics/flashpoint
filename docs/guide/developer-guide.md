@@ -7,17 +7,15 @@ For people who change Flashpoint's code. Read [How it works](how-it-works.md) fi
 You need:
 - Python 3.11, 3.12, or 3.13 (`requires-python = ">=3.11,<3.14"`). [pyenv](https://github.com/pyenv/pyenv) is the easy way to get one;
 - [Poetry](https://python-poetry.org/) 2;
-- the [GitHub CLI](https://cli.github.com/), because the repository and the golden corpus are private.
+- optionally, the [GitHub CLI](https://cli.github.com/): `tools/fetch-corpus.py` uses it when it is installed.
 
 ```sh
-gh auth login
-gh repo clone IgniteRobotics/flashpoint && cd flashpoint
-git switch rewrite
+git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint
 poetry install
 poetry run flashpoint doctor
 ```
 
-`poetry install` installs the package in editable mode, along with the dev tools (pytest, ruff, mypy, Playwright, robotpy-wpiutil). In a checkout, Flashpoint reads the robot configuration from the repo's `config/` folder automatically; `FLASHPOINT_CONFIG` overrides that. Optional extras:
+`poetry install` installs the package in editable mode, along with the dev tools (pytest, ruff, mypy, Playwright, robotpy-wpiutil). The repo's `config/` folder is Ignite's team configuration and the tests' fixture. Flashpoint doesn't find it on its own: set `export FLASHPOINT_CONFIG=config` (from the repo root) in a checkout, or `flashpoint` uses your per-user folder instead. The tests set it themselves (`tests/conftest.py`). The shared defaults every team starts from live in `src/flashpoint/defaults/` and ship in the package. Optional extras:
 
 ```sh
 poetry install --extras ml        # scikit-learn, for the optional MODEL anomaly detector
@@ -30,6 +28,14 @@ export FLASHPOINT_LAKE=/tmp/fp-lake
 poetry run flashpoint ingest ~/.cache/flashpoint/corpus/corpus-v1/
 poetry run flashpoint serve
 ```
+
+### Ubuntu notes
+
+Ubuntu sets up a few traps for a fresh install:
+
+- **Poetry 1.x from apt.** `apt install python3-poetry` gives you Poetry 1.8. It can't read the `[project]` table in `pyproject.toml`, so `poetry install` fails with "the Poetry configuration is invalid" and complains that `name`, `version`, `description`, and `authors` are missing. Remove it (`sudo apt remove python3-poetry`) and install Poetry 2 with pipx: `sudo apt install pipx && pipx ensurepath`, open a new shell, then `pipx install poetry`.
+- **pyenv shims exit with status 127.** That means the selected Python doesn't have the command Poetry ran. If you use pyenv, make a virtualenv and select it in the checkout: `pyenv install 3.12`, `pyenv virtualenv 3.12 flashpoint`, `pyenv local flashpoint` (or `pyenv activate flashpoint` for one shell). With `pyenv global system`, the failing command is `python`: Ubuntu only ships `python3`. Run `poetry env use python3`, or `sudo apt install python-is-python3`.
+- **No `venv` in the system Python.** If Poetry builds its venv from Ubuntu's own Python and fails with an `ensurepip` error, run `sudo apt install python3-venv` and try again.
 
 ## Code layout
 
@@ -91,19 +97,22 @@ About 180 MB of real robot logs (release `corpus-v1`), described with sizes and 
 poetry run python tools/fetch-corpus.py
 ```
 
-It downloads through `gh release download` (the release is private, so run `gh auth login` first), checks every hash, and stores the files in `~/.cache/flashpoint/corpus/corpus-v1/`. Set `FLASHPOINT_CORPUS_DIR` to put them elsewhere, or `--from DIR` to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release.
+It downloads with `gh release download` if the GitHub CLI is installed (run `gh auth login` first), otherwise over plain HTTPS, checks every hash, and stores the files in `~/.cache/flashpoint/corpus/corpus-v1/`. Set `FLASHPOINT_CORPUS_DIR` to put them elsewhere, or `--from DIR` to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and on pushes to `main` and `rewrite`:
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. A first `changes` job checks which files changed. When they're all docs (`docs/`, `openspec/`, `media/`, `.claude/`, and Markdown outside `src/` and `tests/`), only the `docs` job runs; otherwise everything does.
 
 | Job | Runs | Blocks merge |
 |---|---|---|
-| `lint-test (py3.11)`, `lint-test (py3.12)` | ruff, ruff format, mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra | Yes |
+| `docs` | Docs-only changes: `tests/test_docs.py` (links, CLI reference) | Through `ci-ok` |
+| `lint-test (py3.11)`, `lint-test (py3.12)` | ruff, ruff format, mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra | Through `ci-ok` |
 | `windows (py3.12)` | ruff, mypy, unit tests on Windows | No, but fix it |
-| `corpus` | The corpus tests, including the rclone restore drill | Yes |
+| `clean install (ubuntu, macos, windows)` | The built wheel in an empty venv: `--version`, and `doctor` with no configuration | No, but fix it |
+| `corpus` | The corpus tests, including the rclone restore drill | Through `ci-ok` |
 | `browser (Chromium)` | The web app in Chromium, served and from `file://` | No, but fix it |
-| `perf (budgets, non-blocking)` | Time and memory budgets. Allowed to fail; read it when it does | No |
+| `perf (budgets, non-blocking)` | Time and memory budgets, on pushes to `main` only. Allowed to fail; read it when it does | No |
+| `ci-ok` | Passes when `changes` passed, `docs` or `lint-test` ran, and nothing it depends on failed. The only required check | Yes |
 
 The corpus jobs fetch through `gh` using the workflow's `GH_TOKEN`, and cache the corpus and owlet between runs.
 
@@ -128,9 +137,8 @@ Tasks marked `[HUMAN]` need a person: a pit check, a field test. They stay open 
 
 ### Branching
 
-- **`rewrite`** is the integration branch for the rewrite. Each change gets a `feature/<name>` branch cut from `rewrite`, and merges back through a pull request with CI. Never push to `rewrite` directly. It's protected: the required checks must pass, and a pull request needs one approving review.
-- **`main`** still has the legacy code. `rewrite` merges into it once, when the rewrite is ready. The pre-rewrite tree is kept at the `legacy-2025` tag.
-- Merge `main` into `rewrite` to pick up hotfixes; never rebase `rewrite`.
+- **`main`** is the only long-lived branch. Each change gets a `feature/<name>` branch cut from `main`, and merges back through a pull request with CI. Never push to `main` directly. It's protected: the `ci-ok` check must pass, and a pull request needs one approving review.
+- The rewrite was built on a separate `rewrite` branch and merged into `main` on 2026-10-22. The pre-rewrite tree is kept at the `legacy-2025` tag.
 
 ## Where decisions and research live
 

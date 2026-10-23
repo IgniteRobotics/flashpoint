@@ -7,6 +7,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from flashpoint.config import config_file
+
 FILE_NAME = "anomaly.toml"
 # Gold columns judged against each unit's own history (match_features, then can_health).
 BASELINE_METRICS = (
@@ -191,7 +193,7 @@ class AnomalyConfig(_Section):
 
 def load_anomaly_config(config_dir: Path) -> AnomalyConfig:
     """Defaults when the file is absent; unknown keys and bad values name the file and key."""
-    path = config_dir / FILE_NAME
+    path = config_file(config_dir, FILE_NAME)
     if not path.is_file():
         return AnomalyConfig()
     try:

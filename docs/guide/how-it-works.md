@@ -104,7 +104,7 @@ Brownouts are judged on the **battery proxy**: the supply voltage of the robot's
 
 A unit's baseline is the median of its previous matches, up to 20 by default. A unit with fewer than 5 matches is still "building baseline" and gets no DRIFT or STEP. Severity (HIGH, MED, or LOW) comes from how far outside the baseline the value is. The sensitivity setting in the app (relaxed, normal, or strict) changes what is *shown*, never what is computed.
 
-Thresholds live in [`config/anomaly.toml`](../../config/anomaly.toml), and likely causes in [`config/anomaly-causes.toml`](../../config/anomaly-causes.toml). `flashpoint backtest` scores detection against the known failures in [`config/failure-labels.toml`](../../config/failure-labels.toml).
+Thresholds live in [`config/anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml), and likely causes in [`config/anomaly-causes.toml`](../../src/flashpoint/defaults/anomaly-causes.toml). `flashpoint backtest` scores detection against the known failures in [`config/failure-labels.toml`](../../config/failure-labels.toml).
 
 ## The app
 

@@ -535,6 +535,9 @@ tr.is-retired { opacity: .6; }
 .select:hover, .input:hover { border-color: var(--amber); }
 .field { display: inline-flex; flex-direction: column; gap: 2px; }
 .field > .group__label { line-height: 1.2; }
+.input--cell { width: 100%; min-width: 7ch; max-width: none; }
+.setup-table td { padding: var(--sp-1) var(--sp-2); }
+.setup-fieldset { border: 1px solid var(--line-soft); padding: var(--sp-2) var(--sp-3); }
 
 /* Tiles in a band */
 .tiles { display: flex; flex-wrap: wrap; gap: var(--sp-6); }

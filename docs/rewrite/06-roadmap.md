@@ -2,6 +2,8 @@
 
 Phases are ordered by dependency, not by calendar. Each phase ends with something usable at a competition. Sizes are relative (S/M/L), because team availability drives the dates.
 
+**Status and tracking live on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).** Each phase below links its `roadmap` issue, which holds its status, what shipped, and what's left. Bugs and follow-ups hang off it as sub-issues. This doc keeps the scope, dependencies, migration plan, quality gates and risks.
+
 ## 1. Overview
 
 ```mermaid
@@ -18,35 +20,22 @@ flowchart LR
     P3 --> P4b
     P3 --> P4c[Import status view]
     P4 --> P4c
+    P4 --> P4e[Live CAN health]
+    P4e --> P4b
+    P3 --> P4f[Live import updates]
+    P4 --> P4f
+    P4f --> P4c
+    P3 --> P4g[Team setup]
+    P4 --> P4g
+    P4g --> P4h[Team branding]
     P4 --> P4d[Replay UX]
     P5 --> P6[P6 Prediction<br>& fleet]
-```
-
-```mermaid
-gantt
-    title Indicative sequence (offseason → 2027 build → 2027 events)
-    dateFormat YYYY-MM-DD
-    axisFormat %b
-    section Foundation
-    P0 Stabilize & decide         :p0, 2026-10-12, 2w
-    P1 Core readers & lake        :p1, after p0, 5w
-    P2 Semantics & physics        :p2, after p1, 4w
-    NT signal mapping             :p2b, after p2, 2w
-    section Usable
-    P3 Acquire & automate         :p3, after p2, 3w
-    P4 Views                      :p4, after p2, 4w
-    Live & Pit views              :p4b, after p4, 3w
-    Import status view            :p4c, after p4, 2w
-    Replay UX                     :p4d, after p4, 2w
-    section Insight
-    P5 Anomaly detection          :p5, after p4, 6w
-    P6 Prediction & fleet         :p6, after p5, 8w
 ```
 
 ## 2. Phases
 
 ### P0 — Stabilize & decide (S)
-> **Status: in progress** (started 2026-10-04). Done: CI skeleton, tags, ADRs (D1–D10 Proposed, D11 Accepted), corpus-v1, Pro/compliancy findings, robot inventory logger PRs (Robot-2026#107, Phoenix-2026#12), retire-legacy-code stage 1. Open: [HUMAN] verify `getdevices` field names on a live robot, confirm `/Flashpoint/CANInventory` in fresh logs, Tuner X unit walk, team review of the ADRs. Tracked in `openspec/changes/p0-stabilize-foundation/tasks.md`.
+> **Tracking:** [#16](https://github.com/IgniteRobotics/flashpoint/issues/16) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Repo:**
   - Tag the current `main` as `legacy-2025`.
@@ -68,7 +57,7 @@ gantt
 - **Exit:** ADRs merged, corpus available, CI skeleton green, `/Flashpoint/CANInventory` present in a fresh log from every robot.
 
 ### P1 — Core readers & lake (L)
-> **Status: ✅ done** (2026-10-04). Merged into `rewrite` (#11) and archived (`openspec/changes/archive/2026-10-04-p1-core-ingest-lake`). Its specs are now the baseline in `openspec/specs/`. Measured: full Q7 match ingested in 5.6 s with a 862 MB peak (budget 30 s / 1 GB); reader at 20 M records/s, matching the official WPILib reader exactly; all 15 corpus files handled (14 ingested, 1 real 0-byte hoot quarantined, 3 integrity warnings). Revised decisions: ADR-0001, 0003, and 0004 updates.
+> **Tracking:** [flashpoint-private#67](https://github.com/IgniteRobotics/flashpoint-private/issues/67) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **wpilog reader** on `robotpy-wpiutil` (RobotPy, n.d.). Stream it into Arrow record batches and write bronze Parquet. Handle struct-typed entries (WPILib Developers, 2023).
 - **owlet registry:**
@@ -84,10 +73,7 @@ gantt
   - Ingesting a full qual match **(wpilog + 2 hoots) takes under 30 s and under 1 GB RAM** on a pit laptop. Benchmark it in CI.
 
 ### P2 — Semantics & physics (M)
-> **Status: ✅ done** (2026-10-04). Merged into `rewrite` (#13) and archived (`openspec/changes/archive/2026-10-04-p2-semantics-and-physics`). Its specs are now the baseline in `openspec/specs/`.
-> - **Q7:** aligned by payload-match (offset 19.5635 s, IQR 76 µs); 22 devices mapped to slots and units; gold has 17 motors × {auto, teleop, match}.
-> - **Budget:** ingest + derive 10.5 s; peak 870 MB (ingest) and 593 MB (derive).
-> - **Follow-up:** NetworkTables-only signal mapping (subsystem telemetry, vision) is a future change; legacy stage 2b-ii waits on it.
+> **Tracking:** [flashpoint-private#68](https://github.com/IgniteRobotics/flashpoint-private/issues/68) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Config:**
   - Season TOML and robot TOML, validated with pydantic.
@@ -108,10 +94,8 @@ gantt
 - **Exit:** power-tracking's numbers reproduce within tolerance on the corpus. The gold table answers "max temp of every drive motor at GADAL" and "lifetime Wh for serial X across all robots" in under 1 s in DuckDB.
 
 ### NetworkTables signal mapping (S–M, follow-up to P2)
-> **Status: ✅ done** (2026-10-07). PR #32 into `rewrite`; archived as `openspec/changes/archive/2026-10-07-nt-signal-mapping`. Its specs (`nt-signals`, `robot-config`, `telemetry-lake`) are now the baseline in `openspec/specs/`. The `retire-legacy-code` 3b gate is met; stage 3b landed in PR #34, and `retire-legacy-code` is archived as `openspec/changes/archive/2026-10-07-retire-legacy-code` (no legacy code is left on `rewrite`).
-> - **Built:** `config/seasons/<year>.toml` (five NT roots) and `[[signal]]` tables in robot configs. Derive writes `silver/signals/` and lists declarations that are absent or non-numeric in `meta_missing_signals`.
-> - **2026:** 42 signals for Intake, Indexer, Shooter, Hunter and Drivetrain, plus the FRONT, LEFT and RIGHT cameras. Josh signed off on the list on 2026-10-07. CI: Q7 ingest takes 26.0 s; the signal step adds noise-level time and +29 MB.
-> - **2025:** migrated from the `legacy-2025` tag against corpus Q30. Of 24 metrics rows (not 28), 6 are mapped and 18 motor rows are superseded by CAN slots. 33 of 36 vision rows are mapped; the 3 `targetPose` structs are non-numeric. Of the `config2025.json` prefixes, 5 become roots and `MetaData` is reported.
+> **Tracking:** [flashpoint-private#69](https://github.com/IgniteRobotics/flashpoint-private/issues/69) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+
 P2 mapped CAN devices (slots and units) into robot config, and deliberately left out signals that only exist in NetworkTables: subsystem telemetry the robot code publishes, and vision. They are still described only by legacy files, which is the last thing blocking `retire-legacy-code` stage 2b-ii.
 - **Season config:** add `config/seasons/<year>.toml` (planned in `05-target-architecture.md`, not built yet) with the NT prefixes from `log_configs/config2025.json`: metrics, preferences, FMS, PhotonVision, and CameraPublisher.
 - **Robot config:** NT entries get the same labels as CAN slots (subsystem, assembly, subassembly, component, metric), from `datamaps/2025/metrics_map.csv` (28 rows). Cameras and their metrics come from `datamaps/2025/vision_map.csv` (36 rows).
@@ -120,8 +104,7 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 - **Exit:** every row of the two 2025 maps and every prefix in `config2025.json` is covered by config, verified by a test against the tag. `retire-legacy-code` 3b can then delete `datamaps/` and `log_configs/`.
 
 ### P3 — Acquire & automate (S)
-> **Status: implemented; human verification pending** (change `p3-log-acquisition`, branch `feature/p3-log-acquisition`). Open: the live-roboRIO task (throughput, `sha256sum` on the rio), a real USB stick on Linux and Windows (macOS passed 2026-10-05), the Windows service, and the Windows CI job (group 9, still pending). The container moved out of P3 (ADR-0009 amended).
-> - **Follow-up, change `acquire-replay-build` (2026-10-15):** after a successful derive the acquire cycle (watch and one-shot, not a dry run) runs an incremental `flashpoint report` as its own process, between derive/detect and backup, so a new match reaches Replay without a restart; a running `serve` lists it after a page reload. A failed or locked build stays owed (persisted as `report` in the watch status, shown by `doctor`) and is retried each cycle. `flashpoint report` now holds `meta/report.lock` and exits 3 when another build has it. **Spec placement:** the requirements live in `match-reports` ("Replay data kept current by the acquire watch", "One Replay build at a time") because `acquisition-service` exists only in the unarchived `p3-log-acquisition` change. When P3 archives, add the Replay build step between derive and backup in `acquisition-service`'s "One-shot and watch modes" list. Implemented as PR #59; archived 2026-10-15 (specs synced: match-reports). Pit check ([HUMAN] 4.3) is open.
+> **Tracking:** [#17](https://github.com/IgniteRobotics/flashpoint/issues/17) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **SFTP puller** (paramiko or asyncssh, [Background]):
   - copies to the inbox, verifies size and hash, and **never deletes on the robot by default**;
@@ -133,10 +116,7 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 - **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.
 
 ### P4 — Views (M)
-> **Status: done; archived 2026-10-05** (change `archive/2026-10-05-p4-views-and-reports`, merged into `rewrite` as #23). Built to Josh's canvas "Flashpoint UI Prototypes": one local app (`flashpoint serve`, ADR-0013 supersedes the marimo plan) with **Replay** (≈1000-bucket envelopes, Q7 = 1.07 MB, rule markers, compare overlay, static export via `flashpoint report --static`) and **History** (per-unit and per-slot trends, odometry from the new `gold/unit_usage`, lifelines). Stall threshold moved to 0.2 of stall current on corpus evidence. Human checks passed 2026-10-05: static export from a USB stick with Wi-Fi off, serve with History-to-Replay drill-through and the AdvantageScope round-trip, and Josh's sign-off on the look. The plan below is the original scope.
-> - **Follow-up, change `history-shared-sparkline-scale` (2026-10-13):** History's device table draws every trend sparkline on one scale shared by all rows for the selected metric and filters, from zero unless a value is negative, so a unit going 0 → 3 no longer looks like one going 1 → 42. Each trend cell's description gives the unit's own range and the shared scale. Closes [#39](https://github.com/IgniteRobotics/flashpoint/issues/39). Implemented as PR #48; archived 2026-10-13 (specs synced: lifetime-trends). Pit check on the full lake ([HUMAN] 3.3) is open.
-> - **Follow-up, change `history-line-identify` (2026-10-13):** History's chart lines are told apart by pointing, not colour. Hovering emphasises the line nearest the pointer and the readout names its unit (or slot), value, slot, and alignment; with nothing near, it names only the match (it used to name an arbitrary unit). Clicking another unit's line selects it, as its table row does; the selected unit's point still opens Replay, and in per-slot mode a line opens Replay on that slot. Closes [#46](https://github.com/IgniteRobotics/flashpoint/issues/46). Implemented as PR #50; pit check on the full lake passed; archived 2026-10-14 (specs synced: lifetime-trends).
-> - **Follow-up, change `history-competition-boundaries` (2026-10-15):** History's trend chart marks where each competition starts, as the anomaly evidence chart does: the first event is named at the start and a labelled dashed line sits at each change of event, with the competitions and their match counts listed above the chart. Names carry the year only when the chart spans more than one; a label that would overlap the one before is left off (its line stays). The competition helpers moved into the shared shell, so both charts use one implementation. Implemented as PR #57; pit check on the full lake passed; archived 2026-10-15 (specs synced: lifetime-trends, anomaly-review).
+> **Tracking:** [flashpoint-private#71](https://github.com/IgniteRobotics/flashpoint-private/issues/71) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Per-match static site:**
   - Rebuild the power-tracking SPA on silver and gold.
@@ -152,16 +132,37 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 - **Exit:** a drive coach can answer "is FL-drive running hotter than last event?" in two clicks, offline.
 
 ### AdvantageScope launch (S, follow-up to P4)
-> **Status: done; archived 2026-10-06** (change `archive/2026-10-06-advantagescope-launch`, merged as #25, ADR-0014). In local `serve`, Replay and History open a match's wpilog in AdvantageScope with one click, from hard-linked readable names, with the hoots staged for File › Insert log. Shared on the network and in static exports, it is download only. Field-checked on macOS 2026-10-06: one-click open works, and Insert log lines the hoots up with the wpilog. Install paths confirmed on Linux and Windows.
+> **Tracking:** [flashpoint-private#72](https://github.com/IgniteRobotics/flashpoint-private/issues/72) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 ### Live & Pit views (M, follow-up to P4)
+> **Tracking:** [#18](https://github.com/IgniteRobotics/flashpoint/issues/18) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+
 The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 left them out. They become one change after P4 and P3:
 - an NT4 client (or a small relay so one robot connection serves many viewers) feeding Live at about 2 Hz;
 - the Pit board's checks and GO / DECIDE / NO-GO verdict;
 - both as views in the P4 shell: one file in `web/static/views/` and one `FP.view` call each, no restyling.
 - **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.
 
+### Live CAN health (M, follow-up to P4 and CAN health)
+> **Tracking:** [#22](https://github.com/IgniteRobotics/flashpoint/issues/22) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `live-can-health`.
+
+Split out of Live & Pit views so the pit crew gets live feedback during shake tests (disabled) and drive tests (enabled):
+- **Robot side:** robot code publishes running totals per CTRE device over NetworkTables under `/Flashpoint/Live/CANHealth/` (dropouts, worst signal age, resets, fault bits, lowest supply voltage), plus bus status and `Enabled`. Totals, so a 40 ms dropout still counts over a link that updates about every 100 ms. This repo carries the contract, a guide and a suggested Java sample; the robot change is a Robot-2026 PR.
+- **Laptop side:** one NetworkTables connection in `serve`, events from what changed between updates, the `can-health` sibling rule (isolated vs bus-wide), and a Live CAN view with marks.
+- **Live only:** nothing written to the lake. The Pit board can use its results later.
+
+### Live import updates (M, follow-up to P3 and P4)
+> **Tracking:** [#23](https://github.com/IgniteRobotics/flashpoint/issues/23) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+
+During an event, logs arrive every few minutes through the `acquire` watch, but the app only shows them after a restart or `flashpoint report` (#65), and import problems stay in `doctor` output and log lines.
+- **Views update as imports happen:** `serve` notices lake changes made by other processes and pushes them to open browsers. Replay's match list gains new matches, an open match reloads in place, History and Anomalies refresh. Fixes [#15](https://github.com/IgniteRobotics/flashpoint/issues/15).
+- **Import activity in the shell:** a header indicator (idle / pulling / importing / building Replay) and a feed of pulled, imported, warned and quarantined files.
+- **Problems as they happen,** linked to their match: import problems (quarantine, `incomplete-read`, `short-coverage`, truncation, failed pulls, low robot space) and data problems (missing bus hoot, missing declared signals, unmapped devices, no CAN inventory, suspect clock alignment, no match key).
+- **One problem list:** this change defines it; the Import status view builds its per-event table on it. Read-only; retries stay on the CLI ([#14](https://github.com/IgniteRobotics/flashpoint/issues/14)).
+
 ### Import status view (S–M, follow-up to P3 and P4)
+> **Tracking:** [#19](https://github.com/IgniteRobotics/flashpoint/issues/19) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+
 A view in the P4 shell that answers three questions about the lake: **are we missing logs, did they all import clean, and do the clocks line up?** Most of the data is already in the ledger. Little of it is visible today outside `flashpoint doctor` and SQL.
 - **Missing logs:**
   - per session: expected buses (from the robot config) against the hoots actually grouped in `session_hoots`, so a session with a wpilog but no CANivore hoot stands out;
@@ -171,7 +172,7 @@ A view in the P4 shell that answers three questions about the lake: **are we mis
   - `files.stage`, `reason` and `warnings` (quarantined, `incomplete-read`, `short-coverage`);
   - `logs.truncated_bytes` and `orphan_records`, `hoot_logs.read_status` and `integrity`;
   - `unmapped_devices` and logs with no CAN inventory (legacy epochs);
-  - **new:** record when owlet exports of a hoot differed in size (#17 tail loss). Today that is only a log line, so it can't be counted.
+  - **new:** record when owlet exports of a hoot differed in size ([#4](https://github.com/IgniteRobotics/flashpoint/issues/4) tail loss). Today that is only a log line, so it can't be counted.
 - **Timing:**
   - per hoot: `session_hoots.offset_us`, `method`, `confidence`, `spread_us`, `bus_agreement_us`, with low-confidence or disagreeing alignments flagged;
   - per wpilog: `anchor_source` and `utc_offset_us`, flagging logs anchored by fallback instead of `systemTime`;
@@ -179,8 +180,27 @@ A view in the P4 shell that answers three questions about the lake: **are we mis
 - **Shape:** a table per event, one row per match, a status light per check, and drill-through to Replay and AdvantageScope. It is read-only, like the other P4 views. Re-ingest or re-derive stays on the CLI.
 - **Exit:** after an event, a student can see in one screen which matches are missing logs, which imported with warnings, and which have suspect clock alignment, without SQL.
 
+### Team setup (L, follow-up to P3 and P4)
+> **Tracking:** [#24](https://github.com/IgniteRobotics/flashpoint/issues/24) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-setup`.
+
+Make Flashpoint usable by any FRC team, not just 6829 with access to a private repo:
+- **Public install:** the repo goes public and Flashpoint is published to PyPI, so `pipx install flashpoint` works as ADR-0009 assumed. Bundled defaults ship in the package; Ignite's robots and units stay in the repo's `config/`, out of the wheel.
+- **Configuration home:** a per-user folder created by `flashpoint init` (team number, lake folder). The fallback to a checkout's `config/` goes away (fixes [flashpoint-private#54](https://github.com/IgniteRobotics/flashpoint-private/issues/54)). The team number drives the robot addresses.
+- **Setup view:** the whole configuration and every setup check (`doctor` uses the same checks), editing of team, robots and slots, thresholds and units with the loading rules and backups, drafting a robot from a log, and guarded fix actions (create config, owlet, AdvantageScope, acquire service). Read-only when shared on the network.
+- **Needs first:** a human review of what going public exposes (corpus match logs, CAN ids and serials).
+- **Status (2026-10-21):** implemented in two PRs into `rewrite`: packaging, config home, `init` and setup checks ([flashpoint-private#88](https://github.com/IgniteRobotics/flashpoint-private/pull/88)), then the Setup view, editor, fix actions and robot draft (ADR-0017). Still with a human: going public, claiming the PyPI name and the first release (`v0.2.0`), and the new-team walkthrough.
+
+### Team branding (S–M, follow-up to Team setup)
+> **Tracking:** [#25](https://github.com/IgniteRobotics/flashpoint/issues/25) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `team-branding`.
+
+Each team sees its own name and colours instead of Ignite's:
+- **Team name** in the header and page title, set in `theme.toml`, by `flashpoint init`, or in the Setup view.
+- **Palette:** presets (`amber`, today's look, stays the default) or a custom primary, background and warning colour, with every shade derived from them.
+- **Readable by rule:** text keeps 4.5:1 contrast on every surface and warnings stay distinct from the primary colour; a failing palette is refused with a suggested fix.
+- Applies to every view, the charts and static exports. Colour tokens are renamed from amber to roles (`--accent*`, `--warn`).
+
 ### Replay UX (S, follow-up to P4)
-> **Status: ✅ done; archived 2026-10-09** (merged into `rewrite` as #36; archived as `openspec/changes/archive/2026-10-09-replay-ux`; its `match-reports` spec changes are now the baseline in `openspec/specs/`). Season, robot, and event filters over the index (`REPORT_VERSION` 2 adds `season`, so the first `flashpoint report` after upgrading rebuilds every match); one shared timeline window (buttons, `+`/`-`/`0`, Ctrl/⌘ + scroll or pinch, shift-drag) kept in the URL as `z`. In `serve`, zooming under half the match fetches finer envelopes from silver through `GET /api/envelope/<match_key>?from=&to=` (Q7, 2 s window: 0.11 s, 92 MB peak). Static exports stop at bucket resolution and say so. Limit: the compare overlay stays at its stored resolution when zoomed; the header names both resolutions.
+> **Tracking:** [flashpoint-private#73](https://github.com/IgniteRobotics/flashpoint-private/issues/73) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 Two improvements to the Replay board:
 - **Match list filters:** filter the left match list by season (year), robot, and competition (event). The filters combine, live in the URL like the rest of Replay's state, and default to the most recent event. The static export filters the same way over the matches it contains.
@@ -189,18 +209,9 @@ Two improvements to the Replay board:
   - finer detail needs `serve` to fetch higher-resolution envelopes for the visible window from silver. Static exports stop at bucket resolution and say so;
   - single-sample detail stays in AdvantageScope (D8: link, don't rebuild).
 - **Exit:** a drive coach finds a match by year, robot, and event in two clicks, and can zoom to a two-second brownout without leaving Replay.
-- **Follow-up, change `ui-cross-tab-filters` (2026-10-12):** season, robot, event, and unit are one filter state for every view, shown in one filter bar under the header and kept in the address. Replay's filters moved out of its rail; History's own filters (type, phase, subsystem, slot) sit after a divider and apply to History only. CLEAR FILTERS clears the shared filters everywhere. On wide screens each column scrolls on its own, and every side rail minimizes to a labelled strip, remembered per view on this machine. Replay shows a unit filter as not applied (its index has no per-match units).
 
 ### CAN health (S–M, precursor to P5)
-
-> **Status: ✅ done; archived 2026-10-11** (merged into `rewrite` as #38; archived as `openspec/changes/archive/2026-10-11-can-health`). Its specs are now the baseline in `openspec/specs/`: `can-health` (new), plus changes to `match-reports`, `lifetime-trends`, and `nt-signals`.
->
-> - `DERIVE_VERSION` 4 and `REPORT_VERSION` 3, so run `flashpoint derive` then `flashpoint report` after upgrading. `PIPELINE_VERSION` is unchanged, so nothing is re-ingested.
-> - Field-checked on the Johnson lake on 2026-10-11:
->   - Q105 Replay shows the intake roller's 0.82 s dropout (WARN) and reboot (FAULT);
->   - History shows the extension follower's isolated gaps climbing to 42.
-> - Cost: the Q7 step takes 0.59 s and +69 MB of peak memory. Bus status waits on Robot-2026#108 running on the robot.
-> - Follow-up: #39 (History sparklines are scaled per row).
+> **Tracking:** [flashpoint-private#74](https://github.com/IgniteRobotics/flashpoint-private/issues/74) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Change:** `can-health`. It needs Robot-2026#108 on the robot for bus status.
 - **What it adds:**
@@ -216,25 +227,7 @@ Two improvements to the Replay board:
 - **Deferred:** chain-order localisation, to the 2027 robot.
 
 ### P5 — Anomaly detection (L)
-
-> **Status: implemented 2026-10-11** (change `p5-anomaly-detection`, PR into `rewrite`, stacked on the can-health archive PR #40). Field check and backtest on the full 2026 logs are open ([HUMAN] 9.3, 10.4).
->
-> - **What shipped:**
->   - `flashpoint detect` (also the last step of every derive; skipped when nothing changed) writes `gold/anomalies/` with SPEC limits, DRIFT and STEP against each unit's own median/MAD baseline, and SIBLING comparison within the robot config's `[[siblings]]` groups. MODEL (isolation forest) is optional and off by default (`ml` extra).
->   - Every anomaly carries actual vs expected, confidence, a per-match evidence series with its expected band, a "why", causes from `config/anomaly-causes.toml`, and "seen this before".
->   - The Anomalies view (queue, sensitivity, evidence, triage), a navigation badge, Replay badges (a snapshot in static exports), and anomaly-aware History health.
->   - Triage is stored append-only in the ledger: local only, backed up, and kept across rebuilds (ADR-0015).
->   - `flashpoint backtest` scores `config/failure-labels.toml` (seeded with Johnson Q105 and GACMP Q7; `battery-proxy` removed GACMP Q7, a wiring drop): caught or missed, lead time, and false positives per method per 10 robot-matches.
-> - **Measured:** detect on a 60 × 23 season takes 1.6 s and 222 MB; the backtest on two seasons takes 3.2 s and 256 MB; an uncached Q7 brownout count takes 0.10 s.
-> - **On real data:** the Johnson lake flags the Q105 roller reboot (HIGH) and its 820 ms gap (MED), intake stalls, and brownouts in all four matches. The Q105 extension-follower degradation is missed until more 2026 logs give it a baseline (3 of 5 matches).
-> - **Deferred:**
->   - the Slack/Discord webhook, until the backtest shows a tolerable false-positive rate;
->   - NOISE (idle-current jitter), which needs a commanded-off feature in gold;
->   - STUMPY discords and River online learners;
->   - spin-test and current-limit-count metrics (no data yet);
->   - a Driver Station log reader (brownouts come from the battery proxy). Still deferred after `battery-proxy`.
-> - **Follow-up, change `battery-proxy` (2026-10-12):** the battery proxy is the robot's declared low-current device (the gyro), with a per-20 ms median fallback, so a motor's wiring drop no longer reads as a brownout; the brownout hold is 0.02 s and a logging gap holds a low sample at most 0.1 s. The deferred battery-resistance metric shipped as **supply path resistance** per motor (mΩ, a baseline metric). See the [ADR-0010](../adr/0010-anomaly-v1-rules-baselines.md) amendment.
-> - **Follow-up, change `ui-cross-tab-filters` (2026-10-12):** the Anomalies queue takes the shared season, robot, event, and unit filters, applied by the server (`/api/anomalies`; an anomaly passes when one of its flagged matches is in the chosen season and event), and can be grouped by device (a unit by serial, or a robot's battery). The navigation badge stays unfiltered. The anomaly detail names the competitions its evidence comes from, and the evidence chart labels each one with a boundary line between them. Merged as PR #44 and archived 2026-10-13 (specs synced: view-filters new; anomaly-review, lifetime-trends, match-reports).
+> **Tracking:** [#20](https://github.com/IgniteRobotics/flashpoint/issues/20) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 - **Tier 1, rules:**
   - temperature thresholds (port 55 °C avg / 65 °C max);
@@ -254,6 +247,8 @@ Two improvements to the Replay board:
   - False-positive rate is low enough that students don't learn to ignore it.
 
 ### P6 — Prediction & fleet (L, stretch)
+> **Tracking:** [#21](https://github.com/IgniteRobotics/flashpoint/issues/21) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
+
 - Label failures from pit notes and maintenance records to make a `maintenance_events` table keyed by **serial number**. Unit identity makes these labels reliable.
 - Model time to failure or degradation slopes per component (thermal rise rate, residual drift). Literature shows measurable current and speed shifts before faults (Jin et al., 2014).
 - Optionally pool data across robots or teams. That needs the robot config to be portable.
@@ -276,7 +271,7 @@ Two improvements to the Replay board:
 ```mermaid
 gitGraph
     commit id: "legacy main"
-    commit id: "P0 (#9)"
+    commit id: "P0 (PR 9)"
     branch rewrite
     branch feature/p1-core-ingest-lake
     commit id: "P1"
@@ -291,13 +286,9 @@ gitGraph
     merge rewrite id: "one-time replacement"
 ```
 
-- `rewrite` is the integration branch, cut from `main` after P0 (2026-10-04).
-- Every phase and every legacy-removal stage is a `feature/*` branch from `rewrite`, merged back through a PR with CI. `rewrite` is protected like `main`.
-- `main` stays on the legacy code (plus P0's docs and CI) until the rewrite is ready. Then `rewrite` merges into `main` once, replacing the legacy code entirely.
-- Keep `rewrite` current with any `main` hotfixes by merging `main` into `rewrite`. Never rebase it; it's shared.
-
-**When `rewrite` merges into `main`:**
-- Drop the `rewrite` branch from the install steps: `git switch rewrite` in `docs/guide/user-guide.md`, `docs/guide/developer-guide.md` and `deploy/README.md`, and `-- -b rewrite` in the README quickstart. Also update the branching section of `docs/guide/developer-guide.md`.
+- `rewrite` was the integration branch, cut from `main` after P0 (2026-10-04). Every phase and every legacy-removal stage was a `feature/*` branch from `rewrite`, merged back through a PR with CI.
+- **Done 2026-10-22:** `rewrite` merged into `main`, replacing the legacy code, and was retired. The install steps and the developer guide's branching section were updated in the same PR.
+- From here on, `main` is the only long-lived branch: each change is a `feature/<name>` branch from `main`, merged back through a PR with CI.
 
 ## 5. Quality gates (every phase)
 

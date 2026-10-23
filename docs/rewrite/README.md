@@ -37,7 +37,7 @@ Flashpoint ingests FRC robot logs (WPILib `.wpilog` and CTRE Phoenix 6 `.hoot`).
 | 03 | [Pitfalls & performance](03-pitfalls-and-performance.md) | 57 cited defects: correctness, performance, ops, and process |
 | 04 | [Ecosystem & tools](04-ecosystem-and-tools.md) | Existing FRC tools, data stack options, anomaly-detection libraries, match metadata APIs |
 | 05 | [Target architecture](05-target-architecture.md) | Proposed rewrite design, data model, and decisions with trade-offs |
-| 06 | [Roadmap](06-roadmap.md) | Phased plan, exit criteria, and what to reuse from today's code |
+| 06 | [Roadmap](06-roadmap.md) | Phased plan, exit criteria, and what to reuse from today's code. Status lives on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3) |
 | 99 | [CTRE device serial numbers](99-ctre-device-serial-numbers.md) | Team decision: log CTRE serials on all robots; basis for unit identity (05 §4a) |
 | — | [References](references.md) | Full APA 7 reference list |
 

@@ -8,12 +8,22 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from flashpoint.config import DEFAULTS_ROOT
+
 CANIVORE_ID = re.compile(r"^[0-9A-Fa-f]{32}$")
 SNAKE_CASE = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$")
 
 
 class ConfigError(Exception):
     pass
+
+
+class MissingSeasonError(ConfigError):
+    """A robot declares signals for a season that has no season file."""
+
+    def __init__(self, message: str, season: int) -> None:
+        super().__init__(message)
+        self.season = season
 
 
 def _check_bus(value: str) -> str:
@@ -70,7 +80,8 @@ class SeasonRoots(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    robot: str = Field(min_length=1)
+    # The team's robot-code root; absent in the bundled seasons until the team sets it.
+    robot: str | None = Field(default=None, min_length=1)
     photonvision: str = Field(min_length=1)
     camera_publisher: str = Field(min_length=1)
     preferences: str = Field(min_length=1)
@@ -246,11 +257,16 @@ def load_seasons(directory: Path) -> dict[int, SeasonConfig]:
     return {s.season: s for s in seasons}
 
 
+def load_config_seasons(config_root: Path) -> dict[int, SeasonConfig]:
+    """The bundled seasons, each replaced by the root's own `seasons/<year>.toml` if present."""
+    return load_seasons(DEFAULTS_ROOT / "seasons") | load_seasons(config_root / "seasons")
+
+
 def load_robot(path: Path, seasons: dict[int, SeasonConfig] | None = None) -> RobotConfig:
     """Load and validate one robot; signals are checked against `seasons` (default: the
-    `seasons/` directory next to the robot's directory)."""
+    seasons of the configuration root holding the robot's directory)."""
     if seasons is None:
-        seasons = load_seasons(path.parent.parent / "seasons")
+        seasons = load_config_seasons(path.parent.parent)
     try:
         with path.open("rb") as f:
             data = tomllib.load(f)
@@ -260,9 +276,10 @@ def load_robot(path: Path, seasons: dict[int, SeasonConfig] | None = None) -> Ro
     if robot.signals:
         season = seasons.get(robot.season)
         if season is None:
-            raise ConfigError(
+            raise MissingSeasonError(
                 f"{path.name}: declares signals, but season {robot.season} has no"
-                f" seasons/{robot.season}.toml"
+                f" seasons/{robot.season}.toml",
+                robot.season,
             )
         for signal in robot.signals:
             if signal.root not in season.root_names():
@@ -277,7 +294,7 @@ def load_robots(
     directory: Path, seasons: dict[int, SeasonConfig] | None = None
 ) -> list[RobotConfig]:
     if seasons is None:
-        seasons = load_seasons(directory.parent / "seasons")
+        seasons = load_config_seasons(directory.parent)
     return [load_robot(path, seasons) for path in sorted(directory.glob("*.toml"))]
 
 
