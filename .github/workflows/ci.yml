@@ -4,14 +4,63 @@ on:
   pull_request:
   push:
     branches: [main, rewrite]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Docs-only changes skip the expensive jobs. "Docs" is prose the code never reads: docs/,
+  # openspec/, media/, .claude/, and Markdown outside src/ and tests/ (tests/ fixtures are code).
+  # Anything else, or a diff we can't compute, runs everything.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "no usable base ($BASE): running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          code=$(git diff --name-only "$BASE" "$GITHUB_SHA" | awk '
+            /^(docs|openspec|media|\.claude)\// { next }
+            /\.md$/ && !/^(src|tests)\// { next }
+            { print }')
+          echo "files that need the full run:"; echo "${code:-  (none)}"
+          echo "code=$([ -n "$code" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  docs:
+    # Docs-only changes still get the link and CLI-reference checks.
+    name: docs
+    needs: changes
+    if: needs.changes.outputs.code != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction
+      - run: poetry run pytest tests/test_docs.py
+
   lint-test:
     name: lint-test (py${{ matrix.python }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -41,6 +90,8 @@ jobs:
 
   windows:
     name: windows (py3.12)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -58,6 +109,8 @@ jobs:
   clean-install:
     # The built wheel in an empty venv, with no configuration: what `pipx install` gives a team.
     name: clean install (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -102,6 +155,8 @@ jobs:
 
   corpus:
     name: corpus
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -132,6 +187,8 @@ jobs:
 
   browser:
     name: browser (Chromium)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -159,6 +216,9 @@ jobs:
 
   perf:
     name: perf (budgets, non-blocking)
+    # Not on pull requests: perf is non-blocking, so it only needs to run once a change lands.
+    needs: changes
+    if: github.event_name != 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     continue-on-error: true
@@ -183,3 +243,20 @@ jobs:
           key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
       - run: poetry run python tools/fetch-corpus.py
       - run: poetry run pytest -m perf -s
+
+  # The one required check. Skipped matrix jobs report under their unexpanded name
+  # ("lint-test (py${{ matrix.python }})"), so branch protection can't require them directly.
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [changes, docs, lint-test, corpus]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e '.changes.result == "success"
+            and (to_entries | all(.value.result == "success" or .value.result == "skipped"))
+            and (.docs.result == "success" or ."lint-test".result == "success")' >/dev/null
