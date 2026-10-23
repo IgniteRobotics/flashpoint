@@ -286,13 +286,9 @@ gitGraph
     merge rewrite id: "one-time replacement"
 ```
 
-- `rewrite` is the integration branch, cut from `main` after P0 (2026-10-04).
-- Every phase and every legacy-removal stage is a `feature/*` branch from `rewrite`, merged back through a PR with CI. `rewrite` is protected like `main`.
-- `main` stays on the legacy code (plus P0's docs and CI) until the rewrite is ready. Then `rewrite` merges into `main` once, replacing the legacy code entirely.
-- Keep `rewrite` current with any `main` hotfixes by merging `main` into `rewrite`. Never rebase it; it's shared.
-
-**When `rewrite` merges into `main`:**
-- Drop the `rewrite` branch from the install steps: `git switch rewrite` in `docs/guide/user-guide.md`, `docs/guide/developer-guide.md` and `deploy/README.md`, and `-- -b rewrite` in the README quickstart. Also update the branching section of `docs/guide/developer-guide.md`.
+- `rewrite` was the integration branch, cut from `main` after P0 (2026-10-04). Every phase and every legacy-removal stage was a `feature/*` branch from `rewrite`, merged back through a PR with CI.
+- **Done 2026-10-22:** `rewrite` merged into `main`, replacing the legacy code, and was retired. The install steps and the developer guide's branching section were updated in the same PR.
+- From here on, `main` is the only long-lived branch: each change is a `feature/<name>` branch from `main`, merged back through a PR with CI.
 
 ## 5. Quality gates (every phase)
 

@@ -39,7 +39,7 @@ Then open **Setup** in the app: it checks the install, and drafts your robot's c
 **From source** (needs [Poetry](https://python-poetry.org/) 2; see the [developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/developer-guide.md)):
 
 ```sh
-git clone https://github.com/IgniteRobotics/flashpoint.git -b rewrite
+git clone https://github.com/IgniteRobotics/flashpoint.git
 cd flashpoint
 poetry install
 export FLASHPOINT_CONFIG=config    # the repo's config/ is Ignite's configuration

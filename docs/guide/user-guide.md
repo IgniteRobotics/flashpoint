@@ -56,12 +56,11 @@ On a computer with internet, download the package: `python3 -m pip download --no
 
 ### Installing from a checkout
 
-Until Flashpoint is on PyPI, and for Ignite's own laptops, install from the repository (`gh` and access to IgniteRobotics are needed):
+Until Flashpoint is on PyPI, and for Ignite's own laptops, install from the repository:
 
 ```sh
-gh repo clone IgniteRobotics/flashpoint
+git clone https://github.com/IgniteRobotics/flashpoint.git
 cd flashpoint
-git switch rewrite
 pipx install --python python3.12 .
 ```
 

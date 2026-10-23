@@ -9,11 +9,10 @@ Files for running `flashpoint acquire --watch` as a per-user background service.
 
 macOS has no service file yet; see [Automatic import: macOS](../docs/guide/auto-import.md#macos).
 
-Both files expect the pipx install location. Install Flashpoint from a checkout (the repository is private, so there's no package index install):
+Both files expect the pipx install location. Install Flashpoint from a checkout (it isn't on PyPI yet):
 
 ```sh
-gh repo clone IgniteRobotics/flashpoint && cd flashpoint
-git switch rewrite
+git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint
 pipx install --python python3.12 .
 ```
 

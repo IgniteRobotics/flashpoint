@@ -8,7 +8,7 @@ Files land in $FLASHPOINT_CORPUS_DIR/<version>/ (default ~/.cache/flashpoint/cor
 Existing files with a matching hash are left alone, so re-runs are cheap.
 Zero-byte entries are created locally (GitHub releases reject empty assets).
 Downloads go through `gh release download` when the GitHub CLI is installed (log in with
-`gh auth login`, or set GH_TOKEN); that also works while the repository is private. Without gh,
+`gh auth login`, or set GH_TOKEN); that also works for a private fork. Without gh,
 a plain HTTPS download is tried, which needs the release to be public.
 """
 

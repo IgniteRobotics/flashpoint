@@ -11,7 +11,6 @@ You need:
 
 ```sh
 git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint
-git switch rewrite
 poetry install
 poetry run flashpoint doctor
 ```
@@ -102,15 +101,18 @@ It downloads with `gh release download` if the GitHub CLI is installed (run `gh 
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and on pushes to `main` and `rewrite`:
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. A first `changes` job checks which files changed. When they're all docs (`docs/`, `openspec/`, `media/`, `.claude/`, and Markdown outside `src/` and `tests/`), only the `docs` job runs; otherwise everything does.
 
 | Job | Runs | Blocks merge |
 |---|---|---|
-| `lint-test (py3.11)`, `lint-test (py3.12)` | ruff, ruff format, mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra | Yes |
+| `docs` | Docs-only changes: `tests/test_docs.py` (links, CLI reference) | Through `ci-ok` |
+| `lint-test (py3.11)`, `lint-test (py3.12)` | ruff, ruff format, mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra | Through `ci-ok` |
 | `windows (py3.12)` | ruff, mypy, unit tests on Windows | No, but fix it |
-| `corpus` | The corpus tests, including the rclone restore drill | Yes |
+| `clean install (ubuntu, macos, windows)` | The built wheel in an empty venv: `--version`, and `doctor` with no configuration | No, but fix it |
+| `corpus` | The corpus tests, including the rclone restore drill | Through `ci-ok` |
 | `browser (Chromium)` | The web app in Chromium, served and from `file://` | No, but fix it |
-| `perf (budgets, non-blocking)` | Time and memory budgets. Allowed to fail; read it when it does | No |
+| `perf (budgets, non-blocking)` | Time and memory budgets, on pushes to `main` only. Allowed to fail; read it when it does | No |
+| `ci-ok` | Passes when `changes` passed, `docs` or `lint-test` ran, and nothing it depends on failed. The only required check | Yes |
 
 The corpus jobs fetch through `gh` using the workflow's `GH_TOKEN`, and cache the corpus and owlet between runs.
 
@@ -135,9 +137,8 @@ Tasks marked `[HUMAN]` need a person: a pit check, a field test. They stay open 
 
 ### Branching
 
-- **`rewrite`** is the integration branch for the rewrite. Each change gets a `feature/<name>` branch cut from `rewrite`, and merges back through a pull request with CI. Never push to `rewrite` directly. It's protected: the required checks must pass, and a pull request needs one approving review.
-- **`main`** still has the legacy code. `rewrite` merges into it once, when the rewrite is ready. The pre-rewrite tree is kept at the `legacy-2025` tag.
-- Merge `main` into `rewrite` to pick up hotfixes; never rebase `rewrite`.
+- **`main`** is the only long-lived branch. Each change gets a `feature/<name>` branch cut from `main`, and merges back through a pull request with CI. Never push to `main` directly. It's protected: the `ci-ok` check must pass, and a pull request needs one approving review.
+- The rewrite was built on a separate `rewrite` branch and merged into `main` on 2026-10-22. The pre-rewrite tree is kept at the `legacy-2025` tag.
 
 ## Where decisions and research live
 
