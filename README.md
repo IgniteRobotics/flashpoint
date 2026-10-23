@@ -34,9 +34,9 @@ flashpoint ingest path/to/logs/
 flashpoint serve                   # open http://127.0.0.1:8000/
 ```
 
-Then open **Setup** in the app: it checks the install, and drafts your robot's configuration from a log. The [user guide](docs/guide/user-guide.md#install) has the details, including installing without internet.
+Then open **Setup** in the app: it checks the install, and drafts your robot's configuration from a log. The [user guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md#install) has the details, including installing without internet.
 
-**From source** (needs [Poetry](https://python-poetry.org/) 2; see the [developer guide](docs/guide/developer-guide.md)):
+**From source** (needs [Poetry](https://python-poetry.org/) 2; see the [developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/developer-guide.md)):
 
 ```sh
 git clone https://github.com/IgniteRobotics/flashpoint.git -b rewrite
@@ -48,16 +48,20 @@ poetry run flashpoint doctor
 
 ## Documentation
 
-- [User guide](docs/guide/user-guide.md): install, import logs, and use Replay, History, and Anomalies.
-- [Automatic import](docs/guide/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
-- [Robot-side logging](docs/guide/robot-side.md): Java samples for the CAN inventory and bus-status loggers.
-- [CLI reference](docs/guide/cli-reference.md): every `flashpoint` command.
-- [How it works](docs/guide/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
-- [Developer guide](docs/guide/developer-guide.md): build, test, CI, and how changes are made.
+- [User guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md): install, import logs, and use Replay, History, and Anomalies.
+- [Automatic import](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
+- [Robot-side logging](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/robot-side.md): Java samples for the CAN inventory and bus-status loggers.
+- [CLI reference](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/cli-reference.md): every `flashpoint` command.
+- [How it works](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
+- [Developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/developer-guide.md): build, test, CI, and how changes are made.
 
 ## Project
 
 - **Code:** the `flashpoint` package in `src/flashpoint/`.
-- **Specs and changes:** [`openspec/`](openspec/). Current behavior is in `openspec/specs/`; work in progress is in `openspec/changes/`.
-- **Decisions:** [`docs/adr/`](docs/adr/README.md). **Research and roadmap:** [`docs/rewrite/`](docs/rewrite/README.md).
+- **Specs and changes:** [`openspec/`](https://github.com/IgniteRobotics/flashpoint/tree/main/openspec/). Current behavior is in `openspec/specs/`; work in progress is in `openspec/changes/`.
+- **Decisions:** [`docs/adr/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md). **Research and roadmap:** [`docs/rewrite/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/README.md).
 - **Legacy:** the pre-rewrite code is kept at the `legacy-2025` tag.
+
+## License
+
+BSD 3-Clause. See [LICENSE](https://github.com/IgniteRobotics/flashpoint/blob/main/LICENSE).

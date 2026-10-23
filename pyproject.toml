@@ -3,6 +3,8 @@ name = "flashpoint"
 version = "0.1.0"
 description = "FRC robot telemetry platform: ingest WPILib and CTRE logs, track motor health across a robot's life"
 authors = [{ name = "Ignite Robotics" }]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 keywords = ["frc", "first-robotics", "wpilib", "ctre", "phoenix6", "telemetry", "datalog"]
@@ -46,7 +48,7 @@ pytest-timeout = "^2.4.0"
 pytest-playwright = "^0.9.0"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core>=2.2.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
