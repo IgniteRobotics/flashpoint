@@ -18,6 +18,14 @@ class ConfigError(Exception):
     pass
 
 
+class MissingSeasonError(ConfigError):
+    """A robot declares signals for a season that has no season file."""
+
+    def __init__(self, message: str, season: int) -> None:
+        super().__init__(message)
+        self.season = season
+
+
 def _check_bus(value: str) -> str:
     if value in ("rio", "canivore") or CANIVORE_ID.match(value):
         return value
@@ -268,9 +276,10 @@ def load_robot(path: Path, seasons: dict[int, SeasonConfig] | None = None) -> Ro
     if robot.signals:
         season = seasons.get(robot.season)
         if season is None:
-            raise ConfigError(
+            raise MissingSeasonError(
                 f"{path.name}: declares signals, but season {robot.season} has no"
-                f" seasons/{robot.season}.toml"
+                f" seasons/{robot.season}.toml",
+                robot.season,
             )
         for signal in robot.signals:
             if signal.root not in season.root_names():

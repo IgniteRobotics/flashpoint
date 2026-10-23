@@ -134,15 +134,25 @@ def describe_error(exc: BaseException) -> str:
 def _file(ctx: CheckContext, name: str, load: Callable[[], object]) -> CheckResult:
     default = config.is_default(ctx.config_root, name)
     shown = f"{name} (bundled default)" if default else name
+    from flashpoint.semantics.robot_config import MissingSeasonError
+
     try:
         load()
     except Exception as exc:  # each loader raises its own error type; all are shown as text
+        command = f"fix {config.config_file(ctx.config_root, name)}"
+        if isinstance(exc, MissingSeasonError):
+            seasons = ctx.config_root / "seasons"
+            command = (
+                f"create {seasons / f'{exc.season}.toml'}: copy"
+                f" {seasons / f'{exc.season - 1}.toml'}, set `season = {exc.season}`,"
+                " and check the roots"
+            )
         return CheckResult(
             f"file:{name}",
             name,
             "problem",
             f"{shown}: {describe_error(exc)}",
-            command=f"fix {config.config_file(ctx.config_root, name)}",
+            command=command,
             source=name,
             default=default,
         )
