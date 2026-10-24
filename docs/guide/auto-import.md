@@ -140,7 +140,7 @@ To keep it running after you close the terminal, use `tmux` (`brew install tmux`
 
 ## Backup and restore
 
-The watch can copy the lake's raw logs and metadata to any [rclone](https://rclone.org/) remote, such as Google Drive. Install rclone, then create a remote once:
+The watch can copy the lake's raw logs, its metadata and your configuration to any [rclone](https://rclone.org/) remote, such as Google Drive. Install rclone, then create a remote once:
 
 ```sh
 rclone config            # make a remote, for example "gdrive"
@@ -152,21 +152,30 @@ Set `backup.remote = "gdrive:flashpoint"` in `acquire.toml`. Flashpoint never re
 - Raw logs are copied once and never overwritten. Metadata is a consistent snapshot in `meta/latest` on the remote.
 - Each metadata backup moves the files it replaces into `meta/history/<UTC time>/` on the remote, so a backup from a wrong or empty lake can't destroy the last good one. Nothing deletes old history folders; remove them by hand when you want the space.
 - A large first backup goes up over several cycles; `doctor` shows the backup as still owed until it's done. Within the watch, each backup gives up on a dead connection within about a minute and stops after 4 minutes.
+- Your configuration goes to `config/latest` on the remote: the TOML files at the top of the config folder and in `seasons/` and `robots/`, and the CSV files in `units/`. Nothing else in that folder is copied: not the service's `env` file, not the Setup view's `.backups/`, not notes you left there. Files you never changed from the defaults aren't in the folder, so they aren't copied either; they come back with Flashpoint.
+- Saving a robot or a threshold makes a backup due even on a day with no new matches, so the watch copies it within `interval_min` minutes.
+- Each configuration backup moves the files it replaces or deletes into `config/history/<UTC time>/`. To get an older robot file back, copy it from there with rclone, for example `rclone copy gdrive:flashpoint/config/history/20261023T180000Z/robots/2026-comp.toml ~/.config/flashpoint/robots/`.
 
 Bronze, silver, and gold aren't backed up, because they can be rebuilt from raw.
 
 ### Restore drill
 
-Practice this before you need it. Always restore into a new folder, never over a lake you're using:
+Practice this before you need it. Always restore into a new lake folder and an empty config folder, never over the ones you're using. Pointing `FLASHPOINT_CONFIG` at a new folder makes the drill act like a new laptop:
 
 ```sh
-flashpoint restore --lake ~/restore-drill
+export FLASHPOINT_CONFIG=~/restore-drill-config
+flashpoint restore --remote gdrive:flashpoint --lake ~/restore-drill
 flashpoint rebuild --lake ~/restore-drill
 flashpoint doctor  --lake ~/restore-drill
+unset FLASHPOINT_CONFIG
 ```
 
+On Windows, use `set FLASHPOINT_CONFIG=%USERPROFILE%\restore-drill-config` in that terminal instead of `export`.
+
 - `restore` copies the raw logs and metadata, including anomaly triage. It refuses a lake that already has data unless you pass `--force`.
-- `--remote name:path` restores from somewhere other than `backup.remote`.
+- It copies your configuration into the config folder **only if that folder has no configuration files yet**. If it has any, nothing in it is changed: the backed-up copy goes to `restored-config/` inside the restored lake, and `restore` says so. Compare and copy what you need by hand. `--force` never changes this.
+- `--remote name:path` restores from somewhere other than `backup.remote`. The drill needs it, because the new config folder has no `acquire.toml` yet.
+- A backup made before configuration was included still restores; `restore` says it held no configuration.
 - To restore an older metadata snapshot, first copy that `meta/history/<time>/` folder over `meta/latest` on the remote with rclone.
 
 ## Check the status

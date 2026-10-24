@@ -139,7 +139,7 @@ flashpoint acquire --watch
 
 ## `flashpoint backup`
 
-Back up the raw logs and metadata to the rclone remote set as `backup.remote` in `acquire.toml`, right now. A running `acquire --watch` already does this on its own schedule, and this command exits with code `3` while one is running. See [Automatic import](auto-import.md#backup-and-restore).
+Back up the raw logs, the metadata and your configuration files to the rclone remote set as `backup.remote` in `acquire.toml`, right now. A running `acquire --watch` already does this on its own schedule, and this command exits with code `3` while one is running. See [Automatic import](auto-import.md#backup-and-restore).
 
 ```sh
 flashpoint backup
@@ -147,12 +147,12 @@ flashpoint backup
 
 ## `flashpoint restore`
 
-Copy a backup into a new, empty lake. Then run `rebuild` on that lake to regenerate everything else.
+Copy a backup into a new, empty lake. Then run `rebuild` on that lake to regenerate everything else. The backed-up configuration goes into the config folder only if it has no configuration files; otherwise it goes to `restored-config/` in the lake, and the config folder is left as it is. See [Restore drill](auto-import.md#restore-drill).
 
 | Option | What it does |
 |---|---|
 | `--remote NAME:PATH` | Restore from here instead of `backup.remote` |
-| `--force` | Restore into a lake that already has data. Avoid this; restore into a new lake |
+| `--force` | Restore into a lake that already has data. Avoid this; restore into a new lake. It never overwrites configuration |
 
 ```sh
 flashpoint restore --lake ~/flashpoint-lake-restored

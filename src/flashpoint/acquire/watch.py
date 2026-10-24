@@ -180,13 +180,16 @@ class StatusTracker:
     A low-space warning stays active until a later reading of the same root recovers, also
     across restarts (it is read back from the previous file), as does the backup slot.
     `backup` is filled by the backup step: `{"last_time": iso | None, "result": str | None,
-    "pending": bool}` (the last attempt, its outcome, and whether a backup is still owed).
+    "pending": bool, "config_sha": str | None}` (the last attempt, its outcome, whether a backup
+    is still owed, and the hash of the configuration last backed up).
     """
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self._low_space: list[dict[str, Any]] = []
-        self.backup: dict[str, Any] = {"last_time": None, "result": None, "pending": False}
+        self.backup: dict[str, Any] = {
+            "last_time": None, "result": None, "pending": False, "config_sha": None,
+        }  # fmt: skip
         self._derive_error: str | None = None
         self.derive_pending = False  # owed by an earlier run
         self._report_error: str | None = None
@@ -216,6 +219,7 @@ class StatusTracker:
             "last_time": backup.get("last_time"),
             "result": backup.get("result"),
             "pending": bool(backup.get("pending")),
+            "config_sha": None if backup.get("config_sha") is None else str(backup["config_sha"]),
         }
         self._derive_error = None if error is None else str(error)
         self.derive_pending = bool(derive.get("pending"))
@@ -425,8 +429,11 @@ def run_acquire(
     connect: Connect = _connect,
     detect: Callable[[], list[volumes.Volume]] = volumes.detect,
     out: TextIO | None = None,
+    config_root: Path | None = None,
 ) -> int:
     """`flashpoint acquire`: one cycle, a watch until stopped, or a dry run; the exit code.
+
+    The watch's backup also covers the configuration files under `config_root`, when given.
 
     Without `stop`, SIGINT/SIGTERM set an internal one. One-shot returns 0 for a normal cycle
     (also with no robot in range), `EXIT_ERRORS` when a step or source failed, and
@@ -444,7 +451,9 @@ def run_acquire(
             print(exc, file=sys.stderr)
             return EXIT_LOCKED
         try:
-            return _loop(config, lake, stop, watch, include_active, cycle, connect, detect)
+            return _loop(
+                config, lake, stop, watch, include_active, cycle, connect, detect, config_root
+            )
         finally:
             lock.release()
 
@@ -458,6 +467,7 @@ def _loop(
     cycle: Cycle,
     connect: Connect,
     detect: Callable[[], list[volumes.Volume]],
+    config_root: Path | None,
 ) -> int:
     def sleep(seconds: float) -> None:  # settle waits end early on a stop
         stop.wait(seconds)
@@ -468,7 +478,11 @@ def _loop(
     tracker = StatusTracker(lake.status)
     derive_pending, report_pending = tracker.derive_pending, tracker.report_pending
     # Backup belongs to the watch; a one-shot acquire leaves it to `flashpoint backup`.
-    backup = BackupSchedule(config.backup, lake, tracker, stop) if watch else None
+    backup = (
+        BackupSchedule(config.backup, lake, tracker, stop, config_root=config_root)
+        if watch
+        else None
+    )
     try:
         while True:
             started = time.monotonic()
