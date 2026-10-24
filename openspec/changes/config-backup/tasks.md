@@ -15,5 +15,5 @@
 ## 4. Docs and gate
 
 - [x] 4.1 Update `docs/guide/auto-import.md` (what backup now covers and leaves out, the `config/` folders on the remote, the restore drill with `FLASHPOINT_CONFIG` pointed at a scratch folder, getting an older robot file back from history, and `restored-config/`), `docs/guide/cli-reference.md` (`backup` and `restore`), and add a dated follow-up note under P3 in `docs/rewrite/06-roadmap.md` recording D-a (configuration stays separate from the lake) and that `config-backup` folds into `lake-backup` when P3 archives. Verify the docs link/drift tests pass
-- [ ] 4.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR from `feature/config-backup` into `main`, and verify `ci-ok` is green
+- [x] 4.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR from `feature/config-backup` into `main`, and verify `ci-ok` is green (PR #30: ci-ok green, all jobs passed incl. Windows and corpus with real rclone)
 - [ ] 4.3 [HUMAN] On the pit laptop with the team's real remote: run `flashpoint backup`, check the remote has `config/latest`, edit a robot in the Setup view and confirm the watch backs it up within one interval, then run the restore drill into a scratch lake and scratch config folder. Record the result in design.md
