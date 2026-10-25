@@ -1,6 +1,6 @@
 """Regenerate src/flashpoint/readers/owlet-manifest.toml from CTRE's redist index.
 
-Usage: python tools/update-owlet-manifest.py
+Usage: python tools/update-owlet-manifest.py [--help]
 
 Takes stable channels only (no alpha/beta), the latest owlet version per hoot compliancy,
 and every platform CTRE publishes. Each binary is downloaded once to compute its SHA-256;
@@ -8,6 +8,7 @@ CTRE's published SHA-1 is checked too. Ingest never contacts the index at runtim
 only reads the committed manifest.
 """
 
+import argparse
 import hashlib
 import json
 import sys
@@ -75,7 +76,10 @@ def build_manifest(index: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
+    parser.parse_args(argv)
+
     with urllib.request.urlopen(INDEX_URL) as response:
         index = json.load(response)
     MANIFEST.write_text(build_manifest(index))
