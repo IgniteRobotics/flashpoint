@@ -63,6 +63,7 @@ interval_min = 15
 | `removable_media` | `true` | Scan USB drives plugged into this computer. `--no-usb` turns it off for one run |
 | `backup.remote` | none (no backup) | rclone remote and path to back up to, e.g. `gdrive:flashpoint` |
 | `backup.interval_min` | `15` | Minutes between backups in `--watch` |
+| `backup.overdue_h` | `24` | Hours logs or configuration may wait for a backup before the backup check reports a problem (at least 1) |
 
 To try another robot address for one run, use `--host ADDR`; it replaces `hosts`.
 
@@ -157,6 +158,17 @@ Set `backup.remote = "gdrive:flashpoint"` in `acquire.toml`. Flashpoint never re
 - Each configuration backup moves the files it replaces or deletes into `config/history/<UTC time>/`. To get an older robot file back, copy it from there with rclone, for example `rclone copy gdrive:flashpoint/config/history/20261023T180000Z/robots/2026-comp.toml ~/.config/flashpoint/robots/`.
 
 Bronze, silver, and gold aren't backed up, because they can be rebuilt from raw.
+
+### When a backup is overdue
+
+The **Backup** check (in `flashpoint doctor` and the Setup view) watches for data that only exists on this machine:
+
+- A log is **waiting** when the lake received it after the last successful backup. Your configuration is waiting when it changed since then. This works the same whether logs came in through the watch or `flashpoint ingest`.
+- **Problem:** something has waited longer than `backup.overdue_h` hours (default 24). The message says how many logs, whether configuration changed, for how long, and the last error. The **Setup** tab shows a red **!** on every view until a backup succeeds; hover it to read why. `doctor` exits 1.
+- **Warning:** the last backup failed but nothing has waited that long yet, or no `backup.remote` is set and the lake holds logs.
+- **ok:** says when the last backup succeeded.
+
+The check only reads what's recorded on this machine; it never contacts the remote. Without internet at an event the check turns into a problem after a day. That's accurate: nothing from the event is backed up yet. Once you're back online, the watch catches up on its own, or run `flashpoint backup`. To keep it quiet over a long event, raise `overdue_h` (for example `72`). Before going back to a version older than this one, remove the `overdue_h` line: older versions refuse unknown keys.
 
 ### Restore drill
 

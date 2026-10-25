@@ -25,7 +25,7 @@ from types import FrameType, TracebackType
 from typing import Any, Self, TextIO
 
 from flashpoint.acquire import volumes
-from flashpoint.acquire.backup import BackupSchedule
+from flashpoint.acquire.backup import BackupSchedule, last_ok
 from flashpoint.acquire.config import AcquireConfig
 from flashpoint.acquire.cycle import REPORT_LOCKED, Connect, CycleResult, SourceStatus, run_cycle
 from flashpoint.acquire.pulls import BUSY_TIMEOUT_MS, PullLedger
@@ -180,15 +180,17 @@ class StatusTracker:
     A low-space warning stays active until a later reading of the same root recovers, also
     across restarts (it is read back from the previous file), as does the backup slot.
     `backup` is filled by the backup step: `{"last_time": iso | None, "result": str | None,
-    "pending": bool, "config_sha": str | None}` (the last attempt, its outcome, whether a backup
-    is still owed, and the hash of the configuration last backed up).
+    "pending": bool, "last_ok": iso | None, "config_sha": str | None}` (the last attempt, its
+    outcome, whether a backup is still owed, and the time and configuration hash of the last
+    successful backup).
     """
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self._low_space: list[dict[str, Any]] = []
         self.backup: dict[str, Any] = {
-            "last_time": None, "result": None, "pending": False, "config_sha": None,
+            "last_time": None, "result": None, "pending": False, "last_ok": None,
+            "config_sha": None,
         }  # fmt: skip
         self._derive_error: str | None = None
         self.derive_pending = False  # owed by an earlier run
@@ -219,6 +221,7 @@ class StatusTracker:
             "last_time": backup.get("last_time"),
             "result": backup.get("result"),
             "pending": bool(backup.get("pending")),
+            "last_ok": last_ok(backup),
             "config_sha": None if backup.get("config_sha") is None else str(backup["config_sha"]),
         }
         self._derive_error = None if error is None else str(error)

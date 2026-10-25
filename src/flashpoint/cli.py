@@ -18,6 +18,8 @@ from flashpoint.acquire.backup import (
     BackupError,
     RestoreRefusedError,
     config_hash,
+    failed_slot,
+    ok_slot,
     restore,
     run_backup,
 )
@@ -458,16 +460,15 @@ def _backup(lake: LakePaths) -> int:
         with AcquireLock(lake.meta / LOCK_FILE):
             started = datetime.now(UTC).isoformat()
             root = config.config_root()
+            previous = (read_status(lake.status) or {}).get("backup") or {}
             try:
                 config_sha = config_hash(root)  # before the copy: an edit during it shows later
                 summary = run_backup(lake, remote, config_root=root)
             except (BackupError, OSError, sqlite3.Error) as exc:
-                _record_backup(lake, {"last_time": started, "result": f"error: {exc}",
-                                      "pending": True, "config_sha": None})  # fmt: skip
+                _record_backup(lake, failed_slot(previous, started, exc))
                 print(f"backup failed: {exc}", file=sys.stderr)
                 return EXIT_FAILED
-            _record_backup(lake, {"last_time": started, "result": f"ok: {summary}",
-                                  "pending": False, "config_sha": config_sha})  # fmt: skip
+            _record_backup(lake, ok_slot(started, summary, config_sha))
             print(summary)
     except LockHeldError as exc:
         print(f"{exc}; a running watch backs up on its own", file=sys.stderr)
@@ -510,6 +511,13 @@ def _restore(lake: LakePaths, remote: str | None, force: bool) -> int:
     except (BackupError, OSError, sqlite3.Error) as exc:
         print(f"restore failed: {exc}", file=sys.stderr)
         return EXIT_FAILED
+    # Everything restored is on the remote: the restored lake starts backed up (backup-status).
+    restored_at = datetime.now(UTC).isoformat(timespec="seconds")
+    try:
+        sha = config_hash(config.config_root())
+    except OSError:
+        sha = None
+    _record_backup(lake, ok_slot(restored_at, f"restored from {remote}", sha))
     print(f"restored {result.files} file(s) from {remote};"
           " bronze, silver and gold must be rebuilt")  # fmt: skip
     if result.config == "restored":

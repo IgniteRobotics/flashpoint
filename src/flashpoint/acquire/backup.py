@@ -36,7 +36,7 @@ import shutil
 import sqlite3
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -317,6 +317,172 @@ def restore_config(
         shutil.rmtree(staging, ignore_errors=True)
 
 
+def ok_slot(when: str, summary: str, config_sha: str | None) -> dict[str, Any]:
+    """The status's backup slot after a successful backup at `when`."""
+    return {
+        "last_time": when, "result": f"ok: {summary}", "pending": False,
+        "last_ok": when, "config_sha": config_sha,
+    }  # fmt: skip
+
+
+def failed_slot(previous: dict[str, Any], when: str, exc: BaseException) -> dict[str, Any]:
+    """The backup slot after a failed attempt: the last success and its hash are kept."""
+    return {
+        "last_time": when, "result": f"error: {exc}", "pending": True,
+        "last_ok": last_ok(previous), "config_sha": previous.get("config_sha"),
+    }  # fmt: skip
+
+
+def last_ok(backup: dict[str, Any]) -> str | None:
+    """When the last successful backup ran; a slot from before `last_ok` was recorded uses its
+    last attempt when that succeeded."""
+    if backup.get("last_ok"):
+        return str(backup["last_ok"])
+    if str(backup.get("result") or "").startswith("ok") and backup.get("last_time"):
+        return str(backup["last_time"])
+    return None
+
+
+STATUS_READ_TIMEOUT_S = 1.0  # the badge reads this on every navigation: never wait long
+ERROR_SHOWN_CHARS = 200
+
+
+@dataclass(frozen=True)
+class BackupStatus:
+    """Whether logs or configuration are waiting for a backup, and for how long (spec:
+    backup-status). `level` is the setup check's: ok, warning or problem."""
+
+    level: str
+    message: str
+    configured: bool
+    logs_waiting: int = 0
+    config_waiting: bool = False
+    waiting_since: datetime | None = None
+    overdue: bool = False
+    last_ok: datetime | None = None
+    last_error: str | None = None
+
+
+def _parse_time(value: Any) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _ago(delta: timedelta) -> str:
+    hours = max(delta, timedelta(0)).total_seconds() / 3600
+    if hours < 1:
+        return f"{int(hours * 60)} min"
+    if hours < 48:
+        return f"{int(hours)} h"
+    return f"{int(hours // 24)} days"
+
+
+def _count(logs: int) -> str:
+    return f"{logs} log" if logs == 1 else f"{logs} logs"
+
+
+def _short_error(result: str) -> str:
+    text = result.removeprefix("error:").strip()
+    lines = [line for line in text.splitlines() if line.strip()]
+    last = lines[-1].strip() if lines else text
+    return last[-ERROR_SHOWN_CHARS:]
+
+
+def _ledger_logs(
+    lake: LakePaths, after: datetime | None
+) -> tuple[int, datetime | None, int, datetime | None]:
+    """(logs in the lake, the first received, logs received after `after`, the oldest of
+    those); read-only."""
+    if not lake.ledger.is_file():
+        return 0, None, 0, None
+    db = sqlite3.connect(
+        f"{lake.ledger.resolve().as_uri()}?mode=ro", uri=True, timeout=STATUS_READ_TIMEOUT_S
+    )
+    try:
+        rows = db.execute("SELECT first_seen FROM files").fetchall()
+    finally:
+        db.close()
+    seen = [t for (value,) in rows if (t := _parse_time(value)) is not None]
+    waiting = [t for t in seen if after is None or t > after]
+    return len(rows), min(seen, default=None), len(waiting), min(waiting, default=None)
+
+
+def _config_waiting(
+    root: Path | None, slot: dict[str, Any], after: datetime | None
+) -> tuple[bool, datetime | None]:
+    """Whether the configuration differs from the last backup's, and since when."""
+    if root is None:
+        return False, None
+    names = config_files(root)
+    if not names and slot.get("config_sha") is None:
+        return False, None
+    if config_hash(root) == slot.get("config_sha"):
+        return False, None
+    mtimes = [datetime.fromtimestamp((root / n).stat().st_mtime, UTC) for n in names]
+    newer = [t for t in mtimes if after is None or t > after]
+    return True, min(newer, default=after)
+
+
+def backup_status(
+    lake: LakePaths, config_root: Path | None, settings: BackupConfig, now: datetime
+) -> BackupStatus:
+    """Read the ledger, the configuration and the status's backup slot; never the remote."""
+    from flashpoint.acquire.watch import STATUS_VERSION, read_status
+
+    status = read_status(lake.status) or {}
+    slot = status.get("backup") if status.get("version") == STATUS_VERSION else None
+    slot = slot if isinstance(slot, dict) else {}
+    ok_at = _parse_time(last_ok(slot)) if last_ok(slot) else None
+    result = str(slot.get("result") or "")
+    error = _short_error(result) if result.startswith("error") else None
+    configured = bool(settings.remote)
+    try:
+        total, first_log, logs, oldest_log = _ledger_logs(lake, ok_at)
+        config_changed, config_since = _config_waiting(config_root, slot, ok_at)
+    except (sqlite3.Error, OSError) as exc:
+        return BackupStatus("warning", f"can't read the lake's records: {exc}", configured)
+    if total == 0:
+        return BackupStatus("ok", "nothing to back up yet", configured)
+    if not configured:
+        return BackupStatus(
+            "warning",
+            f"backup isn't configured: {total} logs and the configuration exist only on this"
+            " machine",
+            configured,
+        )
+    if config_changed and config_since and first_log:
+        # No backup can run before the lake holds a log, so configuration waits from then.
+        config_since = max(config_since, first_log)
+    starts = [t for t in (oldest_log, config_since if config_changed else None) if t]
+    since = min(starts, default=None)
+    waited = max(now - since, timedelta(0)) if since else timedelta(0)
+    overdue = since is not None and waited >= timedelta(hours=settings.overdue_h)
+    what = " and ".join(
+        part
+        for part in (
+            _count(logs) if logs else "",
+            "configuration changes" if config_changed else "",
+        )
+        if part
+    )
+    last = f"last backup {_ago(now - ok_at)} ago" if ok_at else "never backed up"
+    found = BackupStatus(
+        "ok", "", configured, logs_waiting=logs, config_waiting=config_changed,
+        waiting_since=since, overdue=overdue, last_ok=ok_at, last_error=error,
+    )  # fmt: skip
+    failed = f"; last attempt failed: {error}" if error else ""
+    if overdue:
+        message = f"{what} not backed up for {_ago(waited)} ({last}){failed}"
+        return replace(found, level="problem", message=message)
+    waiting = f"; {what} waiting" if what else ""
+    if error:
+        return replace(found, level="warning", message=f"{last}{waiting}{failed}")
+    return replace(found, message=f"{last}{waiting}")
+
+
 class BackupSchedule:
     """The watch's backup step (`run_cycle(backup=...)`).
 
@@ -378,14 +544,10 @@ class BackupSchedule:
             )
         except (BackupError, OSError, sqlite3.Error) as exc:
             log.warning("backup failed: %s", exc)
-            outcome, pending, backed_up_sha = f"error: {exc}", True, state.get("config_sha")
+            self.tracker.backup = failed_slot(state, now.isoformat(), exc)
         else:
             log.info("%s", summary)
-            outcome, pending, backed_up_sha = f"ok: {summary}", False, config_sha
-        self.tracker.backup = {
-            "last_time": now.isoformat(), "result": outcome, "pending": pending,
-            "config_sha": backed_up_sha,
-        }  # fmt: skip
+            self.tracker.backup = ok_slot(now.isoformat(), summary, config_sha)
 
     def _config_sha(self) -> str | None:
         """The configuration's hash now; None without a root or when it can't be read (the

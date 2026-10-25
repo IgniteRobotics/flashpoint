@@ -595,7 +595,9 @@ def test_restore_does_not_bring_over_the_source_watch_status(
 
     assert main(["restore", "--remote", str(remote), "--lake", str(restored.root)]) == 0
 
-    assert not restored.status.exists()
+    status = json.loads(restored.status.read_text())  # a fresh status: only the backup record
+    assert set(status) == {"version", "backup"}
+    assert status["backup"]["result"].startswith("ok: restored from")
     assert not (restored.tmp / "restore-meta").exists()
 
 
@@ -1073,3 +1075,109 @@ def test_second_restore_replaces_the_restored_config_copy(
     expected = {k: v for k, v in CONFIG_FILES.items() if k != "units/units-seed.csv"}
     assert _texts(target.root / "restored-config") == expected
     assert _texts(root) == {"acquire.toml": "local\n"}
+
+
+# --- last successful backup (spec: backup-status) ----------------------------------------------
+
+
+def test_watch_success_records_last_ok_and_a_failure_keeps_it(
+    fake_rclone: FakeRclone,
+    lake: LakePaths,
+    remote: Path,
+    team_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 1)
+    clock = Clock()
+    schedule, tracker = _schedule(lake, remote, clock, config_root=team_config)
+    schedule(_changed())
+    assert tracker.backup["last_ok"] == T0.isoformat()
+    sha = tracker.backup["config_sha"]
+
+    monkeypatch.setenv("FAKE_RCLONE_FAIL", "1")
+    (team_config / "acquire.toml").write_text("[backup]\n# edited\n", encoding="utf-8")
+    clock.now = T0 + timedelta(hours=1)
+    schedule(_changed())
+
+    assert tracker.backup["result"].startswith("error")
+    assert tracker.backup["last_time"] == clock.now.isoformat()
+    assert tracker.backup["last_ok"] == T0.isoformat()  # the last success is kept
+    assert tracker.backup["config_sha"] == sha
+
+
+def test_backup_command_failure_keeps_the_last_success(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 1)
+    _write_config(config_dir, remote)
+    assert main(["backup", "--lake", str(lake.root)]) == 0
+    first = json.loads(lake.status.read_text())["backup"]
+    assert first["last_ok"] == first["last_time"]
+    assert first["config_sha"] == config_hash(config_dir)
+
+    monkeypatch.setenv("FAKE_RCLONE_FAIL", "1")
+    assert main(["backup", "--lake", str(lake.root)]) == 1
+
+    failed = json.loads(lake.status.read_text())["backup"]
+    assert failed["result"].startswith("error")
+    assert (failed["last_ok"], failed["config_sha"]) == (first["last_ok"], first["config_sha"])
+
+
+def test_old_status_without_last_ok_reads_an_ok_attempt_as_the_last_success(
+    lake: LakePaths,
+) -> None:
+    lake.meta.mkdir(parents=True)
+    for result, expected in (("ok: backed up", "2026-10-01T00:00:00+00:00"), ("error: x", None)):
+        status = {"version": 1, "backup": {
+            "last_time": "2026-10-01T00:00:00+00:00", "result": result, "pending": False,
+        }}  # fmt: skip
+        lake.status.write_text(json.dumps(status), encoding="utf-8")
+        assert StatusTracker(lake.status).backup["last_ok"] == expected
+
+
+def test_last_ok_survives_a_watch_restart(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path
+) -> None:
+    _seed_lake(lake, 1)
+    schedule, tracker = _schedule(lake, remote)
+    schedule(_changed())
+    tracker.record(CycleResult(started=T0.isoformat()))
+    tracker.write()
+
+    assert StatusTracker(lake.status).backup["last_ok"] == T0.isoformat()
+
+
+def test_restore_records_the_restored_backup_as_the_last_success(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    team_config: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 2)
+    tracker = StatusTracker(lake.status)
+    tracker.record(CycleResult(started=T0.isoformat(), derive_pending=True))
+    tracker.write()
+    run_backup(lake, str(remote), config_root=team_config)
+    for name, existing in (("empty", {}), ("kept", {"robots/mine.toml": "mine\n"})):
+        root = tmp_path / f"config-{name}"
+        root.mkdir()
+        _write_files(root, existing)
+        monkeypatch.setenv("FLASHPOINT_CONFIG", str(root))
+        restored = LakePaths(tmp_path / f"restored-{name}")
+        before = datetime.now(UTC)
+
+        assert main(["restore", "--remote", str(remote), "--lake", str(restored.root)]) == 0
+
+        status = json.loads(restored.status.read_text())
+        backup = status["backup"]
+        assert datetime.fromisoformat(backup["last_ok"]) >= before.replace(microsecond=0)
+        assert backup["config_sha"] == config_hash(root)  # what is in the root now
+        assert backup["pending"] is False
+        assert "derive" not in status or not status["derive"].get("pending")

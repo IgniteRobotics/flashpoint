@@ -179,6 +179,7 @@ Then it runs the setup checks, one line each, marked `ok`, `WARN`, `PROBLEM` or 
 | Team | there's no team number and no `hosts` in `acquire.toml`, so acquire can't find the robot |
 | Robot for this season | no robot file is for the current season |
 | Lake | the lake folder can't be written (not created yet is only a warning) |
+| Backup | logs or configuration have waited longer than `backup.overdue_h` (default 24 hours) for a backup (a failed last attempt, or no backup configured, is a warning). See [When a backup is overdue](auto-import.md#when-a-backup-is-overdue) |
 | owlet, per hoot format in the lake | the matching owlet isn't downloaded, or its checksum doesn't match |
 | AdvantageScope | the configured path is wrong (not found at all is a warning) |
 | Acquire service | never a problem: a warning when it isn't installed or running (Linux and Windows), `n/a` on macOS |

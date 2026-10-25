@@ -24,6 +24,8 @@ class BackupConfig(BaseModel):
 
     remote: str | None = None
     interval_min: int = 15
+    # Logs or configuration waiting longer than this make the backup overdue (backup-status).
+    overdue_h: int = Field(default=24, ge=1)
 
 
 class AcquireConfig(BaseModel):

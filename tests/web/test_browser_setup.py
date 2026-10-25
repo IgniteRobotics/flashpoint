@@ -194,3 +194,58 @@ def test_refused_threshold_keeps_the_edit(page: Any, site: dict[str, Any]) -> No
     assert not (site["root"] / "report.toml").exists()  # still the bundled default
     assert not watch.dialogs and not watch.remote
     assert all("status of 400" in e for e in watch.errors), watch
+
+
+# --- backup overdue badge (spec: backup-status) ---------------------------------------------
+
+
+def _backup_site(tmp_path: Path, log_seen: str) -> Iterator[str]:
+    from flashpoint.lake.ledger import Ledger
+
+    lake = LakePaths(tmp_path / "lake")
+    lake.ensure()
+    ledger = Ledger(lake.ledger)
+    try:
+        ledger.register("c" * 64, "wpilog", 1, lake.raw / "c")
+        ledger.execute("UPDATE files SET first_seen = ?", (log_seen,))
+    finally:
+        ledger.close()
+    server, root = _site(tmp_path, lake)
+    acquire = root / "acquire.toml"
+    acquire.write_text(
+        acquire.read_text(encoding="utf-8") + '\n[backup]\nremote = "gdrive:flashpoint"\n',
+        encoding="utf-8",
+    )
+    yield f"http://127.0.0.1:{server.server_address[1]}/"
+    _stop(server)
+
+
+@pytest.fixture
+def overdue_site(tmp_path: Path) -> Iterator[str]:
+    yield from _backup_site(tmp_path, "2026-01-01T00:00:00+00:00")  # never backed up since
+
+
+@pytest.fixture
+def fresh_site(tmp_path: Path) -> Iterator[str]:
+    import datetime as dt
+
+    yield from _backup_site(tmp_path, dt.datetime.now(dt.UTC).isoformat(timespec="seconds"))
+
+
+def test_overdue_backup_badge_on_every_view(page: Any, overdue_site: str) -> None:
+    for view in ("setup", "history", "anomalies", "replay"):
+        _open(page, overdue_site, f"#view={view}")
+        page.wait_for_selector("[data-badge='setup']:not([hidden])")
+        badge = page.locator("[data-badge='setup']")
+        assert badge.inner_text() == "!"
+        assert "tab__badge--hot" in str(badge.get_attribute("class"))
+        label = str(badge.get_attribute("aria-label"))
+        assert label.startswith("Backup overdue:") and "not backed up for" in label
+
+
+def test_no_badge_when_nothing_is_overdue(page: Any, fresh_site: str) -> None:
+    watch = _setup(page, fresh_site)
+    page.wait_for_function("() => document.querySelector('[data-check=backup]') !== null")
+    assert page.locator("[data-badge='setup']").is_hidden()
+    assert page.locator("[data-check='backup']").get_attribute("data-status") == "ok"
+    assert watch.clean(), watch
