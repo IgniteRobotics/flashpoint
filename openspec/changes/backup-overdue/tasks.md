@@ -17,5 +17,5 @@
 ## 4. Docs and gate
 
 - [x] 4.1 Update `docs/guide/auto-import.md` (the backup check, what "overdue" means, `overdue_h`, the Setup badge, the rollback note for `overdue_h`), `docs/guide/cli-reference.md` (`doctor` lists the backup check), and the P3 follow-up note in `docs/rewrite/06-roadmap.md`. Verify the docs link/drift tests pass
-- [ ] 4.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR from `feature/backup-overdue` (into `main` once PR #30 merges, otherwise stacked on `feature/config-backup`), and verify `ci-ok` is green
+- [x] 4.2 Run the full gate locally (ruff, ruff format, mypy, unit, corpus, browser), open a PR from `feature/backup-overdue` (into `main` once PR #30 merges, otherwise stacked on `feature/config-backup`), and verify `ci-ok` is green (PR #31, stacked on #30: ci-ok green, all jobs passed incl. Windows, corpus and browser)
 - [ ] 4.3 [HUMAN] On the pit laptop: turn off Wi-Fi, import a match, set `overdue_h = 1`, and confirm the Setup badge and the `doctor` problem appear after an hour and clear after a backup with Wi-Fi back. Record the result in design.md
