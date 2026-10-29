@@ -1,9 +1,11 @@
 """Restore drill on the golden corpus (spec: lake-backup / Restore drill), with real rclone.
 
-The corpus lake is backed up to a local-directory remote (`:local:<path>`), restored into a new
-lake and rebuilt; the new ledger must list the same files and triage, gold must hold the same
-match features, and a resolved anomaly must come back with its id and outcome. Skipped where
-rclone is not installed, except in CI, where that is a failure.
+The corpus lake and its configuration are backed up to a local-directory remote
+(`:local:<path>`), restored into a new lake and an empty configuration folder (spec:
+config-backup) and rebuilt with the restored configuration; the new ledger must list the same
+files and triage, gold must hold the same match features, the configuration files must come back
+unchanged, and a resolved anomaly must come back with its id and outcome. Skipped where rclone
+is not installed, except in CI, where that is a failure.
 """
 
 import json
@@ -16,6 +18,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from flashpoint import config as flashpoint_config
+from flashpoint.acquire.backup import config_files, restore, run_backup
 from flashpoint.cli import main
 from flashpoint.lake.paths import LakePaths
 from flashpoint.semantics.gold import gold_dir
@@ -46,7 +49,16 @@ def restore_drill(
     ingest_code = main(["ingest", str(corpus_dir), "--lake", str(original.root)])
     resolved = _resolve_one(original)
     assert main(["backup", "--lake", str(original.root)]) == 0
-    assert main(["restore", "--lake", str(restored.root)]) == 0
+    # A new laptop: an empty configuration folder, so restore brings the team's files back and
+    # the rebuild below runs on them.
+    scratch_config = tmp_path / "scratch-config"
+    monkeypatch.setenv(flashpoint_config.CONFIG_ENV, str(scratch_config))
+    assert main(["restore", "--remote", remote, "--lake", str(restored.root)]) == 0
+    names = config_files(config_dir)
+    assert "robots/2026-comp.toml" in names and "report.toml" in names
+    assert config_files(scratch_config) == names
+    for name in names:
+        assert (scratch_config / name).read_bytes() == (config_dir / name).read_bytes()
     assert main(["rebuild", "--lake", str(restored.root)]) == ingest_code
 
     files = "SELECT sha256, kind, size, stage, reason FROM files ORDER BY sha256"
@@ -61,7 +73,7 @@ def restore_drill(
     # Survives rebuild: the rebuilt lake's detection produces the same id, still resolved.
     from flashpoint.views.anomalies import AnomalyQueries
 
-    detail = AnomalyQueries(restored, config_dir).detail(resolved)
+    detail = AnomalyQueries(restored, scratch_config).detail(resolved)
     assert detail is not None and detail["detected"] is True
     assert (detail["state"], detail["outcome"]) == ("resolved", "battery replaced")
 
@@ -90,3 +102,27 @@ def test_restore_drill_reproduces_the_ledger_and_gold(
     if not corpus_dir.is_dir():
         pytest.fail("corpus not fetched; run tools/fetch-corpus.py")
     restore_drill(corpus_dir, tmp_path, f":local:{tmp_path / 'remote'}", monkeypatch)
+
+
+def test_restore_from_a_backup_without_configuration_with_real_rclone(tmp_path: Path) -> None:
+    """rclone exits 3 for a missing `config/latest` on a local remote; restore reads that as a
+    backup made before configuration was included (spec: config-backup)."""
+    if shutil.which("rclone") is None:
+        if os.environ.get("CI"):
+            pytest.fail("rclone is not installed; the CI corpus job must install it")
+        pytest.skip("rclone is not installed")
+    from flashpoint.lake.ledger import Ledger
+
+    lake = LakePaths(tmp_path / "lake")
+    lake.ensure()
+    Ledger(lake.ledger).close()
+    (lake.raw / "ab").mkdir()
+    (lake.raw / "ab" / "ab.wpilog").write_bytes(b"log")  # rclone makes no folder for an empty raw
+    remote = f":local:{tmp_path / 'remote'}"
+    run_backup(lake, remote)  # no configuration root: the remote has no config/
+    root = tmp_path / "config"
+
+    result = restore(LakePaths(tmp_path / "restored"), remote, config_root=root)
+
+    assert result.config == "none"
+    assert not root.exists()
