@@ -189,3 +189,62 @@ def test_download_owlet_from_the_view(serve: Any, lake: LakePaths, tmp_path: Pat
     assert status == 200 and body["ok"] and body["changed"] == ["owlet 26.0.0-fake (C19)"]
     after = {c["id"]: c for c in body["checks"]}
     assert after["owlet:C19"]["status"] == "ok"
+
+
+# --- backup status for the Setup tab badge (spec: backup-status) ----------------------------
+
+
+def _backup_app(serve: Any, tmp_path: Path, log_age_h: float, error: str | None) -> Any:
+    import datetime as dt
+
+    from flashpoint.lake.ledger import Ledger
+
+    now = dt.datetime(2026, 10, 24, 12, 0, tzinfo=dt.UTC)
+    root = tmp_path / "cfg"
+    root.mkdir()
+    (root / "acquire.toml").write_text('[backup]\nremote = "gdrive:fp"\n', encoding="utf-8")
+    lake = LakePaths(tmp_path / "lake")
+    lake.ensure()
+    ledger = Ledger(lake.ledger)
+    try:
+        ledger.register("a" * 64, "wpilog", 1, lake.raw / "a")
+        seen = (now - dt.timedelta(hours=log_age_h)).isoformat(timespec="seconds")
+        ledger.execute("UPDATE files SET first_seen = ?", (seen,))
+    finally:
+        ledger.close()
+    ok = (now - dt.timedelta(hours=log_age_h + 1)).isoformat()
+    slot = {"last_time": ok, "result": f"error: {error}" if error else "ok", "last_ok": ok}
+    lake.status.write_text(json.dumps({"version": 1, "backup": slot}), encoding="utf-8")
+
+    def never_run(args: Any) -> Any:
+        raise AssertionError(f"the badge must not run setup commands: {args}")
+
+    app = serve(lake)
+    app.server.config_dir = root
+    app.server.check_context = lambda: CheckContext(
+        root, lake, tmp_path / "cache", system="Linux", season=2026, run=never_run,
+        now=lambda: now,
+    )  # fmt: skip
+    return app
+
+
+@pytest.mark.parametrize(
+    ("log_age_h", "error", "level", "overdue"),
+    [
+        (48, "no route to host", "problem", True),
+        (2, "no route to host", "warning", False),
+        (2, None, "ok", False),
+    ],
+)
+def test_backup_status_endpoint(
+    serve: Any, tmp_path: Path, log_age_h: float, error: str | None, level: str, overdue: bool
+) -> None:
+    app = _backup_app(serve, tmp_path, log_age_h, error)
+
+    status, body = app.json("/api/backup/status")
+
+    assert status == 200
+    assert (body["level"], body["overdue"]) == (level, overdue)
+    assert body["message"]
+    if error:
+        assert error in body["message"]

@@ -468,5 +468,10 @@
     needsApi: true,
     mount,
     unmount: () => { ui = null; },
+    /* Shown on every view while the backup is overdue; the endpoint reads recorded state only. */
+    badge: async () => {
+      const b = await FP.api('backup/status');
+      return b.level === 'problem' ? { text: '!', hot: true, label: 'Backup overdue: ' + b.message } : null;
+    },
   });
 })();

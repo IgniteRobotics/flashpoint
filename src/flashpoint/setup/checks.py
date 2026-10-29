@@ -41,6 +41,7 @@ FIX_LABELS = {
 # Shared settings files, each the team's copy or else the bundled default.
 SETTINGS_FILES = ("report.toml", "anomaly.toml", "anomaly-causes.toml")
 INIT_COMMAND = "flashpoint init --team <number>"
+BACKUP_GUIDE = "see docs/guide/auto-import.md#backup-and-restore"
 
 Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 Finder = Callable[[Path], tuple[Any, str | None]]
@@ -94,6 +95,7 @@ class CheckContext:
     find_advantagescope: Finder = _find_advantagescope
     registry: Callable[[Path], hoot.OwletRegistry] = hoot.default_registry
     home: Path = field(default_factory=Path.home)
+    now: Callable[[], dt.datetime] = lambda: dt.datetime.now(dt.UTC)
     which: Callable[[str], str | None] = shutil.which
 
     @classmethod
@@ -298,6 +300,25 @@ def _lake(ctx: CheckContext) -> CheckResult:
     )
 
 
+def _backup(ctx: CheckContext, acquire: AcquireConfig | None) -> CheckResult:
+    """From recorded state only (the ledger, the configuration, the acquire status); never the
+    remote (spec: backup-status)."""
+    from flashpoint.acquire.backup import backup_status
+    from flashpoint.acquire.config import BackupConfig
+
+    settings = acquire.backup if acquire is not None else BackupConfig()
+    status = backup_status(ctx.lake, ctx.config_root, settings, ctx.now())
+    command = None
+    if status.level != "ok":
+        command = "flashpoint backup" if status.configured else BACKUP_GUIDE
+    level: Status = (
+        "problem"
+        if status.level == "problem"
+        else ("warning" if status.level == "warning" else "ok")
+    )
+    return CheckResult("backup", "Backup", level, status.message, command=command)
+
+
 def _lake_compliancies(lake: LakePaths) -> list[int]:
     if not lake.ledger.is_file():
         return []
@@ -485,6 +506,7 @@ def run_checks(ctx: CheckContext) -> list[CheckResult]:
         _team(ctx, acquire),
         _robot_season(ctx, robots),
         _lake(ctx),
+        _backup(ctx, acquire),
         *_owlet(ctx),
         _advantagescope(ctx),
         _service(ctx),

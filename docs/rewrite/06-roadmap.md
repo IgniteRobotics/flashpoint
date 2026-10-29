@@ -113,6 +113,8 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 - **Watcher:** `flashpoint acquire --watch` cycles robot, volumes, ingest, derive, the Replay build and backup.
 - **Packaging:** a systemd user unit with a correct `ExecStart` (#7) and a Windows scheduled task. Windows is supported. The container is deferred out of P3.
 - **Backup:** `rclone` copy of `lake/raw` (immutable) and a `lake/meta` snapshot [Background]. Replaces `drive-backup.py`.
+  - *Follow-up, change `config-backup` (2026-10-23):* backup also copies the team's configuration files (robots, units, seasons, thresholds) to `config/latest` with history, and restore brings them back only into an empty config folder. Configuration stays **separate** from the lake (one config serves several lakes, and one lake is tuned with several configs) and is backed up with it. Its requirements are in the `config-backup` spec because `lake-backup` is still in the unarchived P3 change; fold them into `lake-backup` when P3 archives.
+  - *Follow-up, change `backup-overdue` (2026-10-24):* a Backup setup check and a Setup tab badge report logs or configuration waiting longer than `backup.overdue_h` (default 24 h) for a backup, measured from the ledger and configuration rather than the watch, so hand imports are covered. Spec `backup-status`, to fold in with `lake-backup`.
 - **Exit:** plug in the robot, and within 5 min its matches show up in the views, unattended.
 
 ### P4 — Views (M)

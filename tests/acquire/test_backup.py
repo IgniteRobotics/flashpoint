@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 import re
 import sqlite3
 import sys
@@ -20,8 +21,11 @@ from flashpoint.acquire.backup import (
     RCLONE_LIMITS,
     BackupError,
     BackupSchedule,
+    config_files,
+    config_hash,
     restore,
     run_backup,
+    snapshot_config,
 )
 from flashpoint.acquire.config import AcquireConfig, BackupConfig
 from flashpoint.acquire.cycle import CycleResult, run_cycle
@@ -126,11 +130,17 @@ class Clock:
 
 
 def _schedule(
-    lake: LakePaths, remote: Path | None, clock: Callable[[], datetime] = lambda: T0
+    lake: LakePaths,
+    remote: Path | None,
+    clock: Callable[[], datetime] = lambda: T0,
+    config_root: Path | None = None,
 ) -> tuple[BackupSchedule, StatusTracker]:
     tracker = StatusTracker(lake.status)
     settings = BackupConfig(remote=None if remote is None else str(remote))
-    return BackupSchedule(settings, lake, tracker, threading.Event(), now=clock), tracker
+    schedule = BackupSchedule(
+        settings, lake, tracker, threading.Event(), now=clock, config_root=config_root
+    )
+    return schedule, tracker
 
 
 def _changed() -> CycleResult:
@@ -585,7 +595,9 @@ def test_restore_does_not_bring_over_the_source_watch_status(
 
     assert main(["restore", "--remote", str(remote), "--lake", str(restored.root)]) == 0
 
-    assert not restored.status.exists()
+    status = json.loads(restored.status.read_text())  # a fresh status: only the backup record
+    assert set(status) == {"version", "backup"}
+    assert status["backup"]["result"].startswith("ok: restored from")
     assert not (restored.tmp / "restore-meta").exists()
 
 
@@ -682,3 +694,490 @@ def test_backup_command_succeeds_even_when_the_status_cannot_be_updated(
     assert main(["backup", "--lake", str(lake.root)]) == 1
     err = capsys.readouterr().err
     assert "backup failed" in err and "fake failure" in err
+
+
+# --- configuration (spec: config-backup) -------------------------------------------------------
+
+CONFIG_FILES = {
+    "acquire.toml": "[backup]\n",
+    "robots/2026-comp.toml": 'robot = "comp"\n',
+    "seasons/2026.toml": "season = 2026\n",
+    "units/units-seed.csv": "serial,model\n",
+}
+NOT_CONFIG = {
+    "env": "SECRET=1\n",
+    ".backups/robots/2026-comp.toml.1": "old\n",
+    "robots/.2026-comp.toml.abc.tmp": "half\n",
+    "notes.txt": "hi\n",
+    "robots/old/2025-comp.toml": "old robot\n",
+    "units/notes.toml": "not a unit file\n",
+}
+
+
+def _write_files(root: Path, files: dict[str, str]) -> None:
+    for name, text in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+
+def _texts(root: Path) -> dict[str, str]:
+    return {
+        p.relative_to(root).as_posix(): p.read_text(encoding="utf-8")
+        for p in sorted(root.rglob("*"))
+        if p.is_file()
+    }
+
+
+@pytest.fixture
+def team_config(tmp_path: Path) -> Path:
+    root = tmp_path / "team-config"
+    _write_files(root, CONFIG_FILES | NOT_CONFIG)
+    return root
+
+
+def test_config_snapshot_copies_only_configuration_files(team_config: Path, tmp_path: Path) -> None:
+    target = tmp_path / "snap"
+
+    copied = snapshot_config(team_config, target)
+
+    assert copied == sorted(CONFIG_FILES)
+    assert _texts(target) == CONFIG_FILES
+    assert config_files(team_config) == sorted(CONFIG_FILES)
+
+
+def test_config_snapshot_of_a_missing_or_empty_root_is_empty(tmp_path: Path) -> None:
+    (tmp_path / "empty").mkdir()
+    _write_files(tmp_path / "junk", NOT_CONFIG)
+    for root in (tmp_path / "missing", tmp_path / "empty", tmp_path / "junk"):
+        assert snapshot_config(root, tmp_path / "snap") == []
+        assert not any((tmp_path / "snap").rglob("*"))
+
+
+def test_config_hash_follows_contents_and_names_only(tmp_path: Path) -> None:
+    a, b = tmp_path / "a", tmp_path / "b"
+    _write_files(a, CONFIG_FILES)
+    _write_files(b, dict(reversed(CONFIG_FILES.items())) | NOT_CONFIG)  # other order, extra junk
+    assert config_hash(a) == config_hash(b)
+    assert config_hash(tmp_path / "missing") == config_hash(tmp_path / "missing-too")
+    assert config_hash(a) != config_hash(tmp_path / "missing")
+
+    (b / "robots" / "2026-comp.toml").write_text('robot = "comP"\n', encoding="utf-8")
+    assert config_hash(a) != config_hash(b)
+    _write_files(b, {"robots/2026-comp.toml": 'robot = "comp"\n'})
+    assert config_hash(a) == config_hash(b)
+    (b / "robots" / "2026-comp.toml").rename(b / "robots" / "2026-practice.toml")
+    assert config_hash(a) != config_hash(b)
+
+
+def test_backup_syncs_configuration_with_history_after_raw_and_meta(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    _seed_lake(lake, 2)
+
+    summary = run_backup(lake, str(remote), config_root=team_config, now=lambda: T0)
+
+    assert _texts(remote / "config" / "latest") == CONFIG_FILES
+    assert "configuration" in summary
+    calls = fake_rclone.calls()
+    assert [argv[-1] for argv in calls] == [
+        f"{remote}/raw",
+        f"{remote}/meta/latest",
+        f"{remote}/config/latest",
+    ]
+    config_sync = calls[-1]
+    assert config_sync[0] == "sync"
+    assert config_sync[-2] == str(lake.tmp / "config-snapshot")
+    assert _value(config_sync, "--backup-dir") == f"{remote}/config/history/20261004T100000Z"
+
+
+def test_edited_and_deleted_config_files_are_kept_in_history(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    _seed_lake(lake, 1)
+    run_backup(lake, str(remote), config_root=team_config, now=lambda: T0)
+    (team_config / "robots" / "2026-comp.toml").write_text('robot = "edited"\n', encoding="utf-8")
+    (team_config / "units" / "units-seed.csv").unlink()
+
+    run_backup(lake, str(remote), config_root=team_config, now=lambda: T0 + timedelta(hours=1))
+
+    latest = _texts(remote / "config" / "latest")
+    assert latest["robots/2026-comp.toml"] == 'robot = "edited"\n'
+    assert "units/units-seed.csv" not in latest
+    kept = _texts(remote / "config" / "history" / "20261004T110000Z")
+    assert kept == {
+        "robots/2026-comp.toml": 'robot = "comp"\n',
+        "units/units-seed.csv": "serial,model\n",
+    }
+
+
+def test_backup_without_configuration_files_still_backs_up_and_says_so(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, tmp_path: Path
+) -> None:
+    hashes = _seed_lake(lake, 1)
+
+    summary = run_backup(lake, str(remote), config_root=tmp_path / "missing")
+
+    assert _hashes(remote / "raw") == hashes
+    assert "no configuration files found" in summary
+    assert not (remote / "config").exists()
+    assert all(not argv[-1].endswith("config/latest") for argv in fake_rclone.calls())
+
+
+def test_config_sync_failure_fails_the_backup_after_metadata(
+    fake_rclone: FakeRclone,
+    lake: LakePaths,
+    remote: Path,
+    team_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 1)
+    monkeypatch.setenv("FAKE_RCLONE_FAIL_ON", "config/latest")
+
+    with pytest.raises(BackupError, match="fake failure"):
+        run_backup(lake, str(remote), config_root=team_config)
+
+    assert (remote / "meta" / "latest" / "flashpoint.sqlite").is_file()
+
+
+def test_watch_backup_cut_short_still_backs_up_configuration(
+    fake_rclone: FakeRclone,
+    lake: LakePaths,
+    remote: Path,
+    team_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 1)
+    monkeypatch.setenv("FAKE_RCLONE_DURATION_EXCEEDED", "1")
+    schedule, tracker = _schedule(lake, remote, config_root=team_config)
+
+    schedule(_changed())
+
+    assert _texts(remote / "config" / "latest") == CONFIG_FILES
+    assert tracker.backup["pending"] is True  # raw is still owed
+    config_sync = fake_rclone.calls()[-1]
+    assert _value(config_sync, "--max-duration") == "4m"
+
+
+def test_backup_command_backs_up_the_config_root_and_records_its_hash(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _seed_lake(lake, 1)
+    _write_files(config_dir, {k: v for k, v in CONFIG_FILES.items() if k != "acquire.toml"})
+    _write_config(config_dir, remote)
+
+    assert main(["backup", "--lake", str(lake.root)]) == 0
+
+    assert "configuration" in capsys.readouterr().out
+    assert _texts(remote / "config" / "latest") == _texts(config_dir)
+    status = json.loads(lake.status.read_text())
+    assert status["backup"]["config_sha"] == config_hash(config_dir)
+
+
+def test_config_change_alone_makes_a_backup_due(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    _seed_lake(lake, 1)
+    clock = Clock()
+    schedule, tracker = _schedule(lake, remote, clock, config_root=team_config)
+    schedule(_changed())
+    assert tracker.backup["config_sha"] == config_hash(team_config)
+    first = len(fake_rclone.calls())
+
+    clock.now = T0 + timedelta(minutes=20)
+    schedule(CycleResult(started=clock.now.isoformat()))  # quiet day, config unchanged
+    assert len(fake_rclone.calls()) == first
+
+    (team_config / "robots" / "2026-comp.toml").write_text('robot = "saved"\n', encoding="utf-8")
+    clock.now = T0 + timedelta(minutes=21)
+    schedule(CycleResult(started=clock.now.isoformat()))  # no new logs, a robot saved
+
+    assert len(fake_rclone.calls()) == 2 * first
+    latest = remote / "config" / "latest" / "robots" / "2026-comp.toml"
+    assert latest.read_text(encoding="utf-8") == 'robot = "saved"\n'
+    assert tracker.backup["config_sha"] == config_hash(team_config)
+    assert tracker.backup["pending"] is False
+
+
+def test_config_change_waits_for_the_interval(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    _seed_lake(lake, 1)
+    clock = Clock()
+    schedule, tracker = _schedule(lake, remote, clock, config_root=team_config)
+    schedule(_changed())
+    first = len(fake_rclone.calls())
+
+    (team_config / "acquire.toml").write_text("[backup]\n# edited\n", encoding="utf-8")
+    clock.now = T0 + timedelta(minutes=5)
+    schedule(CycleResult(started=clock.now.isoformat()))
+
+    assert len(fake_rclone.calls()) == first
+    assert tracker.backup["pending"] is True
+
+
+def test_config_hash_survives_a_watch_restart(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    _seed_lake(lake, 1)
+    clock = Clock()
+    schedule, tracker = _schedule(lake, remote, clock, config_root=team_config)
+    schedule(_changed())
+    tracker.record(CycleResult(started=T0.isoformat()))
+    tracker.write()
+    first = len(fake_rclone.calls())
+
+    schedule, tracker = _schedule(lake, remote, clock, config_root=team_config)
+    clock.now = T0 + timedelta(hours=1)
+    schedule(CycleResult(started=clock.now.isoformat()))
+
+    assert len(fake_rclone.calls()) == first  # same config, nothing new: no backup
+
+
+def test_status_without_a_config_hash_owes_a_backup(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    _seed_lake(lake, 1)
+    schedule, tracker = _schedule(lake, remote, config_root=team_config)
+    tracker.backup = {"last_time": "2026-10-01T00:00:00+00:00", "result": "ok", "pending": False}
+
+    schedule(CycleResult(started=T0.isoformat()))  # status from before configuration backup
+
+    assert _texts(remote / "config" / "latest") == CONFIG_FILES
+    assert tracker.backup["config_sha"] == config_hash(team_config)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
+def test_unreadable_config_folder_is_a_backup_error_and_the_cycle_goes_on(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        pytest.skip("root reads everything")
+    _seed_lake(lake, 1)
+    robots = team_config / "robots"
+    robots.chmod(0)
+    try:
+        schedule, tracker = _schedule(lake, remote, config_root=team_config)
+        schedule(_changed())  # never raises
+    finally:
+        robots.chmod(0o755)
+
+    assert tracker.backup["result"].startswith("error")
+    assert tracker.backup["pending"] is True
+    assert (remote / "meta" / "latest" / "flashpoint.sqlite").is_file()
+
+
+def _backed_up(lake: LakePaths, remote: Path, team_config: Path) -> None:
+    _seed_lake(lake, 2)
+    run_backup(lake, str(remote), config_root=team_config)
+
+
+def test_restore_copies_configuration_into_an_empty_root(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path, tmp_path: Path
+) -> None:
+    _backed_up(lake, remote, team_config)
+    (remote / "config" / "latest" / "notes.txt").write_text("not config\n")  # left on the remote
+    for root in (tmp_path / "new-root", tmp_path / "empty-root"):
+        if root.name == "empty-root":
+            root.mkdir()
+        target = LakePaths(tmp_path / f"lake-{root.name}")
+
+        result = restore(target, str(remote), config_root=root)
+
+        assert _texts(root) == CONFIG_FILES
+        assert result.config == "restored"
+        assert result.config_path == root
+        assert not (target.root / "restored-config").exists()
+        assert not (target.tmp / "restore-config").exists()
+
+
+def test_restore_keeps_existing_configuration_and_puts_the_copy_beside_the_lake(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    team_config: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _backed_up(lake, remote, team_config)
+    _write_config(config_dir, remote)
+    _write_files(config_dir, {"robots/mine.toml": "mine\n"})
+    before = _texts(config_dir)
+    restored = LakePaths(tmp_path / "restored")
+
+    assert main(["restore", "--lake", str(restored.root)]) == 0
+
+    assert _texts(config_dir) == before
+    copy = restored.root / "restored-config"
+    assert _texts(copy) == CONFIG_FILES
+    assert str(copy) in capsys.readouterr().out
+
+
+def test_forced_restore_still_keeps_configuration(
+    fake_rclone: FakeRclone, config_dir: Path, lake: LakePaths, remote: Path, team_config: Path
+) -> None:
+    _backed_up(lake, remote, team_config)
+    _write_config(config_dir, remote)
+    _write_files(config_dir, {"robots/2026-comp.toml": "local edit\n"})
+    before = _texts(config_dir)
+
+    assert main(["restore", "--force", "--lake", str(lake.root)]) == 0
+
+    assert _texts(config_dir) == before
+    assert _texts(lake.root / "restored-config") == CONFIG_FILES
+
+
+def test_restore_from_a_backup_without_configuration(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    hashes = _seed_lake(lake, 2)
+    run_backup(lake, str(remote))  # made before configuration was backed up
+    root = tmp_path / "scratch-config"
+    restored = LakePaths(tmp_path / "restored")
+
+    result = restore(restored, str(remote), config_root=root)
+
+    assert result.config == "none" and result.files == 2
+    assert _hashes(restored.raw) == hashes
+    assert not root.exists()
+    assert not (restored.root / "restored-config").exists()
+    _write_config(config_dir, remote)
+    other = LakePaths(tmp_path / "other")
+    assert main(["restore", "--lake", str(other.root)]) == 0
+    assert "no configuration" in capsys.readouterr().out
+
+
+def test_second_restore_replaces_the_restored_config_copy(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path, team_config: Path, tmp_path: Path
+) -> None:
+    _backed_up(lake, remote, team_config)
+    root = tmp_path / "root"
+    _write_files(root, {"acquire.toml": "local\n"})
+    target = LakePaths(tmp_path / "target")
+    restore(target, str(remote), config_root=root)
+    (target.root / "restored-config" / "stale.toml").write_text("stale\n")
+    (team_config / "units" / "units-seed.csv").unlink()
+    run_backup(lake, str(remote), config_root=team_config)
+
+    result = restore(target, str(remote), force=True, config_root=root)
+
+    assert result.config == "kept"
+    expected = {k: v for k, v in CONFIG_FILES.items() if k != "units/units-seed.csv"}
+    assert _texts(target.root / "restored-config") == expected
+    assert _texts(root) == {"acquire.toml": "local\n"}
+
+
+# --- last successful backup (spec: backup-status) ----------------------------------------------
+
+
+def test_watch_success_records_last_ok_and_a_failure_keeps_it(
+    fake_rclone: FakeRclone,
+    lake: LakePaths,
+    remote: Path,
+    team_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 1)
+    clock = Clock()
+    schedule, tracker = _schedule(lake, remote, clock, config_root=team_config)
+    schedule(_changed())
+    assert tracker.backup["last_ok"] == T0.isoformat()
+    sha = tracker.backup["config_sha"]
+
+    monkeypatch.setenv("FAKE_RCLONE_FAIL", "1")
+    (team_config / "acquire.toml").write_text("[backup]\n# edited\n", encoding="utf-8")
+    clock.now = T0 + timedelta(hours=1)
+    schedule(_changed())
+
+    assert tracker.backup["result"].startswith("error")
+    assert tracker.backup["last_time"] == clock.now.isoformat()
+    assert tracker.backup["last_ok"] == T0.isoformat()  # the last success is kept
+    assert tracker.backup["config_sha"] == sha
+
+
+def test_backup_command_failure_keeps_the_last_success(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 1)
+    _write_config(config_dir, remote)
+    assert main(["backup", "--lake", str(lake.root)]) == 0
+    first = json.loads(lake.status.read_text())["backup"]
+    assert first["last_ok"] == first["last_time"]
+    assert first["config_sha"] == config_hash(config_dir)
+
+    monkeypatch.setenv("FAKE_RCLONE_FAIL", "1")
+    assert main(["backup", "--lake", str(lake.root)]) == 1
+
+    failed = json.loads(lake.status.read_text())["backup"]
+    assert failed["result"].startswith("error")
+    assert (failed["last_ok"], failed["config_sha"]) == (first["last_ok"], first["config_sha"])
+
+
+def test_old_status_without_last_ok_reads_an_ok_attempt_as_the_last_success(
+    lake: LakePaths,
+) -> None:
+    lake.meta.mkdir(parents=True)
+    for result, expected in (("ok: backed up", "2026-10-01T00:00:00+00:00"), ("error: x", None)):
+        status = {"version": 1, "backup": {
+            "last_time": "2026-10-01T00:00:00+00:00", "result": result, "pending": False,
+        }}  # fmt: skip
+        lake.status.write_text(json.dumps(status), encoding="utf-8")
+        assert StatusTracker(lake.status).backup["last_ok"] == expected
+
+
+def test_last_ok_survives_a_watch_restart(
+    fake_rclone: FakeRclone, lake: LakePaths, remote: Path
+) -> None:
+    _seed_lake(lake, 1)
+    schedule, tracker = _schedule(lake, remote)
+    schedule(_changed())
+    tracker.record(CycleResult(started=T0.isoformat()))
+    tracker.write()
+
+    assert StatusTracker(lake.status).backup["last_ok"] == T0.isoformat()
+
+
+def test_restore_records_the_restored_backup_as_the_last_success(
+    fake_rclone: FakeRclone,
+    config_dir: Path,
+    lake: LakePaths,
+    remote: Path,
+    team_config: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lake(lake, 2)
+    tracker = StatusTracker(lake.status)
+    tracker.record(CycleResult(started=T0.isoformat(), derive_pending=True))
+    tracker.write()
+    run_backup(lake, str(remote), config_root=team_config)
+    for name, existing in (("empty", {}), ("kept", {"robots/mine.toml": "mine\n"})):
+        root = tmp_path / f"config-{name}"
+        root.mkdir()
+        _write_files(root, existing)
+        monkeypatch.setenv("FLASHPOINT_CONFIG", str(root))
+        restored = LakePaths(tmp_path / f"restored-{name}")
+        before = datetime.now(UTC)
+
+        assert main(["restore", "--remote", str(remote), "--lake", str(restored.root)]) == 0
+
+        status = json.loads(restored.status.read_text())
+        backup = status["backup"]
+        assert datetime.fromisoformat(backup["last_ok"]) >= before.replace(microsecond=0)
+        assert backup["config_sha"] == config_hash(root)  # what is in the root now
+        assert backup["pending"] is False
+        assert "derive" not in status or not status["derive"].get("pending")

@@ -20,15 +20,23 @@ Every rclone call is bounded (connect and I/O timeouts, one retry), and the watc
 stops after `--max-duration 4m` so the cycle never waits long on a slow link. The raw copy is
 incremental: what did not fit resumes at the next backup, and the backup stays owed.
 
+The team's configuration files (spec: config-backup) go up the same way, as a snapshot synced to
+`<remote>/config/latest` with history under `<remote>/config/history/<UTC time>/`. Only files
+on an allow-list are copied (`CONFIG_PATTERNS`), never the service's `env` file or hidden files.
+Restore copies them into an empty configuration folder, and otherwise beside the lake in
+`restored-config/`: configuration that is already there is never overwritten.
+
 Bronze, silver and gold are not backed up: they rebuild from raw. Flashpoint never reads rclone
 credentials; the remote is a name from the user's rclone configuration plus a path.
 """
 
+import hashlib
 import logging
 import shutil
 import sqlite3
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -50,9 +58,17 @@ RCLONE_LIMITS = (
 )  # fmt: skip
 WATCH_MAX_DURATION = "4m"  # the watch's backup runs inside the acquisition cycle
 EXIT_DURATION_EXCEEDED = 10  # rclone's exit code when --max-duration stopped it
+EXIT_DIRECTORY_NOT_FOUND = 3  # rclone's exit code for a missing source folder
 HISTORY_DIR = "meta/history"
 SNAPSHOT_DIR = "meta-snapshot"
 RESTORE_DIR = "restore-meta"
+CONFIG_LATEST = "config/latest"
+CONFIG_HISTORY_DIR = "config/history"
+CONFIG_SNAPSHOT_DIR = "config-snapshot"
+CONFIG_RESTORE_DIR = "restore-config"
+RESTORED_CONFIG_DIR = "restored-config"  # beside the lake's layers, when the root has files
+# Configuration files: folder under the root -> file suffix. Nothing else is backed up.
+CONFIG_FOLDERS = {"": ".toml", "seasons": ".toml", "robots": ".toml", "units": ".csv"}
 PART_PATTERN = "*.part"
 ERROR_CHARS = 1000
 _SQLITE_SIDECARS = ("-wal", "-shm", "-journal")
@@ -64,6 +80,19 @@ class BackupError(RuntimeError):
 
 class RestoreRefusedError(BackupError):
     """The target lake already has a ledger and `force` was not given."""
+
+
+@dataclass(frozen=True)
+class RestoreResult:
+    """What `restore` brought back: files in the ledger, and where the configuration went.
+
+    `config` is "restored" (into the empty configuration root), "kept" (the root already had
+    configuration; the copy is at `config_path`, beside the lake), "none" (the backup held no
+    configuration) or "skipped" (no configuration root was given)."""
+
+    files: int
+    config: str = "skipped"
+    config_path: Path | None = None
 
 
 def remote_path(remote: str, sub: str) -> str:
@@ -83,6 +112,46 @@ def _rclone(args: list[str], stop: threading.Event, *, allowed: tuple[int, ...] 
     if code is None or (code != 0 and code not in allowed):
         raise BackupError(f"rclone {args[0]} exited {code}: {output.strip()[-ERROR_CHARS:]}")
     return code
+
+
+def config_files(root: Path) -> list[str]:
+    """The configuration files under `root` (relative POSIX paths, sorted); [] if it's missing.
+
+    An unreadable folder raises `OSError` rather than being skipped: a backup that silently
+    left out `robots/` would remove the robots from the remote's latest copy."""
+    names: list[str] = []
+    for folder, suffix in CONFIG_FOLDERS.items():
+        directory = root / folder
+        if not directory.is_dir():
+            continue
+        names += [
+            path.relative_to(root).as_posix()
+            for path in directory.iterdir()
+            if path.suffix == suffix and not path.name.startswith(".") and path.is_file()
+        ]
+    return sorted(names)
+
+
+def config_hash(root: Path) -> str:
+    """SHA-256 over the configuration files' names and contents, in name order."""
+    digest = hashlib.sha256()
+    for name in config_files(root):
+        data = (root / name).read_bytes()
+        digest.update(f"{name}\0{len(data)}\0".encode())
+        digest.update(data)
+    return digest.hexdigest()
+
+
+def snapshot_config(root: Path, target: Path) -> list[str]:
+    """Copy the configuration files under `root` into a fresh `target`; their names."""
+    shutil.rmtree(target, ignore_errors=True)
+    target.mkdir(parents=True)
+    names = config_files(root)
+    for name in names:
+        destination = target / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(root / name, destination)
+    return names
 
 
 def snapshot_meta(lake: LakePaths) -> Path:
@@ -119,14 +188,18 @@ def run_backup(
     stop: threading.Event | None = None,
     max_duration: str | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    config_root: Path | None = None,
 ) -> str:
-    """Copy raw (append-only) and a metadata snapshot to `remote`; a one-line summary.
+    """Copy raw (append-only), a metadata snapshot and, given `config_root`, the configuration
+    files to `remote`; a one-line summary.
 
     With `max_duration`, each rclone call stops after it. A raw copy cut short still backs up
-    the metadata, then raises `BackupError` (the rest of raw goes up next time).
+    the metadata and configuration, then raises `BackupError` (the rest of raw goes up next
+    time). Configuration goes last, so a failure there never costs a log backup.
     """
     stop = stop or threading.Event()
     limit = ["--max-duration", max_duration] if max_duration else []
+    stamp = now().strftime("%Y%m%dT%H%M%SZ")
     snapshot = snapshot_meta(lake)
     raw_done = True
     if lake.raw.is_dir():
@@ -138,24 +211,41 @@ def run_backup(
             allowed=(EXIT_DURATION_EXCEEDED,) if max_duration else (),
         )
         raw_done = code == 0
-    history = remote_path(remote, f"{HISTORY_DIR}/{now().strftime('%Y%m%dT%H%M%SZ')}")
+    history = remote_path(remote, f"{HISTORY_DIR}/{stamp}")
     meta_args = ["sync", "--backup-dir", history, *limit]
     _rclone([*meta_args, str(snapshot), remote_path(remote, "meta/latest")], stop)
+    backed_up, note = "raw and metadata", ""
+    if config_root is not None:
+        config_snapshot = lake.tmp / CONFIG_SNAPSHOT_DIR
+        if snapshot_config(config_root, config_snapshot):
+            config_history = remote_path(remote, f"{CONFIG_HISTORY_DIR}/{stamp}")
+            config_args = ["sync", "--backup-dir", config_history, *limit]
+            _rclone([*config_args, str(config_snapshot), remote_path(remote, CONFIG_LATEST)], stop)
+            backed_up = "raw, metadata and configuration"
+        else:  # an empty sync would empty the remote's latest copy: leave it as it is
+            note = f"; no configuration files found in {config_root}"
     if not raw_done:
         raise BackupError(
             f"raw backup stopped after {max_duration} (metadata is backed up); the rest of raw"
             " goes up at the next backup"
         )
-    return f"backed up raw and metadata to {remote}"
+    return f"backed up {backed_up} to {remote}{note}"
 
 
 def restore(
-    lake: LakePaths, remote: str, *, force: bool = False, stop: threading.Event | None = None
-) -> int:
-    """Copy raw and the latest metadata snapshot from `remote` into `lake`; files in the ledger.
+    lake: LakePaths,
+    remote: str,
+    *,
+    force: bool = False,
+    stop: threading.Event | None = None,
+    config_root: Path | None = None,
+) -> RestoreResult:
+    """Copy raw and the latest metadata snapshot from `remote` into `lake`, and, given
+    `config_root`, the backed-up configuration (`restore_config`).
 
     Every file's pipeline version is cleared, so `flashpoint rebuild` reprocesses all of raw
-    into bronze and derives silver and gold again.
+    into bronze and derives silver and gold again. `force` replaces the lake's ledger; it never
+    lets configuration be overwritten.
     """
     if lake.ledger.exists() and not force:
         raise RestoreRefusedError(
@@ -182,18 +272,226 @@ def restore(
     ledger = Ledger(lake.ledger)
     try:
         ledger.execute("UPDATE files SET pipeline_version = NULL")
-        return len(ledger.files())
+        files = len(ledger.files())
     finally:
         ledger.close()
+    if config_root is None:
+        return RestoreResult(files)
+    config, config_path = restore_config(lake, remote, config_root, stop)
+    return RestoreResult(files, config, config_path)
+
+
+def restore_config(
+    lake: LakePaths, remote: str, config_root: Path, stop: threading.Event
+) -> tuple[str, Path | None]:
+    """Bring the backed-up configuration files back without overwriting any.
+
+    Into `config_root` when it holds no configuration files, otherwise into
+    `<lake>/restored-config/` (replaced each time); see `RestoreResult.config`.
+    """
+    staging = lake.tmp / CONFIG_RESTORE_DIR
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    try:
+        code = _rclone(
+            ["copy", remote_path(remote, CONFIG_LATEST), str(staging)],
+            stop,
+            allowed=(EXIT_DIRECTORY_NOT_FOUND,),  # a backup from before configuration was in it
+        )
+        names = [] if code == EXIT_DIRECTORY_NOT_FOUND else config_files(staging)
+        if not names:
+            return "none", None
+        if config_files(config_root):
+            target, outcome = lake.root / RESTORED_CONFIG_DIR, "kept"
+            shutil.rmtree(target, ignore_errors=True)
+        else:
+            target, outcome = config_root, "restored"
+        for name in names:
+            destination = target / name
+            if destination.exists():  # never overwrite, whatever the folder holds
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            (staging / name).replace(destination)
+        return outcome, target
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def ok_slot(when: str, summary: str, config_sha: str | None) -> dict[str, Any]:
+    """The status's backup slot after a successful backup at `when`."""
+    return {
+        "last_time": when, "result": f"ok: {summary}", "pending": False,
+        "last_ok": when, "config_sha": config_sha,
+    }  # fmt: skip
+
+
+def failed_slot(previous: dict[str, Any], when: str, exc: BaseException) -> dict[str, Any]:
+    """The backup slot after a failed attempt: the last success and its hash are kept."""
+    return {
+        "last_time": when, "result": f"error: {exc}", "pending": True,
+        "last_ok": last_ok(previous), "config_sha": previous.get("config_sha"),
+    }  # fmt: skip
+
+
+def last_ok(backup: dict[str, Any]) -> str | None:
+    """When the last successful backup ran; a slot from before `last_ok` was recorded uses its
+    last attempt when that succeeded."""
+    if backup.get("last_ok"):
+        return str(backup["last_ok"])
+    if str(backup.get("result") or "").startswith("ok") and backup.get("last_time"):
+        return str(backup["last_time"])
+    return None
+
+
+STATUS_READ_TIMEOUT_S = 1.0  # the badge reads this on every navigation: never wait long
+ERROR_SHOWN_CHARS = 200
+
+
+@dataclass(frozen=True)
+class BackupStatus:
+    """Whether logs or configuration are waiting for a backup, and for how long (spec:
+    backup-status). `level` is the setup check's: ok, warning or problem."""
+
+    level: str
+    message: str
+    configured: bool
+    logs_waiting: int = 0
+    config_waiting: bool = False
+    waiting_since: datetime | None = None
+    overdue: bool = False
+    last_ok: datetime | None = None
+    last_error: str | None = None
+
+
+def _parse_time(value: Any) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _ago(delta: timedelta) -> str:
+    hours = max(delta, timedelta(0)).total_seconds() / 3600
+    if hours < 1:
+        return f"{int(hours * 60)} min"
+    if hours < 48:
+        return f"{int(hours)} h"
+    return f"{int(hours // 24)} days"
+
+
+def _count(logs: int) -> str:
+    return f"{logs} log" if logs == 1 else f"{logs} logs"
+
+
+def _short_error(result: str) -> str:
+    text = result.removeprefix("error:").strip()
+    lines = [line for line in text.splitlines() if line.strip()]
+    last = lines[-1].strip() if lines else text
+    return last[-ERROR_SHOWN_CHARS:]
+
+
+def _ledger_logs(
+    lake: LakePaths, after: datetime | None
+) -> tuple[int, datetime | None, int, datetime | None]:
+    """(logs in the lake, the first received, logs received after `after`, the oldest of
+    those); read-only."""
+    if not lake.ledger.is_file():
+        return 0, None, 0, None
+    db = sqlite3.connect(
+        f"{lake.ledger.resolve().as_uri()}?mode=ro", uri=True, timeout=STATUS_READ_TIMEOUT_S
+    )
+    try:
+        rows = db.execute("SELECT first_seen FROM files").fetchall()
+    finally:
+        db.close()
+    seen = [t for (value,) in rows if (t := _parse_time(value)) is not None]
+    waiting = [t for t in seen if after is None or t > after]
+    return len(rows), min(seen, default=None), len(waiting), min(waiting, default=None)
+
+
+def _config_waiting(
+    root: Path | None, slot: dict[str, Any], after: datetime | None
+) -> tuple[bool, datetime | None]:
+    """Whether the configuration differs from the last backup's, and since when."""
+    if root is None:
+        return False, None
+    names = config_files(root)
+    if not names and slot.get("config_sha") is None:
+        return False, None
+    if config_hash(root) == slot.get("config_sha"):
+        return False, None
+    mtimes = [datetime.fromtimestamp((root / n).stat().st_mtime, UTC) for n in names]
+    newer = [t for t in mtimes if after is None or t > after]
+    return True, min(newer, default=after)
+
+
+def backup_status(
+    lake: LakePaths, config_root: Path | None, settings: BackupConfig, now: datetime
+) -> BackupStatus:
+    """Read the ledger, the configuration and the status's backup slot; never the remote."""
+    from flashpoint.acquire.watch import STATUS_VERSION, read_status
+
+    status = read_status(lake.status) or {}
+    slot = status.get("backup") if status.get("version") == STATUS_VERSION else None
+    slot = slot if isinstance(slot, dict) else {}
+    ok_at = _parse_time(last_ok(slot)) if last_ok(slot) else None
+    result = str(slot.get("result") or "")
+    error = _short_error(result) if result.startswith("error") else None
+    configured = bool(settings.remote)
+    try:
+        total, first_log, logs, oldest_log = _ledger_logs(lake, ok_at)
+        config_changed, config_since = _config_waiting(config_root, slot, ok_at)
+    except (sqlite3.Error, OSError) as exc:
+        return BackupStatus("warning", f"can't read the lake's records: {exc}", configured)
+    if total == 0:
+        return BackupStatus("ok", "nothing to back up yet", configured)
+    if not configured:
+        return BackupStatus(
+            "warning",
+            f"backup isn't configured: {total} logs and the configuration exist only on this"
+            " machine",
+            configured,
+        )
+    if config_changed and config_since and first_log:
+        # No backup can run before the lake holds a log, so configuration waits from then.
+        config_since = max(config_since, first_log)
+    starts = [t for t in (oldest_log, config_since if config_changed else None) if t]
+    since = min(starts, default=None)
+    waited = max(now - since, timedelta(0)) if since else timedelta(0)
+    overdue = since is not None and waited >= timedelta(hours=settings.overdue_h)
+    what = " and ".join(
+        part
+        for part in (
+            _count(logs) if logs else "",
+            "configuration changes" if config_changed else "",
+        )
+        if part
+    )
+    last = f"last backup {_ago(now - ok_at)} ago" if ok_at else "never backed up"
+    found = BackupStatus(
+        "ok", "", configured, logs_waiting=logs, config_waiting=config_changed,
+        waiting_since=since, overdue=overdue, last_ok=ok_at, last_error=error,
+    )  # fmt: skip
+    failed = f"; last attempt failed: {error}" if error else ""
+    if overdue:
+        message = f"{what} not backed up for {_ago(waited)} ({last}){failed}"
+        return replace(found, level="problem", message=message)
+    waiting = f"; {what} waiting" if what else ""
+    if error:
+        return replace(found, level="warning", message=f"{last}{waiting}{failed}")
+    return replace(found, message=f"{last}{waiting}")
 
 
 class BackupSchedule:
     """The watch's backup step (`run_cycle(backup=...)`).
 
-    A cycle that changed raw or the ledger makes a backup owed; an owed backup runs once
-    `interval_min` has passed since the last attempt. The outcome and whether one is still owed
-    live in the status file's backup slot, so both survive a restart. A failure is recorded
-    there and retried after the interval; it never stops the cycle.
+    A cycle that changed raw or the ledger makes a backup owed, and so does configuration that
+    differs from the last successful backup's (`config_sha`, given a `config_root`); an owed
+    backup runs once `interval_min` has passed since the last attempt. The outcome, whether one
+    is still owed and the configuration hash live in the status file's backup slot, so they
+    survive a restart. A failure is recorded there and retried after the interval; it never
+    stops the cycle.
     """
 
     def __init__(
@@ -204,8 +502,10 @@ class BackupSchedule:
         stop: threading.Event,
         *,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        config_root: Path | None = None,
     ) -> None:
         self.settings = settings
+        self.config_root = config_root
         self.lake = lake
         self.tracker = tracker
         self.stop = stop
@@ -220,7 +520,14 @@ class BackupSchedule:
                 self._said_unconfigured = True
             return
         state: dict[str, Any] = dict(self.tracker.backup)
-        pending = bool(state.get("pending")) or result.raw_changed or result.ledger_changed
+        config_sha = self._config_sha()
+        config_changed = self.config_root is not None and config_sha != state.get("config_sha")
+        pending = (
+            bool(state.get("pending"))
+            or result.raw_changed
+            or result.ledger_changed
+            or config_changed
+        )
         state["pending"] = pending
         self.tracker.backup = state
         now = self.now()
@@ -228,15 +535,29 @@ class BackupSchedule:
             return
         try:
             summary = run_backup(
-                self.lake, remote, stop=self.stop, max_duration=WATCH_MAX_DURATION, now=self.now
+                self.lake,
+                remote,
+                stop=self.stop,
+                max_duration=WATCH_MAX_DURATION,
+                now=self.now,
+                config_root=self.config_root,
             )
         except (BackupError, OSError, sqlite3.Error) as exc:
             log.warning("backup failed: %s", exc)
-            outcome, pending = f"error: {exc}", True
+            self.tracker.backup = failed_slot(state, now.isoformat(), exc)
         else:
             log.info("%s", summary)
-            outcome, pending = f"ok: {summary}", False
-        self.tracker.backup = {"last_time": now.isoformat(), "result": outcome, "pending": pending}
+            self.tracker.backup = ok_slot(now.isoformat(), summary, config_sha)
+
+    def _config_sha(self) -> str | None:
+        """The configuration's hash now; None without a root or when it can't be read (the
+        backup then runs and records the error)."""
+        if self.config_root is None:
+            return None
+        try:
+            return config_hash(self.config_root)
+        except OSError:
+            return None
 
     def _due(self, last_time: Any, now: datetime) -> bool:
         try:

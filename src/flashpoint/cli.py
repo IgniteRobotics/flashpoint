@@ -14,7 +14,15 @@ from typing import TYPE_CHECKING, Any
 
 import flashpoint
 from flashpoint import config
-from flashpoint.acquire.backup import BackupError, RestoreRefusedError, restore, run_backup
+from flashpoint.acquire.backup import (
+    BackupError,
+    RestoreRefusedError,
+    config_hash,
+    failed_slot,
+    ok_slot,
+    restore,
+    run_backup,
+)
 from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
 from flashpoint.acquire.watch import (
     EXIT_LOCKED,
@@ -425,6 +433,7 @@ def _acquire(lake: LakePaths, args: argparse.Namespace) -> int:
         watch=args.watch,
         include_active=args.include_active,
         dry_run=args.dry_run,
+        config_root=config.config_root(),
     )
 
 
@@ -450,15 +459,16 @@ def _backup(lake: LakePaths) -> int:
     try:
         with AcquireLock(lake.meta / LOCK_FILE):
             started = datetime.now(UTC).isoformat()
+            root = config.config_root()
+            previous = (read_status(lake.status) or {}).get("backup") or {}
             try:
-                summary = run_backup(lake, remote)
+                config_sha = config_hash(root)  # before the copy: an edit during it shows later
+                summary = run_backup(lake, remote, config_root=root)
             except (BackupError, OSError, sqlite3.Error) as exc:
-                _record_backup(lake, {"last_time": started, "result": f"error: {exc}",
-                                      "pending": True})  # fmt: skip
+                _record_backup(lake, failed_slot(previous, started, exc))
                 print(f"backup failed: {exc}", file=sys.stderr)
                 return EXIT_FAILED
-            _record_backup(lake, {"last_time": started, "result": f"ok: {summary}",
-                                  "pending": False})  # fmt: skip
+            _record_backup(lake, ok_slot(started, summary, config_sha))
             print(summary)
     except LockHeldError as exc:
         print(f"{exc}; a running watch backs up on its own", file=sys.stderr)
@@ -491,7 +501,7 @@ def _restore(lake: LakePaths, remote: str | None, force: bool) -> int:
         return EXIT_FAILED
     try:
         with AcquireLock(lake.meta / LOCK_FILE):
-            count = restore(lake, remote, force=force)
+            result = restore(lake, remote, force=force, config_root=config.config_root())
     except LockHeldError as exc:
         print(exc, file=sys.stderr)
         return EXIT_LOCKED
@@ -501,7 +511,22 @@ def _restore(lake: LakePaths, remote: str | None, force: bool) -> int:
     except (BackupError, OSError, sqlite3.Error) as exc:
         print(f"restore failed: {exc}", file=sys.stderr)
         return EXIT_FAILED
-    print(f"restored {count} file(s) from {remote}; bronze, silver and gold must be rebuilt")
+    # Everything restored is on the remote: the restored lake starts backed up (backup-status).
+    restored_at = datetime.now(UTC).isoformat(timespec="seconds")
+    try:
+        sha = config_hash(config.config_root())
+    except OSError:
+        sha = None
+    _record_backup(lake, ok_slot(restored_at, f"restored from {remote}", sha))
+    print(f"restored {result.files} file(s) from {remote};"
+          " bronze, silver and gold must be rebuilt")  # fmt: skip
+    if result.config == "restored":
+        print(f"restored the configuration into {result.config_path}")
+    elif result.config == "kept":
+        print(f"kept the configuration in {config.config_root()};"
+              f" the backed-up copy is in {result.config_path}")  # fmt: skip
+    else:
+        print("the backup held no configuration")
     print("run: flashpoint rebuild")
     return 0
 

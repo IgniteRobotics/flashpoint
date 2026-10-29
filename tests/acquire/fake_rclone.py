@@ -3,11 +3,13 @@
 Run as `python fake_rclone.py <command> [flags] <src> <dst>`; the `rclone` (POSIX) or
 `rclone.cmd` (Windows) wrapper that the `fake_rclone` fixture puts on PATH does that. Each call
 appends `{"argv": [...]}` as a JSON line to `$FAKE_RCLONE_LOG`. `$FAKE_RCLONE_FAIL` makes every
-call exit 1; `$FAKE_RCLONE_DURATION_EXCEEDED` makes a `copy` given `--max-duration` copy nothing
-and exit 10, as rclone does when the limit stops it. Supported: `copy [--immutable]
-[--exclude GLOB] SRC DST` (never deletes; with `--immutable` a differing destination file is an
-error, as in rclone) and `sync [--backup-dir DIR] SRC DST` (replaced and deleted files move to
-DIR). Other flags that take a value (timeouts, retries) are accepted and ignored.
+call exit 1, `$FAKE_RCLONE_FAIL_ON` only the calls with an argument containing its value.
+`$FAKE_RCLONE_DURATION_EXCEEDED` makes a `copy` given `--max-duration` copy nothing and exit
+10, as rclone does when the limit stops it. A missing source exits 3 ("directory not found"), as
+rclone does. Supported: `copy [--immutable] [--exclude GLOB] SRC DST` (never deletes; with
+`--immutable` a differing destination file is an error, as in rclone) and
+`sync [--backup-dir DIR] SRC DST` (replaced and deleted files move to DIR). Other flags that
+take a value (timeouts, retries) are accepted and ignored.
 """
 
 import fnmatch
@@ -61,7 +63,8 @@ def _copy(
 def main(argv: list[str]) -> int:
     with Path(os.environ["FAKE_RCLONE_LOG"]).open("a", encoding="utf-8") as log:
         log.write(json.dumps({"argv": argv}) + "\n")
-    if os.environ.get("FAKE_RCLONE_FAIL"):
+    fail_on = os.environ.get("FAKE_RCLONE_FAIL_ON")
+    if os.environ.get("FAKE_RCLONE_FAIL") or (fail_on and any(fail_on in a for a in argv)):
         print("ERROR : fake failure", file=sys.stderr)
         return 1
     flags, positional = set(), []

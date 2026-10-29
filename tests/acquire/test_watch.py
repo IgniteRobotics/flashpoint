@@ -320,9 +320,10 @@ def test_cli_flags_override_the_file_only_when_given(
 
     (plain, plain_kw), (flagged, flagged_kw) = seen
     assert (plain.hosts, plain.removable_media) == (["a", "b"], True)
-    assert plain_kw == {"watch": False, "include_active": False, "dry_run": False}
+    root = {"config_root": config_dir}  # the watch backs up this configuration
+    assert plain_kw == {"watch": False, "include_active": False, "dry_run": False} | root
     assert (flagged.hosts, flagged.removable_media) == (["x", "y"], False)
-    assert flagged_kw == {"watch": True, "include_active": True, "dry_run": False}
+    assert flagged_kw == {"watch": True, "include_active": True, "dry_run": False} | root
 
 
 # --- poll loop and status --------------------------------------------------------------------
@@ -558,7 +559,9 @@ def test_status_holds_sources_failed_files_derive_error_and_backup_slot(lake: La
     assert status["derive"]["pending"] is True
     assert "ValueError: bad slot" in status["derive"]["error"]
     assert status["errors"] == ["derive: exit 4"]
-    assert status["backup"] == {"last_time": None, "result": None, "pending": False}
+    assert status["backup"] == {
+        "last_time": None, "result": None, "pending": False, "last_ok": None, "config_sha": None,
+    }  # fmt: skip
     assert StatusTracker(lake.status).derive_pending  # a restarted watch still owes derive
 
 
