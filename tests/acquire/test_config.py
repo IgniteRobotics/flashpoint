@@ -17,6 +17,7 @@ removable_media = false
 [backup]
 remote = "gdrive:flashpoint"
 interval_min = 5
+overdue_h = 48
 """
 
 
@@ -32,7 +33,7 @@ def test_defaults_when_no_file(tmp_path: Path) -> None:
     assert config.settle_s == 5
     assert config.low_space_mb == 100
     assert config.removable_media is True
-    assert config.backup == BackupConfig(remote=None, interval_min=15)
+    assert config.backup == BackupConfig(remote=None, interval_min=15, overdue_h=24)
 
 
 def test_full_file_load(tmp_path: Path) -> None:
@@ -46,6 +47,13 @@ def test_full_file_load(tmp_path: Path) -> None:
     assert config.removable_media is False
     assert config.backup.remote == "gdrive:flashpoint"
     assert config.backup.interval_min == 5
+    assert config.backup.overdue_h == 48
+
+
+def test_overdue_below_one_hour_names_the_key(tmp_path: Path) -> None:
+    (tmp_path / "acquire.toml").write_text("[backup]\noverdue_h = 0\n")
+    with pytest.raises(AcquireConfigError, match="overdue_h"):
+        AcquireConfig.load(tmp_path)
 
 
 def test_partial_file_keeps_other_defaults(tmp_path: Path) -> None:

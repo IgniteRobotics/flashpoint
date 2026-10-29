@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
+from flashpoint.acquire.backup import backup_status
+from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, BackupConfig
 from flashpoint.config import config_root
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
@@ -46,6 +48,7 @@ TRIAGE_PATH = re.compile(r"^/api/anomalies/([0-9a-f]{16})/triage$")
 MAX_LAUNCH_BODY = 4096  # also the triage body limit
 MAX_SETUP_BODY = 256 * 1024  # configuration saves: a robot file is about 20 KB
 SETUP_CHECKS_PATH = "/api/setup/checks"
+BACKUP_STATUS_PATH = "/api/backup/status"
 CONFIG_PATH = "/api/config"
 SESSIONS_PATH = "/api/setup/sessions"
 DRAFT_PATH = "/api/setup/draft"
@@ -189,6 +192,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._raw(path.removeprefix("/raw/"))
             elif url.path == SETUP_CHECKS_PATH:
                 self._send_json(HTTPStatus.OK, self._checks())
+            elif url.path == BACKUP_STATUS_PATH:
+                self._send_json(HTTPStatus.OK, self._backup_status())
             elif url.path == SESSIONS_PATH:
                 self._send_json(HTTPStatus.OK, {"sessions": draft.list_sessions(self.server.lake)})
             elif url.path == DRAFT_PATH:
@@ -278,6 +283,17 @@ class Handler(BaseHTTPRequestHandler):
             "config_root": str(self.server.config_dir),
             "checks": [r.to_dict() for r in results],
         }
+
+    def _backup_status(self) -> dict[str, Any]:
+        """The backup check's level and message alone, for the Setup tab badge: it reads
+        recorded state only, so every navigation can ask (spec: backup-status)."""
+        ctx = self.server.check_context()
+        try:
+            settings = AcquireConfig.load(ctx.config_root).backup
+        except AcquireConfigError:
+            settings = BackupConfig()  # the Setup view's checks name the broken file
+        status = backup_status(ctx.lake, ctx.config_root, settings, ctx.now())
+        return {"level": status.level, "message": status.message, "overdue": status.overdue}
 
     def _fix(self, action: str | None) -> None:
         refused = {"ok": False}
