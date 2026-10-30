@@ -1,7 +1,7 @@
 ## 1. Going public
 
 - [x] 1.1 [HUMAN] Review what a public repo exposes: corpus release assets (Ignite match logs), `config/` (CAN ids, serials), issues and history. Decide whether to keep the corpus public or move it to a private repo; record the decision in design.md Risks. **Done 2026-10-22:** repo scan (gitleaks clean); corpus stays public; history rewritten without the owlet binaries and personal emails; recorded in design.md Risks
-- [ ] 1.2 [HUMAN] Claim the PyPI name `flashpoint` (fallback `flashpoint-frc`) with a 0.1.0 placeholder, and set up a PyPI trusted publisher for this repo's release workflow; verify the project page exists
+- [x] 1.2 [HUMAN] Claim the PyPI name `flashpoint` (fallback `flashpoint-frc`) with a 0.1.0 placeholder, and set up a PyPI trusted publisher for this repo's release workflow; verify the project page exists **Done 2026-10-30:** got `flashpoint` (no fallback needed); PyPI trusted publisher set (environment `pypi`); tag `v0.1.0` on main published via run 41146130802 (build + pypi green); https://pypi.org/p/flashpoint shows 0.1.0, BSD-3-Clause; `pip install flashpoint==0.1.0` in a clean venv reports 0.1.0
 - [x] 1.3 If the corpus moves, point `tools/fetch-corpus.py` and CI at its new home; verify `python tools/fetch-corpus.py` and the CI corpus job pass. **Not needed:** the corpus stayed in this repo (corpus-v1 re-published here after the history rewrite); CI corpus job green on #1, #2, #26, #28
 - [x] 1.4 [HUMAN] Make the repository public; verify an anonymous `curl` of the corpus manifest URL behaves as decided in 1.1. **Done 2026-10-22:** repo public; 2026-10-23 anonymous `curl` returned 200 for the raw manifest and 206 for all 14 corpus-v1 assets
 
