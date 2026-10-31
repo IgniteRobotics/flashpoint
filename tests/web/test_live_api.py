@@ -2,14 +2,18 @@ import contextlib
 import http.client
 import json
 import socket
+import subprocess
+import sys
 import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from urllib.request import urlopen
 
 import pytest
 
+from flashpoint.acquire.config import AcquireConfig
 from flashpoint.lake.paths import LakePaths
 from flashpoint.live.fake_robot import FakeRobot, SetDevice, SetEnabled
 from flashpoint.live.service import LiveCanService
@@ -211,3 +215,68 @@ def test_overflowed_subscriber_stream_ends(
                 stream.next()
     finally:
         stream.close()
+
+
+# --- 4.3 serve --robot-host and "No robot" ------------------------------------------------
+
+_SERVE = """
+import sys
+from flashpoint.cli import main
+sys.exit(main(sys.argv[1:]))
+"""
+
+
+def _serve_state(tmp_path: Path, *extra: str) -> dict[str, Any]:
+    process = subprocess.Popen(
+        [sys.executable, "-c", _SERVE, "serve", "--lake", str(tmp_path / "lake"), "--port", "0",
+         "--no-build", *extra],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )  # fmt: skip
+    try:
+        assert process.stdout is not None
+        url = process.stdout.readline().split()[-1]
+        with urlopen(url + "api/live/can/state") as response:  # noqa: S310 - local test server
+            return dict(json.loads(response.read()))
+    finally:
+        process.kill()
+        process.wait()
+
+
+def test_serve_robot_host_option(tmp_path: Path) -> None:
+    state = _serve_state(tmp_path, "--robot-host", "127.0.0.1", "--robot-host", "10.0.0.2")
+    assert state["hosts"] == ["127.0.0.1", "10.0.0.2"]
+    assert state["connection"] == "closed"
+
+
+def test_serve_defaults_to_the_acquire_hosts(tmp_path: Path) -> None:
+    state = _serve_state(tmp_path)
+    assert state["hosts"] == AcquireConfig.load(REPO_CONFIG).robot_hosts()
+    assert "10.68.29.2" in state["hosts"]
+
+
+def test_no_robot(tmp_path: Path) -> None:
+    lake = LakePaths(tmp_path / "lake")
+    # 192.0.2.1 (TEST-NET-1) never answers; a closed local port refuses at once.
+    live = LiveCanService(["192.0.2.1", "127.0.0.1"], port=free_port(), linger_s=0.3)
+    server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake), live=live)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    streams = [Stream(port_of(server)) for _ in range(2)]
+    try:
+        for stream in streams:
+            assert stream.until("snapshot")["connection"] == "connecting"
+        base = f"http://127.0.0.1:{port_of(server)}"
+        for _ in range(3):
+            for path in ("/", "/data/matches.js", "/api/summary", "/static/shell.js"):
+                start = time.monotonic()
+                with urlopen(base + path) as response:  # noqa: S310 - local test server
+                    assert response.status == 200
+                assert time.monotonic() - start < 0.5, path
+            time.sleep(0.3)
+        assert live.state()["connection"] == "connecting"
+    finally:
+        for stream in streams:
+            stream.close()
+        server.shutdown()
+        server.server_close()
+        server.queries.close()

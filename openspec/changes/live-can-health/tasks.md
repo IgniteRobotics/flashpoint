@@ -21,8 +21,8 @@
 
 - [x] 4.1 Write failing tests for the connection lifecycle against the fake robot: no connection until the first subscriber, one connection shared by two, closed 30 s (configurable in tests) after the last leaves, states connecting / connected / not publishing / unsupported version; implement in `flashpoint.live`; verify tests pass
 - [x] 4.2 Write failing tests for `GET /api/live/can/stream` (server-sent events: snapshot first, then events and snapshots at most 2 Hz, bounded queue with slow-subscriber disconnect) and `GET /api/live/can/state`; implement in `web/server.py`; verify tests pass, and that `POST` to these paths is refused
-- [ ] 4.3 Add `serve --robot-host`, defaulting to the `acquire` hosts; write a test that Replay and History keep responding while the robot is unreachable ("No robot"); verify `pytest tests/web tests/test_cli.py` passes
-- [ ] 4.4 Write the "Live session leaves the lake unchanged" test (hash every file under a corpus lake before and after a fake-robot run through every step); verify it passes
+- [x] 4.3 Add `serve --robot-host`, defaulting to the `acquire` hosts; write a test that Replay and History keep responding while the robot is unreachable ("No robot"); verify `pytest tests/web tests/test_cli.py` passes
+- [x] 4.4 Write the "Live session leaves the lake unchanged" test (hash every file under a corpus lake before and after a fake-robot run through every step); verify it passes
 
 ## 5. Live CAN view
 

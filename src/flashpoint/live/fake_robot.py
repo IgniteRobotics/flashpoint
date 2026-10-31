@@ -177,36 +177,45 @@ class FakeRobot:
         pub.set(value_of[type_string](value))
 
     def apply(self, step: Step) -> None:
-        with self._lock:
-            match step:
-                case SetDevice(bus=bus, device=device, values=values):
-                    for name, value in values.items():
-                        self._set(f"{bus}/{device}/{name}", value)
-                case SetBus(bus=bus, values=values):
-                    for name, value in values.items():
-                        self._set(f"{bus}/{contract.BUS_DIR}/{name}", value)
-                case SetEnabled(enabled=enabled):
-                    self._set("Enabled", enabled)
-                case SetVersion(version=version):
-                    self._set("Version", version)
-                case SetProject(project=project):
-                    self._set("Project", project)
-                case Restart():
-                    for bus, names in self.devices.items():
-                        for name in contract.BUS_TOTALS:
-                            self._set(f"{bus}/{contract.BUS_DIR}/{name}", 0)
-                        for device in names:
-                            for name in contract.DEVICE_TOTALS:
-                                self._set(f"{bus}/{device}/{name}", 0)
-                case WrongType(suffix=suffix, value=value):
-                    self._set(suffix, value, "string")
-            self._inst.flush()
+        """One step, sent as its own update."""
+        self.run([step])
 
     def run(self, steps: Sequence[Step], interval_s: float = 0.0) -> None:
-        for step in steps:
-            self.apply(step)
-            if interval_s:
+        """Steps sent together in one update, as one robot loop would; with `interval_s`, each
+        step is its own update, that far apart."""
+        if interval_s:
+            for step in steps:
+                self.run([step])
                 time.sleep(interval_s)
+            return
+        with self._lock:
+            for step in steps:
+                self._apply(step)
+            self._inst.flush()
+
+    def _apply(self, step: Step) -> None:
+        match step:
+            case SetDevice(bus=bus, device=device, values=values):
+                for name, value in values.items():
+                    self._set(f"{bus}/{device}/{name}", value)
+            case SetBus(bus=bus, values=values):
+                for name, value in values.items():
+                    self._set(f"{bus}/{contract.BUS_DIR}/{name}", value)
+            case SetEnabled(enabled=enabled):
+                self._set("Enabled", enabled)
+            case SetVersion(version=version):
+                self._set("Version", version)
+            case SetProject(project=project):
+                self._set("Project", project)
+            case Restart():
+                for bus, names in self.devices.items():
+                    for name in contract.BUS_TOTALS:
+                        self._set(f"{bus}/{contract.BUS_DIR}/{name}", 0)
+                    for device in names:
+                        for name in contract.DEVICE_TOTALS:
+                            self._set(f"{bus}/{device}/{name}", 0)
+            case WrongType(suffix=suffix, value=value):
+                self._set(suffix, value, "string")
 
 
 # --- scenarios for `python -m flashpoint.live.fake_robot` -------------------------------
