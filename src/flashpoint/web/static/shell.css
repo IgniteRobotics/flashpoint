@@ -670,3 +670,21 @@ a.download:hover { border-color: var(--amber); color: var(--amber-hi); }
 .anom-group__name { flex: 1 1 auto; font-weight: 600; color: var(--amber-hi); }
 .anom-group__count { color: var(--amber-dim); }
 .anom-group__items { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* ---------- Live CAN: buses beside the event log, stacked on narrow screens ---------- */
+.live-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--sp-6); align-items: start; }
+@media (max-width: 960px) { .live-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 960px) { .live-events { order: -1; } } /* the log is what a shake test watches */
+#live-log { max-height: 70vh; overflow-y: auto; }
+#live-log:focus-visible { outline: 1px solid var(--amber); }
+.live-event { padding: var(--sp-2) 0; border-bottom: 1px solid var(--line-soft); }
+.live-event:last-child { border-bottom: 0; }
+.live-event__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-3); }
+.live-event__tag { font-size: var(--fs-micro); letter-spacing: var(--track-label); color: var(--amber-muted); }
+.live-event__verb { color: var(--amber-dim); letter-spacing: .08em; }
+.live-event__tag.hot, .live-event__verb.hot { color: var(--hot); }
+.live-event__head .chip { margin-left: auto; }
+.live-event__body { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sp-1) var(--sp-3); margin-top: 2px; }
+.live-event__body .log__obj { flex: 1 1 auto; overflow-wrap: anywhere; }
+.mech .mech__can { white-space: nowrap; }
+

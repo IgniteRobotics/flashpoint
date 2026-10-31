@@ -46,7 +46,7 @@ The guide SHALL document every topic in this list, with its type and meaning, an
 
 #### Scenario: Robot code without the publisher
 - **WHEN** the robot is reachable but publishes nothing under `/Flashpoint/Live/CANHealth/`
-- **THEN** the view reads that the robot code is not publishing live CAN health, and links to the guide
+- **THEN** the view reads that the robot code is not publishing live CAN health, and names the guide (`docs/guide/live-can-health.md`); the app links to no remote host, so the guide is named rather than linked
 
 ### Requirement: Devices mapped to slots
 Each reported device SHALL be mapped to a slot of the robot configuration whose `project` matches the published `Project`, choosing the latest season when several match. A device's bus SHALL be matched through the configuration's bus list, which ties each robot-code bus name to a hoot bus. A reported device with no slot SHALL be shown as unmapped. A configured slot that the robot does not report SHALL be shown as missing. When no robot configuration matches the project, every device SHALL be shown unmapped and the view SHALL say which project name it could not find.

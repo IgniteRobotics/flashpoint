@@ -28,7 +28,7 @@
 
 - [ ] 5.1 Add `web/static/views/live-can.js` registered with `FP.view({ needsApi: true, ... })`: connection banner, enabled state, per-bus utilisation and error counts, device grid by slot with the seven states, totals and `MinSupplyV`; text only through `h()`; verify a browser test against the fake robot shows five devices under two buses ("Contract accepted")
 - [ ] 5.2 Add the event log (newest first, enabled/disabled tag, slot, bus-wide events naming their devices) and the mark control; verify browser tests "Marked shake test" and "Reload drops marks", and that an event appears within 1 s of the fake robot's step
-- [ ] 5.3 Add browser tests for "Unknown contract version", "Robot code without the publisher" (links to the guide) and "Static export" (no Live CAN in the navigation); verify keyboard focus reaches the mark control and the event log; verify `pytest -m browser` passes
+- [ ] 5.3 Add browser tests for "Unknown contract version", "Robot code without the publisher" (names the guide) and "Static export" (no Live CAN in the navigation); verify keyboard focus reaches the mark control and the event log; verify `pytest -m browser` passes
 
 ## 6. Robot-side guide and sample
 
