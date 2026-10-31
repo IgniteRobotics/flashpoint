@@ -129,7 +129,7 @@ To have logs pulled from the robot and USB sticks without doing this by hand, se
 flashpoint serve
 ```
 
-Open <http://127.0.0.1:8000/> in a browser. Stop the server with Ctrl-C. The app has three views.
+Open <http://127.0.0.1:8000/> in a browser. Stop the server with Ctrl-C. The app has these views.
 
 ### Replay: one match
 
@@ -189,6 +189,10 @@ The **Setup** tab shows what `flashpoint doctor` checks, and your whole configur
 - **Draft robot:** pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Give each slot an id, subsystem and role, then **SAVE ROBOT**. A log with no hoots can't be drafted from.
 
 Fixes and saves only run on the computer running `flashpoint serve`. Opened from another computer, or with `--host 0.0.0.0`, Setup is read-only and shows commands instead of buttons.
+
+### Live CAN: dropouts while you test
+
+The **Live CAN** tab reads the robot while you shake-test it (disabled, wiggling each harness) or drive-test it (enabled): which device dropped out, rebooted or faulted, and whether it was one device or the whole bus, with marks ("now wiggling: FL module") on the events that follow. It needs a small addition to robot code and records nothing. See [Live CAN health](live-can-health.md).
 
 ### Showing other people on the pit network
 

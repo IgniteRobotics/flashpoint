@@ -120,10 +120,18 @@ def _parser() -> argparse.ArgumentParser:
     lake_arg(report)
 
     serve = sub.add_parser(
-        "serve", help="serve Replay, History and Anomalies (read-only but for triage)"
+        "serve",
+        help="serve Replay, History, Anomalies, Setup and Live CAN (read-only but for triage"
+        " and setup)",
     )
     serve.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
     serve.add_argument("--port", type=int, default=8000, help="port (default 8000; 0 = any)")
+    serve.add_argument(
+        "--robot-host",
+        action="append",
+        metavar="ADDRESS",
+        help="robot address for the Live CAN view (repeatable; default: the acquire hosts)",
+    )
     serve.add_argument(
         "--no-build", action="store_true", help="skip the incremental report build on start"
     )
@@ -398,6 +406,7 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
             HistoryQueries(lake, robots, report_config, anomalies),
             launcher=advantagescope.Launcher(install, problem, root),
             anomalies=anomalies,
+            robot_hosts=args.robot_host,
         )
     except (OSError, OverflowError) as exc:
         print(f"cannot listen on {args.host}:{args.port}: {exc}", file=sys.stderr)

@@ -36,7 +36,7 @@ None. The live topics are written to the wpilog as `NT:/Flashpoint/Live/...`, wh
 ## Impact
 
 - New package `flashpoint.live`; new GET routes in `web/server.py`; new view `web/static/views/live-can.js`.
-- New dependency: `robotpy-ntcore`, pinned to the same 2026 release line as `robotpy-wpiutil`.
+- New dependency: `pyntcore` (RobotPy's ntcore, `import ntcore`), pinned to the same 2026 release line as `robotpy-wpiutil`.
 - Robot address: reuses the `acquire` host list; `flashpoint serve` gets an option to override it.
 - Docs: new guide page; `serve` option in the CLI reference.
 - Pitfalls fixed: none. Dropouts are compared by update interval, never by matching exact timestamps, so #14 and #38 are not reintroduced.

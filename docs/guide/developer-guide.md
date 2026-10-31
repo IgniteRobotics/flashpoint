@@ -50,8 +50,10 @@ Ubuntu sets up a few traps for a fresh install:
 | `src/flashpoint/report/` | Replay data and the static export |
 | `src/flashpoint/views/`, `src/flashpoint/web/` | History and Anomalies queries, the HTTP server, the browser app, the AdvantageScope launcher |
 | `src/flashpoint/acquire/` | Robot and USB pulls, the watch loop, backup and restore |
+| `src/flashpoint/live/` | Live CAN: the NetworkTables contract, the detector, the robot connection, and the fake robot (`python -m flashpoint.live.fake_robot`) |
 | `config/` | Team-edited data: robots, seasons, thresholds, failure labels |
 | `tools/` | `fetch-corpus.py`, `update-owlet-manifest.py`, `migrate-legacy-config.py` |
+| `examples/robot-java/` | Suggested robot-code samples (not built or compiled in CI) |
 | `tests/` | The test suite, mirroring `src/flashpoint/` |
 
 Conventions:

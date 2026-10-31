@@ -12,6 +12,8 @@ The first two write to the WPILib DataLog (`.wpilog`) under `/Flashpoint/`, the 
 
 These samples assume `DataLogManager.start()` runs in `robotInit()`, as most WPILib robots already do.
 
+To watch CAN dropouts live during shake and drive tests, robot code also publishes running totals over NetworkTables: see [Live CAN health](live-can-health.md).
+
 ## CAN inventory
 
 The Phoenix diagnostics server runs inside your deployed robot program (port 1250) and lists every CTRE device with its serial number, the same list Tuner X shows. The logger asks it once, a few seconds after boot, and writes one JSON string to `/Flashpoint/CANInventory`:

@@ -183,7 +183,16 @@ def test_registered_view_renders_in_the_shell(page: Any, app: str) -> None:
 def test_api_views_in_nav_only_when_served(page: Any, replay_site: dict[str, Any]) -> None:
     _open(page, replay_site["served"])
     page.wait_for_selector("[data-badge='anomalies']:not([hidden])")
-    assert page.inner_text("nav.tabs").split() == ["REPLAY", "HISTORY", "ANOMALIES", "0", "SETUP"]
+    assert page.inner_text("nav.tabs").split() == [
+        "REPLAY",
+        "HISTORY",
+        "ANOMALIES",
+        "0",
+        "SETUP",
+        "LIVE",
+        "CAN",
+    ]
+    # Spec live-can-health "Static export": no Live CAN in a static export's navigation.
     _open(page, replay_site["static"])
     assert page.inner_text("nav.tabs").split() == ["REPLAY"]
 
