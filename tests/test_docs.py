@@ -110,3 +110,32 @@ def test_every_subcommand_is_in_the_cli_reference() -> None:
     headings = set(re.findall(r"^## `flashpoint ([a-z-]+)`", text, flags=re.MULTILINE))
     missing = [name for name in subcommands() if name not in headings]
     assert missing == [], f"undocumented in {CLI_REFERENCE.name}: {', '.join(missing)}"
+
+
+# --- live-can-health: "Guide matches the contract" ----------------------------------------
+
+LIVE_GUIDE = REPO / "docs" / "guide" / "live-can-health.md"
+GUIDE_TYPES = {"integer": "int", "double": "double", "boolean": "boolean", "string": "string"}
+CONTRACT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(\w+)\s*\|")
+
+
+def guide_contract() -> dict[str, str]:
+    """The guide's contract table: topic pattern (relative to the root) -> contract type."""
+    text = LIVE_GUIDE.read_text(encoding="utf-8")
+    section = text.split("\n## The contract\n", 1)[1].split("\n## ", 1)[0]
+    rows = [CONTRACT_ROW.match(line) for line in section.splitlines()]
+    return {m[1]: GUIDE_TYPES.get(m[2].lower(), m[2]) for m in rows if m}
+
+
+def test_guide_matches_the_contract() -> None:
+    from flashpoint.live import contract
+
+    expected = dict(contract.TOP_FIELDS)
+    expected |= {f"<bus>/<Model>-<id>/{f}": t for f, t in contract.DEVICE_FIELDS.items()}
+    expected |= {f"<bus>/{contract.BUS_DIR}/{f}": t for f, t in contract.BUS_FIELDS.items()}
+    assert guide_contract() == expected
+    text = LIVE_GUIDE.read_text(encoding="utf-8")
+    assert f"`{contract.ROOT}`" in text
+    assert f"Contract version: `{contract.CONTRACT_VERSION}`" in text
+    for bit, name in contract.FAULT_BITS.items():
+        assert f"{bit} {name}" in text

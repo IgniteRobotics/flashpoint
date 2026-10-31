@@ -524,7 +524,8 @@ tr.is-retired { opacity: .6; }
 .absent { color: var(--amber-muted); font-size: var(--fs-xs); letter-spacing: .06em; }
 
 /* Header extras */
-.lake-path { font-size: var(--fs-xs); color: var(--amber-muted); max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Basis 0: a long path gives way (ellipsis) before the header wraps to a second line. */
+.lake-path { flex: 1 1 0; min-width: 12ch; max-width: 46ch; text-align: right; font-size: var(--fs-xs); color: var(--amber-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mode-pill { letter-spacing: .1em; }
 
 /* Form controls */

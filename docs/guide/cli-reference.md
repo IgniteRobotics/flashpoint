@@ -105,13 +105,14 @@ flashpoint report --static /Volumes/USB/flashpoint
 
 ## `flashpoint serve`
 
-Run the Flashpoint app in your browser: Replay, History, and Anomalies. Builds any missing Replay data first.
+Run the Flashpoint app in your browser: Replay, History, Anomalies, Setup and Live CAN. Builds any missing Replay data first.
 
 | Option | What it does |
 |---|---|
 | `--host 0.0.0.0` | Share on the pit network. Read-only and no password, so only on a network you trust. Default `127.0.0.1` (this machine only) |
 | `--port N` | Default `8000` |
 | `--no-build` | Start without building Replay data first |
+| `--robot-host ADDR` | The robot address for the Live CAN view. Repeat it to try several. Default: the addresses `acquire` uses. The view connects only while it's open ([Live CAN health](live-can-health.md)) |
 
 ```sh
 flashpoint serve

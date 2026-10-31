@@ -32,9 +32,9 @@
 
 ## 6. Robot-side guide and sample
 
-- [ ] 6.1 Write `examples/robot-java/CanHealthPublisher.java` (Phoenix 6 + WPILib 2026; devices plus the signal to watch for each; `refreshAll` once per loop; totals; bus status from `CANBus.getStatus`; header comment saying it's a suggestion, not compiled in CI); verify by review against the contract module's topic list
-- [ ] 6.2 Write `docs/guide/live-can-health.md`: what the view is for, running a shake test and a drive test, the contract table, why the tree must not move under `/Flashpoint/CANBus/`, the loop-time check, and running the fake robot; link it from `docs/guide/README.md` and the user guide; add `serve --robot-host` to `cli-reference.md`
-- [ ] 6.3 Add the "Guide matches the contract" drift test to `tests/test_docs.py` (guide table vs contract module); verify `pytest tests/test_docs.py` passes
+- [x] 6.1 Write `examples/robot-java/CanHealthPublisher.java` (Phoenix 6 + WPILib 2026; devices plus the signal to watch for each; `refreshAll` once per loop; totals; bus status from `CANBus.getStatus`; header comment saying it's a suggestion, not compiled in CI); verify by review against the contract module's topic list
+- [x] 6.2 Write `docs/guide/live-can-health.md`: what the view is for, running a shake test and a drive test, the contract table, why the tree must not move under `/Flashpoint/CANBus/`, the loop-time check, and running the fake robot; link it from `docs/guide/README.md` and the user guide; add `serve --robot-host` to `cli-reference.md`
+- [x] 6.3 Add the "Guide matches the contract" drift test to `tests/test_docs.py` (guide table vs contract module); verify `pytest tests/test_docs.py` passes
 
 ## 7. Roadmap docs and wrap-up
 
