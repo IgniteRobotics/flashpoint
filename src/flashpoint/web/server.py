@@ -6,15 +6,22 @@ The non-GET routes are the guarded `POST /api/launch` (ADR-0014),
 `POST /api/anomalies/<id>/triage` (ADR-0015), and the setup writes of ADR-0017:
 `POST /api/setup/fix/<action>` and `PUT /api/config/<section>`. Logs and derived layers stay
 read-only; the writes are an appended triage row in the ledger, and configuration files.
+
+`GET /api/live/can/stream` (server-sent events) and `GET /api/live/can/state` are the Live CAN
+view's (ADR-0016): the server opens one outbound, subscribe-only NetworkTables connection to the
+robot while a live view is open. They write nothing.
 """
 
 import contextlib
 import ipaddress
 import json
 import re
+import select
 import shutil
+import socket
 import sys
 import threading
+import time
 from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -27,6 +34,8 @@ from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, BackupC
 from flashpoint.config import config_root
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
+from flashpoint.live.service import LiveCanService
+from flashpoint.live.slots import load_resolver
 from flashpoint.report.names import safe_name
 from flashpoint.report.paths import data_dir
 from flashpoint.setup import checks as setup_checks
@@ -55,6 +64,10 @@ DRAFT_PATH = "/api/setup/draft"
 CONFIG_PREFIX = "/api/config/"
 FIX_PREFIX = "/api/setup/fix/"
 FIX_PATH = re.compile(r"^/api/setup/fix/([a-z-]+)$")
+LIVE_STREAM_PATH = "/api/live/can/stream"
+LIVE_STATE_PATH = "/api/live/can/state"
+LIVE_KEEPALIVE_S = 15.0  # a comment line, so proxies and the browser keep the stream open
+LIVE_POLL_S = 0.5  # how often a stream checks that its browser is still there
 GUARD_HEADERS = ("Host", "Origin", "X-Flashpoint", "Content-Type")
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -98,6 +111,8 @@ class FlashpointServer(ThreadingHTTPServer):
         launcher: Launcher | None = None,
         anomalies: AnomalyQueries | None = None,
         spawner: Callable[[list[str]], None] = spawn,
+        live: LiveCanService | None = None,
+        robot_hosts: list[str] | None = None,
     ) -> None:
         super().__init__(address, Handler)
         self.lake = lake
@@ -117,6 +132,15 @@ class FlashpointServer(ThreadingHTTPServer):
         self.fixes: dict[str, Fix] = dict(FIXES)
         # One setup write at a time: a save's hash check and its write must not interleave.
         self.setup_lock = threading.Lock()
+        # Opens no connection until a Live CAN view subscribes.
+        self.live = live or LiveCanService(
+            robot_hosts if robot_hosts is not None else default_robot_hosts(self.config_dir),
+            resolver=load_resolver(self.config_dir),
+        )
+
+    def server_close(self) -> None:
+        self.live.close()
+        super().server_close()
 
     @property
     def bound_local(self) -> bool:
@@ -206,6 +230,10 @@ class Handler(BaseHTTPRequestHandler):
                     "sections": sections,
                 }
                 self._send_json(HTTPStatus.OK, payload)
+            elif url.path == LIVE_STREAM_PATH:
+                self._live_stream()
+            elif url.path == LIVE_STATE_PATH:
+                self._send_json(HTTPStatus.OK, self.server.live.state())
             elif url.path == LAUNCH_PATH:
                 self._send_json(
                     HTTPStatus.OK,
@@ -222,6 +250,50 @@ class Handler(BaseHTTPRequestHandler):
                 self._not_found()
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    def _live_stream(self) -> None:
+        """Server-sent events: a snapshot first, then events and snapshots as they come, until
+        the browser leaves or falls too far behind (it reconnects to a fresh snapshot)."""
+        if self.command == "HEAD":
+            self._headers(HTTPStatus.OK, "text/event-stream; charset=utf-8", 0, {})
+            return
+        sub = self.server.live.subscribe()
+        try:
+            self.close_connection = True
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", CSP)
+            self.end_headers()
+            self.wfile.flush()
+            quiet_since = time.monotonic()
+            while not sub.closed and not sub.overflowed and not self._client_gone():
+                message = sub.get(timeout=LIVE_POLL_S)
+                if message is not None:
+                    kind, payload = message
+                    data = json.dumps(payload, ensure_ascii=False, default=str)
+                    self.wfile.write(f"event: {kind}\ndata: {data}\n\n".encode())
+                elif time.monotonic() - quiet_since >= LIVE_KEEPALIVE_S:
+                    self.wfile.write(b": keep-alive\n\n")
+                else:
+                    continue
+                self.wfile.flush()
+                quiet_since = time.monotonic()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            sub.close()
+
+    def _client_gone(self) -> bool:
+        """True once the browser has closed its end (a readable socket with nothing to read)."""
+        try:
+            readable, _, _ = select.select([self.connection], [], [], 0)
+            if not readable:
+                return False
+            return bool(self.connection.recv(1, socket.MSG_PEEK) == b"")
+        except (OSError, ValueError):
+            return True
 
     def _draft(self, params: dict[str, list[str]]) -> None:
         session = params.get("session", [])
@@ -418,6 +490,14 @@ def _unmapped(host: str) -> str:
         return host
     mapped = getattr(address, "ipv4_mapped", None)
     return str(mapped) if mapped else host
+
+
+def default_robot_hosts(config_dir: Path) -> list[str]:
+    """The robot addresses `acquire` uses; none when acquire.toml can't be read."""
+    try:
+        return AcquireConfig.load(config_dir).robot_hosts()
+    except AcquireConfigError:
+        return []
 
 
 def is_local(host: str) -> bool:

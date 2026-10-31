@@ -16,7 +16,9 @@ from flashpoint.live import contract
 from flashpoint.live.detector import Detector, SlotResolver
 
 NT4_PORT = 5810
-LINGER_S = 30.0  # spec: closed within 30 s after the last view closes
+# Spec: closed within 30 s after the last view closes. A stream notices its browser left within
+# half a second (web.server.LIVE_POLL_S), so linger a little under 30 s.
+LINGER_S = 29.0
 QUEUE_SIZE = 256
 SNAPSHOT_INTERVAL_S = 0.5  # at most 2 Hz
 POLL_S = 0.02
