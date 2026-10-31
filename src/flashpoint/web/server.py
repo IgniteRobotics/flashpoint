@@ -139,7 +139,10 @@ class FlashpointServer(ThreadingHTTPServer):
         )
 
     def server_close(self) -> None:
-        self.live.close()
+        # A failed bind calls this from the base constructor, before `live` exists.
+        live: LiveCanService | None = getattr(self, "live", None)
+        if live is not None:
+            live.close()
         super().server_close()
 
     @property
