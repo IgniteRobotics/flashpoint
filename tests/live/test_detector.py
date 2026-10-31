@@ -1,4 +1,5 @@
 import random
+import time
 from typing import Any
 
 import pytest
@@ -326,3 +327,32 @@ def test_nothing_published() -> None:
     detector = Detector()
     assert detector.update({}, 1.0) == []
     assert detector.view(1.0)["status"] == "not-publishing"
+
+
+# --- 3.5 timing ---------------------------------------------------------------------------
+
+BATCH_BUDGET_S = 0.005
+
+
+def test_forty_device_batch_is_fast() -> None:
+    forty = {
+        "DriveTrain": [f"TalonFX-{i}" for i in range(1, 21)],
+        "rio": [f"TalonFX-{i}" for i in range(21, 41)],
+    }
+    robot = Robot(forty)
+    detector = Detector()
+    detector.update(robot.snapshot(), 0.0)
+    best = float("inf")
+    for step in range(1, 21):
+        # Every device changes every field: the worst case for one update.
+        for bus, names in forty.items():
+            for name in names:
+                robot.device(bus, name, Dropouts=step, Resets=step, Faults=step % 32,
+                             Connected=step % 2 == 0, MaxAgeMs=float(step))
+            robot.bus(bus, BusOffCount=step, ReceiveErrorCount=step)
+        snapshot = robot.snapshot()
+        start = time.perf_counter()
+        detector.update(snapshot, float(step))
+        detector.view(float(step))
+        best = min(best, time.perf_counter() - start)
+    assert best < BATCH_BUDGET_S, f"{best * 1000:.2f} ms"

@@ -338,6 +338,7 @@ class Detector:
             "supported_version": contract.CONTRACT_VERSION,
             "project": self.project,
             "robot": self._slots.robot if self._slots else None,
+            "project_found": self._slots is not None if self.project else None,
             "enabled": self.enabled,
             "notes": dict(self.notes),
             "buses": [],
