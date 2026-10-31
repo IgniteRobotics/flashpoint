@@ -137,6 +137,10 @@ class FakeRobot:
             self._inst.stopServer()
             ntcore.NetworkTableInstance.destroy(self._inst)
 
+    def clients(self) -> int:
+        """How many NetworkTables clients are connected right now."""
+        return len(self._inst.getConnections())
+
     def _publish_all(self, project: str, version: int, enabled: bool) -> None:
         self._set("Version", version)
         self._set("Project", project)
