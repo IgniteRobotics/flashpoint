@@ -39,7 +39,7 @@ ml = ["scikit-learn (>=1.5)"]
 packages = [{ include = "flashpoint", from = "src" }]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3"
+pytest = "^9.0.3"
 ruff = "^0.13"
 mypy = "^1.18"
 robotpy-wpiutil = "^2026.2.2"
