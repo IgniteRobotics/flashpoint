@@ -11,9 +11,9 @@
 
 ## 3. Detector
 
-- [ ] 3.1 Write failing tests for baselines and rising totals: "Baseline is not an event", "Shake-test dropout while disabled", "Drive-test reboot while enabled", connected/disconnected, fault bit 0→1 only, and bus error counts; implement the pure detector (snapshot in, events out); verify tests pass
-- [ ] 3.2 Write failing tests for the sibling rule by batch ("One device drops", "Whole bus drops", unmapped devices count as siblings); implement; verify tests pass, and grep the module to confirm no equality matching on timestamps
-- [ ] 3.3 Write failing tests for "Robot code restarts" and "Wrong type" (plus negative counts); implement re-baselining and per-device notes; verify the detector never raises on fuzzed topic values (a hypothesis or parametrised test)
+- [x] 3.1 Write failing tests for baselines and rising totals: "Baseline is not an event", "Shake-test dropout while disabled", "Drive-test reboot while enabled", connected/disconnected, fault bit 0→1 only, and bus error counts; implement the pure detector (snapshot in, events out); verify tests pass
+- [x] 3.2 Write failing tests for the sibling rule by batch ("One device drops", "Whole bus drops", unmapped devices count as siblings); implement; verify tests pass, and grep the module to confirm no equality matching on timestamps
+- [x] 3.3 Write failing tests for "Robot code restarts" and "Wrong type" (plus negative counts); implement re-baselining and per-device notes; verify the detector never raises on fuzzed topic values (a hypothesis or parametrised test)
 - [ ] 3.4 Write failing tests for slot mapping with the 2026 robot config ("Mapped device", "Missing slot", "Unknown project", latest season wins); implement over `[[bus]]` and `[[slot]]`; verify tests pass
 - [ ] 3.5 Add a detector timing test: one batch of 40 devices in under 5 ms; verify it passes
 
