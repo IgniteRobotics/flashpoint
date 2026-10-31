@@ -1,8 +1,8 @@
 ## 1. Dependency and contract
 
-- [ ] 1.1 Add `robotpy-ntcore` pinned to the same 2026 line as `robotpy-wpiutil`; verify `poetry lock` and `poetry install` succeed and `python -c "import ntcore"` works under `PYENV_VERSION=flashpoint`
-- [ ] 1.2 Write failing tests for a contract module in `flashpoint.live` (topic names and types for version 1, fault bit names, `<bus>/<Model>-<id>` parsing, `<bus>/Bus/` fields); implement it as the single source of topic names; verify tests pass
-- [ ] 1.3 Write ADR-0016 (live view: outbound NetworkTables connection from `serve`, new dependency, still GET-only) amending ADR-0013, and add it to `docs/adr/README.md`; verify `pytest tests/test_docs.py` passes
+- [x] 1.1 Add `pyntcore` (RobotPy's ntcore, `import ntcore`) pinned to the same 2026 line as `robotpy-wpiutil`; verify `poetry lock` and `poetry install` succeed and `python -c "import ntcore"` works under `PYENV_VERSION=flashpoint`
+- [x] 1.2 Write failing tests for a contract module in `flashpoint.live` (topic names and types for version 1, fault bit names, `<bus>/<Model>-<id>` parsing, `<bus>/Bus/` fields); implement it as the single source of topic names; verify tests pass
+- [x] 1.3 Write ADR-0016 (live view: outbound NetworkTables connection from `serve`, new dependency, still GET-only) amending ADR-0013, and add it to `docs/adr/README.md`; verify `pytest tests/test_docs.py` passes
 
 ## 2. Fake robot
 

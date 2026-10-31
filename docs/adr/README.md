@@ -20,9 +20,10 @@ These record the rewrite's key decisions (D1–D11 in [05-target-architecture.md
 | [0010](0010-anomaly-v1-rules-baselines.md) | Anomaly v1: rules + baselines + residuals | Accepted with amendments (P5) |
 | [0011](0011-device-identity-ctre-serials.md) | Device identity: CTRE serial numbers | **Accepted** |
 | [0012](0012-clock-alignment-shared-payload.md) | Hoot-to-wpilog clock alignment by shared payload | Proposed |
-| [0013](0013-views-one-local-app.md) | Views: one local app in the canvas shell | Proposed (amended by 0014, 0015, 0017) |
+| [0013](0013-views-one-local-app.md) | Views: one local app in the canvas shell | Proposed (amended by 0014, 0015, 0016, 0017) |
 | [0014](0014-guarded-advantagescope-launch.md) | Guarded local AdvantageScope launch | Proposed (amended by 0015) |
 | [0015](0015-anomaly-triage-writes.md) | Anomaly triage writes | Proposed (amended by 0017) |
+| [0016](0016-live-view-robot-connection.md) | Live view: an outbound robot connection from `serve` | Proposed |
 | [0017](0017-config-writes-and-setup-actions.md) | Configuration writes and setup actions | Proposed |
 
 ## Template

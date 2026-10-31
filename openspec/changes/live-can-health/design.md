@@ -38,7 +38,7 @@ NetworkTables topics are written to the wpilog as `NT:/Flashpoint/Live/...` when
 - Device names use the hoot form (`TalonFX-11`), so they read the same as Replay and the robot config.
 
 ### D-d. One server-side NetworkTables client, server-sent events to browsers
-`flashpoint.live` holds one `robotpy-ntcore` client instance, started by the first `GET /api/live/can/stream` subscriber and stopped 30 s after the last one leaves. A detector thread reads the topic tree on each update, works out what changed, and pushes state snapshots (≤ 2 Hz) and events (as they happen) to every subscriber over server-sent events. A late joiner gets the current snapshot first.
+`flashpoint.live` holds one `pyntcore` (RobotPy's ntcore, `import ntcore`) client instance, started by the first `GET /api/live/can/stream` subscriber and stopped 30 s after the last one leaves. A detector thread reads the topic tree on each update, works out what changed, and pushes state snapshots (≤ 2 Hz) and events (as they happen) to every subscriber over server-sent events. A late joiner gets the current snapshot first.
 - *Why:* the rules can be tested in Python; there's one robot connection however many people are watching; it needs no new front-end protocol code.
 - *Alternative:* a NetworkTables 4 client in the browser (WebSocket on 5810). Rejected: we'd have to vendor or write a msgpack-over-WebSocket client in hand-written JavaScript, the area the team likes least (ADR-0013), and run the detection in JavaScript.
 - *Threads:* `ThreadingHTTPServer` gives each stream a thread. Each subscriber gets a bounded queue (256 messages). A slow subscriber that fills it is disconnected, and its browser reconnects and gets a fresh snapshot.
@@ -74,7 +74,7 @@ D1–D4, D9 and D10 are untouched. D5 lists "robot-side NT logging" as a fallbac
 - [Robot code changes are needed before anything shows] → The fake robot makes the view usable and testable now. The guide and sample make the Robot-2026 PR a copy job.
 - [The sample goes stale against Phoenix 6 releases] → Kept small, tied to the 2026 releases, and labelled a suggestion. The contract (topic names and types) is the stable part, and it is tested.
 - [Dropout counts depend on the update frequencies the robot code sets] → The count is relative to each signal's own period, as in `can-health`. The guide recommends watching a signal at 50 Hz or faster.
-- [`robotpy-ntcore` wheel availability on pit laptops (macOS arm64, Windows, Ubuntu)] → Pin the 2026 line next to `robotpy-wpiutil`, which ships for the same platforms. The CI matrix catches a missing wheel.
+- [`pyntcore` (RobotPy's ntcore, `import ntcore`) wheel availability on pit laptops (macOS arm64, Windows, Ubuntu); its Linux wheels are `manylinux_2_35`, so Linux needs glibc 2.35 (Ubuntu 22.04 or later)] → Pin the 2026 line next to `robotpy-wpiutil`, which ships for the same platforms. The CI matrix catches a missing wheel.
 - [Serve shared on the pit network makes the robot stream visible to anyone on it] → The data is read-only. It's the same exposure as `--host` today, and is already warned about.
 - [Batch boundaries are the server's, not the robot's] → A dropout that crosses an update boundary can show as two isolated dropouts instead of one bus-wide one. Good enough for live use; `can-health` gives the exact picture from the hoot.
 
