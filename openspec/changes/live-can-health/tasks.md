@@ -38,6 +38,6 @@
 
 ## 7. Roadmap docs and wrap-up
 
-- [ ] 7.1 Update `docs/rewrite/06-roadmap.md` §Live & Pit views to say live CAN health ships separately in `live-can-health`, and `04-ecosystem-and-tools.md` where it calls live dashboards out of scope; verify `pytest tests/test_docs.py` passes
+- [x] 7.1 Update `docs/rewrite/06-roadmap.md` §Live & Pit views to say live CAN health ships separately in `live-can-health`, and `04-ecosystem-and-tools.md` where it calls live dashboards out of scope; verify `pytest tests/test_docs.py` passes
 - [ ] 7.2 Run the full suite (`PYENV_VERSION=flashpoint poetry run pytest` and `-m browser`) and `openspec validate live-can-health --strict`; verify both pass
 - [ ] 7.3 [HUMAN] Pit check with the Robot-2026 PR deployed: shake test disabled (wiggle a drive module harness, see an isolated dropout with the mark) and drive test enabled; record the results in the change and on the tracking issue

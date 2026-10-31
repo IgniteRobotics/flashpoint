@@ -140,7 +140,8 @@ P2 mapped CAN devices (slots and units) into robot config, and deliberately left
 > **Tracking:** [#18](https://github.com/IgniteRobotics/flashpoint/issues/18) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
 
 The canvas's **Live** and **Pit** boards read the robot, not the lake, so P4 left them out. They become one change after P4 and P3:
-- an NT4 client (or a small relay so one robot connection serves many viewers) feeding Live at about 2 Hz;
+- **Live CAN health ships separately** in `live-can-health` (below). It adds what Live needs first: one subscribe-only NetworkTables connection inside `serve`, shared by every viewer and pushed to browsers as server-sent events ([ADR-0016](../adr/0016-live-view-robot-connection.md)). Live and Pit reuse that connection instead of adding their own;
+- Live fed from that connection at about 2 Hz;
 - the Pit board's checks and GO / DECIDE / NO-GO verdict;
 - both as views in the P4 shell: one file in `web/static/views/` and one `FP.view` call each, no restyling.
 - **Needs first:** data sources for pit spin-test current, fault counts, firmware events, and batteries (none are logged today), and a decision on whether views may write (notes, swaps, pit tasks); P4 views are read-only.

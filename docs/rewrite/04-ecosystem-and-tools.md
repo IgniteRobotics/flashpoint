@@ -45,7 +45,7 @@ The rule for the rewrite: **only build what is Flashpoint-specific**, meaning li
 | **AdvantageScope** (Mechanical Advantage, n.d.-a) | Opens WPILOG, DS logs, Hoot, REVLOG, CSV, RLOG. Graphs, 3D field, CSV export | **Deep dive into a single log.** Flashpoint should give a download or open link, not launch it on the server (see `origin/development:viz.py:88-94`) |
 | **AdvantageKit** (Littleton Robotics, n.d.) | "a logging, telemetry, and replay framework" that writes wpilog | Optional robot-side upgrade; deterministic replay |
 | **DataLogTool** (WPILib, n.d.-b) | SFTP download and CSV export | Manual fallback for retrieval |
-| Glass / Shuffleboard / Elastic | Live dashboards | Out of scope (live, not historical) |
+| Glass / Shuffleboard / Elastic | Live dashboards | Out of scope as general dashboards (live, not historical). Flashpoint's one live view is Live CAN (`live-can-health`, ADR-0016): CAN dropouts, reboots and faults during shake and drive tests, from totals robot code publishes |
 
 **The gap Flashpoint fills.** Every tool above looks at **one log at a time**. Nothing in the ecosystem tracks *motor TalonFX-11 across 80 matches and 3 events*. That is the product. A GitHub search turned up no maintained Python wpilog → Parquet/Polars pipeline (search listing only, not verified in depth). The closest community projects are `jonahsnider/wpilog-parser` (TypeScript) and `TripleHelixProgramming/wpilog-mcp`.
 
