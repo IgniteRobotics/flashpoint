@@ -6,8 +6,8 @@
 
 ## 2. Fake robot
 
-- [ ] 2.1 Write failing tests for `flashpoint.live.fake_robot`: a local NetworkTables server publishing the contract from a list of steps (set totals, set fault bits, toggle `Enabled`, restart, publish wrong type, publish version 2); implement; verify a test client reads back each step's values
-- [ ] 2.2 Add `python -m flashpoint.live.fake_robot --scenario {shake,drive,restart}` for local work on the view; verify each scenario runs and stops cleanly on interrupt
+- [x] 2.1 Write failing tests for `flashpoint.live.fake_robot`: a local NetworkTables server publishing the contract from a list of steps (set totals, set fault bits, toggle `Enabled`, restart, publish wrong type, publish version 2); implement; verify a test client reads back each step's values
+- [x] 2.2 Add `python -m flashpoint.live.fake_robot --scenario {shake,drive,restart}` for local work on the view; verify each scenario runs and stops cleanly on interrupt
 
 ## 3. Detector
 
