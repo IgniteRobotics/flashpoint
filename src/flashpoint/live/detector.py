@@ -140,8 +140,8 @@ class Detector:
             if note:
                 self.notes[name] = note
         published = snapshot.get(contract.ROOT + "Version")
-        self.version = top["Version"] if published is None or top["Version"] is not None else (
-            published[1]
+        self.version = (
+            top["Version"] if published is None or top["Version"] is not None else (published[1])
         )
         self.project = top["Project"]
         self.enabled = top["Enabled"]
@@ -235,8 +235,10 @@ class Detector:
                     for fault in contract.fault_names(value & ~old):
                         events.append(self._device_event("fault", at, device, fault=fault))
             # Fields with a bad value this time lose their baseline.
-            device.values = {**{k: v for k, v in previous.items() if k not in device.notes},
-                             **fields}
+            device.values = {
+                **{k: v for k, v in previous.items() if k not in device.notes},
+                **fields,
+            }
         events = self._dropouts(dropped, at) + events
         for name, fields in buses.items():
             bus = self.buses[name]
@@ -257,13 +259,17 @@ class Detector:
     ) -> bool:
         for key, fields in devices.items():
             previous = self.devices[key].values
-            if any(k in previous and k in fields and fields[k] < previous[k]
-                   for k in contract.DEVICE_TOTALS):
+            if any(
+                k in previous and k in fields and fields[k] < previous[k]
+                for k in contract.DEVICE_TOTALS
+            ):
                 return True
         for name, fields in buses.items():
             previous = self.buses[name].values
-            if any(k in previous and k in fields and fields[k] < previous[k]
-                   for k in contract.BUS_TOTALS):
+            if any(
+                k in previous and k in fields and fields[k] < previous[k]
+                for k in contract.BUS_TOTALS
+            ):
                 return True
         return False
 
@@ -289,12 +295,17 @@ class Detector:
                 bus.bus_dropouts += 1
                 bus.last_bus_dropout = at
                 ages = [age for _, _, age in rises if age is not None]
-                events.append(Event(
-                    "bus-dropout", at, self.enabled, bus=bus_name,
-                    devices=[d.name for d, _, _ in rises],
-                    count=max(c for _, c, _ in rises),
-                    max_age_ms=max(ages) if ages else None,
-                ))
+                events.append(
+                    Event(
+                        "bus-dropout",
+                        at,
+                        self.enabled,
+                        bus=bus_name,
+                        devices=[d.name for d, _, _ in rises],
+                        count=max(c for _, c, _ in rises),
+                        max_age_ms=max(ages) if ages else None,
+                    )
+                )
                 continue
             for device, count, age in rises:
                 device.dropouts += count
@@ -312,8 +323,13 @@ class Detector:
     def _device_event(self, kind: str, at: float, device: DeviceState, **extra: Any) -> Event:
         slot = self._slot(device)
         return Event(
-            kind, at, self.enabled, bus=device.bus, device=device.name,
-            slot=slot.id if slot else None, **extra,
+            kind,
+            at,
+            self.enabled,
+            bus=device.bus,
+            device=device.name,
+            slot=slot.id if slot else None,
+            **extra,
         )
 
     # --- what the view shows --------------------------------------------------------------
@@ -349,21 +365,23 @@ class Detector:
         for device in sorted(self.devices.values(), key=lambda d: (d.bus, d.model, d.can_id)):
             slot = self._slot(device)
             values = device.values
-            by_bus.setdefault(device.bus, []).append({
-                "name": device.name,
-                "model": device.model,
-                "can_id": device.can_id,
-                "slot": slot.id if slot else None,
-                "role": slot.role if slot else None,
-                "state": self._device_state(device, slot, now),
-                "connected": values.get("Connected"),
-                "dropouts": device.dropouts,
-                "resets": device.resets,
-                "max_age_ms": values.get("MaxAgeMs"),
-                "min_supply_v": values.get("MinSupplyV"),
-                "faults": contract.fault_names(values.get("Faults", 0)),
-                "notes": dict(device.notes),
-            })
+            by_bus.setdefault(device.bus, []).append(
+                {
+                    "name": device.name,
+                    "model": device.model,
+                    "can_id": device.can_id,
+                    "slot": slot.id if slot else None,
+                    "role": slot.role if slot else None,
+                    "state": self._device_state(device, slot, now),
+                    "connected": values.get("Connected"),
+                    "dropouts": device.dropouts,
+                    "resets": device.resets,
+                    "max_age_ms": values.get("MaxAgeMs"),
+                    "min_supply_v": values.get("MinSupplyV"),
+                    "faults": contract.fault_names(values.get("Faults", 0)),
+                    "notes": dict(device.notes),
+                }
+            )
         missing: dict[str, list[dict[str, Any]]] = {}
         if self._slots is not None:
             reported = {(d.bus, d.model, d.can_id) for d in self.devices.values()}
@@ -372,15 +390,20 @@ class Detector:
         for name in sorted(set(by_bus) | set(self.buses) | set(missing)):
             bus = self.buses.get(name)
             values = bus.values if bus else {}
-            out["buses"].append({
-                "name": name,
-                "utilization": values.get("Utilization"),
-                "counts": {k: values[k] for k in contract.BUS_TOTALS if k in values},
-                "bus_dropouts": bus.bus_dropouts if bus else 0,
-                "dropped": bool(bus and bus.last_bus_dropout is not None
-                                and now - bus.last_bus_dropout < RECENT_S),
-                "notes": dict(bus.notes) if bus else {},
-                "devices": by_bus.get(name, []),
-                "missing": missing.get(name, []),
-            })
+            out["buses"].append(
+                {
+                    "name": name,
+                    "utilization": values.get("Utilization"),
+                    "counts": {k: values[k] for k in contract.BUS_TOTALS if k in values},
+                    "bus_dropouts": bus.bus_dropouts if bus else 0,
+                    "dropped": bool(
+                        bus
+                        and bus.last_bus_dropout is not None
+                        and now - bus.last_bus_dropout < RECENT_S
+                    ),
+                    "notes": dict(bus.notes) if bus else {},
+                    "devices": by_bus.get(name, []),
+                    "missing": missing.get(name, []),
+                }
+            )
         return out

@@ -264,9 +264,7 @@ def _drive(devices: Mapping[str, Sequence[str]], rng: random.Random) -> Iterator
         roll = rng.random()
         bus = rng.choice(buses)
         if roll < 0.3:
-            yield [
-                totals.dropout(bus, d, 1, rng.uniform(20, 60)) for d in devices[bus]
-            ]
+            yield [totals.dropout(bus, d, 1, rng.uniform(20, 60)) for d in devices[bus]]
         elif roll < 0.5:
             yield [totals.reboot(bus, rng.choice(list(devices[bus])))]
         elif roll < 0.7:

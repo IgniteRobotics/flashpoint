@@ -48,7 +48,10 @@ def test_shake_test_dropout_while_disabled() -> None:
     (event,) = detector.update(robot.snapshot(), 101.5)
     assert event.kind == "dropout"
     assert (event.bus, event.device, event.count, event.max_age_ms) == (
-        "DriveTrain", "TalonFX-11", 2, 48.0
+        "DriveTrain",
+        "TalonFX-11",
+        2,
+        48.0,
     )
     assert event.enabled is False
     assert event.at == 101.5
@@ -190,7 +193,8 @@ def test_other_buses_are_not_siblings() -> None:
     robot.device("rio", "TalonFX-2", Dropouts=1)
     events = detector.update(robot.snapshot(), 101.0)
     assert sorted((e.kind, e.bus) for e in events) == [
-        ("dropout", "DriveTrain"), ("dropout", "rio")
+        ("dropout", "DriveTrain"),
+        ("dropout", "rio"),
     ]
 
 
@@ -287,10 +291,22 @@ def test_bad_top_level_values() -> None:
 def test_never_raises_on_fuzzed_values(seed: int) -> None:
     rng = random.Random(seed)
     junk: list[tuple[str, Any]] = [
-        ("int", -(2**63)), ("int", 2**63 - 1), ("double", float("nan")), ("double", -1e308),
-        ("double", float("inf")), ("string", ""), ("string", "x" * 1000), ("boolean", True),
-        ("raw", b"\x00\xff"), ("int[]", [1, 2]), ("double", 3), ("int", None),
-        ("boolean", 1), ("string", 7), ("int", 2.5), ("int", True),
+        ("int", -(2**63)),
+        ("int", 2**63 - 1),
+        ("double", float("nan")),
+        ("double", -1e308),
+        ("double", float("inf")),
+        ("string", ""),
+        ("string", "x" * 1000),
+        ("boolean", True),
+        ("raw", b"\x00\xff"),
+        ("int[]", [1, 2]),
+        ("double", 3),
+        ("int", None),
+        ("boolean", 1),
+        ("string", 7),
+        ("int", 2.5),
+        ("int", True),
     ]
     names = [n for bus, ds in DEVICES.items() for n in contract.topic_names(bus, ds)]
     names += [contract.ROOT + "rio/Bus/Utilization", contract.ROOT + "Version"]
@@ -347,8 +363,15 @@ def test_forty_device_batch_is_fast() -> None:
         # Every device changes every field: the worst case for one update.
         for bus, names in forty.items():
             for name in names:
-                robot.device(bus, name, Dropouts=step, Resets=step, Faults=step % 32,
-                             Connected=step % 2 == 0, MaxAgeMs=float(step))
+                robot.device(
+                    bus,
+                    name,
+                    Dropouts=step,
+                    Resets=step,
+                    Faults=step % 32,
+                    Connected=step % 2 == 0,
+                    MaxAgeMs=float(step),
+                )
             robot.bus(bus, BusOffCount=step, ReceiveErrorCount=step)
         snapshot = robot.snapshot()
         start = time.perf_counter()

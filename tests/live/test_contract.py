@@ -31,7 +31,10 @@ def test_topic_types() -> None:
 def test_counts_are_the_running_totals() -> None:
     assert contract.DEVICE_TOTALS == ("Dropouts", "Resets")
     assert contract.BUS_TOTALS == (
-        "BusOffCount", "TxFullCount", "ReceiveErrorCount", "TransmitErrorCount"
+        "BusOffCount",
+        "TxFullCount",
+        "ReceiveErrorCount",
+        "TransmitErrorCount",
     )
 
 

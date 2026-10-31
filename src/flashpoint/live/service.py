@@ -140,7 +140,8 @@ class _Connection(threading.Thread):
                 elif event.is_(ntcore.EventFlags.kValueAll):
                     data = event.data
                     self._snapshot[data.topic.getName()] = (
-                        data.topic.getTypeString(), data.value.value()
+                        data.topic.getTypeString(),
+                        data.value.value(),
                     )
                     changed = True
             if changed:
@@ -194,8 +195,13 @@ class LiveCanService:
                 self._timer = None
             if self._connection is None:
                 self._connection = _Connection(
-                    self.hosts, self._port, self._resolver, self._broadcast,
-                    self._snapshot_interval_s, self._not_publishing_after_s, self._clock,
+                    self.hosts,
+                    self._port,
+                    self._resolver,
+                    self._broadcast,
+                    self._snapshot_interval_s,
+                    self._not_publishing_after_s,
+                    self._clock,
                 )
                 self._connection.start()
             sub = Subscription(self, self._queue_size)

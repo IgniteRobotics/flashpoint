@@ -71,7 +71,8 @@ def test_view_shows_the_slot() -> None:
     bus = next(b for b in view["buses"] if b["name"] == "DriveTrain")
     by_name = {d["name"]: d for d in bus["devices"]}
     assert (by_name["TalonFX-11"]["slot"], by_name["TalonFX-11"]["state"]) == (
-        "drive-fl", "dropped"
+        "drive-fl",
+        "dropped",
     )
     assert (by_name["TalonFX-60"]["slot"], by_name["TalonFX-60"]["state"]) == (None, "unmapped")
 

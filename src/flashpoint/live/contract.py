@@ -82,7 +82,7 @@ def parse_topic(name: str) -> Topic | None:
     """Classify a full topic name; None for anything outside the contract."""
     if not name.startswith(ROOT):
         return None
-    parts = name[len(ROOT):].split("/")
+    parts = name[len(ROOT) :].split("/")
     if len(parts) == 1:
         return TopTopic(parts[0]) if parts[0] in TOP_FIELDS else None
     if len(parts) != 3 or not parts[0]:

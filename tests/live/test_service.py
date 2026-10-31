@@ -41,8 +41,11 @@ def robot() -> Iterator[FakeRobot]:
 
 def service_for(port: int, hosts: list[str] | None = None, **kw: Any) -> LiveCanService:
     return LiveCanService(
-        hosts or ["127.0.0.1"], port=port, resolver=load_resolver(REPO_CONFIG),
-        linger_s=LINGER_S, **kw,
+        hosts or ["127.0.0.1"],
+        port=port,
+        resolver=load_resolver(REPO_CONFIG),
+        linger_s=LINGER_S,
+        **kw,
     )
 
 
@@ -66,8 +69,9 @@ def test_one_connection_shared_by_two(robot: FakeRobot) -> None:
     try:
         first, second = service.subscribe(), service.subscribe()
         for sub in (first, second):
-            next_message(sub, "snapshot", lambda s: s["connection"] == "connected"
-                         and s["status"] == "ok")
+            next_message(
+                sub, "snapshot", lambda s: s["connection"] == "connected" and s["status"] == "ok"
+            )
         assert robot.clients() == 1
         robot.apply(SetDevice("DriveTrain", "TalonFX-11", Dropouts=2, MaxAgeMs=48.0))
         for sub in (first, second):
@@ -160,8 +164,11 @@ def test_not_publishing() -> None:
         service = service_for(fake.port, not_publishing_after_s=0.3)
         try:
             sub = service.subscribe()
-            snap = next_message(sub, "snapshot", lambda s: s["connection"] == "connected"
-                                and s["status"] == "not-publishing")
+            snap = next_message(
+                sub,
+                "snapshot",
+                lambda s: s["connection"] == "connected" and s["status"] == "not-publishing",
+            )
             assert snap["buses"] == []
             sub.close()
         finally:

@@ -32,8 +32,10 @@ EVERY_STEP: list[list[Step]] = [
     [SetDevice("DriveTrain", "TalonFX-11", Dropouts=2, MaxAgeMs=48.0)],
     [SetEnabled(True)],
     [SetDevice("rio", "TalonFX-2", Resets=1, Faults=0b10)],
-    [SetDevice("DriveTrain", "TalonFX-12", Dropouts=1),
-     SetDevice("DriveTrain", "CANcoder-13", Dropouts=1)],  # 2 of 3: bus-wide
+    [
+        SetDevice("DriveTrain", "TalonFX-12", Dropouts=1),
+        SetDevice("DriveTrain", "CANcoder-13", Dropouts=1),
+    ],  # 2 of 3: bus-wide
     [SetBus("rio", BusOffCount=1, ReceiveErrorCount=9)],
     [SetDevice("rio", "TalonFX-8", Connected=False)],
     [SetDevice("rio", "TalonFX-8", Connected=True)],
@@ -55,7 +57,13 @@ def fingerprint(root: Path) -> dict[str, str]:
 
 
 EXPECTED_KINDS = {
-    "dropout", "bus-dropout", "reboot", "fault", "bus-errors", "disconnected", "reconnected",
+    "dropout",
+    "bus-dropout",
+    "reboot",
+    "fault",
+    "bus-errors",
+    "disconnected",
+    "reconnected",
     "restart",
 }
 STEP_GAP_S = 0.25  # each step its own NetworkTables update
@@ -65,7 +73,9 @@ def run_live_session(lake: LakePaths) -> set[str]:
     """Serve `lake` with a Live CAN view open through every step; the event kinds seen."""
     with FakeRobot(DEVICES, port=free_port()) as robot:
         live = LiveCanService(
-            ["127.0.0.1"], port=robot.port, resolver=load_resolver(config.config_root()),
+            ["127.0.0.1"],
+            port=robot.port,
+            resolver=load_resolver(config.config_root()),
             linger_s=0.2,
         )
         server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake), live=live)

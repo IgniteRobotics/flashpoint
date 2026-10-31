@@ -58,7 +58,7 @@ def test_publishes_the_whole_contract(reader: TopicReader) -> None:
         topic = contract.parse_topic(name)
         assert topic is not None
         fields = {**contract.TOP_FIELDS, **contract.DEVICE_FIELDS, **contract.BUS_FIELDS}
-        assert reader.type_of(name[len(contract.ROOT):]) == fields[topic.field]
+        assert reader.type_of(name[len(contract.ROOT) :]) == fields[topic.field]
     assert reader.value("Project") == "Robot-2026"
     assert reader.value("Enabled") is False
     assert reader.value("DriveTrain/TalonFX-11/Connected") is True
@@ -138,13 +138,15 @@ def test_scenario_runs_and_stops(scenario: str) -> None:
 
 
 def _totals(reader: TopicReader) -> tuple[Any, ...]:
-    return tuple(
-        reader.value(f"{bus}/{device}/{field}")
-        for bus, devices in IGNITE_2026.items()
-        for device in devices
-        for field in ("Dropouts", "Resets")
-    ) + tuple(reader.value(f"{bus}/Bus/ReceiveErrorCount") for bus in IGNITE_2026) + (
-        reader.value("Enabled"),
+    return (
+        tuple(
+            reader.value(f"{bus}/{device}/{field}")
+            for bus, devices in IGNITE_2026.items()
+            for device in devices
+            for field in ("Dropouts", "Resets")
+        )
+        + tuple(reader.value(f"{bus}/Bus/ReceiveErrorCount") for bus in IGNITE_2026)
+        + (reader.value("Enabled"),)
     )
 
 
@@ -152,8 +154,17 @@ def _totals(reader: TopicReader) -> tuple[Any, ...]:
 def test_module_stops_cleanly_on_interrupt() -> None:
     port = free_port()
     child = subprocess.Popen(
-        [sys.executable, "-m", "flashpoint.live.fake_robot", "--scenario", "shake",
-         "--port", str(port), "--period", "0.05"],
+        [
+            sys.executable,
+            "-m",
+            "flashpoint.live.fake_robot",
+            "--scenario",
+            "shake",
+            "--port",
+            str(port),
+            "--period",
+            "0.05",
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

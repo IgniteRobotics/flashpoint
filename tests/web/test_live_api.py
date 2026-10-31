@@ -121,15 +121,16 @@ def test_events_reach_the_browser_within_a_second(
         event = stream.until("event", lambda e: e["kind"] == "dropout")
         assert time.monotonic() - sent < 1.0
         assert (event["slot"], event["count"], event["max_age_ms"], event["enabled"]) == (
-            "drive-fl", 2, 48.0, True
+            "drive-fl",
+            2,
+            48.0,
+            True,
         )
     finally:
         stream.close()
 
 
-def test_snapshots_at_most_two_per_second(
-    live_server: FlashpointServer, robot: FakeRobot
-) -> None:
+def test_snapshots_at_most_two_per_second(live_server: FlashpointServer, robot: FakeRobot) -> None:
     stream = Stream(port_of(live_server))
     stop = threading.Event()
 

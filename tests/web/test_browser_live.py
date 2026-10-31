@@ -54,7 +54,8 @@ def _live(page: Any, url: str) -> Watch:
 
 def _devices(page: Any) -> list[str]:
     return [
-        str(d) for d in page.eval_on_selector_all(
+        str(d)
+        for d in page.eval_on_selector_all(
             ".mech:not([data-state='missing'])", "els => els.map(e => e.dataset.device)"
         )
     ]
@@ -127,10 +128,12 @@ def test_event_log_newest_first_with_enabled_tags(page: Any, site: str, robot: F
 
 def test_bus_wide_event_names_its_devices(page: Any, site: str, robot: FakeRobot) -> None:
     watch = _live(page, site)
-    robot.run([
-        SetDevice("DriveTrain", "TalonFX-11", Dropouts=1),
-        SetDevice("DriveTrain", "TalonFX-12", Dropouts=1),
-    ])
+    robot.run(
+        [
+            SetDevice("DriveTrain", "TalonFX-11", Dropouts=1),
+            SetDevice("DriveTrain", "TalonFX-12", Dropouts=1),
+        ]
+    )
     line = page.wait_for_selector("#live-log [data-event='bus-dropout']")
     assert "DriveTrain: TalonFX-11, TalonFX-12" in line.inner_text()
     assert page.locator("#live-log [data-event='dropout']").count() == 0
