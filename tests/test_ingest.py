@@ -353,6 +353,7 @@ def test_rebuild_reports_file_without_raw_copy(
     (quarantined,) = _run(lake, registry, bad).results
     for path in lake.raw.rglob("*"):
         if path.is_file():
+            path.chmod(0o644)  # raw copies are read-only; Windows won't delete those
             path.unlink()
 
     (result,) = _rebuild(lake, registry, quarantined=True).results
