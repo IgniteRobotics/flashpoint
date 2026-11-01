@@ -911,3 +911,77 @@ def test_owed_report_cleared_when_there_are_no_sessions(
 
     assert _steps(steps) == []
     assert result.report is None and not result.report_pending
+
+
+# --- machine failures stay in the inbox (#14) ----------------------------------------------
+
+HOOT = "GACMP_Q7_rio_2026-04-09_21-51-13.hoot"
+# Runs the real CLI with owlet replaced: FAKE_OWLET is a HootError reason, or "ok".
+FAKE_OWLET_INGEST = """
+import os, sys
+from pathlib import Path
+from flashpoint import cli
+from flashpoint.readers import hoot
+from tests.wpilog_builder import WpilogBuilder
+
+def convert(path, out_dir, registry, profile="health"):
+    mode = os.environ["FAKE_OWLET"]
+    if mode != "ok":
+        raise hoot.HootError(mode)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    wpilog = WpilogBuilder().start(1, "x", "double").double(1, 1, 1.0).write(out_dir / "c.wpilog")
+    return hoot.HootConversion(wpilog, 1, "fake", False, profile, 1, "rio")
+
+hoot.convert = convert
+sys.exit(cli.main(sys.argv[1:]))
+"""
+
+
+def _fake_owlet_ingest(paths: Sequence[Path], lake: LakePaths) -> list[str]:
+    real = cycle.ingest_command(paths, lake)
+    assert "--no-derive" in real  # the cycle builds Replay data once, itself
+    return [sys.executable, "-c", FAKE_OWLET_INGEST, *real[3:]]
+
+
+def test_failed_hoot_is_kept_and_ingested_by_the_next_cycle(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = _media(pulls, lake)
+    data = b"a hoot the fake owlet converts"
+    _put(lake.inbox, f"copies/{HOOT}", data, 100)
+    monkeypatch.setenv("FAKE_OWLET", "owlet-download-failed")
+
+    first = _run(config, lake, pulls, media, _no_robot, ingest_command=_fake_owlet_ingest)
+
+    assert first.ingest is not None
+    assert (first.ingest.returncode, first.ingest.crashed) == (1, False)
+    assert [f.outcome for f in first.inbox] == [InboxOutcome.KEPT]
+    assert _stage(lake, _sha(data))[:2] == (Stage.FAILED, "owlet-download-failed")
+    assert len(_inbox_files(lake)) == 1
+
+    monkeypatch.setenv("FAKE_OWLET", "ok")
+    second = _run(config, lake, pulls, media, _no_robot, ingest_command=_fake_owlet_ingest)
+
+    assert [f.outcome for f in second.inbox] == [InboxOutcome.SUCCESS]
+    assert _stage(lake, _sha(data))[0] == Stage.SUCCESS
+    assert _inbox_files(lake) == []
+
+
+def test_hoot_quarantined_on_third_failure_is_cleared(
+    config: AcquireConfig, lake: LakePaths, pulls: PullLedger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = _media(pulls, lake)
+    data = b"a hoot that crashes owlet"
+    _put(lake.inbox, f"copies/{HOOT}", data, 100)
+    monkeypatch.setenv("FAKE_OWLET", "owlet-failed")
+
+    outcomes = [
+        _run(config, lake, pulls, media, _no_robot, ingest_command=_fake_owlet_ingest).inbox[0]
+        for _ in range(3)
+    ]
+
+    assert [o.outcome for o in outcomes] == [
+        InboxOutcome.KEPT, InboxOutcome.KEPT, InboxOutcome.QUARANTINED,
+    ]  # fmt: skip
+    assert _stage(lake, _sha(data))[:2] == (Stage.QUARANTINED, "owlet-failed")
+    assert _inbox_files(lake) == []

@@ -10,6 +10,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from flashpoint.readers.reasons import ReasonKind, kind_of
+
 # Set by acquire on a file pulled while still being written. Nothing in the pipeline can
 # re-derive it, so a stage update (rebuild, restore) keeps it.
 INCOMPLETE_READ = "incomplete-read"
@@ -18,7 +20,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
     sha256 TEXT PRIMARY KEY, kind TEXT NOT NULL, size INTEGER NOT NULL,
     stage TEXT NOT NULL, reason TEXT, warnings TEXT, pipeline_version INTEGER,
-    first_seen TEXT NOT NULL, updated TEXT NOT NULL
+    first_seen TEXT NOT NULL, updated TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS aliases (
     sha256 TEXT NOT NULL, path TEXT NOT NULL, name TEXT NOT NULL, seen TEXT NOT NULL,
@@ -114,6 +116,7 @@ class Stage(StrEnum):
     RECEIVED = "received"
     BRONZE = "bronze"
     SUCCESS = "success"
+    FAILED = "failed"
     QUARANTINED = "quarantined"
 
 
@@ -129,6 +132,28 @@ class Ledger:
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA foreign_keys=ON")
         self._db.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Bring a lake from an earlier version up to date; a no-op once done."""
+        columns = {r[1] for r in self._db.execute("PRAGMA table_info(files)")}
+        if "attempts" in columns:
+            return
+        with self._db:
+            self._db.execute("ALTER TABLE files ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
+            if not {"stage", "reason"} <= columns:
+                return
+            # Earlier versions quarantined machine errors; those files deserve another try.
+            # Runs once, with the column: later quarantines after 3 failures must stay.
+            rows = self._db.execute(
+                "SELECT sha256, reason FROM files WHERE stage = ?", (Stage.QUARANTINED,)
+            ).fetchall()
+            for sha, reason in rows:
+                if kind_of(reason or "") is not ReasonKind.FILE:
+                    self._db.execute(
+                        "UPDATE files SET stage = ?, attempts = 0 WHERE sha256 = ?",
+                        (Stage.FAILED, sha),
+                    )
 
     def close(self) -> None:
         self._db.close()
@@ -163,6 +188,10 @@ class Ledger:
         row = self._db.execute("SELECT reason FROM files WHERE sha256 = ?", (sha256,)).fetchone()
         return row[0] if row else None
 
+    def attempts(self, sha256: str) -> int:
+        row = self._db.execute("SELECT attempts FROM files WHERE sha256 = ?", (sha256,)).fetchone()
+        return int(row[0]) if row else 0
+
     def needs_processing(self, sha256: str, pipeline_version: int) -> bool:
         row = self._db.execute(
             "SELECT stage, pipeline_version FROM files WHERE sha256 = ?", (sha256,)
@@ -184,8 +213,9 @@ class Ledger:
                 new += [] if INCOMPLETE_READ in new else [INCOMPLETE_READ]
             self._db.execute(
                 "UPDATE files SET stage = ?, reason = NULL, warnings = ?, pipeline_version = ?,"
-                " updated = ? WHERE sha256 = ?",
-                (stage, ",".join(new) or None, pipeline_version, _now(), sha256),
+                " updated = ?, attempts = CASE WHEN ? = 'success' THEN 0 ELSE attempts END"
+                " WHERE sha256 = ?",
+                (stage, ",".join(new) or None, pipeline_version, _now(), stage, sha256),
             )
 
     def add_warning(self, sha256: str, warning: str) -> None:
@@ -211,6 +241,20 @@ class Ledger:
                 " WHERE sha256 = ?",
                 (Stage.QUARANTINED, reason, pipeline_version, _now(), sha256),
             )
+
+    def fail(self, sha256: str, reason: str, pipeline_version: int) -> int:
+        """Mark a file `failed` (retried later); returns its attempt count at this version."""
+        with self._db:
+            self._db.execute(
+                "UPDATE files SET stage = ?, reason = ?, updated = ?,"
+                " attempts = CASE WHEN pipeline_version IS ? THEN attempts + 1 ELSE 1 END,"
+                " pipeline_version = ? WHERE sha256 = ?",
+                (Stage.FAILED, reason, _now(), pipeline_version, pipeline_version, sha256),
+            )
+        return self.attempts(sha256)
+
+    def reset_attempts(self, sha256: str) -> None:
+        self.execute("UPDATE files SET attempts = 0 WHERE sha256 = ?", (sha256,))
 
     def files(self, stage: Stage | None = None) -> list[dict[str, Any]]:
         query, args = "SELECT * FROM files", tuple[Any, ...]()
