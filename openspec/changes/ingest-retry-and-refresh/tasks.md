@@ -26,5 +26,5 @@
 ## 6. Docs and gate
 
 - [x] 6.1 Update `docs/guide/cli-reference.md` (`ingest`: output lines, exit code, Replay build and `--no-report`; `rebuild`: `failed` files and `--quarantined`) and `docs/guide/user-guide.md` (quarantined means the file is bad; failed means try again; how to retry). Add the downgrade note (design, Migration Plan) to the release notes or changelog the repo uses. Verify the docs link/drift tests pass
-- [ ] 6.2 Run the full gate locally (`PYENV_VERSION=flashpoint poetry run` ruff, ruff format, mypy, pytest, `-m corpus`, `-m browser`), open a PR from `feature/ingest-retry-and-refresh` into `main` with `Closes #14` and `Closes #15`, and verify CI is green on the blocking jobs
+- [x] 6.2 Run the full gate locally (`PYENV_VERSION=flashpoint poetry run` ruff, ruff format, mypy, pytest, `-m corpus`, `-m browser`), open a PR from `feature/ingest-retry-and-refresh` into `main` with `Closes #14` and `Closes #15`, and verify CI is green on the blocking jobs
 - [ ] 6.3 [HUMAN] On the machine that hit GAGAI1 Q4 (or with networking off): ingest a new hoot with owlet not cached, check it reports `failed (owlet-download-failed), will retry`, reconnect, ingest again, and check it reaches `success` and the match opens in Replay with no `flashpoint report`. Record the result in design.md and in #13
