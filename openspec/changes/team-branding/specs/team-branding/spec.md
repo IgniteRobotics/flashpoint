@@ -38,7 +38,7 @@ The theme configuration SHALL select either a named preset or a custom palette. 
 A palette SHALL be accepted only when:
 - every derived text shade has a contrast ratio of at least 4.5:1 against every surface;
 - every line meant to be seen as a boundary has at least 3:1 against the background;
-- the warning colour has at least 4.5:1 against every surface, and is distinct from the primary colour (a hue difference of at least 40°, or a lightness difference of at least 25%).
+- the warning colour has at least 4.5:1 against every surface, and is distinct from the primary colour (a hue difference of at least 35°, or a lightness difference of at least 25%).
 
 A palette that fails SHALL be refused with a message naming each failing rule, the colours involved and their measured ratio, and, where one exists, the nearest primary or warning colour that would pass. When the warning colour isn't given, Flashpoint SHALL pick the first of its built-in warning colours that passes, and SHALL refuse the palette when none does.
 
@@ -48,7 +48,7 @@ A palette that fails SHALL be refused with a message naming each failing rule, t
 
 #### Scenario: Warning too close to primary
 - **WHEN** the theme gives primary `#FF4000` and no warning colour
-- **THEN** the palette is accepted, with a warning colour from the built-in list that differs from `#FF4000` by at least 40° in hue
+- **THEN** the palette is accepted, with a warning colour from the built-in list that differs from `#FF4000` by at least 35° in hue
 
 #### Scenario: Every preset passes
 - **WHEN** each shipped preset is validated

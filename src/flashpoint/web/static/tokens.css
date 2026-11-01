@@ -25,23 +25,22 @@
   --line:           #3D2C10;  /* panel borders, idle buttons */
   --line-strong:    #7A5715;  /* idle graph nodes, dashed chips. NON-TEXT ONLY (3.05:1) */
 
-  /* ---- Phosphor amber text scale (every one passes WCAG AA on every surface) ---- */
-  --amber:          #FFB000;  /* primary: brand, active, primary text   10.9:1 */
-  --amber-hi:       #FFD27A;  /* emphasis: values, selected labels      14.0:1 */
-  --amber-mid:      #E0A12A;  /* idle node labels, chip text             8.9:1 */
-  --amber-dim:      #C98C1A;  /* secondary text                           6.9:1 */
-  --amber-muted:    #A27A36;  /* tertiary: section labels, meta           5.1:1 (4.7 worst case) */
+  /* ---- Accent text scale (every one passes WCAG AA on every surface).
+         Role-named so a team palette can replace the phosphor amber default. ---- */
+  --accent:         #FFB000;  /* primary: brand, active, primary text   10.9:1 */
+  --accent-hi:      #FFD27A;  /* emphasis: values, selected labels      14.0:1 */
+  --accent-mid:     #E0A12A;  /* idle node labels, chip text             8.9:1 */
+  --accent-dim:     #C98C1A;  /* secondary text                           6.9:1 */
+  --accent-muted:   #A27A36;  /* tertiary: section labels, meta           5.1:1 (4.7 worst case) */
   --prose:          #F2D49B;  /* long-form reading text                  14.0:1 */
+  --accent-rgb:     255, 176, 0;  /* the accent's channels, for the glows and grid below */
+  --accent-hi-rgb:  255, 210, 122;  /* the emphasis shade's channels, for its glow */
 
   /* ---- Signal ---- */
-  --hot:            #FF5A1F;  /* warnings, open flags, weaknesses, DEMO   6.4:1 */
-  --on-amber:       #0A0806;  /* text on amber fills                     10.9:1 */
-
-  /* ---- Glow (sparingly: wordmark, selection, primary input, top result) ---- */
-  --glow-text:      0 0 10px rgba(255, 176, 0, 0.40);
-  --glow-select:    0 0 18px rgba(255, 176, 0, 0.45);
-  --glow-panel:     0 0 22px rgba(255, 176, 0, 0.15);
-  --glow-line:      0 0 6px  rgba(255, 176, 0, 0.60);
+  --warn:           #FF5A1F;  /* warnings, open flags, weaknesses, DEMO   6.4:1 */
+  --warn-rgb:       255, 90, 31;  /* the warning's channels, for its glow */
+  --on-accent:      #0A0806;  /* text on accent fills                    10.9:1 */
+  --bg-rgb:         10, 8, 6;  /* the page's channels, for translucent backdrops */
 
   /* ---- Type ---- */
   --font-display:   'VT323', ui-monospace, 'Cascadia Mono', Menlo, monospace;
@@ -88,8 +87,6 @@
 
   /* ---- Texture ---- */
   --scanlines: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0, rgba(0,0,0,0.22) 1px, transparent 1px, transparent 3px);
-  --grid:      linear-gradient(rgba(255,176,0,0.05) 1px, transparent 1px),
-               linear-gradient(90deg, rgba(255,176,0,0.05) 1px, transparent 1px);
   --grid-size: 40px 40px;
 
   /* ---- Node-type borders: SHAPE, not hue, tells types apart ---- */
@@ -101,6 +98,39 @@
   --border-source:    1px dotted;
 
   color-scheme: dark;
+}
+
+/* Colours built from the accent's channels. A custom property's var() is resolved where it is
+   declared, so these are declared again on .theme-scope: a container that sets its own colour
+   tokens (the Setup view's Appearance preview) then gets glows and grid in its own accent. */
+:root, .theme-scope {
+  /* ---- Glow colours: the accent at a fixed alpha (overlays, halos, tints) ---- */
+  --glow-03:        rgba(var(--accent-rgb), .03);
+  --glow-05:        rgba(var(--accent-rgb), .05);
+  --glow-08:        rgba(var(--accent-rgb), .08);
+  --glow-09:        rgba(var(--accent-rgb), .09);
+  --glow-14:        rgba(var(--accent-rgb), .14);
+  --glow-15:        rgba(var(--accent-rgb), .15);
+  --glow-18:        rgba(var(--accent-rgb), .18);
+  --glow-20:        rgba(var(--accent-rgb), .20);
+  --glow-25:        rgba(var(--accent-rgb), .25);
+  --glow-30:        rgba(var(--accent-rgb), .30);
+  --glow-35:        rgba(var(--accent-rgb), .35);
+  --glow-40:        rgba(var(--accent-rgb), .40);
+  --glow-45:        rgba(var(--accent-rgb), .45);
+  --glow-60:        rgba(var(--accent-rgb), .60);
+  --glow-80:        rgba(var(--accent-rgb), .80);
+
+  /* ---- Glow (sparingly: wordmark, selection, primary input, top result) ---- */
+  --glow-text:      0 0 10px var(--glow-40);
+  --glow-select:    0 0 18px var(--glow-45);
+  --glow-panel:     0 0 22px var(--glow-15);
+  --glow-line:      0 0 6px  var(--glow-60);
+
+  /* ---- Grid texture (--grid-size above) ---- */
+  --grid-line: rgba(var(--accent-rgb), .05);
+  --grid:      linear-gradient(var(--grid-line) 1px, transparent 1px),
+               linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
 }
 
 @media (prefers-reduced-motion: reduce) {

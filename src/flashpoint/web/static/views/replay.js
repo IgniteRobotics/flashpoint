@@ -516,10 +516,10 @@
         FP.fill(plot, h('p', { class: 'notlogged notice' }, 'not logged'));
         entry.range.textContent = 'not logged';
       } else {
-        const series = [{ label: td.label, values: td.values, stroke: tokens.amber, width: 1.5, band: td.band }];
+        const series = [{ label: td.label, values: td.values, stroke: tokens.accent, width: 1.5, band: td.band }];
         if (ui.overlay) {
           const ov = trackData(ui.overlay, spec);
-          if (ov && !ov.missing) series.push({ label: ui.overlay.label, values: overlayValues(d, ui.overlay, spec), stroke: tokens.amberDim, width: 1.5, dash: [5, 3] });
+          if (ov && !ov.missing) series.push({ label: ui.overlay.label, values: overlayValues(d, ui.overlay, spec), stroke: tokens.accentDim, width: 1.5, dash: [5, 3] });
         }
         entry.xs = xs;
         entry.chart = FP.track(plot, {

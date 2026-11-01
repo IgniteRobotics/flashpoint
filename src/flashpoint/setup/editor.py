@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 import tomlkit
+from pydantic import ValidationError
+from tomlkit.exceptions import TOMLKitError
 from tomlkit.items import AoT, Table
 
 from flashpoint import config
@@ -50,6 +52,7 @@ AFFECTS = {
     "anomaly.toml": "flashpoint detect",
     "robots": "flashpoint derive",
     "units": "nothing until the next derive (flashpoint derive)",
+    "theme.toml": "every view, on its next page load (reload the page)",
 }
 # Arrays of tables in a robot file, and the key that identifies each entry.
 ROBOT_TABLES = {"slot": "id", "signal": "id", "bus": "name", "siblings": "name"}
@@ -141,7 +144,10 @@ def _save(
     affects: str,
 ) -> SaveResult:
     current = _check_unchanged(root, rel, expected_sha)
-    text = render(current)
+    try:
+        text = render(current)
+    except TOMLKitError as exc:  # the file isn't TOML, or a value has no TOML form
+        raise SaveError(f"{rel}: {exc}") from exc
     _validated(rel, text, validate)
     backup = _backup(root, rel, dt.datetime.now(dt.UTC))
     _write(root, rel, text)
@@ -227,8 +233,20 @@ def save_team(root: Path, values: Mapping[str, Any], expected_sha: str | None) -
     """Change keys in `acquire.toml` (team, lake, hosts, ...); a None value removes the key."""
     from flashpoint.acquire.config import CONFIG_FILE, AcquireConfig
 
-    def edit(doc: Any) -> None:
-        for key, value in values.items():
+    return _save(
+        root,
+        CONFIG_FILE,
+        expected_sha,
+        lambda current: _render(current, lambda doc: _set_keys(doc, values)),
+        AcquireConfig.load,
+        AFFECTS[CONFIG_FILE],
+    )
+
+
+def _set_keys(doc: Any, values: Mapping[str, Any]) -> None:
+    """Set top-level keys; a table value is merged, and a None value removes the key."""
+    for key, value in values.items():
+        try:
             if value is None:
                 doc.pop(key, None)
             elif isinstance(value, Mapping):
@@ -236,14 +254,38 @@ def save_team(root: Path, values: Mapping[str, Any], expected_sha: str | None) -
                 _merge_table(table, value)
             elif key not in doc or _plain(doc[key]) != _plain(value):
                 doc[key] = value  # an unchanged key keeps its bytes (and inline comment)
+        except TOMLKitError as exc:
+            raise TOMLKitError(f"{key}: {exc}") from exc
+
+
+def save_theme(root: Path, values: Mapping[str, Any], expected_sha: str | None) -> SaveResult:
+    """Change keys in `theme.toml` (team_name, team_number, palette, custom); a None value
+    removes the key, and `custom` is replaced as a whole. A top-level key the file has but the
+    theme doesn't know is dropped, so a save repairs it (a key sent in `values` is validated).
+    A palette that breaks a readability rule is refused with the rule, the colours, their ratio
+    and the nearest passing colour."""
+    from flashpoint.theme import THEME_FILE, ThemeConfig, ThemeError, load_theme
+
+    def edit(doc: Any) -> None:
+        for key in [k for k in doc if k not in ThemeConfig.model_fields and k not in values]:
+            del doc[key]
+        _set_keys(doc, values)
+
+    def validate(scratch: Path) -> None:
+        try:
+            load_theme(scratch)
+        except ThemeError as exc:
+            if isinstance(exc.__cause__, ValidationError):
+                raise  # describe_error names each key
+            raise ValueError(str(exc).removeprefix(f"{THEME_FILE}: ")) from None
 
     return _save(
         root,
-        CONFIG_FILE,
+        THEME_FILE,
         expected_sha,
         lambda current: _render(current, edit),
-        AcquireConfig.load,
-        AFFECTS[CONFIG_FILE],
+        validate,
+        AFFECTS[THEME_FILE],
     )
 
 

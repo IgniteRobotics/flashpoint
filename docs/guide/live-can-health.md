@@ -29,13 +29,13 @@ Each device card shows one state:
 | MISSING | In your robot file, but robot code doesn't report it: check it's wired, powered, and registered in robot code |
 | UNMAPPED | Reported, but no slot in your robot file matches its bus, model and CAN id |
 
-The card also shows the device's dropout and reset totals since the view connected, and its lowest supply voltage in the latest update.
+The card also shows the device's dropout and reset totals since Flashpoint connected to the robot, and its lowest supply voltage in the latest update.
 
 The **event log**, newest first, has one line per event: the time, ENABLED or DISABLED, what happened, the slot and device, and the bus. Bus-wide dropouts are one line naming every device involved.
 
 ### Marks
 
-Type what you're about to do in **MARK** ("now wiggling: FL module") and press Enter or **SET**. Every event after that carries the mark until you change it or press **CLEAR**. Marks and the event log stay in your browser only: reloading the page clears them, and other people watching don't see them. Device totals come from the server and survive a reload.
+Type what you're about to do in **MARK** ("now wiggling: FL module") and press Enter or **SET**. Every event after that carries the mark until you change it or press **CLEAR**. Marks and the event log stay in your browser only: reloading the page clears them, and other people watching don't see them. Device totals come from the server: everyone watching sees the same totals, and they survive a reload. They start again from zero when nobody has had the view open for about 30 seconds.
 
 ### Isolated or bus-wide
 
@@ -84,7 +84,7 @@ public void robotInit() {
   canHealth.add("DriveTrain", frontLeftEncoder, frontLeftEncoder.getPosition());
   canHealth.add("DriveTrain", pigeon, pigeon.getYaw());
   canHealth.add("rio", intakeRoller, intakeRoller.getVelocity());
-  // ... every CTRE device
+  // ... every TalonFX, CANcoder and Pigeon 2
   canHealth.addBus("rio");
   canHealth.addBus("DriveTrain");
 }
@@ -95,6 +95,7 @@ public void robotPeriodic() {
 ```
 
 - For each device, pass the signal to watch. Pick one updated at **50 Hz or faster** (position or velocity on a motor, position on a CANcoder, yaw on a Pigeon 2): a dropout counts when that signal is older than 2.5 of its own update periods, so a slow signal only catches long dropouts.
+- The sample has `add` for TalonFX, CANcoder and Pigeon 2 only. For another CTRE device (a CANdle, CANrange or TalonFXS), add an `add` overload in your copy, or its slot in your robot file shows MISSING.
 - `periodic()` refreshes every watched signal once per loop with one `BaseStatusSignal.refreshAll` call per bus, keeps the totals, and publishes every 5 loops (100 ms, NetworkTables' own rate). Bus status is read every half second.
 - Use the project name your wpilog metadata uses ([build info](robot-side.md#build-info)), so the view finds your robot file.
 
@@ -102,10 +103,10 @@ public void robotPeriodic() {
 
 ## Without a robot: the fake robot
 
-Flashpoint has a fake robot that publishes the contract for Ignite's 2026 robot, for trying the view or working on it:
+Flashpoint has a fake robot that publishes the contract for Ignite's 2026 robot, for trying the view or working on it. Run it from a Flashpoint checkout ([developer guide](developer-guide.md)); a pipx install can't run it with plain `python`:
 
 ```sh
-python -m flashpoint.live.fake_robot --scenario shake
+poetry run python -m flashpoint.live.fake_robot --scenario shake
 flashpoint serve --robot-host 127.0.0.1
 ```
 
@@ -115,8 +116,8 @@ Scenarios: `shake` (disabled, one device at a time drops out), `drive` (enabled,
 
 | The view says | Check |
 |---|---|
-| CONNECTING, and stays there | The laptop can reach the robot (`ping 10.TE.AM.2`), robot code is running, and the address is right (`--robot-host`) |
-| No robot address | Run `flashpoint init --team <number>`, or start with `--robot-host` |
+| CONNECTING or NOT CONNECTED, and stays there | The laptop can reach the robot (`ping 10.TE.AM.2`), robot code is running, and the address is right (`--robot-host`) |
+| No robot address | Run `flashpoint init --team <number>`, or start with `--robot-host`. If you already set a team, `acquire.toml` may not load: run `flashpoint doctor` to see why |
 | NOT PUBLISHING | Robot code doesn't publish under `/Flashpoint/Live/CANHealth/`: add the publisher, or check it runs |
 | UNSUPPORTED VERSION | Flashpoint and the robot code use different contract versions |
 | Every device UNMAPPED, and "no robot configuration has project …" | `project` in your robot file must equal the published `Project` |

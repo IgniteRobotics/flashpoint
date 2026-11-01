@@ -66,7 +66,7 @@ def test_bad_team_number(
 
 
 def test_prompts_on_a_terminal(root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    answers = iter(["6829", str(tmp_path / "asked-lake")])
+    answers = iter(["6829", str(tmp_path / "asked-lake"), "", ""])
     monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
     assert main(["init"]) == 0
@@ -75,7 +75,7 @@ def test_prompts_on_a_terminal(root: Path, tmp_path: Path, monkeypatch: pytest.M
 
 
 def test_blank_lake_answer_takes_the_default(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    answers = iter(["254", ""])
+    answers = iter(["254", "", "", ""])
     monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
     monkeypatch.setattr(Path, "home", lambda: root.parent / "home")
@@ -109,3 +109,115 @@ def test_init_config_refuses_a_bad_team(root: Path, tmp_path: Path) -> None:
     with pytest.raises(InitError, match="team number"):
         init_config(root, team=0, lake=tmp_path / "lake")
     assert not root.exists()
+
+
+# --- team-branding: init --team-name --palette ----------------------------------------------
+
+
+def _theme(root: Path) -> dict[str, object]:
+    with (root / "theme.toml").open("rb") as f:
+        return tomllib.load(f)
+
+
+def test_init_with_a_preset(root: Path, tmp_path: Path) -> None:
+    """Init with a preset: theme.toml names the team and preset, and `serve` shows them."""
+    from flashpoint.theme import load_theme, preset_tokens
+    from flashpoint.web.branding import clear_cache, load_branding
+
+    args = ["init", "--team", "254", "--team-name", "The Cheesy Poofs", "--palette", "blue"]
+    assert main([*args, "--lake", str(tmp_path / "lake")]) == 0
+    assert _theme(root) == {"team_name": "The Cheesy Poofs", "palette": "blue"}
+    assert load_theme(root).config.team_name == "The Cheesy Poofs"
+    clear_cache()
+    branding = load_branding(root)  # what `serve` sends: theme.css and mode.js's team
+    assert branding.team == {"name": "The Cheesy Poofs", "number": 254}
+    assert f"--accent: {preset_tokens('blue')['accent']};" in branding.css
+    text = (root / "theme.toml").read_text()
+    assert "# team_number" in text and "# [custom]" in text  # the bundled comments are kept
+
+
+def test_init_without_a_theme_copies_the_default(root: Path, tmp_path: Path) -> None:
+    assert main(["init", "--team", "254", "--lake", str(tmp_path / "lake")]) == 0
+    assert (root / "theme.toml").read_bytes() == (config.DEFAULTS_ROOT / "theme.toml").read_bytes()
+
+
+@pytest.mark.parametrize("name", ['Team "Quotes" \\ Back', "Équipe Ünïcode 🤖", "x" * 40])
+def test_team_name_round_trips(root: Path, tmp_path: Path, name: str) -> None:
+    init_config(root, team=254, lake=tmp_path / "lake", team_name=name)
+    assert _theme(root)["team_name"] == name
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (["--team-name", "x" * 41], "40 characters"),
+        (["--palette", "purple"], "palette"),
+    ],
+)
+def test_bad_theme_writes_nothing(
+    root: Path, tmp_path: Path, extra: list[str], message: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["init", "--team", "254", "--lake", str(tmp_path / "lake"), *extra]) != 0
+    assert message in capsys.readouterr().err
+    assert not root.exists() and not (tmp_path / "lake").exists()
+
+
+def test_theme_prompts_on_a_terminal(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prompts: list[str] = []
+    answers = iter(["6829", str(tmp_path / "lake"), "  Ignite Robotics ", "green"])
+
+    def ask(prompt: str = "") -> str:
+        prompts.append(prompt)
+        return next(answers)
+
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", ask)
+    assert main(["init"]) == 0
+    assert _theme(root) == {"team_name": "Ignite Robotics", "palette": "green"}
+    assert all(name in prompts[3] for name in ("amber", "green", "blue", "red", "white"))
+
+
+def test_blank_theme_answers_keep_the_default(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answers = iter(["254", str(tmp_path / "lake"), "", ""])
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    assert main(["init"]) == 0
+    assert (root / "theme.toml").read_bytes() == (config.DEFAULTS_ROOT / "theme.toml").read_bytes()
+
+
+def test_bad_palette_answer_is_refused(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    answers = iter(["254", str(tmp_path / "lake"), "", "purple"])
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    assert main(["init"]) != 0
+    assert "purple" in capsys.readouterr().err and not root.exists()
+
+
+def test_given_theme_options_are_not_asked(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answers = iter(["254"])
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    lake = str(tmp_path / "lake")
+    assert main(["init", "--lake", lake, "--team-name", "", "--palette", "red"]) == 0
+    assert _theme(root) == {"palette": "red"}  # an empty name means no name
+
+
+def test_no_theme_prompt_without_a_terminal(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    def no_input(prompt: str = "") -> str:
+        raise AssertionError("init prompted without a terminal")
+
+    monkeypatch.setattr("builtins.input", no_input)
+    assert main(["init", "--team", "254", "--lake", str(tmp_path / "lake")]) == 0
+    assert _theme(root) == {"palette": "amber"}

@@ -102,6 +102,7 @@ def test_loaders_use_the_bundled_defaults(tmp_path: Path) -> None:
     from flashpoint.anomaly.settings import load_anomaly_config
     from flashpoint.report.settings import load_report_config
     from flashpoint.semantics.robot_config import load_config_seasons
+    from flashpoint.theme import load_theme
 
     bundled = config.DEFAULTS_ROOT
     assert load_report_config(tmp_path) == load_report_config(bundled)
@@ -109,6 +110,7 @@ def test_loaders_use_the_bundled_defaults(tmp_path: Path) -> None:
     assert load_causes(tmp_path) == load_causes(bundled)
     assert load_causes(tmp_path)  # the bundled catalogue is not empty
     assert set(load_config_seasons(tmp_path)) == {2025, 2026}
+    assert load_theme(tmp_path) == load_theme(bundled)
 
 
 def test_team_seasons_replace_the_bundled_file(tmp_path: Path) -> None:

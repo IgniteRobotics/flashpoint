@@ -46,12 +46,14 @@ Rename the colour tokens to roles:
 - **Surfaces:** the background's hue with small lightness steps (today's +0.5–3%).
 - **Lines:** the primary's hue at low lightness.
 - Convert back to sRGB hex, clamped to gamut.
+- **Readability floor (found while applying):** amber sits at OKLCH L ≈ 0.80, so the fixed offsets push the darker shades of any darker primary below 4.5:1. That would refuse the spec's own `#00A3E0` and `#FF4000`. When the primary itself passes but a darker shade (mid, dim, muted) would not, the downward offsets are scaled down together until each passes; hue and order are kept. `line-strong` is lifted to 3:1 on the background where its offset falls short, so near-black backgrounds work. Shades that already pass are unchanged, so the other presets derive exactly as before.
 - **The `amber` preset is a stored token map, not derived.** That guarantees "identical to today" even where the derivation would round differently. Every other preset is derived and stored as its three input colours.
 - *Alternative:* HSL. Rejected: HSL lightness isn't perceptual, so blue and yellow derive very different contrast at the same "lightness".
 
 ### D-c. Validation and suggestions
 - Contrast uses the WCAG 2 relative-luminance ratio, matching the 4.5:1 in the shell spec.
 - "Nearest passing colour": binary-search the OKLCH lightness of the primary (or the warning colour), keeping hue and chroma, until every rule passes. Return it as hex, or none if no lightness passes.
+- **Distinct warning:** 35° of OKLCH hue or 25% lightness. The spec first said 40°, but today's amber and its warning (`#FFB000`, `#FF5A1F`) are 38.7° apart, and the amber preset has to stay unchanged. Josh chose 35° on 2026-11-01; `#FF4000` against `#FF5A1F` (about 3°) is still refused.
 - **Built-in warning colours** are tried in order: `#FF5A1F` (today's hot), `#00C2FF`, `#FF3DAE`, `#FFE14D`.
 
 ### D-d. Delivery to the browser

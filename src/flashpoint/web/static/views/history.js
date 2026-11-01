@@ -166,9 +166,9 @@
     const series = names.map((name) => ({
       label: name,
       values: bySeries.get(name),
-      stroke: name === selected ? tokens.amberHi : tokens.lineStrong,
+      stroke: name === selected ? tokens.accentHi : tokens.lineStrong,
       width: name === selected ? 2.5 : 1.2,
-      points: { show: true, size: name === selected ? 5 : 3, fill: name === selected ? tokens.amberHi : tokens.lineStrong, stroke: name === selected ? tokens.amberHi : tokens.lineStrong },
+      points: { show: true, size: name === selected ? 5 : 3, fill: name === selected ? tokens.accentHi : tokens.lineStrong, stroke: name === selected ? tokens.accentHi : tokens.lineStrong },
     }));
     const lowIdx = new Set(trend.points.filter((p) => p.low_alignment).map((p) => index.get(p.match_key)));
     const mine = selected ? trend.points.filter((p) => p.series === selected) : [];
@@ -178,8 +178,8 @@
       return { label: 'marks', values, stroke: color, width: 0, paths: () => null, points: { show: true, size, fill: color, stroke: color } };
     };
     if (selected) {
-      series.push(markerSeries((p) => p.low_alignment, tokens.hot, 9));
-      series.push(markerSeries((p) => p.slot_changed, tokens.amber, 11));
+      series.push(markerSeries((p) => p.low_alignment, tokens.warn, 9));
+      series.push(markerSeries((p) => p.slot_changed, tokens.accent, 11));
     }
     const shade = [...lowIdx].map((i) => ({ from: i - 0.5, to: i + 0.5, alpha: 0.06 }));
     const label = (v) => {
@@ -203,7 +203,7 @@
       yLabel: (v) => FP.fmt(v, Math.abs(v) >= 100 ? 0 : 1),
       ySize: 52,
       ariaLabel: trend.label + ' per match for ' + bySeries.size + ' ' + trend.by + ' lines' + (selected ? ', ' + selected + ' emphasised' : '') + '. Values are in the table below.',
-      highlight: () => (ui.hot && bySeries.has(ui.hot) ? { values: bySeries.get(ui.hot), stroke: tokens.amberHi, width: 2.5 } : null),
+      highlight: () => (ui.hot && bySeries.has(ui.hot) ? { values: bySeries.get(ui.hot), stroke: tokens.accentHi, width: 2.5 } : null),
       hover: (idx) => showHover(idx, matches, trend),
       onPick: (x, event) => pickMatch(Math.round(x), event, matches, trend),
     });
@@ -293,7 +293,7 @@
         h('td', { class: 'num' }, String(r.matches)),
         h('td', { class: 'num' }, FP.fmt(r.latest, 1)),
         h('td', { class: 'num' }, r.change == null ? '—' : (r.change >= 0 ? '+' : '') + FP.fmt(r.change, 1)),
-        h('td', { class: 'spark-cell', title: about }, FP.spark(r.spark, { range, label: about, stroke: on ? FP.tokens().amberHi : FP.tokens().amber })),
+        h('td', { class: 'spark-cell', title: about }, FP.spark(r.spark, { range, label: about, stroke: on ? FP.tokens().accentHi : FP.tokens().accent })),
         h('td', null, FP.status(level, word), r.anomalies ? [' ', h('a', {
           class: 'badge sev sev--' + r.anomalies.severity.toLowerCase(), dataset: { anomalies: r.unit_id },
           href: FP.link({ view: 'anomalies', tab: 'open', sens: 'normal', unit: r.unit_id }),

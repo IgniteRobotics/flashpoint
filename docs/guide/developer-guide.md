@@ -48,10 +48,15 @@ Ubuntu sets up a few traps for a fresh install:
 | `src/flashpoint/semantics/` | `derive`: sessions, alignment, match identity, framing, device identity, physics, silver, gold, CAN health |
 | `src/flashpoint/anomaly/` | `detect` and `backtest` |
 | `src/flashpoint/report/` | Replay data and the static export |
+| `src/flashpoint/setup/` | `init`, the setup checks behind `doctor`, the config editor and API, fix actions, and robot drafts: the backend of the Setup view |
+| `src/flashpoint/theme.py` | `theme.toml`: the palette presets, contrast rules, and the colour maths that turns a palette into every colour token |
+| `src/flashpoint/web/branding.py` | Builds `theme.css` and the team name for the page. The server and the static export both use it |
+| `src/flashpoint/config.py`, `src/flashpoint/defaults/` | Finding and loading configuration; the bundled defaults used when a file is missing |
 | `src/flashpoint/views/`, `src/flashpoint/web/` | History and Anomalies queries, the HTTP server, the browser app, the AdvantageScope launcher |
 | `src/flashpoint/acquire/` | Robot and USB pulls, the watch loop, backup and restore |
 | `src/flashpoint/live/` | Live CAN: the NetworkTables contract, the detector, the robot connection, and the fake robot (`python -m flashpoint.live.fake_robot`) |
-| `config/` | Team-edited data: robots, seasons, thresholds, failure labels |
+| `src/flashpoint/meta/`, `src/flashpoint/deploy/` | The meta Parquet snapshots; the systemd and Windows service files |
+| `config/` | Ignite's own configuration: `acquire.toml`, robots, seasons, units, failure labels. A file that isn't here (thresholds in `anomaly.toml`, `report.toml`, `theme.toml`) comes from the bundled defaults in `src/flashpoint/defaults/` |
 | `tools/` | `fetch-corpus.py`, `update-owlet-manifest.py`, `migrate-legacy-config.py` |
 | `examples/robot-java/` | Suggested robot-code samples (not built or compiled in CI) |
 | `tests/` | The test suite, mirroring `src/flashpoint/` |
@@ -62,6 +67,12 @@ Conventions:
 - Imports go external, then internal, then local.
 
 The domain rules (long format at rest, as-of joins with explicit tolerance, never trust filenames over FMS data, offline first, never delete robot logs) are in [`openspec/config.yaml`](../../openspec/config.yaml).
+
+### The browser app
+
+- A new view needs three things: a file in `src/flashpoint/web/static/views/`, an `FP.view({ id, label, needsApi, mount, unmount })` call in it, and a `<script src="static/views/NAME.js">` tag in `web/static/index.html`. Without the tag the file never loads. If the view needs the server, add `data-needs-api` to the tag and set `needsApi: true`. The static export then leaves the file out and the shell hides the view.
+- Colours come from the role-named tokens in `web/static/tokens.css`: `--accent`, `--accent-hi`, `--accent-mid`, `--accent-dim`, `--accent-muted`, `--warn`, `--on-accent`, `--prose`, the `-rgb` channel forms (`--accent-rgb`, `--warn-rgb`, `--bg-rgb`), and the colours built from them (`--glow-NN`, `--grid-line`). `theme.css` loads after `tokens.css` and overrides them with the team's palette; `flashpoint.theme` derives that map from `theme.toml`. Never write a colour by hand. `tests/web/test_static_lint.py` fails on an `rgb()` or `rgba()` colour other than black outside `tokens.css`, on a hex colour in a `.css` file, and on the old amber names (`--amber*`, `--on-amber`, `--hot`). A hex colour in a `.js` file is not caught, so check those yourself.
+- Charts can't read CSS variables. Get colours from `FP.tokens()` (`accent`, `accentHi`, `accentMid`, `accentDim`, `accentMuted`, `line`, `lineSoft`, `lineStrong`, `warn`, `accentRgb`, `surface1`, `font`). They're read once and cached until the page reloads.
 
 ## Lint and type checks
 
@@ -89,7 +100,7 @@ The default run excludes three markers. Each needs something extra:
 
 `--strict-markers` is on, so a typo in a marker name is an error. Every test has a 300 s timeout. A hang dumps every thread's stack.
 
-The unit suite includes `tests/test_docs.py`, which fails when a relative link in the README, `deploy/README.md`, or `docs/guide/` points at a missing file, or when a `flashpoint` subcommand has no section in the [CLI reference](cli-reference.md). If you add a subcommand, document it there.
+The unit suite includes `tests/test_docs.py`. It fails when a relative link in `deploy/README.md` or `docs/guide/` points at a missing file, when the README has any relative link (the README is also the PyPI page, so every link there must be a full `https://github.com/IgniteRobotics/flashpoint/blob/main/...` URL to a file that exists), when a `flashpoint` subcommand has no section in the [CLI reference](cli-reference.md), or when the contract table in [Live CAN health](live-can-health.md) doesn't match the code. If you add a subcommand, document it there.
 
 ### The golden corpus
 
