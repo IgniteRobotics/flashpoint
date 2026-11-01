@@ -1,4 +1,5 @@
 import hashlib
+import sqlite3
 from pathlib import Path
 
 import duckdb
@@ -56,6 +57,108 @@ def test_interrupted_file_is_reprocessed(lake: LakePaths) -> None:
     ledger.set_stage("abc", Stage.RECEIVED, pipeline_version=1)
     reopened = Ledger(lake.ledger)
     assert reopened.needs_processing("abc", pipeline_version=1) is True
+
+
+def test_failed_records_reason_and_counts_attempts(lake: LakePaths) -> None:
+    ledger = Ledger(lake.ledger)
+    ledger.register("abc", "hoot", 10, Path("a.hoot"))
+    assert ledger.fail("abc", "owlet-failed", pipeline_version=1) == 1
+    assert ledger.fail("abc", "owlet-timeout", pipeline_version=1) == 2
+    assert ledger.stage("abc") == Stage.FAILED
+    assert ledger.reason("abc") == "owlet-timeout"
+    assert ledger.attempts("abc") == 2
+
+
+def test_success_resets_attempts(lake: LakePaths) -> None:
+    ledger = Ledger(lake.ledger)
+    ledger.register("abc", "hoot", 10, Path("a.hoot"))
+    ledger.fail("abc", "owlet-failed", pipeline_version=1)
+    ledger.set_stage("abc", Stage.SUCCESS, pipeline_version=1)
+    assert ledger.attempts("abc") == 0
+
+
+def test_pipeline_version_change_restarts_attempts(lake: LakePaths) -> None:
+    ledger = Ledger(lake.ledger)
+    ledger.register("abc", "hoot", 10, Path("a.hoot"))
+    ledger.fail("abc", "owlet-failed", pipeline_version=1)
+    ledger.fail("abc", "owlet-failed", pipeline_version=1)
+    assert ledger.fail("abc", "owlet-failed", pipeline_version=2) == 1
+
+
+def test_failed_is_retried_and_quarantined_is_final(lake: LakePaths) -> None:
+    ledger = Ledger(lake.ledger)
+    for sha in ("f", "q", "s"):
+        ledger.register(sha, "hoot", 10, Path(f"{sha}.hoot"))
+    ledger.fail("f", "owlet-download-failed", pipeline_version=1)
+    ledger.quarantine("q", "empty-file", pipeline_version=1)
+    ledger.set_stage("s", Stage.SUCCESS, pipeline_version=1)
+    assert ledger.needs_processing("f", pipeline_version=1) is True
+    assert ledger.needs_processing("q", pipeline_version=1) is False
+    assert ledger.needs_processing("s", pipeline_version=1) is False
+
+
+def test_files_snapshot_carries_attempts(lake: LakePaths) -> None:
+    ledger = Ledger(lake.ledger)
+    ledger.register("abc", "hoot", 10, Path("a.hoot"))
+    ledger.fail("abc", "owlet-failed", pipeline_version=1)
+    ledger.export_snapshots(lake.meta)
+    rows = duckdb.sql(f"select stage, attempts from '{lake.meta / 'files.parquet'}'").fetchall()
+    assert rows == [("failed", 1)]
+
+
+_OLD_FILES = """
+CREATE TABLE files (
+    sha256 TEXT PRIMARY KEY, kind TEXT NOT NULL, size INTEGER NOT NULL,
+    stage TEXT NOT NULL, reason TEXT, warnings TEXT, pipeline_version INTEGER,
+    first_seen TEXT NOT NULL, updated TEXT NOT NULL
+);
+"""
+
+
+def _old_lake(lake: LakePaths) -> None:
+    db = sqlite3.connect(lake.ledger)
+    db.executescript(_OLD_FILES)
+    for sha, reason in [
+        ("dl", "owlet-download-failed"),
+        ("crash", "owlet-failed"),
+        ("oops", "internal-error:OSError"),
+        ("bad", "invalid-header"),
+    ]:
+        db.execute(
+            "INSERT INTO files VALUES (?, 'hoot', 1, 'quarantined', ?, NULL, 1, 't', 't')",
+            (sha, reason),
+        )
+    db.commit()
+    db.close()
+
+
+def test_old_lake_gains_attempts_and_machine_quarantines_become_failed(lake: LakePaths) -> None:
+    _old_lake(lake)
+    ledger = Ledger(lake.ledger)
+    rows = {r["sha256"]: (r["stage"], r["attempts"]) for r in ledger.files()}
+    assert rows == {
+        "dl": ("failed", 0),
+        "crash": ("failed", 0),
+        "oops": ("failed", 0),
+        "bad": ("quarantined", 0),
+    }
+    assert ledger.reason("dl") == "owlet-download-failed"
+
+
+def test_opening_an_old_lake_twice_is_a_noop(lake: LakePaths) -> None:
+    _old_lake(lake)
+    Ledger(lake.ledger).close()
+    first = Ledger(lake.ledger).files()
+    second = Ledger(lake.ledger).files()
+    assert first == second
+
+
+def test_reopening_keeps_a_quarantine_after_three_failures(lake: LakePaths) -> None:
+    ledger = Ledger(lake.ledger)
+    ledger.register("abc", "hoot", 10, Path("a.hoot"))
+    ledger.quarantine("abc", "owlet-failed", pipeline_version=1)
+    ledger.close()
+    assert Ledger(lake.ledger).stage("abc") == Stage.QUARANTINED
 
 
 def test_ledger_exports_parquet_snapshots(lake: LakePaths) -> None:

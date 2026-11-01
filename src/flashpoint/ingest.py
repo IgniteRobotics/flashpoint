@@ -1,6 +1,7 @@
 """Ingest orchestration: discover → hash → ledger → raw → convert → decode → bronze → metadata.
 
-Each file succeeds or is quarantined on its own; one bad file never stops a run.
+Each file succeeds, fails (machine error, retried later) or is quarantined (bad file) on its
+own; one bad file never stops a run.
 """
 
 import os
@@ -24,6 +25,7 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.meta import extract
 from flashpoint.readers import hoot
 from flashpoint.readers.hoot import HootConversion, HootError, OwletRegistry
+from flashpoint.readers.reasons import SUSPECT_ATTEMPTS, ReasonKind, kind_of
 from flashpoint.readers.wpilog import CatalogEntry, WpilogError, WpilogReader
 
 SUFFIX_KIND = {".wpilog": "wpilog", ".hoot": "hoot"}
@@ -57,7 +59,7 @@ class FileResult:
     path: Path
     sha256: str
     kind: str
-    status: str  # success | skipped | quarantined
+    status: str  # success | skipped | failed | quarantined | quarantined-earlier | missing-raw
     reason: str | None = None
     warnings: list[str] = field(default_factory=list)
 
@@ -72,7 +74,8 @@ class IngestReport:
 
     @property
     def exit_code(self) -> int:
-        return 1 if self.count("quarantined") else 0
+        # A file quarantined in an earlier run is known; only this run's problems count.
+        return 1 if self.count("quarantined") or self.count("failed") else 0
 
 
 def discover(paths: Iterable[Path]) -> list[Path]:
@@ -133,7 +136,12 @@ class Ingestor:
             kind = SUFFIX_KIND[path.suffix.lower()]
             self.ledger.register(sha, kind, path.stat().st_size, path)
             if sha in seen or not self.ledger.needs_processing(sha, config.PIPELINE_VERSION):
-                report.results.append(FileResult(path, sha, kind, "skipped"))
+                if self.ledger.stage(sha) is Stage.QUARANTINED:
+                    reason = self.ledger.reason(sha)
+                    result = FileResult(path, sha, kind, "quarantined-earlier", reason)
+                else:
+                    result = FileResult(path, sha, kind, "skipped")
+                report.results.append(result)
                 continue
             seen.add(sha)
             todo.append((path, sha, kind))
@@ -142,18 +150,32 @@ class Ingestor:
         report.elapsed_s = time.perf_counter() - started
         return report
 
-    def rebuild(self) -> IngestReport:
-        """Reprocess files from an older pipeline version, from raw storage."""
+    def rebuild(self, quarantined: bool = False) -> IngestReport:
+        """Reprocess from raw storage: files from an older pipeline version and `failed` files,
+        or, with `quarantined`, every quarantined file (with a fresh attempt count)."""
         started = time.perf_counter()
         todo: list[tuple[Path, str, str]] = []
+        missing: list[FileResult] = []
         for row in self.ledger.files():
-            if row["pipeline_version"] == config.PIPELINE_VERSION:
+            if quarantined:
+                wanted = row["stage"] == Stage.QUARANTINED
+            else:
+                wanted = (
+                    row["pipeline_version"] != config.PIPELINE_VERSION
+                    or row["stage"] == Stage.FAILED
+                )
+            if not wanted:
                 continue
-            suffix = "." + row["kind"]
-            path = raw.raw_path(self.lake, row["sha256"], suffix)
-            if path.is_file():
-                todo.append((path, row["sha256"], row["kind"]))
-        report = IngestReport(self._process(todo))
+            path = raw.raw_path(self.lake, row["sha256"], "." + row["kind"])
+            if not path.is_file():
+                missing.append(
+                    FileResult(path, row["sha256"], row["kind"], "missing-raw", row["reason"])
+                )
+                continue
+            if quarantined:
+                self.ledger.reset_attempts(row["sha256"])
+            todo.append((path, row["sha256"], row["kind"]))
+        report = IngestReport(missing + self._process(todo))
         self._check_hoot_coverage(report)
         report.elapsed_s = time.perf_counter() - started
         return report
@@ -197,21 +219,28 @@ class Ingestor:
                 warnings = list(converted.warnings)
                 self._ingest_hoot(sha, converted, name)
         except (WpilogError, HootError) as exc:
-            return self._quarantine(path, sha, kind, name, exc.reason, str(exc))
+            return self._unprocessed(path, sha, kind, name, exc.reason, str(exc))
         except Exception as exc:  # noqa: BLE001 - one bad file must never stop the batch
             reason = f"internal-error:{type(exc).__name__}"
-            return self._quarantine(path, sha, kind, name, reason, repr(exc))
+            return self._unprocessed(path, sha, kind, name, reason, repr(exc))
         joined = ",".join(warnings) or None
         self.ledger.set_stage(sha, Stage.SUCCESS, config.PIPELINE_VERSION, warnings=joined)
         self.log(f"ingested    {name}" + (f" (warnings: {joined})" if joined else ""))
         return FileResult(path, sha, kind, "success", warnings=warnings)
 
-    def _quarantine(
+    def _unprocessed(
         self, path: Path, sha: str, kind: str, name: str, reason: str, detail: str
     ) -> FileResult:
-        self.ledger.quarantine(sha, reason, config.PIPELINE_VERSION)
+        """Quarantine a bad file; mark a machine failure `failed` so a later run retries it."""
         bronze.remove(self.lake, sha)
         self.ledger.replace_metadata(sha, {})
+        reason_kind = kind_of(reason)
+        if reason_kind is not ReasonKind.FILE:
+            attempts = self.ledger.fail(sha, reason, config.PIPELINE_VERSION)
+            if reason_kind is ReasonKind.ENVIRONMENT or attempts < SUSPECT_ATTEMPTS:
+                self.log(f"failed      {name}: {detail} (attempt {attempts}, will retry)")
+                return FileResult(path, sha, kind, "failed", reason)
+        self.ledger.quarantine(sha, reason, config.PIPELINE_VERSION)
         self.log(f"quarantined {name}: {detail}")
         return FileResult(path, sha, kind, "quarantined", reason)
 

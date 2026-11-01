@@ -75,10 +75,22 @@ def _parser() -> argparse.ArgumentParser:
     ingest.add_argument("--jobs", type=int, help="parallel hoot conversions")
     lake_arg(ingest)
 
-    ingest.add_argument("--no-derive", action="store_true", help="skip deriving silver/gold")
+    ingest.add_argument(
+        "--no-derive", action="store_true", help="skip deriving silver/gold (and the Replay build)"
+    )
+    no_report_help = "skip the incremental Replay build after derive"
+    ingest.add_argument("--no-report", action="store_true", help=no_report_help)
 
-    rebuild = sub.add_parser("rebuild", help="reprocess files from an older pipeline version")
+    rebuild = sub.add_parser(
+        "rebuild", help="reprocess files from an older pipeline version, and failed files"
+    )
     rebuild.add_argument("--profile", choices=hoot.PROFILES, default="health")
+    rebuild.add_argument(
+        "--quarantined",
+        action="store_true",
+        help="reprocess only quarantined files, from their raw copies",
+    )
+    rebuild.add_argument("--no-report", action="store_true", help=no_report_help)
     lake_arg(rebuild)
 
     derive = sub.add_parser(
@@ -215,14 +227,54 @@ def _init(team_text: str | None, lake: Path | None) -> int:
 
 def _summarize(report: "IngestReport") -> None:
     for result in report.results:
+        name = result.path.name
         if result.status == "quarantined":
-            print(f"  QUARANTINED {result.path.name}: {result.reason}")
+            print(f"  QUARANTINED {name}: {result.reason}")
+        elif result.status == "failed":
+            print(f"  FAILED      {name}: failed ({result.reason}), will retry")
+        elif result.status == "quarantined-earlier":
+            print(f"  SKIPPED     {name}: quarantined earlier ({result.reason})")
+        elif result.status == "missing-raw":
+            print(f"  MISSING RAW {name}: no raw copy, left as it was ({result.reason})")
         elif result.warnings:
-            print(f"  WARNING     {result.path.name}: {', '.join(result.warnings)}")
+            print(f"  WARNING     {name}: {', '.join(result.warnings)}")
     print(
         f"{report.count('success')} ingested, {report.count('skipped')} skipped, "
-        f"{report.count('quarantined')} quarantined in {report.elapsed_s:.1f}s"
+        f"{report.count('failed')} failed, {report.count('quarantined')} quarantined, "
+        f"{report.count('quarantined-earlier')} quarantined earlier in {report.elapsed_s:.1f}s"
     )
+    if report.count("quarantined-earlier"):
+        print("to retry quarantined files: flashpoint rebuild --quarantined")
+
+
+REPORT_TAIL_LINES = 15
+
+
+def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) -> None:
+    """Derive, then build Replay data, each in a fresh process.
+
+    Separate processes keep peak memory at max(ingest, derive, report) rather than their sum,
+    because the allocator keeps each step's high-water mark (measured: 1155 MB vs 870 / 589 MB).
+    Neither step changes the ingest's exit code.
+    """
+    base = [sys.executable, "-m", "flashpoint"]
+    derive = [*base, "derive", "--lake", str(lake.root), *(["--all"] if derive_all else [])]
+    if subprocess.run(derive, check=False).returncode != 0 or not build_report:
+        return
+    report = [*base, "report", "--lake", str(lake.root)]
+    done = subprocess.run(report, check=False, capture_output=True, text=True)
+    if done.returncode == 0:
+        print(done.stdout, end="")
+    elif done.returncode == EXIT_LOCKED:
+        print(
+            "a Replay build is already running on this lake;"
+            " run `flashpoint report` after it finishes",
+            file=sys.stderr,
+        )
+    else:
+        tail = (done.stdout + done.stderr).strip().splitlines()[-REPORT_TAIL_LINES:]
+        print(f"Replay build failed (exit {done.returncode}):", file=sys.stderr)
+        print("\n".join(tail), file=sys.stderr)
 
 
 def _derive(lake: LakePaths, force: bool) -> int:
@@ -663,13 +715,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return EXIT_USAGE
             report = ingestor.ingest(args.paths)
         else:
-            report = ingestor.rebuild()
+            report = ingestor.rebuild(quarantined=args.quarantined)
     finally:
         ingestor.close()
     _summarize(report)
-    if (args.command == "rebuild" or not args.no_derive) and report.count("success"):
-        # A fresh process: peak memory is max(ingest, derive) rather than their sum, because
-        # the allocator keeps ingest's high-water mark (measured: 1155 MB vs 870 / 589 MB).
-        derive = [sys.executable, "-m", "flashpoint", "derive", "--lake", str(lake.root)]
-        subprocess.run(derive + (["--all"] if args.command == "rebuild" else []), check=False)
+    rebuild = args.command == "rebuild"
+    if (rebuild or not args.no_derive) and report.count("success"):
+        _derive_and_report(lake, derive_all=rebuild, build_report=not args.no_report)
     return report.exit_code

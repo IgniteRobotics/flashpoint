@@ -111,15 +111,18 @@ At the end, `ingest` prints a summary like this:
 ```
   WARNING     GACMP_E10_rio_2026-04-11_19-29-15.hoot: incomplete-read
   QUARANTINED GADAL_Q11_..._2026-03-06_17-52-51.hoot: empty-file
-14 ingested, 0 skipped, 1 quarantined in 13.1s
+  FAILED      GACMP_Q7_rio_2026-04-09_21-51-06.hoot: failed (owlet-download-failed), will retry
+13 ingested, 0 skipped, 1 failed, 1 quarantined, 0 quarantined earlier in 13.1s
 ```
 
 - **Ingested** files are in the lake.
 - **WARNING** means the file was read but something was off. `incomplete-read` means the end of the file is missing, usually because the robot lost power while writing it. The rest of the data is still used.
-- **QUARANTINED** means the file couldn't be read at all, for example because it's empty or corrupt. It's kept in the lake but not used.
+- **QUARANTINED** means the file is bad: it's empty, corrupt, or in a format Flashpoint can't read. It's kept in the lake but not used, and later runs don't try it again. They list it as `quarantined earlier`.
+- **FAILED** means the laptop failed, not the file. Usually there was no internet to download owlet, the tool that reads `.hoot` files. Run `flashpoint ingest` again once you're online, or let automatic import retry it. If owlet crashes on the same file 3 times, the file is quarantined.
+- To retry quarantined files, for example after updating Flashpoint, run `flashpoint rebuild --quarantined`. It works from the lake's own copies, so you don't need the original logs.
 - **"declared signal(s) not written"** lines mean the robot config expects a NetworkTables entry that the log doesn't have, which is normal for older code. It only matters if you were looking for that signal.
 
-Ingest then works out matches, aligns the logs, and runs anomaly detection, all on its own.
+Ingest then works out matches, aligns the logs, runs anomaly detection, and updates Replay, all on its own.
 
 To have logs pulled from the robot and USB sticks without doing this by hand, set up [automatic import](auto-import.md).
 

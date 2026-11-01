@@ -14,7 +14,7 @@ In a source checkout, put `poetry run` in front of each command (`poetry run fla
 A settings file missing from the config folder falls back to the default that ships with Flashpoint (thresholds, anomaly settings, season roots). `doctor` lists which files are defaults.
 | Download cache (owlet) | `~/.cache/flashpoint/` | `FLASHPOINT_CACHE` |
 
-Exit codes: `0` success, `1` failed (or a file was quarantined), `2` usage or configuration error, `3` another Flashpoint process holds the lock, `130` interrupted with Ctrl-C.
+Exit codes: `0` success, `1` failed (for `ingest` and `rebuild`: a file failed or was quarantined in this run), `2` usage or configuration error, `3` another Flashpoint process holds the lock, `130` interrupted with Ctrl-C.
 
 ## `flashpoint init`
 
@@ -31,26 +31,45 @@ flashpoint init --team 254 --lake ~/frc-lake
 
 ## `flashpoint ingest`
 
-Copy `.wpilog` and `.hoot` files into the lake and read them. You can pass files, folders (searched recursively), or both. Files already in the lake are skipped, so re-running is safe. When at least one file was ingested, `derive` (and so `detect`) runs afterward on its own.
+Copy `.wpilog` and `.hoot` files into the lake and read them. You can pass files, folders (searched recursively), or both. Files already in the lake are skipped, so re-running is safe. When at least one file was ingested, `derive` (and so `detect`) runs afterward on its own, and then the Replay data is rebuilt for the matches that changed (the same build as `flashpoint report`).
 
 | Option | What it does |
 |---|---|
 | `--profile all` | Export every hoot signal instead of the health set (about 3× larger). Default `health` |
 | `--jobs N` | Hoot files converted in parallel. Default: half your CPU cores |
-| `--no-derive` | Skip the automatic `derive` |
+| `--no-derive` | Skip the automatic `derive`, and so the Replay build too |
+| `--no-report` | Skip the automatic Replay build after `derive` |
 
 ```sh
 flashpoint ingest ~/Downloads/GACMP/
 ```
 
-The last line counts files ingested, skipped, and quarantined. A quarantined file is one Flashpoint couldn't read (corrupt or truncated); it is listed with the reason, and the exit code is `1`.
+Files that need attention are listed before the summary:
+
+| Line | Meaning |
+|---|---|
+| `QUARANTINED name: reason` | The file itself is bad (empty, corrupt, an unknown format). It stays in the lake, unused, and later runs don't try it again |
+| `FAILED name: failed (reason), will retry` | The machine failed, not the file: owlet couldn't be downloaded (no internet), crashed, or timed out. The next `ingest`, `rebuild`, or acquire cycle tries it again. A file that crashes owlet or times out 3 times is quarantined |
+| `SKIPPED name: quarantined earlier (reason)` | The file was quarantined in an earlier run. Retry it with `flashpoint rebuild --quarantined` |
+
+The last line counts files ingested, skipped, failed, quarantined, and quarantined earlier. The exit code is `1` when a file failed or was quarantined in this run. Files quarantined earlier don't change it.
+
+If another Replay build is running (the acquire watch or `serve` at start), `ingest` says so; run `flashpoint report` after it finishes. A failed Replay build prints its error. Neither changes the exit code.
 
 ## `flashpoint rebuild`
 
-Reprocess, from its raw copy, every file that an older version of Flashpoint processed. `restore` marks every file this way. Use it when `doctor` says "N file(s) from an older pipeline version", and after a `restore`. When it reprocessed anything, `derive --all` runs afterward. With nothing to do, it prints `0 ingested` and stops.
+Reprocess, from its raw copy, every file that an older version of Flashpoint processed, and every file that `failed` (a machine error such as no internet for the owlet download). `restore` marks every file this way. Use it when `doctor` says "N file(s) from an older pipeline version", and after a `restore`. When it reprocessed anything, `derive --all` runs afterward, then the Replay build. With nothing to do, it prints `0 ingested` and stops. You never need the original logs.
+
+| Option | What it does |
+|---|---|
+| `--quarantined` | Reprocess only quarantined files, with a fresh count of 3 tries. Use it after a fix (a new owlet, a Flashpoint update), or for a file that crashed owlet 3 times. A file that is truly bad is quarantined again |
+| `--no-report` | Skip the automatic Replay build after `derive` |
+
+A file whose raw copy is missing is listed as `MISSING RAW` and left as it is.
 
 ```sh
 flashpoint rebuild
+flashpoint rebuild --quarantined
 ```
 
 ## `flashpoint derive`

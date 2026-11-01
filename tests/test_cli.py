@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
@@ -6,6 +7,9 @@ import pytest
 
 from flashpoint import config
 from flashpoint.cli import main
+from flashpoint.readers import hoot
+from flashpoint.readers.hoot import HootError
+from tests.test_ingest import HOOT_NAME, FailingRegistry, _fake_convert
 from tests.wpilog_builder import WpilogBuilder
 
 
@@ -14,7 +18,8 @@ def test_ingest_then_doctor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     lake = tmp_path / "lake"
 
     assert main(["ingest", "--lake", str(lake), str(log)]) == 0
-    assert "1 ingested, 0 skipped, 0 quarantined" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "1 ingested, 0 skipped, 0 failed, 0 quarantined, 0 quarantined earlier" in out
 
     assert main(["doctor", "--lake", str(lake)]) == 0
     out = capsys.readouterr().out
@@ -216,3 +221,146 @@ def test_doctor_per_user_folder_and_defaults(
     assert "team 254" in out
     defaults = next(x for x in out.splitlines() if x.startswith("defaults"))
     assert "report.toml" in defaults and "anomaly.toml" in defaults
+
+
+# --- ingest output and the Replay build after derive (#14, #15) ---------------------------
+
+
+class FakeRuns:
+    """Stands in for `subprocess.run` in the CLI: records commands, returns chosen exit codes."""
+
+    def __init__(self, derive: int = 0, report: int = 0, report_output: str = "") -> None:
+        self.codes = {"derive": derive, "report": report}
+        self.report_output = report_output
+        self.commands: list[list[str]] = []
+
+    def __call__(self, args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        self.commands.append(list(args))
+        step = args[3]
+        out = self.report_output if step == "report" else ""
+        return subprocess.CompletedProcess(args, self.codes[step], out, "")
+
+    def steps(self) -> list[str]:
+        return [c[3] for c in self.commands]
+
+
+@pytest.fixture
+def runs(monkeypatch: pytest.MonkeyPatch) -> FakeRuns:
+    fake = FakeRuns()
+    monkeypatch.setattr(subprocess, "run", fake)
+    return fake
+
+
+def _wpilog(path: Path, value: float = 1.0) -> Path:
+    return WpilogBuilder().start(1, "x", "double").double(1, 1, value).write(path)
+
+
+def _failing_hoot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception) -> Path:
+    registry = FailingRegistry(tmp_path, error)
+    monkeypatch.setattr(hoot, "default_registry", lambda _root: registry)
+    monkeypatch.setattr(hoot, "convert", _fake_convert)
+    path = tmp_path / HOOT_NAME
+    path.write_bytes(b"hoot")
+    return path
+
+
+def test_ingest_output_lists_failed_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch,
+    runs: FakeRuns,
+) -> None:  # fmt: skip
+    path = _failing_hoot(tmp_path, monkeypatch, HootError("owlet-timeout"))
+    assert main(["ingest", "--lake", str(tmp_path / "lake"), str(path)]) == 1
+    out = capsys.readouterr().out
+    assert f"FAILED      {HOOT_NAME}: failed (owlet-timeout), will retry" in out
+    assert "0 ingested, 0 skipped, 1 failed, 0 quarantined, 0 quarantined earlier" in out
+    assert "rebuild --quarantined" not in out
+
+
+def test_ingest_output_quarantined_now_and_earlier(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], runs: FakeRuns
+) -> None:
+    bad = tmp_path / "bad.wpilog"
+    bad.write_bytes(b"x" * 20)
+    lake = str(tmp_path / "lake")
+    assert main(["ingest", "--lake", lake, str(bad)]) == 1
+    out = capsys.readouterr().out
+    assert "QUARANTINED bad.wpilog: invalid-header" in out
+    assert "0 ingested, 0 skipped, 0 failed, 1 quarantined, 0 quarantined earlier" in out
+    assert "rebuild --quarantined" not in out
+
+    assert main(["ingest", "--lake", lake, str(bad)]) == 0
+    out = capsys.readouterr().out
+    assert "bad.wpilog: quarantined earlier (invalid-header)" in out
+    assert "0 ingested, 0 skipped, 0 failed, 0 quarantined, 1 quarantined earlier" in out
+    assert "flashpoint rebuild --quarantined" in out
+
+
+def test_rebuild_quarantined_flag(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], runs: FakeRuns
+) -> None:
+    bad = tmp_path / "bad.wpilog"
+    bad.write_bytes(b"x" * 20)
+    lake = str(tmp_path / "lake")
+    main(["ingest", "--lake", lake, str(bad)])
+    capsys.readouterr()
+    assert main(["rebuild", "--quarantined", "--lake", lake]) == 1
+    assert "1 quarantined" in capsys.readouterr().out
+
+
+def test_report_runs_after_successful_derive(tmp_path: Path, runs: FakeRuns) -> None:
+    lake = tmp_path / "lake"
+    assert main(["ingest", "--lake", str(lake), str(_wpilog(tmp_path / "a.wpilog"))]) == 0
+    assert runs.steps() == ["derive", "report"]
+    assert runs.commands[1][4:] == ["--lake", str(lake)]
+
+
+@pytest.mark.parametrize(
+    ("flags", "derive_code"), [(["--no-report"], 0), (["--no-derive"], 0), ([], 1)]
+)
+def test_report_skipped(tmp_path: Path, runs: FakeRuns, flags: list[str], derive_code: int) -> None:
+    runs.codes["derive"] = derive_code
+    log = _wpilog(tmp_path / "a.wpilog")
+    assert main(["ingest", *flags, "--lake", str(tmp_path / "lake"), str(log)]) == 0
+    assert "report" not in runs.steps()
+
+
+def test_report_skipped_when_nothing_succeeded(tmp_path: Path, runs: FakeRuns) -> None:
+    lake = str(tmp_path / "lake")
+    log = str(_wpilog(tmp_path / "a.wpilog"))
+    main(["ingest", "--lake", lake, log])
+    runs.commands.clear()
+    assert main(["ingest", "--lake", lake, log]) == 0
+    assert runs.steps() == []
+
+
+def test_report_lock_held_tells_user_to_run_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], runs: FakeRuns
+) -> None:
+    runs.codes["report"] = 3
+    log = _wpilog(tmp_path / "a.wpilog")
+    assert main(["ingest", "--lake", str(tmp_path / "lake"), str(log)]) == 0
+    out = capsys.readouterr()
+    assert "already running" in out.err and "run `flashpoint report` after it" in out.err
+
+
+def test_report_failure_prints_output_tail_and_keeps_exit_code(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], runs: FakeRuns
+) -> None:
+    runs.codes["report"] = 1
+    runs.report_output = "\n".join(f"line {i}" for i in range(30)) + "\nTraceback: boom"
+    bad = tmp_path / "bad.wpilog"
+    bad.write_bytes(b"x" * 20)
+    log = _wpilog(tmp_path / "a.wpilog")
+    assert main(["ingest", "--lake", str(tmp_path / "lake"), str(log), str(bad)]) == 1
+    err = capsys.readouterr().err
+    assert "Traceback: boom" in err and "line 0\n" not in err
+
+
+def test_rebuild_runs_report_after_derive_all(tmp_path: Path, runs: FakeRuns) -> None:
+    lake = str(tmp_path / "lake")
+    main(["ingest", "--no-derive", "--lake", lake, str(_wpilog(tmp_path / "a.wpilog"))])
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(config, "PIPELINE_VERSION", config.PIPELINE_VERSION + 1)
+        assert main(["rebuild", "--lake", lake]) == 0
+    assert runs.steps() == ["derive", "report"]
+    assert runs.commands[0][-1] == "--all"

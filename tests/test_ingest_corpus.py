@@ -1,5 +1,6 @@
 """End-to-end ingest of the whole golden corpus into an empty lake."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -115,10 +116,30 @@ def test_second_run_is_a_noop(ingested: tuple[LakePaths, IngestReport], corpus_d
     report = _ingest(lake, corpus_dir)
 
     assert report.count("success") == 0
-    assert report.count("skipped") == 15
+    assert report.count("skipped") == 14
+    assert report.count("quarantined-earlier") == 1
+    assert report.exit_code == 0
     after = {
         p: p.read_bytes()
         for p in [*lake.bronze.rglob("*.parquet"), *lake.raw.rglob("*")]
         if p.is_file()
     }
     assert after == before
+
+
+def test_rerun_reports_earlier_quarantine(
+    corpus_group: Callable[[str], list[Path]], tmp_path: Path
+) -> None:
+    lake = LakePaths(tmp_path / "lake")
+    files = [*corpus_group("2026-gadal-q11-empty"), *corpus_group("2026-gacmp-q7")]
+    ingestor = Ingestor(lake, hoot.default_registry(config.cache_root()))
+    try:
+        ingestor.ingest(files)
+        report = ingestor.ingest(files)
+    finally:
+        ingestor.close()
+
+    statuses = {(r.path.name, r.status, r.reason) for r in report.results}
+    assert (EMPTY, "quarantined-earlier", "empty-file") in statuses
+    assert {s for n, s, _ in statuses if n != EMPTY} == {"skipped"}
+    assert report.exit_code == 0

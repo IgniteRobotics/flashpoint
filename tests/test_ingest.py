@@ -5,10 +5,11 @@ import pytest
 from flashpoint import config
 from flashpoint.ingest import Ingestor, IngestReport, discover
 from flashpoint.lake import bronze
-from flashpoint.lake.ledger import Stage
+from flashpoint.lake.ledger import Ledger, Stage
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.query import connect
-from flashpoint.readers.hoot import OwletRegistry
+from flashpoint.readers import hoot
+from flashpoint.readers.hoot import HootError, OwletRegistry
 from tests.wpilog_builder import WpilogBuilder
 
 
@@ -113,7 +114,7 @@ def test_unknown_hoot_compliancy_is_quarantined(
     assert (result.status, result.reason) == ("quarantined", "unsupported-compliancy:19")
 
 
-def test_unexpected_error_quarantines_file(
+def test_unexpected_error_fails_file_for_retry(
     lake: LakePaths, registry: OwletRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def boom(*_args: object, **_kwargs: object) -> Path:
@@ -121,7 +122,7 @@ def test_unexpected_error_quarantines_file(
 
     monkeypatch.setattr(bronze, "write", boom)
     (result,) = _run(lake, registry, _log(tmp_path / "a.wpilog")).results
-    assert (result.status, result.reason) == ("quarantined", "internal-error:RuntimeError")
+    assert (result.status, result.reason) == ("failed", "internal-error:RuntimeError")
 
 
 def test_rebuild_reprocesses_older_pipeline_versions_from_raw(
@@ -144,3 +145,217 @@ def test_rebuild_reprocesses_older_pipeline_versions_from_raw(
     assert connect(lake).sql("select filename from meta_logs").fetchone() == (
         "FRC_20260409_215113_GACMP_Q7.wpilog",
     )
+
+
+# --- machine failures are retried (#14) ---------------------------------------------------
+
+
+class FailingRegistry(OwletRegistry):
+    """An owlet registry that fails with a chosen error until `error` is set to None."""
+
+    def __init__(self, tmp_path: Path, error: Exception | None) -> None:
+        manifest = tmp_path / "fake-manifest.toml"
+        manifest.write_text("")
+        super().__init__(manifest, tmp_path / "fake-owlet-cache")
+        self.error = error
+
+    def binary_for(self, compliancy: int, download: bool = True) -> Path:
+        if self.error is not None:
+            raise self.error
+        return Path("owlet")
+
+
+def _fake_convert(
+    hoot_path: Path, out_dir: Path, registry: OwletRegistry, profile: str = "health"
+) -> hoot.HootConversion:
+    registry.binary_for(1)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    wpilog = _log(out_dir / "converted.wpilog")
+    return hoot.HootConversion(wpilog, 1, "fake", False, profile, 1, "rio")
+
+
+HOOT_NAME = "GACMP_Q7_rio_2026-04-09_21-51-13.hoot"
+
+
+@pytest.fixture
+def hoot_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setattr(hoot, "convert", _fake_convert)
+    path = tmp_path / "logs" / HOOT_NAME
+    path.parent.mkdir()
+    path.write_bytes(b"not read by the fake converter")
+    return path
+
+
+def _stage(lake: LakePaths, sha: str) -> tuple[Stage | None, str | None]:
+    ledger = Ledger(lake.ledger)
+    try:
+        return ledger.stage(sha), ledger.reason(sha)
+    finally:
+        ledger.close()
+
+
+def test_download_failure_is_failed_then_retried_to_success(
+    lake: LakePaths, tmp_path: Path, hoot_file: Path
+) -> None:
+    registry = FailingRegistry(tmp_path, HootError("owlet-download-failed", "no network"))
+    (first,) = _run(lake, registry, hoot_file).results
+    assert (first.status, first.reason) == ("failed", "owlet-download-failed")
+    assert _stage(lake, first.sha256) == (Stage.FAILED, "owlet-download-failed")
+
+    registry.error = None
+    (second,) = _run(lake, registry, hoot_file).results
+    assert second.status == "success"
+    assert _stage(lake, first.sha256) == (Stage.SUCCESS, None)
+
+
+def test_environment_errors_never_quarantine(
+    lake: LakePaths, tmp_path: Path, hoot_file: Path
+) -> None:
+    registry = FailingRegistry(tmp_path, HootError("owlet-download-failed"))
+    for _ in range(5):
+        (result,) = _run(lake, registry, hoot_file).results
+        assert result.status == "failed"
+        assert _stage(lake, result.sha256)[0] == Stage.FAILED
+
+
+def test_owlet_crash_is_quarantined_on_the_third_attempt(
+    lake: LakePaths, tmp_path: Path, hoot_file: Path
+) -> None:
+    registry = FailingRegistry(tmp_path, HootError("owlet-failed", "exit 1"))
+    statuses = [_run(lake, registry, hoot_file).results[0] for _ in range(3)]
+    assert [(r.status, r.reason) for r in statuses] == [
+        ("failed", "owlet-failed"),
+        ("failed", "owlet-failed"),
+        ("quarantined", "owlet-failed"),
+    ]
+    assert _stage(lake, statuses[0].sha256) == (Stage.QUARANTINED, "owlet-failed")
+
+
+def test_empty_file_quarantines_on_the_first_run(lake: LakePaths, tmp_path: Path) -> None:
+    empty = tmp_path / HOOT_NAME
+    empty.write_bytes(b"")
+    (result,) = _run(lake, FailingRegistry(tmp_path, None), empty).results
+    assert (result.status, result.reason) == ("quarantined", "empty-file")
+
+
+def test_unexpected_error_is_failed(lake: LakePaths, tmp_path: Path, hoot_file: Path) -> None:
+    (result,) = _run(lake, FailingRegistry(tmp_path, RuntimeError("boom")), hoot_file).results
+    assert (result.status, result.reason) == ("failed", "internal-error:RuntimeError")
+
+
+def test_failed_file_leaves_no_bronze_or_metadata(
+    lake: LakePaths, tmp_path: Path, hoot_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = FailingRegistry(tmp_path, None)
+    (ok,) = _run(lake, registry, hoot_file).results
+    assert ok.status == "success"
+    monkeypatch.setattr(config, "PIPELINE_VERSION", config.PIPELINE_VERSION + 1)
+    registry.error = HootError("owlet-timeout")
+
+    (result,) = _run(lake, registry, hoot_file).results
+
+    assert result.status == "failed"
+    assert not list(lake.bronze.rglob("*.parquet"))
+    ledger = Ledger(lake.ledger)
+    try:
+        assert ledger.query("select * from logs where log_id = ?", (result.sha256,)) == []
+    finally:
+        ledger.close()
+
+
+def test_rerun_reports_quarantined_earlier_and_exits_zero(
+    lake: LakePaths, registry: OwletRegistry, tmp_path: Path
+) -> None:
+    bad = tmp_path / "bad.wpilog"
+    bad.write_bytes(b"NOTALOG" * 4)
+    good = _log(tmp_path / "good.wpilog")
+    assert _run(lake, registry, bad, good).exit_code == 1
+
+    report = _run(lake, registry, bad, good)
+
+    assert {(r.path.name, r.status, r.reason) for r in report.results} == {
+        ("bad.wpilog", "quarantined-earlier", "invalid-header"),
+        ("good.wpilog", "skipped", None),
+    }
+    assert report.exit_code == 0
+
+
+def test_failed_file_makes_exit_code_non_zero(
+    lake: LakePaths, tmp_path: Path, hoot_file: Path
+) -> None:
+    report = _run(lake, FailingRegistry(tmp_path, HootError("owlet-timeout")), hoot_file)
+    assert (report.count("failed"), report.exit_code) == (1, 1)
+
+
+def _rebuild(lake: LakePaths, registry: OwletRegistry, quarantined: bool = False) -> IngestReport:
+    ingestor = Ingestor(lake, registry)
+    try:
+        return ingestor.rebuild(quarantined=quarantined)
+    finally:
+        ingestor.close()
+
+
+def test_rebuild_retries_failed_files_from_raw(
+    lake: LakePaths, tmp_path: Path, hoot_file: Path
+) -> None:
+    registry = FailingRegistry(tmp_path, HootError("owlet-download-failed"))
+    _run(lake, registry, hoot_file)
+    hoot_file.unlink()
+    registry.error = None
+
+    (result,) = _rebuild(lake, registry).results
+
+    assert result.status == "success"
+    assert _stage(lake, result.sha256) == (Stage.SUCCESS, None)
+
+
+def test_rebuild_quarantined_retries_only_quarantined_and_resets_attempts(
+    lake: LakePaths, registry: OwletRegistry, tmp_path: Path, hoot_file: Path
+) -> None:
+    failing = FailingRegistry(tmp_path, HootError("owlet-failed"))
+    for _ in range(3):
+        _run(lake, failing, hoot_file)
+    good = _log(tmp_path / "good.wpilog")
+    _run(lake, registry, good)
+    empty = tmp_path / "empty.wpilog"
+    empty.write_bytes(b"")
+    _run(lake, registry, empty)
+    failing.error = None
+
+    report = _rebuild(lake, failing, quarantined=True)
+
+    assert {(r.path.suffix, r.status, r.reason) for r in report.results} == {
+        (".hoot", "success", None),
+        (".wpilog", "quarantined", "empty-file"),
+    }
+    ledger = Ledger(lake.ledger)
+    try:
+        assert all(row["attempts"] == 0 for row in ledger.files())
+    finally:
+        ledger.close()
+
+
+def test_rebuild_quarantined_suspect_restarts_its_count(
+    lake: LakePaths, tmp_path: Path, hoot_file: Path
+) -> None:
+    failing = FailingRegistry(tmp_path, HootError("owlet-failed"))
+    for _ in range(3):
+        _run(lake, failing, hoot_file)
+    (result,) = _rebuild(lake, failing, quarantined=True).results
+    assert result.status == "failed"  # attempt 1 of a fresh count, not a 4th strike
+
+
+def test_rebuild_reports_file_without_raw_copy(
+    lake: LakePaths, registry: OwletRegistry, tmp_path: Path
+) -> None:
+    bad = tmp_path / "bad.wpilog"
+    bad.write_bytes(b"NOTALOG" * 4)
+    (quarantined,) = _run(lake, registry, bad).results
+    for path in lake.raw.rglob("*"):
+        if path.is_file():
+            path.unlink()
+
+    (result,) = _rebuild(lake, registry, quarantined=True).results
+
+    assert (result.status, result.reason) == ("missing-raw", "invalid-header")
+    assert _stage(lake, quarantined.sha256) == (Stage.QUARANTINED, "invalid-header")
