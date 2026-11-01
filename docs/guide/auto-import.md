@@ -47,6 +47,7 @@ removable_media = true
 [backup]
 remote = "gdrive:flashpoint"
 interval_min = 15
+overdue_h = 24
 ```
 
 | Key | Default | What it does |
@@ -66,6 +67,8 @@ interval_min = 15
 | `backup.overdue_h` | `24` | Hours logs or configuration may wait for a backup before the backup check reports a problem (at least 1) |
 
 To try another robot address for one run, use `--host ADDR`; it replaces `hosts`.
+
+The watch reads `acquire.toml` once, when it starts. After you change it, here or in the Setup view's **Team and connection** section, restart the watch: `systemctl --user restart flashpoint-acquire` on Linux, `schtasks /End` then `schtasks /Run /TN flashpoint-acquire` on Windows, or Ctrl-C and start it again.
 
 The first time the watch connects to a robot, it records the robot's SSH key in `~/.cache/flashpoint/known-robots.json`. If the key changes later (the rio was reimaged), it logs a warning and accepts the new one.
 
@@ -89,6 +92,8 @@ dry run: 2 file(s), 41127424 bytes would be copied; nothing changed
 `robot: unreachable` means no address answered (see [Troubleshooting](#troubleshooting)). Then run one real cycle with `flashpoint acquire`, and check that `flashpoint doctor` shows it.
 
 ## Run it in the background
+
+The easiest way is the Setup view: its acquire service check has an **Install** button on Linux and Windows. To do it by hand, clone the repository to get the service files (`git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint`), then run these commands from that folder.
 
 ### Linux (systemd user service)
 
@@ -118,14 +123,14 @@ For USB drives on a computer with no desktop, the watch only sees drives that ar
 
 ### Windows (scheduled task)
 
-Flashpoint ships a task definition, [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](../../src/flashpoint/deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. Install it from the checkout folder:
+Flashpoint ships a task definition, [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](../../src/flashpoint/deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. From that folder:
 
 ```bat
 schtasks /Create /XML src\flashpoint\deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
 schtasks /Run /TN flashpoint-acquire
 ```
 
-The task uses your user environment, so the `setx FLASHPOINT_CONFIG ...` from install applies. To remove it: `schtasks /Delete /TN flashpoint-acquire /F`.
+The task uses your user environment, so it sees `FLASHPOINT_CONFIG` if you set it with `setx` (only needed for a checkout install; `flashpoint init` doesn't need it). To remove it: `schtasks /Delete /TN flashpoint-acquire /F`.
 
 Ending the task (`schtasks /End`, or End in Task Scheduler) kills it immediately. A copy cut off mid-file leaves a `.part` file in the inbox, which is never ingested and is cleaned up on the next start.
 
@@ -153,7 +158,7 @@ Set `backup.remote = "gdrive:flashpoint"` in `acquire.toml`. Flashpoint never re
 - Raw logs are copied once and never overwritten. Metadata is a consistent snapshot in `meta/latest` on the remote.
 - Each metadata backup moves the files it replaces into `meta/history/<UTC time>/` on the remote, so a backup from a wrong or empty lake can't destroy the last good one. Nothing deletes old history folders; remove them by hand when you want the space.
 - A large first backup goes up over several cycles; `doctor` shows the backup as still owed until it's done. Within the watch, each backup gives up on a dead connection within about a minute and stops after 4 minutes.
-- Your configuration goes to `config/latest` on the remote: the TOML files at the top of the config folder and in `seasons/` and `robots/`, and the CSV files in `units/`. Nothing else in that folder is copied: not the service's `env` file, not the Setup view's `.backups/`, not notes you left there. Files you never changed from the defaults aren't in the folder, so they aren't copied either; they come back with Flashpoint.
+- Your configuration goes to `config/latest` on the remote: the TOML files at the top of the config folder and in `seasons/` and `robots/`, and the CSV files in `units/`. Nothing else in that folder is copied: not the service's `env` file, not the Setup view's `.backups/`, not notes you left there. `flashpoint init` puts copies of the default files (`report.toml`, `anomaly.toml`, `anomaly-causes.toml`, `theme.toml`, the seasons and the units list) in the folder, so they're backed up too, even if you never changed them.
 - Saving a robot or a threshold makes a backup due even on a day with no new matches, so the watch copies it within `interval_min` minutes.
 - Each configuration backup moves the files it replaces or deletes into `config/history/<UTC time>/`. To get an older robot file back, copy it from there with rclone, for example `rclone copy gdrive:flashpoint/config/history/20261023T180000Z/robots/2026-comp.toml ~/.config/flashpoint/robots/`.
 
@@ -164,7 +169,7 @@ Bronze, silver, and gold aren't backed up, because they can be rebuilt from raw.
 The **Backup** check (in `flashpoint doctor` and the Setup view) watches for data that only exists on this machine:
 
 - A log is **waiting** when the lake received it after the last successful backup. Your configuration is waiting when it changed since then. This works the same whether logs came in through the watch or `flashpoint ingest`.
-- **Problem:** something has waited longer than `backup.overdue_h` hours (default 24). The message says how many logs, whether configuration changed, for how long, and the last error. The **Setup** tab shows a red **!** on every view until a backup succeeds; hover it to read why. `doctor` exits 1.
+- **Problem:** something has waited longer than `backup.overdue_h` hours (default 24). The message says how many logs, whether configuration changed, for how long, and the last error. The **Setup** tab shows a **!** in your warning colour on every view until a backup succeeds. Open the Setup view to read why: it's the **Backup** check's message. `doctor` exits 1.
 - **Warning:** the last backup failed but nothing has waited that long yet, or no `backup.remote` is set and the lake holds logs.
 - **ok:** says when the last backup succeeded.
 
@@ -225,8 +230,8 @@ cycle done: robot 10.68.29.2 ok, volume ROBOT-USB ok; transfers {'verified': 3};
 | `robot <host>: low space on <root>: N MB free` | The robot is close to deleting old logs on its own | Pull the logs, then free space on the rio |
 | `robot <host> has no sha256sum; files are accepted on size` | The rio image is missing a tool, so copies are checked by size only | Safe to ignore; size checks still catch truncated copies |
 | `another acquire is running on this lake (pid ... on ... since ...)` | Another `acquire`, or a `backup`, is using this lake | Stop the other one, or let it finish. If that process has already exited, just run again: the lock is released automatically, so there is never a stale lock to delete |
-| A `.part` file in `inbox/` | A copy was cut off: the watch was killed, or a stick was pulled mid-copy | Nothing. `.part` files are never ingested and are removed on the next start |
+| A `.part` file in `inbox/` | A copy was cut off because the watch was killed, or the computer lost power, partway through. (A stick pulled mid-copy removes its own `.part` and counts as a failed try.) | Nothing. `.part` files are never ingested and are removed on the next start |
 | `ingest exited with N and changed nothing; inbox kept` | Ingest failed on something in the inbox | Run `flashpoint ingest <lake>/inbox` by hand to see the error |
-| `Replay build error: ...` in `doctor` | The Replay build after derive failed; the watch tries again every cycle | Run `flashpoint report` by hand to see the full error. Usually a configuration error in `config/robots/` or `report.toml` |
+| `Replay build error: ...` in `doctor` | The Replay build after derive failed; the watch tries again every cycle | Run `flashpoint report` by hand to see the full error. Usually a mistake in a robot file (`robots/` in your config folder) or in `report.toml`. `flashpoint doctor` shows where your config folder is. |
 | `a Replay build is already running on this lake` from `flashpoint report` | The watch (or another `report`) is building Replay data right now | Run it again once that build ends; there is never a stale lock to delete |
 | `failed ...` lines in `doctor` | A file failed its copy check three times, and the watch has stopped retrying it | Copy it by hand and run `flashpoint ingest` on it; if that fails too, the file on the robot is damaged |

@@ -17,18 +17,17 @@ It follows each physical motor by its serial number through swaps and rebuilds. 
 You see the results in a local web app:
 - **Replay**: one match, with markers for heat, brownouts, stalls, and CAN faults;
 - **History**: every motor across matches, events, and seasons;
-- **Anomalies**: what Flashpoint flagged, with evidence and triage.
+- **Anomalies**: what Flashpoint flagged, with evidence and triage;
+- **[Live CAN](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/live-can-health.md)**: which device dropped out, rebooted, or faulted while you shake-test or drive-test the robot.
 
 For a deep dive into a single log, it opens AdvantageScope.
 
 ## Quickstart
 
-Needs Python 3.11–3.13 and [pipx](https://pipx.pypa.io/).
-
-> Flashpoint isn't on PyPI yet, so `pipx install flashpoint` doesn't work today. Until it is, [install from a checkout](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md#installing-from-a-checkout).
+Needs Python 3.11–3.13 (not 3.14) and [pipx](https://pipx.pypa.io/). `--python` picks which one pipx uses; name any 3.11–3.13 you have.
 
 ```sh
-pipx install flashpoint
+pipx install --python python3.12 flashpoint
 flashpoint init --team <your team number>
 flashpoint ingest path/to/logs/
 flashpoint serve                   # open http://127.0.0.1:8000/
@@ -48,7 +47,8 @@ poetry run flashpoint doctor
 
 ## Documentation
 
-- [User guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md): install, import logs, and use Replay, History, and Anomalies.
+- [User guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md): install, import logs, and use Replay, History, Anomalies, and Live CAN.
+- [Team setup](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/team-setup.md): set Flashpoint up for a new team, start to finish.
 - [Automatic import](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
 - [Robot-side logging](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/robot-side.md): Java samples for the CAN inventory and bus-status loggers.
 - [CLI reference](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/cli-reference.md): every `flashpoint` command.

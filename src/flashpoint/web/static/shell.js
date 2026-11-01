@@ -16,6 +16,11 @@
   const FP = window.FP || (window.FP = {});
   const MODE = window.FP_MODE || { static: window.location.protocol === 'file:', raw: true };
   FP.mode = MODE;
+  /* The team's display name and number from theme.toml (team-branding), shown as text only:
+     "Ignite Robotics · 6829", or '' when neither is set. */
+  const TEAM = MODE.team
+    ? [MODE.team.name, MODE.team.number].filter((part) => part != null && part !== '').join(' · ')
+    : '';
 
   /* ---------- DOM builder ---------- */
   const PROPS = new Set(['value', 'checked', 'selected', 'disabled', 'htmlFor', 'tabIndex']);
@@ -84,12 +89,14 @@
     const css = getComputedStyle(document.documentElement);
     const v = (name) => css.getPropertyValue(name).trim();
     tokens = {
-      amber: v('--amber'), amberHi: v('--amber-hi'), amberMid: v('--amber-mid'), amberDim: v('--amber-dim'),
-      amberMuted: v('--amber-muted'), line: v('--line'), lineSoft: v('--line-soft'), lineStrong: v('--line-strong'),
-      hot: v('--hot'), surface1: v('--surface-1'), font: v('--font-ui'),
+      accent: v('--accent'), accentHi: v('--accent-hi'), accentMid: v('--accent-mid'), accentDim: v('--accent-dim'),
+      accentMuted: v('--accent-muted'), line: v('--line'), lineSoft: v('--line-soft'), lineStrong: v('--line-strong'),
+      warn: v('--warn'), accentRgb: v('--accent-rgb'), surface1: v('--surface-1'), font: v('--font-ui'),
     };
     return tokens;
   };
+  /* The accent at an alpha, for canvas glows and tints (the CSS uses the --glow-* tokens). */
+  const glow = (t, alpha) => 'rgba(' + t.accentRgb + ',' + alpha + ')';
 
   /* ---------- URL state (everything lives in the hash) ---------- */
   /* The shared filters (spec: view-filters) are hash keys every view reads; 'all' is no filter.
@@ -289,12 +296,12 @@
         // Band edges need real paths (width > 0) for uPlot to fill between them.
         series.push({ label: s.label + ' max', stroke: 'rgba(0,0,0,0)', width: 1, points: { show: false }, gaps: gapFilter });
         series.push({ label: s.label + ' min', stroke: 'rgba(0,0,0,0)', width: 1, points: { show: false }, gaps: gapFilter });
-        bands.push({ series: [upper, lower], fill: s.bandFill || 'rgba(255,176,0,0.14)' });
+        bands.push({ series: [upper, lower], fill: s.bandFill || glow(t, 0.14) });
       }
       data.push(s.values);
       series.push({
         label: s.label,
-        stroke: s.stroke || t.amber,
+        stroke: s.stroke || t.accent,
         width: s.width || 1.5,
         dash: s.dash,
         points: s.points || { show: false },
@@ -309,7 +316,7 @@
         const a = u.valToPos(band.from, 'x', true);
         const b = u.valToPos(band.to, 'x', true);
         ctx.save();
-        ctx.fillStyle = 'rgba(255,176,0,' + (band.alpha || 0.05) + ')';
+        ctx.fillStyle = glow(t, band.alpha || 0.05);
         ctx.fillRect(Math.min(a, b), u.bbox.top, Math.abs(b - a), u.bbox.height);
         ctx.restore();
       }
@@ -325,7 +332,7 @@
         if (x < u.bbox.left - 1 || x > u.bbox.left + u.bbox.width + 1) continue;
         ctx.save();
         if (mark.line !== false) {
-          ctx.strokeStyle = t.amberDim;
+          ctx.strokeStyle = t.accentDim;
           ctx.lineWidth = px;
           ctx.setLineDash([2 * px, 3 * px]);
           ctx.beginPath();
@@ -337,7 +344,7 @@
           ctx.font = (10 * px) + 'px ' + t.font;
           const left = x + 4 * px;
           if (left >= labelEnd + 6 * px) {
-            ctx.fillStyle = t.amberDim;
+            ctx.fillStyle = t.accentDim;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText(mark.label, left, u.bbox.top + 4 * px);
@@ -352,7 +359,7 @@
         const y = u.valToPos(ref.value, 'y', true);
         if (y < u.bbox.top || y > u.bbox.top + u.bbox.height) continue;
         ctx.save();
-        ctx.strokeStyle = t.hot;
+        ctx.strokeStyle = t.warn;
         ctx.lineWidth = px;
         ctx.setLineDash([4 * px, 3 * px]);
         ctx.beginPath();
@@ -361,7 +368,7 @@
         ctx.stroke();
         if (ref.label) {
           ctx.setLineDash([]);
-          ctx.fillStyle = t.hot;
+          ctx.fillStyle = t.warn;
           ctx.font = (10 * px) + 'px ' + t.font;
           ctx.textAlign = 'right';
           ctx.fillText(ref.label, u.bbox.left + u.bbox.width - 6 * px, y - 4 * px);
@@ -395,9 +402,9 @@
       if (at != null) {
         const x = u.valToPos(at, 'x', true);
         ctx.save();
-        ctx.strokeStyle = t.amberHi;
+        ctx.strokeStyle = t.accentHi;
         ctx.lineWidth = 2 * px;
-        ctx.shadowColor = 'rgba(255,176,0,0.8)';
+        ctx.shadowColor = glow(t, 0.8);
         ctx.shadowBlur = 8 * px;
         ctx.beginPath();
         ctx.moveTo(x, u.bbox.top);
@@ -409,8 +416,8 @@
         const a = u.valToPos(selection[0], 'x', true);
         const b = u.valToPos(selection[1], 'x', true);
         ctx.save();
-        ctx.fillStyle = 'rgba(255,176,0,0.18)';
-        ctx.strokeStyle = t.amberMid;
+        ctx.fillStyle = glow(t, 0.18);
+        ctx.strokeStyle = t.accentMid;
         ctx.lineWidth = px;
         ctx.fillRect(Math.min(a, b), u.bbox.top, Math.abs(b - a), u.bbox.height);
         ctx.strokeRect(Math.min(a, b), u.bbox.top, Math.abs(b - a), u.bbox.height);
@@ -418,7 +425,7 @@
       }
     };
     const axis = (label) => ({
-      stroke: t.amberMuted,
+      stroke: t.accentMuted,
       grid: { stroke: t.lineSoft, width: 1 },
       ticks: { stroke: t.line, width: 1 },
       font: '11px ' + t.font,
@@ -531,7 +538,7 @@
     const [lo, hi] = opts.range || [Math.min(...nums), Math.max(...nums)];
     const pad = (hi - lo) * 0.1 || 1;
     const below = opts.range ? 0 : pad;
-    ctx.strokeStyle = opts.stroke || FP.tokens().amber;
+    ctx.strokeStyle = opts.stroke || FP.tokens().accent;
     ctx.lineWidth = opts.width || 1.5;
     ctx.beginPath();
     let started = false;
@@ -708,7 +715,8 @@
     return h('header', { class: 'app-header' },
       h('a', { class: 'brand', href: '#', 'aria-label': 'Flashpoint home' },
         h('span', { class: 'brand__mark' }, 'FLASHPOINT'),
-        h('span', { class: 'brand__sub' }, 'telemetry // ignite robotics')),
+        h('span', { class: 'brand__sub' }, TEAM ? 'telemetry //' : 'telemetry'),
+        TEAM ? h('span', { class: 'brand__team', title: TEAM }, TEAM) : null),
       nav,
       h('div', { class: 'app-header__spacer' }),
       MODE.static
@@ -741,7 +749,7 @@
       const path = document.getElementById('lake-path');
       if (path) { path.textContent = 'lake ' + FP.indexData.lake; path.title = FP.indexData.lake; }
     }
-    document.title = view.label + ' · Flashpoint';
+    document.title = view.label + ' · Flashpoint' + (TEAM ? ' · ' + TEAM : '');
     FP.refreshBadges();
     view.mount(document.getElementById('view'), state);
   }

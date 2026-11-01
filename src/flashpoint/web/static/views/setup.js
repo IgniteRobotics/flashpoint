@@ -1,7 +1,8 @@
 /* ==========================================================================
    Setup: the setup checks with their fixes, the configuration with inline
-   editing, and drafting a robot from an imported log (spec: team-setup,
-   config-editor). Served mode only. Fixes and saves run only when the server
+   editing, the team's name and colours with a scoped live preview, and drafting
+   a robot from an imported log (spec: team-setup, config-editor, team-branding).
+   Served mode only. Fixes and saves run only when the server
    is bound to this machine and the request comes from it (ADR-0017); shared on
    the network, the view shows each fix's command and the configuration read-only.
    URL: #view=setup&tab=checks|config|draft
@@ -94,12 +95,15 @@
 
   /* ---------- checks ---------- */
   async function loadChecks() {
+    const mine = ui;
     try {
       const body = await FP.api('setup/checks');
+      if (ui !== mine) return; // left the view while the checks ran
       ui.checks = body.checks;
       ui.writable = Boolean(body.writable);
       ui.root = body.config_root;
     } catch (err) {
+      if (ui !== mine) return;
       ui.checks = [];
       ui.messages.checks = { kind: 'error', text: 'Could not run the checks: ' + err.message };
     }
@@ -183,6 +187,7 @@
         thresholds: Object.fromEntries(ui.config.thresholds.filter((t) => t.data).map((t) => [t.name, clone(t.data)])),
         changes: {}, // threshold file -> { table: { key: value } } not saved yet
         units: clone(ui.config.units.rows || []),
+        theme: themeEdits(ui.config.theme.data),
       };
     } catch (err) {
       ui.config = { error: String(err.message) };
@@ -203,12 +208,15 @@
     }
     FP.fill(body,
       teamSection(),
+      h('h2', { class: 'label mt-6' }, 'Appearance'),
+      themeSection(),
       h('h2', { class: 'label mt-6' }, 'Robots'),
       ui.config.robots.length ? ui.config.robots.map(robotSection)
         : h('p', { class: 'meta', id: 'no-robots' }, 'No robot files yet. Draft one from a log in the DRAFT ROBOT tab.'),
       h('h2', { class: 'label mt-6' }, 'Thresholds'),
       ui.config.thresholds.map(thresholdSection),
       unitsSection());
+    showPreview();
   }
 
   function source(entry) {
@@ -271,6 +279,237 @@
         field('hosts', 'ROBOT ADDRESSES (COMMA-SEPARATED; EMPTY: FROM THE TEAM)', list, (v) => (v || []).join(', '))),
       h('p', { class: 'meta mt-2', id: 'team-hosts-now' }, 'Acquire tries: ', (team.hosts || []).join(', ') || 'nothing (no team number)'),
       message('team'));
+  }
+
+  /* ---------- appearance: the team's name and colours (team-branding) ----------
+     Edits preview in #theme-preview only: the derived colour tokens are set on that element,
+     so the rest of the app keeps the saved theme until the next page load after a save. */
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const COLOURS = [
+    ['primary', 'PRIMARY', '#00A3E0'],
+    ['background', 'BACKGROUND (EMPTY: DEFAULT)', '#0A0806'],
+    ['warning', 'WARNING (EMPTY: AUTOMATIC)', 'auto'],
+  ];
+  const PREVIEW_DELAY_MS = 120;
+
+  function themeEdits(data) {
+    const d = data || {};
+    const c = d.custom || {};
+    return {
+      team_name: d.team_name || '',
+      team_number: d.team_number == null ? '' : String(d.team_number),
+      palette: d.palette || ui.config.theme.presets[0], // the first preset is the default
+      custom: { primary: c.primary || '', background: c.background || '', warning: c.warning || '' },
+    };
+  }
+
+  function themeValues(t) {
+    const number = t.team_number.trim();
+    const colour = (v) => (v.trim() === '' ? null : v.trim().toUpperCase());
+    return {
+      team_name: t.team_name.trim() || null,
+      team_number: number === '' ? null : (/^\d+$/.test(number) ? Number(number) : number),
+      palette: t.palette,
+      custom: t.palette === 'custom'
+        ? { primary: colour(t.custom.primary) || '', background: colour(t.custom.background), warning: colour(t.custom.warning) }
+        : null,
+    };
+  }
+
+  function teamLabel(t) {
+    const number = t.team_number.trim() || (ui.config.team.values || {}).team;
+    return [t.team_name.trim(), number].filter((part) => part != null && part !== '').join(' · ');
+  }
+
+  function themeSection() {
+    const entry = ui.config.theme;
+    const t = ui.edits.theme;
+    const onSave = () => save('theme', 'theme', { sha256: entry.sha256, values: themeValues(t) });
+    const field = (label, control) => h('label', { class: 'field' }, h('span', { class: 'group__label' }, label), control);
+    const acquireTeam = (ui.config.team.values || {}).team;
+    const name = input(t.team_name, (v) => { t.team_name = v; showPreviewTeam(); }, { id: 'theme-name', maxlength: '40' });
+    const number = input(t.team_number, (v) => { t.team_number = v; showPreviewTeam(); },
+      { id: 'theme-number', inputmode: 'numeric', placeholder: acquireTeam == null ? '' : String(acquireTeam) });
+    const palette = h('select', { class: 'select', id: 'theme-palette', disabled: !ui.writable },
+      [...entry.presets, 'custom'].map((p) => h('option', { value: p, selected: p === t.palette }, p === 'custom' ? 'custom colours' : p)));
+    palette.addEventListener('change', () => {
+      t.palette = palette.value;
+      document.getElementById('theme-custom').hidden = t.palette !== 'custom';
+      schedulePreview();
+    });
+    return h('section', { class: 'mt-3', id: 'cfg-theme', dataset: { section: 'theme' } },
+      h('div', { class: 'row row--between' },
+        h('h3', { class: 'label' }, 'Team name and colours', source(entry)),
+        entry.data == null && entry.error ? null : saveButton('theme', onSave)),
+      entry.error ? h('p', { class: 'callout', role: 'alert', id: 'theme-error' },
+        entry.error, ' The app uses the default colours and no name until this is fixed.') : null,
+      h('div', { class: 'row gap-4 mt-2' },
+        field('TEAM NAME (HEADER, AT MOST 40 CHARACTERS)', name),
+        field('TEAM NUMBER (EMPTY: FROM ACQUIRE.TOML)', number),
+        field('COLOURS', palette)),
+      h('div', { class: 'row gap-4 mt-2', id: 'theme-custom', hidden: t.palette !== 'custom' }, COLOURS.map(colourField)),
+      h('div', { class: 'theme-preview theme-scope mt-3', id: 'theme-preview', role: 'group', 'aria-label': 'Preview of the colours' },
+        h('div', { class: 'theme-preview__header', 'aria-hidden': 'true' },
+          h('span', { class: 'brand__mark' }, 'FLASHPOINT'),
+          h('span', { class: 'brand__sub' }, 'telemetry'),
+          h('span', { class: 'brand__team' }),
+          h('span', { class: 'tabs' }, h('span', { class: 'tab', 'aria-current': 'page' }, 'REPLAY'), h('span', { class: 'tab' }, 'HISTORY'))),
+        h('canvas', { class: 'theme-preview__chart', 'aria-hidden': 'true' }),
+        h('p', { class: 'meta' }, 'Secondary text, ', h('span', { class: 'label' }, 'a section label'), ' and ', h('span', { class: 'hot' }, 'a warning value'), '.'),
+        h('p', { class: 'callout' }, '✕ Example warning: hood motor at 66 °C, above its 65 °C limit.')),
+      h('div', { class: 'mt-2', id: 'theme-check', 'aria-live': 'polite' }),
+      message('theme'));
+  }
+
+  function colourField([key, label, placeholder]) {
+    const t = ui.edits.theme;
+    const id = 'theme-' + key;
+    const pick = h('input', { type: 'color', class: 'colour-pick', id: id + '-pick', disabled: !ui.writable, 'aria-label': 'Pick the ' + key + ' colour' });
+    if (HEX.test(t.custom[key])) pick.value = t.custom[key].toLowerCase();
+    const text = input(t.custom[key], (v) => {
+      t.custom[key] = v;
+      if (HEX.test(v.trim())) pick.value = v.trim().toLowerCase();
+      schedulePreview();
+    }, { id, class: 'input input--colour', placeholder, spellcheck: 'false', autocomplete: 'off' });
+    pick.addEventListener('input', () => {
+      text.value = pick.value.toUpperCase();
+      t.custom[key] = text.value;
+      schedulePreview();
+    });
+    return h('div', { class: 'field' },
+      h('label', { class: 'group__label', htmlFor: id }, label),
+      h('div', { class: 'row' }, text, pick));
+  }
+
+  function schedulePreview() {
+    clearTimeout(ui.previewTimer);
+    ui.previewTimer = setTimeout(runPreview, PREVIEW_DELAY_MS);
+  }
+
+  /* POST /api/theme/preview: derives and checks the palette; writes nothing. */
+  async function runPreview() {
+    const mine = ui;
+    if (!mine) return; // the view was left before the preview ran
+    const values = themeValues(ui.edits.theme);
+    const seq = (ui.previewSeq = (ui.previewSeq || 0) + 1);
+    const colours = values.custom ? [values.custom.primary, values.custom.background, values.custom.warning] : [];
+    if (!HEX.test(colours[0] || '#000000') || colours.slice(1).some((c) => c !== null && !HEX.test(c))) {
+      ui.themePreview = { ...(ui.themePreview || {}), invalid: 'Enter each colour as #RRGGBB, such as #00A3E0.' };
+      showCheck();
+      return;
+    }
+    const reply = await write('POST', 'theme/preview', { palette: values.palette, custom: values.custom });
+    if (ui !== mine || seq !== ui.previewSeq) return; // a newer edit is on its way
+    ui.themePreview = reply.tokens ? reply : { ...(ui.themePreview || {}), invalid: reply.reason || 'Could not preview.' };
+    showPreview();
+  }
+
+  function showPreview() {
+    const el = document.getElementById('theme-preview');
+    if (!el) return;
+    const tokens = ui.themePreview && ui.themePreview.tokens;
+    if (tokens) for (const [name, value] of Object.entries(tokens)) el.style.setProperty('--' + name, value);
+    showPreviewTeam();
+    drawPreviewChart(el);
+    showCheck();
+  }
+
+  function showPreviewTeam() {
+    const el = document.getElementById('theme-preview');
+    if (!el) return;
+    const label = teamLabel(ui.edits.theme);
+    el.querySelector('.brand__sub').textContent = label ? 'telemetry //' : 'telemetry';
+    el.querySelector('.brand__team').textContent = label; // text only, never markup
+  }
+
+  /* A small chart in the previewed colours: grid, a limit line, two series and a cursor. */
+  function drawPreviewChart(el) {
+    const canvas = el.querySelector('canvas');
+    const css = getComputedStyle(el);
+    const colour = (name) => css.getPropertyValue('--' + name).trim();
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth || 320;
+    const ht = canvas.clientHeight || 120;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(ht * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = colour('surface-1');
+    ctx.fillRect(0, 0, w, ht);
+    ctx.strokeStyle = colour('line-soft');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 40.5; x < w; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, ht); }
+    for (let y = 30.5; y < ht; y += 30) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+    ctx.strokeStyle = colour('warn');
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, 24.5);
+    ctx.lineTo(w, 24.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const series = (stroke, base, amp, phase) => {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 4) {
+        const y = ht * (base - amp * Math.sin(x / 38 + phase) - (amp / 2) * Math.sin(x / 11 + phase));
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    };
+    series(colour('accent-dim'), 0.7, 0.1, 1.7);
+    series(colour('accent'), 0.5, 0.16, 0);
+    ctx.strokeStyle = colour('accent-hi');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(w * 0.62) + 0.5, 0);
+    ctx.lineTo(Math.round(w * 0.62) + 0.5, ht);
+    ctx.stroke();
+    ctx.fillStyle = colour('accent'); // legend swatch
+    ctx.fillRect(8, ht - 18, 10, 10);
+  }
+
+  function showCheck() {
+    const el = document.getElementById('theme-check');
+    if (!el) return;
+    const p = ui.themePreview;
+    delete el.dataset.ok;
+    if (!p) {
+      FP.fill(el, h('p', { class: 'meta' }, ui.writable
+        ? 'The preview shows the saved colours. Change them to preview here; the rest of the app changes only after you save and reload.'
+        : 'The preview shows the saved colours.'));
+      return;
+    }
+    if (p.invalid) {
+      FP.fill(el, h('p', { class: 'meta' }, p.invalid));
+      return;
+    }
+    el.dataset.ok = String(Boolean(p.ok));
+    if (p.ok) {
+      FP.fill(el, h('p', { class: 'meta' }, '✓ Readable: every text shade has at least 4.5:1 contrast on every surface, and the warning colour stands apart from the primary.'));
+      return;
+    }
+    const use = (key, hex) => {
+      const t = ui.edits.theme;
+      t.custom[key] = hex;
+      const text = document.getElementById('theme-' + key);
+      text.value = hex;
+      document.getElementById('theme-' + key + '-pick').value = hex.toLowerCase();
+      text.focus();
+      schedulePreview();
+    };
+    const suggestions = Object.entries(p.suggestion || {}).map(([key, hex]) => (
+      ui.writable && ui.edits.theme.palette === 'custom'
+        ? h('button', { type: 'button', class: 'btn btn--sm mt-2', id: 'theme-use-' + key, on: { click: () => use(key, hex) } },
+          h('span', { class: 'swatch', style: { background: hex }, 'aria-hidden': 'true' }), 'USE ' + key.toUpperCase() + ' ' + hex)
+        : h('p', { class: 'mt-2' }, 'Nearest ' + key + ' that passes: ' + hex)));
+    FP.fill(el, h('div', { class: 'callout' },
+      h('p', null, 'Not readable, so it can\'t be saved:'),
+      h('ul', { class: 'theme-failures' }, p.failures.map((f) => h('li', null, f.message))),
+      p.note ? h('p', null, p.note) : null,
+      suggestions.length ? h('div', { class: 'row' }, suggestions) : null));
   }
 
   /* An editable table over `rows` (array of objects); columns: [key, label, kind]. */
@@ -467,7 +706,7 @@
     label: 'Setup',
     needsApi: true,
     mount,
-    unmount: () => { ui = null; },
+    unmount: () => { if (ui) clearTimeout(ui.previewTimer); ui = null; },
     /* Shown on every view while the backup is overdue; the endpoint reads recorded state only. */
     badge: async () => {
       const b = await FP.api('backup/status');

@@ -1,9 +1,11 @@
 """The Setup view's configuration API: every section with its source file, and guarded saves
-(`GET /api/config`, `PUT /api/config/<section>`). Saves go through `flashpoint.setup.editor`."""
+(`GET /api/config`, `PUT /api/config/<section>`). Saves go through `flashpoint.setup.editor`.
+`POST /api/theme/preview` derives and checks a palette without saving it (team-branding D-f)."""
 
 import datetime as dt
 import tomllib
 from collections.abc import Callable, Mapping
+from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -92,7 +94,18 @@ def config_view(root: Path) -> dict[str, Any]:
         "error": None,
         "affects": editor.AFFECTS["units"],
     }
-    return {"team": team, "robots": robots, "thresholds": thresholds, "units": units}
+    from flashpoint.theme import PRESET_NAMES, THEME_FILE, load_theme
+
+    theme = _file(root, THEME_FILE, lambda: load_theme(root))
+    theme["presets"] = list(PRESET_NAMES)
+    theme["affects"] = editor.AFFECTS[THEME_FILE]
+    return {
+        "team": team,
+        "robots": robots,
+        "thresholds": thresholds,
+        "units": units,
+        "theme": theme,
+    }
 
 
 def _object(body: Any, key: str, kind: type) -> Any:
@@ -115,6 +128,8 @@ def save_section(root: Path, section: str, body: Any) -> Response:
     try:
         if kind == "team" and not name:
             result = editor.save_team(root, _object(body, "values", dict), _sha(body))
+        elif kind == "theme" and not name:
+            result = editor.save_theme(root, _object(body, "values", dict), _sha(body))
         elif kind == "units" and not name:
             result = editor.save_units(root, _object(body, "rows", list), _sha(body))
         elif kind == "thresholds" and name:
@@ -135,4 +150,25 @@ def save_section(root: Path, section: str, body: Any) -> Response:
         "sha256": result.sha256,
         "affects": result.affects,
         "backup": str(result.backup) if result.backup else None,
+    }
+
+
+def preview_theme(body: Any) -> Response:
+    """The derived tokens and every readability rule a palette breaks, with the nearest
+    passing colours; the same checks as a save, but nothing is written."""
+    from flashpoint.theme import THEME_FILE, ThemeError, parse_theme_config, resolve_palette
+
+    if not isinstance(body, dict):
+        return 400, {"ok": False, "reason": "expected a JSON object"}
+    try:
+        theme_config = parse_theme_config(body)
+    except ThemeError as exc:
+        return 400, {"ok": False, "reason": f"{THEME_FILE}: {describe_error(exc)}"}
+    result = resolve_palette(theme_config)
+    return 200, {
+        "ok": result.ok,
+        "tokens": result.tokens,
+        "failures": [asdict(f) for f in result.failures],
+        "suggestion": result.suggestion,
+        "message": result.message,
     }

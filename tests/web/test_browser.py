@@ -168,7 +168,7 @@ def test_registered_view_renders_in_the_shell(page: Any, app: str) -> None:
     )
     assert "IBM Plex Mono" in style["font"] and style["plex"] is True
     assert style["color"] == "rgb(255, 176, 0)"
-    assert style["sheets"] == ["uPlot.min.css", "tokens.css", "shell.css"]
+    assert style["sheets"] == ["uPlot.min.css", "tokens.css", "theme.css", "shell.css"]
     page.focus("#probe-btn")
     page.keyboard.press("Shift+Tab")
     page.keyboard.press("Tab")

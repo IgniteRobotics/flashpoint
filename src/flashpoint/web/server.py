@@ -1,11 +1,14 @@
 """`flashpoint serve`: one local, read-only app (stdlib HTTP, no web framework).
 
-Routes: `/` and `/static/*` from the package, `/data/*` from `<lake>/report/data/`,
+Routes: `/` and `/static/*` from the package (`/static/mode.js` carries the team), `/theme.css`
+(the team's colour tokens, team-branding D-d), `/data/*` from `<lake>/report/data/`,
 `/raw/<sha256>/<name>` for ledger hashes only, and `/api/*`. Everything else is 404.
 The non-GET routes are the guarded `POST /api/launch` (ADR-0014),
 `POST /api/anomalies/<id>/triage` (ADR-0015), and the setup writes of ADR-0017:
 `POST /api/setup/fix/<action>` and `PUT /api/config/<section>`. Logs and derived layers stay
 read-only; the writes are an appended triage row in the ledger, and configuration files.
+`POST /api/theme/preview` is guarded the same way but writes nothing: it derives and checks a
+palette for the Setup view's preview (team-branding D-f).
 
 `GET /api/live/can/stream` (server-sent events) and `GET /api/live/can/state` are the Live CAN
 view's (ADR-0016): the server opens one outbound, subscribe-only NetworkTables connection to the
@@ -47,6 +50,7 @@ from flashpoint.views.queries import HistoryQueries
 from flashpoint.web.advantagescope import Launcher, spawn
 from flashpoint.web.advantagescope import refusal as launch_refusal
 from flashpoint.web.api import Api
+from flashpoint.web.branding import THEME_CSS, load_branding, mode_js
 
 STATIC_DIR = Path(__file__).parent / "static"
 DEFAULT_HOST, DEFAULT_PORT = "127.0.0.1", 8000
@@ -64,6 +68,7 @@ DRAFT_PATH = "/api/setup/draft"
 CONFIG_PREFIX = "/api/config/"
 FIX_PREFIX = "/api/setup/fix/"
 FIX_PATH = re.compile(r"^/api/setup/fix/([a-z-]+)$")
+THEME_PREVIEW_PATH = "/api/theme/preview"
 LIVE_STREAM_PATH = "/api/live/can/stream"
 LIVE_STATE_PATH = "/api/live/can/state"
 LIVE_KEEPALIVE_S = 15.0  # a comment line, so proxies and the browser keep the stream open
@@ -210,6 +215,17 @@ class Handler(BaseHTTPRequestHandler):
             if path in ("/", "/index.html"):
                 index = self.server.static_dir / "index.html"
                 self._send_file(index, {"Cache-Control": "no-store"})
+            elif path == "/" + THEME_CSS:
+                css = load_branding(self.server.config_dir).css.encode()
+                self._send_bytes(
+                    HTTPStatus.OK, css, CONTENT_TYPES[".css"], {"Cache-Control": "no-store"}
+                )
+            elif path == "/static/mode.js":
+                team = load_branding(self.server.config_dir).team
+                body = mode_js({"static": False, "raw": True, "team": team}).encode()
+                self._send_bytes(
+                    HTTPStatus.OK, body, CONTENT_TYPES[".js"], {"Cache-Control": "no-store"}
+                )
             elif path.startswith("/static/"):
                 found = contained(self.server.static_dir, path.removeprefix("/static/"))
                 self._send_file(found) if found else self._not_found()
@@ -336,7 +352,7 @@ class Handler(BaseHTTPRequestHandler):
         triage = TRIAGE_PATH.match(path)
         fix = FIX_PATH.match(path)
         is_fix = path.startswith(FIX_PREFIX)  # an unknown action gets 404, after the guard
-        if path != LAUNCH_PATH and triage is None and not is_fix:
+        if path not in (LAUNCH_PATH, THEME_PREVIEW_PATH) and triage is None and not is_fix:
             self._method_not_allowed()
             return
         with contextlib.suppress(BrokenPipeError, ConnectionResetError):
@@ -344,6 +360,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._triage(triage.group(1))
             elif path == LAUNCH_PATH:
                 self._launch()
+            elif path == THEME_PREVIEW_PATH:
+                self._theme_preview()
             else:
                 self._fix(fix.group(1) if fix else None)
 
@@ -387,6 +405,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.BAD_REQUEST, payload)
             return
         self._send_json(HTTPStatus.OK, {**result, **self._checks()})
+
+    def _theme_preview(self) -> None:
+        """A read-only computation, guarded like the setup writes; no lock, nothing written."""
+        ok, body = self._guarded_body("setup", {"ok": False}, MAX_SETUP_BODY)
+        if ok:
+            self._send_json(*config_api.preview_theme(body))
 
     def _guarded_body(
         self, marker: str, refused: dict[str, Any], limit: int = MAX_LAUNCH_BODY
