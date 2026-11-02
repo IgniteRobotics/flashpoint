@@ -386,6 +386,7 @@ def test_loaded_theme_carries_name_and_tokens(tmp_path: Path) -> None:
     assert loaded.tokens == theme.preset_tokens("green")
 
 
+@pytest.mark.perf
 def test_derivation_and_validation_stay_under_20_ms() -> None:
     """Budget: derivation plus validation < 20 ms (uncached), refusals with suggestions too."""
     primaries = ["#00C2FF", "#33FF66", "#FF4000", "#E6E6E6", "#9B7BFF", "#202020", "#0000FF"]

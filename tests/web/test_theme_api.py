@@ -209,6 +209,15 @@ def test_saving_repairs_an_unknown_key(app: Any, root: Path) -> None:
     assert _theme(root) == {"palette": "blue"}
 
 
+def test_saving_a_file_with_windows_line_endings(app: Any, root: Path) -> None:
+    """A theme.toml edited in Notepad (CRLF) saves; the check copy must not double the \\r."""
+    (root / "theme.toml").write_bytes(b'palette = "amber"\r\nteam_name = "Robo Rams"\r\n')
+    values = {"palette": "blue"}
+    status, body = _put(app, "theme", {"sha256": _section(app)["sha256"], "values": values})
+    assert status == 200, body
+    assert _theme(root) == {"palette": "blue", "team_name": "Robo Rams"}
+
+
 def test_unreadable_theme_file_is_refused_with_a_reason(app: Any, root: Path) -> None:
     (root / "theme.toml").write_text("palette = [\n")
     values = {"palette": "blue"}

@@ -128,7 +128,7 @@ def _validated(rel: str, text: str, validate: Callable[[Path], object]) -> None:
     with tempfile.TemporaryDirectory(prefix="flashpoint-save-") as scratch:
         target = Path(scratch) / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
+        target.write_text(text, encoding="utf-8", newline="")
         try:
             validate(Path(scratch))
         except Exception as exc:  # each loader has its own error type; all become the message

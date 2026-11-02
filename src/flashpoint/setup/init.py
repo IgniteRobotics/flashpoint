@@ -144,7 +144,7 @@ def init_config(
     if theme_path.exists():
         result.existing.append(theme_path)
     else:
-        theme_path.write_text(theme, encoding="utf-8")
+        theme_path.write_text(theme, encoding="utf-8", newline="")
         result.created.append(theme_path)
     acquire = root / CONFIG_FILE
     acquire.write_text(_acquire_toml(team, lake), encoding="utf-8")
