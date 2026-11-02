@@ -9,12 +9,14 @@ Files for running `flashpoint acquire --watch` as a per-user background service.
 
 macOS has no service file yet; see [Automatic import: macOS](../docs/guide/auto-import.md#macos).
 
-Both files expect the pipx install location. Install Flashpoint from a checkout (it isn't on PyPI yet):
+Both files expect the pipx install location. Install Flashpoint with pipx, then clone the repository to get the service files (the commands below use paths inside it):
 
 ```sh
+pipx install --python python3.12 flashpoint
 git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint
-pipx install --python python3.12 .
 ```
+
+To run unreleased changes instead, install from the checkout: `pipx install --python python3.12 .`
 
 If `pipx environment --value PIPX_BIN_DIR` isn't `~/.local/bin`, edit the path in the file before installing it.
 

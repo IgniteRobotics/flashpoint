@@ -13,6 +13,7 @@ DEFAULT_FILES = {
     "flashpoint/defaults/report.toml",
     "flashpoint/defaults/anomaly.toml",
     "flashpoint/defaults/anomaly-causes.toml",
+    "flashpoint/defaults/theme.toml",
     "flashpoint/defaults/seasons/2025.toml",
     "flashpoint/defaults/seasons/2026.toml",
     "flashpoint/defaults/units/units-seed.csv",

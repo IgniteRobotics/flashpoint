@@ -39,7 +39,7 @@ FIX_LABELS = {
     "service-start": "Start the acquire service",
 }
 # Shared settings files, each the team's copy or else the bundled default.
-SETTINGS_FILES = ("report.toml", "anomaly.toml", "anomaly-causes.toml")
+SETTINGS_FILES = ("report.toml", "anomaly.toml", "anomaly-causes.toml", "theme.toml")
 INIT_COMMAND = "flashpoint init --team <number>"
 BACKUP_GUIDE = "see docs/guide/auto-import.md#backup-and-restore"
 
@@ -153,7 +153,7 @@ def _file(ctx: CheckContext, name: str, load: Callable[[], object]) -> CheckResu
             f"file:{name}",
             name,
             "problem",
-            f"{shown}: {describe_error(exc)}",
+            f"{shown}: {describe_error(exc).removeprefix(f'{name}: ')}",
             command=command,
             source=name,
             default=default,
@@ -166,6 +166,7 @@ def _files(ctx: CheckContext) -> tuple[list[CheckResult], list[Any], AcquireConf
     from flashpoint.anomaly.settings import load_anomaly_config
     from flashpoint.report.settings import load_report_config
     from flashpoint.semantics.robot_config import load_robot, load_season
+    from flashpoint.theme import load_theme
 
     root = ctx.config_root
     results: list[CheckResult] = []
@@ -176,6 +177,8 @@ def _files(ctx: CheckContext) -> tuple[list[CheckResult], list[Any], AcquireConf
         "report.toml": lambda: load_report_config(root),
         "anomaly.toml": lambda: load_anomaly_config(root),
         "anomaly-causes.toml": lambda: load_causes(root),
+        # The app still starts on a broken theme, with the defaults (team-branding).
+        "theme.toml": lambda: load_theme(root),
     }
     results += [_file(ctx, name, loaders[name]) for name in SETTINGS_FILES]
 

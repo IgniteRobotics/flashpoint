@@ -109,7 +109,7 @@ public final class CanInventoryLogger {
 
 Call `CanInventoryLogger.start();` at the end of `robotInit()`.
 
-Before you rely on it, open `http://<roboRIO address>:1250/?action=getdevices` in a browser while the robot program runs. Check that the field names match (`DeviceArray`, `Model`, `CANbus`, `ID`, `SerialNo`). The diagnostics server isn't a documented API, and the names can change between Phoenix versions. After a match, `flashpoint doctor` and the History view show motors as `ctre:<serial>` when the inventory was read.
+Before you rely on it, open `http://<roboRIO address>:1250/?action=getdevices` in a browser while the robot program runs. Check that the field names match (`DeviceArray`, `Model`, `CANbus`, `ID`, `SerialNo`). The diagnostics server isn't a documented API, and the names can change between Phoenix versions. When the inventory is read, History follows each motor by its serial number (its unit is `ctre:<serial>`) instead of by slot. Without it, motors get legacy units ([how units work](how-it-works.md)).
 
 ## CAN bus status
 
@@ -185,7 +185,19 @@ public final class CanBusStatusLogger {
 
 Create it once in `robotInit()`, for example `new CanBusStatusLogger("rio", "DriveTrain");`, and keep a reference so the `Notifier` isn't garbage collected.
 
-Then tell Flashpoint about the bus names in your robot file. In the Setup view, the robot's **BUSES** table ties each name to its hoot bus (`rio`, or `canivore`). Declare the five signals per bus under the `flashpoint` root, as `robots/2026-comp.toml` does for Ignite. A bus whose status isn't logged reads "not logged" in CAN health, never zero.
+Then tell Flashpoint about the bus names in your robot file. In the Setup view, the robot's **BUSES** table ties each name to its hoot bus (`rio`, or `canivore`). Then add five `[[signal]]` tables per bus (see [NetworkTables signals](user-guide.md#networktables-signals)). **Draft robot** doesn't add them for you. Each one uses `root = "flashpoint"`, `entry = "CANBus/<name>/<Entry>"`, `subsystem = "can"`, `component = "<name>"` (the same name as in BUSES), and one `metric` from `utilization`, `bus_off_count`, `tx_full_count`, `receive_error_count` and `transmit_error_count`. CAN health finds them only by those `subsystem`, `component` and `metric` values. Ignite's [`config/robots/2026-comp.toml`](../../config/robots/2026-comp.toml) has a full set for `rio` and `DriveTrain`:
+
+```toml
+[[signal]]
+id = "can-rio-utilization"
+root = "flashpoint"
+entry = "CANBus/rio/Utilization"
+subsystem = "can"
+component = "rio"
+metric = "utilization"
+```
+
+A bus whose status isn't logged reads "not logged" in CAN health, never zero.
 
 ## Build info
 

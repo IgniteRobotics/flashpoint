@@ -68,6 +68,14 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument(
         "--lake", type=Path, help="lake folder for your logs (asked if omitted; ~/flashpoint-lake)"
     )
+    init.add_argument(
+        "--team-name", metavar="NAME", help="name shown in the app header (asked if omitted)"
+    )
+    init.add_argument(
+        "--palette",
+        metavar="PRESET",
+        help="app colours: amber, green, blue, red or white (asked if omitted; amber)",
+    )
 
     ingest = sub.add_parser("ingest", help="ingest .wpilog/.hoot files or directories")
     ingest.add_argument("paths", nargs="+", type=Path)
@@ -190,8 +198,17 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _init(team_text: str | None, lake: Path | None) -> int:
-    from flashpoint.setup.init import InitError, default_lake, init_config, parse_team
+def _init(
+    team_text: str | None, lake: Path | None, team_name: str | None, palette: str | None
+) -> int:
+    from flashpoint.setup.init import (
+        InitError,
+        default_lake,
+        init_config,
+        parse_palette,
+        parse_team,
+    )
+    from flashpoint.theme import DEFAULT_PALETTE, PRESET_NAMES
 
     root = config.config_root()
     interactive = sys.stdin.isatty()
@@ -206,7 +223,12 @@ def _init(team_text: str | None, lake: Path | None) -> int:
         if lake is None:
             answer = input(f"Lake folder [{default_lake()}]: ") if interactive else ""
             lake = Path(answer.strip()) if answer.strip() else default_lake()
-        result = init_config(root, team, lake)
+        if team_name is None and interactive:
+            team_name = input("Team name for the app header (optional): ")
+        if palette is None and interactive:
+            palette = input(f"Colours ({', '.join(PRESET_NAMES)}) [{DEFAULT_PALETTE}]: ")
+        palette = parse_palette(palette or "")
+        result = init_config(root, team, lake, team_name, palette)
     except InitError as exc:
         print(exc, file=sys.stderr)
         return EXIT_USAGE
@@ -678,7 +700,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _parser().print_help()
         return 0
     if args.command == "init":
-        return _init(args.team, args.lake)
+        return _init(args.team, args.lake, args.team_name, args.palette)
     lake = LakePaths(config.lake_root(args.lake))
     if args.command == "doctor":
         return _doctor(lake)

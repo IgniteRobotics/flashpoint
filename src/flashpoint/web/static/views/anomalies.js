@@ -333,12 +333,12 @@
     const flagged = points.map((p) => (p.flagged ? p.value : null));
     const hasBand = points.some((p) => p.lo != null || p.hi != null);
     const series = [{
-      label: a.metric_name, values: points.map((p) => p.value), stroke: t.amber, width: 2,
-      points: { show: true, size: 4, fill: t.amber, stroke: t.amber },
+      label: a.metric_name, values: points.map((p) => p.value), stroke: t.accent, width: 2,
+      points: { show: true, size: 4, fill: t.accent, stroke: t.accent },
       band: hasBand ? { lower: points.map((p) => (p.lo == null ? (p.hi == null ? null : -1e9) : p.lo)), upper: points.map((p) => p.hi) } : null,
     }];
-    if (legendPeer) series.push({ label: legendPeer, values: points.map((p) => p.peer), stroke: t.amberDim, width: 1.5, dash: [5, 3] });
-    series.push({ label: 'flagged', values: flagged, stroke: t.hot, width: 0, paths: () => null, points: { show: true, size: 9, fill: t.hot, stroke: t.hot } });
+    if (legendPeer) series.push({ label: legendPeer, values: points.map((p) => p.peer), stroke: t.accentDim, width: 1.5, dash: [5, 3] });
+    series.push({ label: 'flagged', values: flagged, stroke: t.warn, width: 0, paths: () => null, points: { show: true, size: 9, fill: t.warn, stroke: t.warn } });
     const values = points.flatMap((p) => [p.value, p.peer, p.hi, p.lo]).filter((v) => v != null && Math.abs(v) < 1e8);
     const lo = Math.min(...values); const hi = Math.max(...values); const pad = (hi - lo) * 0.1 || 1;
     requestAnimationFrame(() => {

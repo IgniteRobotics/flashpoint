@@ -14,7 +14,7 @@ flowchart LR
     S --> G[(gold)]
     G -->|detect| A[(anomalies)]
     G -->|report| RP[Replay data]
-    G & A & RP -->|serve| APP[Replay, History, Anomalies]
+    G & A & RP -->|serve| APP[Replay, History, Anomalies, Setup, Live CAN]
 ```
 
 | Step | Command | What it does |
@@ -23,18 +23,20 @@ flowchart LR
 | Ingest | `flashpoint ingest` | Stores each file once in `raw/`, named by its hash. Converts hoots with CTRE's owlet, and reads every record into `bronze/` |
 | Derive | `flashpoint derive` (runs after ingest) | Groups logs into sessions, aligns clocks, identifies the match and the devices, frames the phases, and writes `silver/` and `gold/` |
 | Detect | `flashpoint detect` (runs after derive) | Compares each match against limits, each unit's history, and its siblings, and writes `gold/anomalies/` |
-| Report | `flashpoint report` (runs when `serve` starts) | Builds about 1 MB of Replay data per match in `report/` |
+| Report | `flashpoint report` (runs after derive, and when `serve` starts) | Builds about 1 MB of Replay data per match in `report/` |
 | Serve | `flashpoint serve` | The web app over all of the above |
 
 Each step only redoes work whose inputs changed. Re-running any of them is safe and quick.
 
+`ingest` and `rebuild` run derive and then the Replay build, each in its own process. `--no-derive` (on `ingest`) and `--no-report` skip them. The `acquire` watch cycle does the same.
+
 ### What happens to a `.hoot` file
 
-1. **Raw:** ingest hashes the file. If the ledger has seen that hash, the file is skipped. Otherwise it is copied to `raw/<sha256>.hoot` and recorded in the ledger (`meta/flashpoint.sqlite`). Raw files are never changed.
+1. **Raw:** ingest hashes the file. If the ledger has seen that hash, the file is skipped. Otherwise it is copied to `raw/<first two hex characters>/<sha256>.hoot` (for example `raw/3f/3f9a….hoot`) and recorded in the ledger (`meta/flashpoint.sqlite`). Raw files are never changed.
 2. **Convert:** byte 70 of the file gives its format version. Flashpoint picks the matching owlet build from a versioned registry, downloads it on first use into `~/.cache/flashpoint/owlet/`, and converts the hoot. By default it keeps the health signals only (`--profile health`); `--profile all` keeps everything. A file owlet can't read is **quarantined** with a reason instead of stopping the run. When the machine is at fault (owlet can't be downloaded, or it crashes or times out), the file is marked **failed** instead and retried by the next run; one that crashes owlet 3 times is quarantined.
 3. **Bronze:** every sample becomes a row in `bronze/samples/` (long format: one row per signal per timestamp). The file's metadata goes to `meta/`.
 4. **Silver:** `derive` puts the hoot in a session with its wpilog, shifts its timestamps onto the wpilog's clock, and maps each `Phoenix6/TalonFX-11/...` signal to a robot slot and a physical unit. The result goes to `silver/samples/`.
-5. **Gold:** `derive` summarizes each motor for each match phase (energy, current percentiles, temperature, stall time, model residual) into `gold/match_features/`, one row per match × phase × slot × unit. CAN reboots, dropouts, and bus gaps go to `gold/can_health/`, `gold/can_bus_health/`, and `gold/can_events/`.
+5. **Gold:** `derive` summarizes each motor for each match phase (energy, current percentiles, temperature, stall time, model residual) into `gold/match_features/`, one row per match × phase × slot × unit. CAN reboots, dropouts, and bus gaps go to `gold/can_health/`, `gold/can_bus_health/`, and `gold/can_events/`. Each unit's usage in every session, pit and practice included, goes to `gold/unit_usage/`.
 
 ## The lake
 
@@ -46,7 +48,7 @@ The lake is one folder (default `~/flashpoint-lake`). Everything except `raw/` a
 | `inbox/` | Files `acquire` pulled that are waiting to be ingested | n/a |
 | `bronze/samples/` | Every decoded sample, partitioned by season and log | Yes (from raw; `rebuild` reprocesses files from older pipeline versions) |
 | `silver/samples/`, `silver/signals/` | Device samples mapped to slots and units on the wpilog clock; declared NetworkTables signals | Yes (`derive --all`) |
-| `gold/` | `match_features`, `can_health`, `can_bus_health`, `can_events`, `anomalies` | Yes (`derive --all`) |
+| `gold/` | `match_features`, `unit_usage`, `can_health`, `can_bus_health`, `can_events`, `anomalies` | Yes (`derive --all`) |
 | `meta/` | The ledger, plus snapshots of logs, sessions, inventory, units, and triage | The ledger and triage are not rebuildable; back them up |
 | `report/` | Replay data and backtest reports | Yes (`report --all`) |
 
@@ -79,12 +81,12 @@ Every match feature carries the weakest alignment confidence in its session.
 
 ## Slots and units
 
-- A **slot** is a role on a robot: "front-left drive, CAN ID 11, on the rio bus". Slots are declared in `config/robots/<robot>.toml`.
-- A **unit** is a physical motor or device, identified by its CTRE serial number.
+- A **slot** is a role on a robot: "front-left drive, CAN ID 11, on the rio bus". Slots are declared in the robot's file in the `robots/` folder of your config folder (see the [user guide](user-guide.md)).
+- A **unit** is a physical motor or device, identified by its CTRE serial number (`ctre:<serial>`).
 
 The robot code logs a CAN inventory (`/Flashpoint/CANInventory`) at boot, which tells Flashpoint which unit sits in which slot ([ADR-0011](../adr/0011-device-identity-ctre-serials.md)). So when a motor moves from one slot or robot to another, its history goes with it.
 
-Logs from before the inventory existed use **legacy** units (`legacy:<slot>:<epoch>`), whose epochs change at swap dates declared in the robot config.
+Logs from before the inventory existed use **legacy** units (`legacy:<robot>:<slot>:<epoch>`, such as `legacy:2026-comp:drive-bl:0`), whose epochs change at swap dates declared in the robot config.
 
 Baselines are per unit. Sibling comparisons are per slot group: the four drive motors, for example.
 
@@ -104,16 +106,22 @@ Brownouts are judged on the **battery proxy**: the supply voltage of the robot's
 
 A unit's baseline is the median of its previous matches, up to 20 by default. A unit with fewer than 5 matches is still "building baseline" and gets no DRIFT or STEP. Severity (HIGH, MED, or LOW) comes from how far outside the baseline the value is. The sensitivity setting in the app (relaxed, normal, or strict) changes what is *shown*, never what is computed.
 
-Thresholds live in [`config/anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml), and likely causes in [`config/anomaly-causes.toml`](../../src/flashpoint/defaults/anomaly-causes.toml). `flashpoint backtest` scores detection against the known failures in [`config/failure-labels.toml`](../../config/failure-labels.toml).
+Thresholds live in `anomaly.toml` and likely causes in `anomaly-causes.toml` in your config folder; the defaults that ship with Flashpoint are [`anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml) and [`anomaly-causes.toml`](../../src/flashpoint/defaults/anomaly-causes.toml). `flashpoint backtest` scores detection against the known failures in `failure-labels.toml` (Ignite's is [`config/failure-labels.toml`](../../config/failure-labels.toml)).
 
 ## The app
 
-`flashpoint serve` is one local web app with three views ([ADR-0013](../adr/0013-views-one-local-app.md)):
+`flashpoint serve` is one local web app with five views ([ADR-0013](../adr/0013-views-one-local-app.md)):
 - **Replay**: one match.
 - **History**: every unit and slot across matches, events, seasons, and robots.
 - **Anomalies**: the anomaly queue, with triage.
+- **Setup**: checks your configuration, fixes common problems, and edits the config files, including the team's name and colours.
+- **Live CAN**: CAN health read live from the robot over NetworkTables, not from the lake.
+
+The app never changes logs or the lake's derived data. Its only writes are triage rows in the ledger and the config files you edit in Setup.
 
 Replay can also be exported as a static folder that opens with no server. For a single log in depth, Flashpoint hands off to AdvantageScope instead of rebuilding it ([ADR-0008](../adr/0008-deep-dive-link-advantagescope.md), [ADR-0014](../adr/0014-guarded-advantagescope-launch.md)).
+
+The app's colours come from `theme.toml` in your config folder: a preset palette (amber, green, blue, red, or white) or custom colours. The server turns it into `/theme.css`, a set of colour tokens loaded after the built-in `tokens.css`, and shows the team name in the header. If the theme can't be used, the built-in colours apply and the Setup checks say why. A static export copies the theme and team name in force when you export it.
 
 ## Querying the lake
 

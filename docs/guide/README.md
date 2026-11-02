@@ -2,7 +2,8 @@
 
 | Read | If you want to |
 |---|---|
-| [User guide](user-guide.md) | Install Flashpoint, import logs, and use Replay, History, Anomalies, Setup and Live CAN. Start here |
+| [Setting up Flashpoint for your team](team-setup.md) | Start here if your team is new to Flashpoint: install, configure, robot code, logs, backups and branding, in order |
+| [User guide](user-guide.md) | Install Flashpoint, import logs, and use Replay, History, Anomalies, Setup and Live CAN |
 | [Robot-side logging](robot-side.md) | Add the CAN inventory and bus-status loggers to robot code (Java samples) |
 | [Live CAN health](live-can-health.md) | Watch CAN dropouts, reboots and faults live during shake and drive tests, and add the publisher to robot code |
 | [Automatic import](auto-import.md) | Have logs pulled from the robot and USB sticks on their own, and back up the lake |

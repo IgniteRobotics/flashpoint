@@ -10,23 +10,25 @@ In a source checkout, put `poetry run` in front of each command (`poetry run fla
 |---|---|---|
 | Lake (where logs and results are stored) | `lake` in `acquire.toml`, else `~/flashpoint-lake` | `--lake PATH` on any command, or `FLASHPOINT_LAKE` |
 | Config folder (team, robots, seasons, thresholds) | `~/.config/flashpoint/` (Windows: `%APPDATA%\flashpoint`) | `FLASHPOINT_CONFIG` |
-
-A settings file missing from the config folder falls back to the default that ships with Flashpoint (thresholds, anomaly settings, season roots). `doctor` lists which files are defaults.
 | Download cache (owlet) | `~/.cache/flashpoint/` | `FLASHPOINT_CACHE` |
+
+A settings file missing from the config folder falls back to the default that ships with Flashpoint (thresholds, anomaly settings, season roots, the app's colours). `doctor` lists which files are defaults.
 
 Exit codes: `0` success, `1` failed (for `ingest` and `rebuild`: a file failed or was quarantined in this run), `2` usage or configuration error, `3` another Flashpoint process holds the lock, `130` interrupted with Ctrl-C.
 
 ## `flashpoint init`
 
-Create your config folder: `acquire.toml` with your team number and lake folder, plus copies of the default settings files to edit. Without `--team` or `--lake` it asks for them (in a terminal only). It never overwrites a file: run it again and it lists what already exists and changes nothing. The robot addresses acquire tries come from the team number.
+Create your config folder: `acquire.toml` with your team number and lake folder, `theme.toml` with the name and colours the app shows, plus copies of the default settings files to edit. Without `--team`, `--lake`, `--team-name` or `--palette` it asks for them (in a terminal only; leave the name blank for none). It never overwrites a file: run it again and it lists what already exists and changes nothing. The robot addresses acquire tries come from the team number.
 
 | Option | What it does |
 |---|---|
 | `--team NUMBER` | Your FRC team number, 1 to 99999 |
 | `--lake PATH` | Where logs and results are stored. Default `~/flashpoint-lake` |
+| `--team-name NAME` | The name shown in the app header and page title, at most 40 characters. Default: none. The header then shows your team number from `--team` ("telemetry // 254"); with no name and no number it reads just "telemetry" |
+| `--palette PRESET` | The app's colours: `amber`, `green`, `blue`, `red` or `white`. Default `amber`. For your own colours, use the Setup view's Appearance section or edit `theme.toml` |
 
 ```sh
-flashpoint init --team 254 --lake ~/frc-lake
+flashpoint init --team 254 --team-name "The Cheesy Poofs" --palette blue --lake ~/frc-lake
 ```
 
 ## `flashpoint ingest`
@@ -51,8 +53,9 @@ Files that need attention are listed before the summary:
 | `QUARANTINED name: reason` | The file itself is bad (empty, corrupt, an unknown format). It stays in the lake, unused, and later runs don't try it again |
 | `FAILED name: failed (reason), will retry` | The machine failed, not the file: owlet couldn't be downloaded (no internet), crashed, or timed out. The next `ingest`, `rebuild`, or acquire cycle tries it again. A file that crashes owlet or times out 3 times is quarantined |
 | `SKIPPED name: quarantined earlier (reason)` | The file was quarantined in an earlier run. Retry it with `flashpoint rebuild --quarantined` |
+| `WARNING name: ...` | The file was ingested, but something in it looked off (the warnings are listed) |
 
-The last line counts files ingested, skipped, failed, quarantined, and quarantined earlier. The exit code is `1` when a file failed or was quarantined in this run. Files quarantined earlier don't change it.
+Then one line counts files ingested, skipped, failed, quarantined, and quarantined earlier. When files were quarantined earlier, a hint to run `flashpoint rebuild --quarantined` follows it. The exit code is `1` when a file failed or was quarantined in this run. Files quarantined earlier don't change it.
 
 If another Replay build is running (the acquire watch or `serve` at start), `ingest` says so; run `flashpoint report` after it finishes. A failed Replay build prints its error. Neither changes the exit code.
 
@@ -62,6 +65,7 @@ Reprocess, from its raw copy, every file that an older version of Flashpoint pro
 
 | Option | What it does |
 |---|---|
+| `--profile all` | Export every hoot signal instead of the health set, as with `ingest`. Default `health` |
 | `--quarantined` | Reprocess only quarantined files, with a fresh count of 3 tries. Use it after a fix (a new owlet, a Flashpoint update), or for a file that crashed owlet 3 times. A file that is truly bad is quarantined again |
 | `--no-report` | Skip the automatic Replay build after `derive` |
 
@@ -78,7 +82,7 @@ Build the match-level data from what `ingest` read. That means grouping each wpi
 
 | Option | What it does |
 |---|---|
-| `--all` | Rebuild every session. Use it after editing a robot config in `config/robots/` |
+| `--all` | Rebuild every session. Use it after editing a robot file in `robots/` in your config folder |
 
 ```sh
 flashpoint derive --all
@@ -86,7 +90,7 @@ flashpoint derive --all
 
 ## `flashpoint detect`
 
-Recompute anomalies. `derive` already does this, so you only need it after editing [`config/anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml); no re-derive is needed. It skips the work when nothing changed.
+Recompute anomalies. `derive` already does this, so you only need it after editing `anomaly.toml` in your config folder ([the default](../../src/flashpoint/defaults/anomaly.toml)); no re-derive is needed. It skips the work when nothing changed.
 
 | Option | What it does |
 |---|---|
@@ -98,7 +102,7 @@ flashpoint detect
 
 ## `flashpoint backtest`
 
-Score anomaly detection against the known failures in [`config/failure-labels.toml`](../../config/failure-labels.toml): which ones were caught, how many matches early, and the false-positive rate. Writes a Markdown report and its data to `<lake>/report/backtest/`.
+Score anomaly detection against the known failures in `failure-labels.toml` in your config folder (Ignite's is [config/failure-labels.toml](../../config/failure-labels.toml)): which ones were caught, how many matches early, and the false-positive rate. Writes a Markdown report and its data to `<lake>/report/backtest/`.
 
 ```sh
 flashpoint backtest
@@ -112,8 +116,8 @@ Only one build runs on a lake at a time. While another build holds `<lake>/meta/
 
 | Option | What it does |
 |---|---|
-| `--event KEY` | Only this event, e.g. `2026gacmp` |
-| `--match KEY` | Only this match, e.g. `2026gacmp_qm7` |
+| `--event KEY` | Only this event, e.g. `2026gacmp`. Repeat it for several |
+| `--match KEY` | Only this match, e.g. `2026gacmp_qm7`. Repeat it for several |
 | `--all` | Rebuild matches even when unchanged |
 | `--static DIR` | Also write a Replay folder that opens from `index.html` with no server, for a USB stick |
 | `--no-raw` | With `--static`: leave the raw logs out (much smaller) |
@@ -128,7 +132,7 @@ Run the Flashpoint app in your browser: Replay, History, Anomalies, Setup and Li
 
 | Option | What it does |
 |---|---|
-| `--host 0.0.0.0` | Share on the pit network. Read-only and no password, so only on a network you trust. Default `127.0.0.1` (this machine only) |
+| `--host 0.0.0.0` | Share on the pit network. No password, so only on a network you trust. Nothing can be changed from the app while it runs this way, not even on this laptop: no triage, no Setup saves or fixes, no Appearance changes, no AdvantageScope launch. Default `127.0.0.1` (this machine only) |
 | `--port N` | Default `8000` |
 | `--no-build` | Start without building Replay data first |
 | `--robot-host ADDR` | The robot address for the Live CAN view. Repeat it to try several. Default: the addresses `acquire` uses. The view connects only while it's open ([Live CAN health](live-can-health.md)) |
@@ -195,7 +199,7 @@ Then it runs the setup checks, one line each, marked `ok`, `WARN`, `PROBLEM` or 
 | Check | A problem when |
 |---|---|
 | Configuration | the config folder doesn't exist (fix: `flashpoint init`) |
-| Each settings file (`acquire.toml`, `report.toml`, `anomaly.toml`, `anomaly-causes.toml`, seasons, robots, `failure-labels.toml`) | it doesn't load; the message names the file and the bad key |
+| Each settings file (`acquire.toml`, `report.toml`, `anomaly.toml`, `anomaly-causes.toml`, `theme.toml`, seasons, robots, `failure-labels.toml`) | it doesn't load; the message names the file and the bad key |
 | Team | there's no team number and no `hosts` in `acquire.toml`, so acquire can't find the robot |
 | Robot for this season | no robot file is for the current season |
 | Lake | the lake folder can't be written (not created yet is only a warning) |

@@ -1,0 +1,8 @@
+# Team name and colours for the Flashpoint app (see the user guide, "Team name and colours").
+# team_name = "Robo Rams"         # optional, at most 40 characters
+# team_number = 1234              # optional, display only; defaults to the team in acquire.toml
+palette = "amber"                 # a preset (amber, green, blue, red, white) or "custom"
+# [custom]                        # only with palette = "custom"
+# primary = "#00A3E0"             # #RRGGBB
+# background = "#0A0806"          # optional
+# warning = "#FF5A1F"             # optional; the first built-in warning colour that passes

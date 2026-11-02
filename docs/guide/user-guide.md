@@ -38,7 +38,7 @@ flashpoint doctor
 
 `--python` picks which Python pipx uses. Name any 3.11–3.13 you have installed. On Windows, use `py -3.12` to find it, or give the full path.
 
-`flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, and copies of the default settings. Without `--team` it asks. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
+`flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, your team name and colours (`theme.toml`), and copies of the default settings. Anything you leave out (`--team`, `--lake`, `--team-name`, `--palette`) it asks for in a terminal; leave the name blank for none. See [`flashpoint init`](cli-reference.md#flashpoint-init) for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
 
 `doctor` then lists the setup checks. Right after `init`, the only problem should be "no robot configured": add your robot from the [Setup view](#setup-checks-and-configuration), and run `doctor` again.
 
@@ -52,11 +52,11 @@ Your config folder and lake are kept.
 
 ### Installing without internet
 
-On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `pipx install --python python3.12 /Volumes/USB/flashpoint-0.2.0-py3-none-any.whl` (or `E:\...` on Windows). pipx still needs Flashpoint's dependencies, so do this on a laptop that has installed it once before, or bring their wheels too.
+On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `pipx install --python python3.12 /Volumes/USB/flashpoint-<version>-py3-none-any.whl` (use the file name you downloaded, or `E:\...` on Windows). pipx still needs Flashpoint's dependencies, so do this on a laptop that has installed it once before, or bring their wheels too.
 
 ### Installing from a checkout
 
-Until Flashpoint is on PyPI, and for Ignite's own laptops, install from the repository:
+For Ignite's own laptops, or to try changes that aren't released yet, install from the repository:
 
 ```sh
 git clone https://github.com/IgniteRobotics/flashpoint.git
@@ -140,7 +140,7 @@ Pick a match from the list on the left; matches are grouped by event. You'll see
 - **Tracks** over the match: battery voltage, total current, the hottest motor's temperature, and the highest-current motor. Auto and teleop are shaded. You can swap any track for any motor and metric.
 - **Markers** on the timeline. A WARN or FAULT marker is a fact, such as "temperature reached 65 °C", "battery dropped below 6.75 V", "stall", "device rebooted", or "CAN frames stopped". Markers don't guess at a cause. Click one to jump to it.
 - A **readout** of every motor at the cursor. With no cursor placed, it lists each motor's maximum for the match, hottest first.
-- **Open in AdvantageScope** opens the match's logs in AdvantageScope, on the machine running `serve` only. There's also a link to download the raw logs. Flashpoint uses the newest WPILib install of AdvantageScope unless `config/report.toml` names another.
+- **Open in AdvantageScope** opens the match's logs in AdvantageScope, on the machine running `serve` only. There's also a link to download the raw logs. Flashpoint uses the newest WPILib install of AdvantageScope unless `report.toml` in your config folder names another (`path` under `[advantagescope]`). The Setup view's **Set AdvantageScope path** button sets it for you.
 
 "Not logged" means the data isn't there, which is not the same as zero. A match whose hoots didn't record temperature says so in its header.
 
@@ -184,11 +184,11 @@ On a wide screen each column scrolls on its own, and the ◂ / ▸ control on a 
 The **Setup** tab shows what `flashpoint doctor` checks, and your whole configuration, and lets you change it without editing files.
 
 - **Checks:** one line per check, marked ✓, `!` (warning) or ✕ (problem). Known problems have a button: **Create configuration** (as `flashpoint init`), **Download owlet**, **Set AdvantageScope path**, **Install** or **Start the acquire service** (Linux and Windows). The checks run again after each fix. Anything else shows the command to run.
-- **Configuration:** your team number and robot addresses, each robot's slots, buses and signals, the report and anomaly thresholds, and the units list, each with the file it comes from. `DEFAULT` marks a file that ships with Flashpoint; saving it writes your own copy. Each section has its own **SAVE**:
+- **Configuration:** your team number and robot addresses, each robot's slots, buses and signals, the report and anomaly thresholds, the units list, and **Appearance** (team name and colours, with a live preview; see [Team name and colours](#team-name-and-colours)), each with the file it comes from. `DEFAULT` marks a file that ships with Flashpoint; saving it writes your own copy. Each section has its own **SAVE**:
   - a save is checked with the same rules as loading the file, and refused with the same message if something is wrong (two slots with the same CAN id, a signal under a root the season doesn't have);
   - a save is refused if someone changed the file by hand since you opened it: reload and redo the edit;
   - comments and the order of everything you didn't change are kept, and the previous version goes to `.backups/` in the config folder (the last 20 of each file);
-  - after a save, the view says what to run: `flashpoint derive` after a robot change, `flashpoint detect` after an anomaly threshold, `flashpoint report` after a report threshold. Saving never changes the lake.
+  - after a save, the view says what to run: `flashpoint derive` after a robot change, `flashpoint detect` after an anomaly threshold, `flashpoint report` after a report threshold, and a page reload after a team name or colour change. Saving never changes the lake.
 - **Draft robot:** pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Give each slot an id, subsystem and role, then **SAVE ROBOT**. A log with no hoots can't be drafted from.
 
 Fixes and saves only run on the computer running `flashpoint serve`. Opened from another computer, or with `--host 0.0.0.0`, Setup is read-only and shows commands instead of buttons.
@@ -211,7 +211,36 @@ Other devices on the same network can then open `http://<this laptop's IP>:8000/
 flashpoint report --static /Volumes/USB/flashpoint
 ```
 
-This writes a folder that opens by double-clicking `index.html`, on any computer with no install and no network. Only Replay is included; History and Anomalies need `serve`. Add `--no-raw` to leave the raw logs out if the stick is small.
+This writes a folder that opens by double-clicking `index.html`, on any computer with no install and no network. Only Replay is included; History and Anomalies need `serve`. Add `--no-raw` to leave the raw logs out if the stick is small. It uses your team name and colours as they are when you write it. After changing them, run the command again to update the stick.
+
+## Team name and colours
+
+The app header shows your team name and number, such as "Robo Rams · 1234", and the app uses your team's colours. Both live in `theme.toml` in your config folder ([default](../../src/flashpoint/defaults/theme.toml)). With no name, the header reads "telemetry".
+
+```toml
+team_name = "Robo Rams"    # optional, at most 40 characters
+# team_number = 1234       # optional, display only; defaults to `team` in acquire.toml
+palette = "custom"         # amber, green, blue, red, white, or "custom"
+
+[custom]                   # only with palette = "custom"
+primary = "#00A3E0"        # #RRGGBB
+# background = "#0A0806"   # optional
+# warning = "#FF5A1F"      # optional; picked for you when left out
+```
+
+- The **palette** is a preset (`amber`, the default, `green`, `blue`, `red` or `white`, all on a dark background) or `custom`. With `custom` you give a primary colour, and optionally a background and a warning colour. Flashpoint works out every other shade from them.
+- `flashpoint init --team-name "Robo Rams" --palette blue` sets the name and a preset when you first set up. For custom colours, use the Setup view or edit the file.
+
+**In the Setup view:** open **Setup**, then **Appearance** under the configuration. Type the name, pick a preset under **COLOURS**, or **custom colours** to enter your own. The preview shows a header, a small chart and a warning in the new colours; the rest of the app keeps the saved colours until you save. Press **SAVE**, then reload the page.
+
+**Readable by rule.** Flashpoint refuses a palette that's hard to read:
+- every text shade needs at least 4.5:1 contrast on every background shade;
+- boundary lines need at least 3:1 on the background;
+- the warning colour needs 4.5:1 too, and must stand apart from the primary: at least 35° apart in hue, or 25% apart in lightness.
+
+When a palette fails, the preview lists each failing colour and its contrast, and suggests the nearest primary (or warning) that passes. With custom colours, a **USE** button puts the suggestion in for you. A refused palette can't be saved, and `theme.toml` stays as it was.
+
+If you edit `theme.toml` by hand and it has a mistake, the app still starts, with the default amber and no name, and `flashpoint doctor` shows a `PROBLEM` on `theme.toml` with the reason. [Setting up Flashpoint for your team](team-setup.md#8-team-name-and-colours) walks through this for a new team.
 
 ## Describe a robot
 
@@ -301,6 +330,7 @@ You probably won't need to change these, but they're all team-editable (in the S
 | `report.toml` ([default](../../src/flashpoint/defaults/report.toml)) | Replay marker and History limits: temperatures, brownout and sag voltages, CAN gap lengths. Also an optional AdvantageScope path |
 | `anomaly.toml` ([default](../../src/flashpoint/defaults/anomaly.toml)) | Anomaly thresholds. After editing, run `flashpoint detect` |
 | `anomaly-causes.toml` ([default](../../src/flashpoint/defaults/anomaly-causes.toml)) | The "likely causes" text on each anomaly |
+| `theme.toml` ([default](../../src/flashpoint/defaults/theme.toml)) | Team name and colours in the app header and charts. See [Team name and colours](#team-name-and-colours) |
 | `failure-labels.toml` (Ignite's: [config/](../../config/failure-labels.toml)) | Real failures, used by `flashpoint backtest` to check detection. No default |
 | `units/units-seed.csv` ([how to fill it in](../../config/units/README.md)) | The list of every physical motor the team owns, by serial number, with its label |
 
