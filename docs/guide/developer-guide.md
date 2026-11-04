@@ -114,7 +114,7 @@ It downloads with `gh release download` if the GitHub CLI is installed (run `gh 
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. A first `changes` job checks which files changed. When they're all docs (`docs/`, `openspec/`, `media/`, `.claude/`, and Markdown outside `src/` and `tests/`), only the `docs` job runs; otherwise everything does.
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main` and `development`. A first `changes` job checks which files changed. When they're all docs (`docs/`, `openspec/`, `media/`, `.claude/`, and Markdown outside `src/` and `tests/`), only the `docs` job runs; otherwise everything does.
 
 | Job | Runs | Blocks merge |
 |---|---|---|
@@ -150,7 +150,9 @@ Tasks marked `[HUMAN]` need a person: a pit check, a field test. They stay open 
 
 ### Branching
 
-- **`main`** is the only long-lived branch. Each change gets a `feature/<name>` branch cut from `main`, and merges back through a pull request with CI. Never push to `main` directly. It's protected: the `ci-ok` check must pass, and a pull request needs one approving review.
+- **`development`** is the integration branch. Each change gets a `feature/<name>` branch cut from `development`, and merges back through a pull request with CI.
+- **`main`** gets changes only through a pull request from `development`. Release tags (`v*`) are cut from `main`.
+- Both branches are protected the same way: the `ci-ok` check must pass, a pull request needs one approving review, and only org admins and the `code-reviewers` team can merge. Nobody can force-push or delete them. Never push to either directly.
 - The rewrite was built on a separate `rewrite` branch and merged into `main` on 2026-10-22. The pre-rewrite tree is kept at the `legacy-2025` tag.
 
 ## Where decisions and research live
