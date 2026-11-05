@@ -53,9 +53,11 @@ context: |
 
   Spec authorship: The person who owns the change writes the spec unless they have completed M8 or are a mentor. If you don't know which, ask before drafting.
 
-  Branching: `main` is the only long-lived branch. Each change is a
-  `feature/<name>` branch cut from `main`, and merges back into `main`
-  through a PR with CI (never push directly).
+  Branching: `development` is the default branch. Each change starts from a GitHub
+  issue, on a `feature/<num>-<name>` branch cut from `development`, and merges back
+  into `development` through a PR whose body says `Closes #<num>` (never push
+  directly). `main` only takes merges from `development` and `hotfix/*`. See
+  https://igniterobotics.github.io/ignition-labs/programming/team-gitflow/.
 
 rules:
   proposal:
