@@ -51,6 +51,8 @@ context: |
   PascalCase classes, SCREAMING_SNAKE_CASE constants, type hints everywhere.
   Imports go external, then internal, then local.
 
+  Spec authorship: The person who owns the change writes the spec unless they have completed M8 or are a mentor. If you don't know which, ask before drafting.
+
   Branching: `main` is the only long-lived branch. Each change is a
   `feature/<name>` branch cut from `main`, and merges back into `main`
   through a PR with CI (never push directly).
@@ -63,10 +65,12 @@ rules:
     - Keep it under 600 words
   specs:
     - Describe observable behavior only. No library or class names
-    - Every requirement has at least one WHEN/THEN scenario that can run against the golden log corpus or a synthetic fixture
+    - Every requirement has at least one WHEN/THEN scenario that can run against
+      the golden log corpus or a synthetic fixture
     - Include error and quarantine behavior for malformed or partial logs
   design:
-    - Reference the D1-D11 decisions. If you deviate from one, say so and add an ADR under docs/adr/
+    - Reference the D1-D11 decisions. If you deviate from one, say so and add an
+      ADR under docs/adr/
     - State memory and time budgets for anything that touches full logs
   tasks:
     - Write the test first (TDD); each task group ends with passing tests
@@ -80,4 +84,11 @@ operations:
       - New code goes in src/flashpoint/
   archive:
     guidance:
-      - Roadmap status lives on the Flashpoint GitHub project (https://github.com/orgs/IgniteRobotics/projects/3), not in docs/rewrite/06-roadmap.md. When archiving a phase change, comment on its `roadmap` issue with what shipped and the archive PR, set its Target date, and close it once no [HUMAN] task is left. When archiving a follow-up change, comment on its phase issue
+      - Roadmap status lives on the Flashpoint GitHub project
+        (https://github.com/orgs/IgniteRobotics/projects/3), not in
+        docs/rewrite/06-roadmap.md. When archiving a phase change, comment on
+        its `roadmap` issue with what shipped and the archive PR, set its Target
+        date, and close it once no [HUMAN] task is left. When archiving a
+        follow-up change, comment on its phase issue
+githubCopilot:
+  cloudAgent: false

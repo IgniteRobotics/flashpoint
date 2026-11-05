@@ -177,3 +177,8 @@ imported_data/
 
 # Golden corpus cache (tools/fetch-corpus.py)
 .corpus/
+
+# Ignite agent kit
+.claude/worktrees/
+.codex/
+.ignite/implementing

@@ -1,0 +1,20 @@
+name: OpenSpec drift check
+
+on:
+  pull_request:
+    branches: [main, development]
+
+permissions:
+  contents: read
+
+jobs:
+  openspec-tool-files:
+    name: OpenSpec tool files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Regenerate from the recipe and fail on drift
+        run: node .ignite/openspec-regen.mjs --check

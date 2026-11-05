@@ -1,0 +1,8 @@
+{
+  "openspecVersion": "1.10.0",
+  "profile": "custom",
+  "delivery": "both",
+  "workflows": ["propose", "explore", "apply", "update", "sync", "archive"],
+  "tools": ["claude", "codex", "github-copilot"],
+  "copilotCloud": false
+}

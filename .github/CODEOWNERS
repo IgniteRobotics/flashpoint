@@ -1,0 +1,9 @@
+# Tool-generated and rule files: changes need a mentor's review.
+/.claude/ @IgniteRobotics/mentors
+/.agents/ @IgniteRobotics/mentors
+/.github/skills/ @IgniteRobotics/mentors
+/.github/prompts/ @IgniteRobotics/mentors
+/openspec/config.yaml @IgniteRobotics/mentors
+/.ignite/ @IgniteRobotics/mentors
+/AGENTS.md @IgniteRobotics/mentors
+/CLAUDE.md @IgniteRobotics/mentors

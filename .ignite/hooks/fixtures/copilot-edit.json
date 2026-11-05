@@ -1,0 +1,7 @@
+{
+  "sessionId": "abc123",
+  "timestamp": 1718000000000,
+  "cwd": "/work/robot",
+  "toolName": "edit",
+  "toolArgs": { "path": "/work/robot/src/test/java/frc/robot/ExampleTest.java" }
+}
