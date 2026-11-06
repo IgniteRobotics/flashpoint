@@ -1,0 +1,11 @@
+{
+  "session_id": "thr_123",
+  "cwd": "/work/robot",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5-codex",
+  "permission_mode": "default",
+  "turn_id": "turn_1",
+  "tool_name": "Bash",
+  "tool_use_id": "call_2",
+  "tool_input": { "command": "git push origin feature/intake" }
+}

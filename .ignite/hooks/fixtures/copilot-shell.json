@@ -1,0 +1,7 @@
+{
+  "sessionId": "abc123",
+  "timestamp": 1718000000000,
+  "cwd": "/work/robot",
+  "toolName": "bash",
+  "toolArgs": "{\"command\":\"git push origin feature/intake\"}"
+}
