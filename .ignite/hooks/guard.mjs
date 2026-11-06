@@ -25,10 +25,14 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { decide, parsePayload } from "./lib.mjs";
 
 const WARN = "ignite guard: could not read hook input — not checking this call";
+// The repo root is where this file lives (.ignite/hooks/ -> ../..), not the agent's cwd: an
+// agent working from src/main/java must still see the marker and the root's src/test/.
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 try {
   const event = parsePayload(readFileSync(0, "utf8"));
@@ -37,8 +41,9 @@ try {
     process.exit(0);
   }
   const verdict = decide(event, {
-    markerExists: existsSync(join(event.cwd, ".ignite", "implementing")),
+    markerExists: existsSync(join(ROOT, ".ignite", "implementing")),
     platform: process.platform,
+    root: ROOT,
   });
   if (verdict.block) {
     console.error(verdict.reason);

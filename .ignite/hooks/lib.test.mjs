@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -9,7 +9,6 @@ import { fileURLToPath } from "node:url";
 import { decide, normalizePath, parsePayload } from "./lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const guard = join(here, "guard.mjs");
 const sessionStart = join(here, "session-start.mjs");
 
 const edit = (path, cwd = "/work/robot") => ({ tool: "edit", path, paths: [path], cwd });
@@ -17,17 +16,19 @@ const shell = (command, cwd = "/work/robot") => ({ tool: "shell", command, cwd }
 const withMarker = { markerExists: true, platform: "linux" };
 const noMarker = { markerExists: false, platform: "linux" };
 
+// A throwaway repo with its own copy of the guard: the guard finds the repo root (and the
+// marker) from where its own file lives, the way it does in a seeded repo.
 function tmpRepo(marker) {
-  const repo = mkdtempSync(join(tmpdir(), "ignite-guard-"));
-  if (marker) {
-    mkdirSync(join(repo, ".ignite"));
-    writeFileSync(join(repo, ".ignite", "implementing"), "");
-  }
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), "ignite-guard-")));
+  mkdirSync(join(repo, ".ignite", "hooks"), { recursive: true });
+  for (const f of ["guard.mjs", "lib.mjs"]) copyFileSync(join(here, f), join(repo, ".ignite", "hooks", f));
+  if (marker) writeFileSync(join(repo, ".ignite", "implementing"), "");
   return repo;
 }
 
-function runGuard(input, repo) {
-  return spawnSync(process.execPath, [guard], { input, cwd: repo, encoding: "utf8" });
+function runGuard(input, repo, cwd = repo) {
+  const guard = join(repo, ".ignite", "hooks", "guard.mjs");
+  return spawnSync(process.execPath, [guard], { input, cwd, encoding: "utf8" });
 }
 
 const claudeEdit = (repo, file) =>
@@ -47,6 +48,25 @@ test("guard: blocks test edit when marker present", () => {
   const r = runGuard(claudeEdit(repo, join(repo, "src", "test", "java", "X.java")), repo);
   assert.equal(r.status, 2);
   assert.match(r.stderr, /^Blocked: editing .*src\/test\/java\/X\.java/);
+});
+
+test("guard: blocks test edit when agent cwd is a subdirectory", () => {
+  const repo = tmpRepo(true);
+  const sub = join(repo, "src", "main", "java");
+  mkdirSync(sub, { recursive: true });
+  let r = runGuard(claudeEdit(sub, join(repo, "src", "test", "java", "A.java")), repo, sub);
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /^Blocked: editing src\/test\/java\/A\.java while/);
+  // Relative paths resolve against the agent's cwd, then are judged against the repo root.
+  const inSrc = { markerExists: true, platform: "linux", root: "/work/robot" };
+  assert.equal(decide(edit("test/java/A.java", "/work/robot/src"), inSrc).block, true);
+  assert.equal(decide(edit("../../test/A.java", "/work/robot/src/main/java"), inSrc).block, true);
+  assert.equal(decide(edit("main/java/A.java", "/work/robot/src"), inSrc).block, false);
+  assert.equal(decide(shell("echo x > test/A.java", "/work/robot/src"), inSrc).block, true);
+  assert.equal(decide(shell("echo x > main/A.java", "/work/robot/src"), inSrc).block, false);
+  // A src/main edit from the subdirectory is still allowed.
+  r = runGuard(claudeEdit(sub, join(repo, "src", "main", "java", "A.java")), repo, sub);
+  assert.equal(r.status, 0, r.stderr);
 });
 
 test("guard: blocks backslash and mixed-case test paths", () => {
@@ -149,13 +169,24 @@ test("guard: every fixture parses", () => {
   const dir = join(here, "fixtures");
   const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
   assert.ok(files.length >= 6, "expected fixtures for claude, codex and copilot");
+  const marked = tmpRepo(true);
+  const unmarked = tmpRepo(false);
+  // Fixtures are written for a repo at /work/robot; point them at the throwaway repo so the
+  // guard judges them against its real root, not the outside-the-repo fallback.
+  const at = (raw, repo) => raw.replaceAll("/work/robot", JSON.stringify(repo).slice(1, -1));
   for (const f of files) {
-    const event = parsePayload(readFileSync(join(dir, f), "utf8"));
+    const raw = readFileSync(join(dir, f), "utf8");
+    const event = parsePayload(raw);
     assert.ok(event, f);
     assert.notEqual(event.tool, "other", f);
     // edit fixtures sit under src/test/ (block cases); shell fixtures are git push.
     assert.equal(decide(event, withMarker).block, true, f);
     assert.equal(decide(event, noMarker).block, f.includes("shell"), `${f} without marker`);
+    let r = runGuard(at(raw, marked), marked);
+    assert.equal(r.status, 2, `${f}: ${r.stderr}`);
+    assert.match(r.stderr, /^Blocked: /, f);
+    r = runGuard(at(raw, unmarked), unmarked);
+    assert.equal(r.status, f.includes("shell") ? 2 : 0, `${f} without marker: ${r.stderr}`);
   }
 });
 

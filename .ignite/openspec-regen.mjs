@@ -58,7 +58,7 @@ export function driftMessage(paths) {
   return [
     "OpenSpec tool files changed:",
     ...paths.map((p) => `  ${p}`),
-    "Students: undo these changes — `git checkout -- <changed paths>` and delete any new files listed. Never run `openspec init` or `openspec update` in a team repo.",
+    "Students: put these files back the way development has them — `git fetch origin`, then `git checkout origin/development -- <changed paths>`, `git rm` any new files listed, commit, and push. Never run `openspec init` or `openspec update` in a team repo.",
     "Mentors: regenerate with `node .ignite/openspec-regen.mjs` (recipe: .ignite/openspec-recipe.json) and commit the result.",
   ].join("\n");
 }

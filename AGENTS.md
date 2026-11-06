@@ -15,6 +15,7 @@ tests in `tests/` (there is no `src/test/` here).
 - Lint: `poetry run ruff check .` and `poetry run mypy`
 - CI job `ci-ok` is the required check. Design docs: `docs/rewrite/`; OpenSpec changes: `openspec/`.
 - Branch from `development`.
+- The test freeze applies to `tests/` here; the hook does not enforce it (it only matches `src/test/`).
 <!-- repo-specific:end -->
 
 ## Who writes the spec

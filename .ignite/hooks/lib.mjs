@@ -88,13 +88,20 @@ function isAbsolute(p) {
   return p.startsWith("/") || /^[a-z]:\//i.test(p);
 }
 
-/** Does this edited path land in the frozen src/test tree? */
-function isTestPath(rawPath, cwd, platform) {
+const trimDir = (d, platform) => normalizePath(d, platform).replace(/\/+$/, "");
+
+/** Absolute, slash-separated form of a path the agent named, resolved against its cwd. */
+function resolveFrom(rawPath, cwd, platform) {
   const p = normalizePath(rawPath, platform);
-  const c = normalizePath(cwd, platform).replace(/\/+$/, "");
-  const full = posix.normalize(isAbsolute(p) ? p : `${c}/${p}`);
-  if (full.startsWith(`${c}/`)) return /^src\/test(\/|$)/.test(full.slice(c.length + 1));
-  // Outside the reported cwd (or cwd disagrees with the path style): fail toward protection.
+  return posix.normalize(isAbsolute(p) ? p : `${trimDir(cwd, platform)}/${p}`);
+}
+
+/** Does this edited path land in the frozen src/test tree at the repo root? */
+function isTestPath(rawPath, cwd, root, platform) {
+  const full = resolveFrom(rawPath, cwd, platform);
+  const r = trimDir(root, platform);
+  if (full.startsWith(`${r}/`)) return /^src\/test(\/|$)/.test(full.slice(r.length + 1));
+  // Outside the repo root (or the paths disagree in style): fail toward protection.
   return /(^|\/)src\/test\//.test(full);
 }
 
@@ -179,30 +186,48 @@ const WRITE_HINT = new RegExp(
 );
 const MENTIONS_TEST = /(^|[\s"'=:(>/])src\/test(\/|[\s"')]|$)/;
 
-function shellWritesTests(command, platform) {
+function shellWritesTests(command, cwd, root, platform) {
   const text = normalizePath(command, platform)
     .replace(/\d?>&\d/g, " ") // 2>&1
     .replace(/\d?>>?\s*\/dev\/null/g, " ");
-  return MENTIONS_TEST.test(text) && WRITE_HINT.test(text);
+  if (!WRITE_HINT.test(text)) return false;
+  if (MENTIONS_TEST.test(text)) return true;
+  // From a subdirectory, src/test/ goes by another name (`test/A.java` from src/): resolve each
+  // word against the agent's cwd and judge it against the repo root.
+  const r = trimDir(root, platform);
+  for (const seg of segments(text)) {
+    for (const tok of seg.flatMap((t) => t.split(/[<>]+/))) {
+      if (tok === "" || tok.startsWith("-")) continue;
+      const full = resolveFrom(tok, cwd, platform);
+      if (full.startsWith(`${r}/`) && /^src\/test(\/|$)/.test(full.slice(r.length + 1))) return true;
+    }
+  }
+  return false;
 }
 
-function shown(p, cwd) {
+/** The edited path as the student would recognise it: relative to the repo root when inside it. */
+function shown(p, cwd, root) {
   const s = String(p).replace(/\\/g, "/");
-  const c = String(cwd).replace(/\\/g, "/").replace(/\/+$/, "");
-  return s.toLowerCase().startsWith(`${c.toLowerCase()}/`) ? s.slice(c.length + 1) : s;
+  const full = isAbsolute(s) ? posix.normalize(s) : posix.normalize(`${String(cwd).replace(/\\/g, "/").replace(/\/+$/, "")}/${s}`);
+  const r = String(root).replace(/\\/g, "/").replace(/\/+$/, "");
+  return full.toLowerCase().startsWith(`${r.toLowerCase()}/`) ? full.slice(r.length + 1) : s;
 }
 
-/** Decide whether to block. markerExists = `.ignite/implementing` exists under event.cwd. */
-export function decide(event, { markerExists, platform }) {
+/**
+ * Decide whether to block. markerExists = `.ignite/implementing` exists at the repo root; root is
+ * that repo root (the guard derives it from its own location). Without root, event.cwd stands in.
+ */
+export function decide(event, { markerExists, platform, root }) {
   const allow = { block: false, reason: "" };
   if (!event) return allow;
+  const top = root ?? event.cwd;
 
   if (event.tool === "edit" && markerExists) {
     for (const p of event.paths ?? [event.path]) {
-      if (isTestPath(p, event.cwd, platform)) {
+      if (isTestPath(p, event.cwd, top, platform)) {
         return {
           block: true,
-          reason: `Blocked: editing ${shown(p, event.cwd)} while .ignite/implementing exists. Tests are frozen during implementation — if a test looks wrong, stop and ask your mentor (see the SDD loop).`,
+          reason: `Blocked: editing ${shown(p, event.cwd, top)} while .ignite/implementing exists. Tests are frozen during implementation — if a test looks wrong, stop and ask your mentor (see the SDD loop).`,
         };
       }
     }
@@ -219,7 +244,7 @@ export function decide(event, { markerExists, platform }) {
     if (found.includes("openspec")) {
       return { block: true, reason: "Blocked: openspec init/update rewrites the committed OpenSpec tool files. Never run it here — if those files look wrong, ask a mentor." };
     }
-    if (markerExists && shellWritesTests(event.command, platform)) {
+    if (markerExists && shellWritesTests(event.command, event.cwd, top, platform)) {
       return { block: true, reason: "Blocked: this command writes into src/test/ while .ignite/implementing exists. Tests are frozen during implementation — ask your mentor if a test looks wrong." };
     }
   }
