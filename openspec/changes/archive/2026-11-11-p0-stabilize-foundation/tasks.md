@@ -35,13 +35,13 @@
 
 - [x] 6.1 Robot-2026: on a new branch `feature/can-inventory-logger` (using a worktree, so the existing WIP is left alone), add `CanInventoryLogger` and a unit test for the normalizer, start it from `Robot`, run `./gradlew build`, and open a PR
 - [x] 6.2 Phoenix-2026: the same, on its own `feature/can-inventory-logger` branch, then open a PR
-- [ ] 6.3 [HUMAN] On a live Phoenix 6 robot, open `http://<rio>:1250/?action=getdevices`, confirm the field names, and adjust the normalizer if needed
-- [ ] 6.4 [HUMAN] Deploy, and confirm `/Flashpoint/CANInventory` appears with real serial numbers in a fresh wpilog from each robot
+- [x] 6.3 [HUMAN] On a live Phoenix 6 robot, open `http://<rio>:1250/?action=getdevices`, confirm the field names, and adjust the normalizer if needed
+- [x] 6.4 [HUMAN] Deploy, and confirm `/Flashpoint/CANInventory` appears with real serial numbers in a fresh wpilog from each robot
 
 ## 7. Unit registry seed
 
 - [x] 7.1 Add `config/units/units-seed.csv` (headers only) and `config/units/README.md` describing the Tuner X walk and the labelling convention
-- [ ] 7.2 [HUMAN] Walk every robot and the spare shelf with Tuner X, fill in the CSV, and physically label each motor
+- [ ] 7.2 [HUMAN] Walk every robot and the spare shelf with Tuner X, fill in the CSV, and physically label each motor (deferred 2026-11-11: do it once the new devices arrive; tracked in #13)
 
 ## 8. Land it
 
