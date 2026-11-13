@@ -54,7 +54,7 @@ def test_q7_envelope_matches_silver(built: Any) -> None:
     start_us = duckdb.execute(
         "SELECT start_us FROM read_parquet(?) WHERE session_id = ? AND phase = 'auto'",
         [str(built.meta / "match_phases.parquet"), data["session_id"]],
-    ).fetchone()[0]  # type: ignore[index]
+    ).fetchone()[0]  # type: ignore[index]  # count always returns a row
     t0 = start_us + round(window["t0"] * 1_000_000)
     width = round(window["width"] * 1_000_000)
     rows = duckdb.execute(

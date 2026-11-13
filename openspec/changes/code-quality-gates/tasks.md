@@ -1,16 +1,17 @@
-## 1. Self-tests first (red)
+## 1. Self-tests first (red), and every tests/ edit before the freeze
 
-- [ ] 1.1 Add `tests/fixtures/quality/python/` with one minimal violation per check-enforced Python rule (`S602`, `S603`, `S608`, `BLE001`, `T201`, `DTZ005`, `C901`, `ARG001`, `PT011`, `PGH004`, `RUF100`, `TID251` for `sys.exit` and `os.system`), and exclude the tree from ruff; verify `ruff check .` ignores it
-- [ ] 1.2 Add `tests/fixtures/quality/js/` with one violation per check-enforced JS rule (undeclared global, unused variable, loose equality, unformatted file, `import` statement, `innerHTML`); verify the existing static-lint test doesn't scan it
-- [ ] 1.3 Write `tests/test_quality.py`: each Python fixture fails ruff with its expected code; each JS fixture fails Biome (through pre-commit) with its expected rule; verify it fails now, because the rules aren't enabled
-- [ ] 1.4 Add tests for suppression format (`# noqa: CODE - reason`, no suppressed `S602`/`S604`/`S605`), workflow `permissions:` blocks, and SHA-pinned actions; verify each fails on today's tree, naming the offending files
-- [ ] 1.5 Add the classic-script check (no `import`/`export`) to `tests/web/test_static_lint.py`; verify it passes on the app and fails on the JS fixture
+- [x] 1.0 Clean `tests/` against the new rules (with the tests/ per-file ignores from design.md §3) and give every existing `noqa` (`# noqa: CODE - reason`) and `type: ignore` (`# type: ignore[code]  # reason`) in `tests/` a reason; verify `ruff check tests` with the new rules passed on the command line is clean and the unit run passes. After this group, `tests/` is frozen
+- [x] 1.1 Add `tests/fixtures/quality/python/` with one minimal violation per check-enforced Python rule (`S602`, `S603`, `S608`, `BLE001`, `T201`, `DTZ005`, `C901`, `ARG001`, `PT011`, `PGH004`, `RUF100`, `TID251` for `sys.exit` and `os.system`), and exclude the tree from ruff; verify `ruff check .` ignores it
+- [x] 1.2 Add `tests/fixtures/quality/js/` with one violation per check-enforced JS rule (undeclared global, unused variable, loose equality, unformatted file, `import` statement, `innerHTML`); verify the existing static-lint test doesn't scan it
+- [x] 1.3 Write `tests/test_quality.py`: each Python fixture fails ruff with its expected code; each JS fixture fails Biome (through pre-commit) with its expected rule; verify it fails now, because the rules aren't enabled
+- [x] 1.4 Add tests for suppression format (`# noqa: CODE - reason`, no suppressed `S602`/`S604`/`S605`), workflow `permissions:` blocks, and SHA-pinned actions; verify each fails on today's tree, naming the offending files
+- [x] 1.5 Add the classic-script check (no `import`/`export`) to `tests/web/test_static_lint.py`; verify it passes on the app and fails on the JS fixture
 
 ## 2. Python rules
 
 - [ ] 2.1 Add `pre-commit`, `pytest-cov` to the dev group; extend ruff `select`, per-file ignores, `mccabe.max-complexity = 12`, `TID251` banned-api; add mypy `ignore-without-code`; verify the Python fixtures in 1.3 now pass
 - [ ] 2.2 Fix or suppress (with reasons) the `S`, `BLE`, `DTZ`, `ARG`, `PERF`, `PT`, `RUF` hits in `src/`; give the existing bare `noqa` comments reasons; verify `ruff check .` is clean and the suppression test passes
-- [ ] 2.3 Same for `tests/` and `tools/`; mark the 9 functions over complexity 12 `# noqa: C901 - grandfathered (code-quality-gates)`; verify `ruff check .`, `mypy src tests tools`, and the unit run pass
+- [ ] 2.3 Same for `tools/` (tests/ was done in 1.0); mark the 9 functions over complexity 12 `# noqa: C901 - grandfathered (code-quality-gates)`; verify `ruff check .`, `mypy src tests tools`, and the unit run pass
 
 ## 3. Frontend rules
 

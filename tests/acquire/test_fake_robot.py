@@ -168,7 +168,7 @@ def test_unknown_exec_command_exits_127(robot: FakeRobot) -> None:
 def test_drop_after_bytes(robot: FakeRobot) -> None:
     robot.drop_after_bytes = 40_000
     received = bytearray()
-    with (
+    with (  # noqa: PT012 - the connection drops partway through the read loop
         connect(robot) as t,
         pytest.raises((OSError, EOFError, paramiko.SSHException)),
         sftp(t).open(LOG_PATH, "rb") as f,
@@ -211,7 +211,7 @@ def test_every_write_is_refused_and_recorded(robot: FakeRobot) -> None:
             lambda: client.open(f"{LOG_DIR}/new", "wb"),
             lambda: client.open(LOG_PATH, "ab"),
         ):
-            with pytest.raises(OSError):  # noqa: PT011
+            with pytest.raises(OSError):  # noqa: PT011 - any refusal; paramiko's message varies
                 op()
     ops = [op for op, _ in robot.write_attempts]
     assert ops == [
@@ -224,7 +224,7 @@ def test_every_write_is_refused_and_recorded(robot: FakeRobot) -> None:
 
 def test_paths_cannot_escape_root(robot: FakeRobot, tmp_path: Path) -> None:
     (tmp_path / "secret").write_text("x")
-    with connect(robot) as t, pytest.raises(OSError):  # noqa: PT011
+    with connect(robot) as t, pytest.raises(OSError):  # noqa: PT011 - any refusal; paramiko's message varies
         sftp(t).stat("/../secret")
 
 

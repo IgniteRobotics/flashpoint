@@ -79,7 +79,7 @@ def test_init_twice(ctx: CheckContext, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("body", [{}, {"team": 0}, {"team": "abc"}, None, [254]])
 def test_init_refuses_a_bad_team(ctx: CheckContext, body: Any) -> None:
-    with pytest.raises(FixError, match="team|JSON object"):
+    with pytest.raises(FixError, match=r"team|JSON object"):
         FIXES["init"](ctx, body)
     assert not ctx.config_root.exists()
 

@@ -90,7 +90,7 @@ print(json.dumps({"status": status, "available": body.get("available"),
 
 
 def test_q7_window_budget(built: Any) -> None:
-    done = subprocess.run(  # noqa: S603
+    done = subprocess.run(
         [sys.executable, "-c", _WINDOW, str(built.root)], capture_output=True, text=True, check=True
     )
     result = json.loads(done.stdout.strip().splitlines()[-1])

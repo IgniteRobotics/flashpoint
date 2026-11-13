@@ -39,7 +39,7 @@ metric = "{metric}"
 
 def _signal(
     id: str = "beam", root: str = "robot", entry: str = "Intake/Beam", metric: str = "is_detected"
-) -> str:  # noqa: A002
+) -> str:
     return SIGNAL.format(id=id, root=root, entry=entry, metric=metric)
 
 
@@ -88,7 +88,7 @@ def test_bad_season_rejected_naming_file_and_key(tmp_path: Path, text: str, key:
 
 
 def test_season_file_name_must_match_season(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match="(?s)2026.toml.*season"):
+    with pytest.raises(ConfigError, match=r"(?s)2026.toml.*season"):
         load_seasons(_config(tmp_path, ROBOT, SEASON.replace("2026", "2025", 1)) / "seasons")
 
 
@@ -114,31 +114,31 @@ def test_load_robot_finds_sibling_seasons(tmp_path: Path) -> None:
 
 def test_duplicate_signal_id_names_both(tmp_path: Path) -> None:
     config = _config(tmp_path, ROBOT + _signal() + _signal(entry="Intake/Other"))
-    with pytest.raises(ConfigError, match="(?s)r.toml.*'beam'.*Intake/Beam.*Intake/Other"):
+    with pytest.raises(ConfigError, match=r"(?s)r.toml.*'beam'.*Intake/Beam.*Intake/Other"):
         load_robots(config / "robots")
 
 
 def test_duplicate_root_entry_names_both(tmp_path: Path) -> None:
     config = _config(tmp_path, ROBOT + _signal() + _signal(id="beam2"))
-    with pytest.raises(ConfigError, match="(?s)r.toml.*'beam'.*'beam2'"):
+    with pytest.raises(ConfigError, match=r"(?s)r.toml.*'beam'.*'beam2'"):
         load_robots(config / "robots")
 
 
 def test_undefined_root_names_signal_and_root(tmp_path: Path) -> None:
     config = _config(tmp_path, ROBOT + _signal(root="smartdashboard"))
-    with pytest.raises(ConfigError, match="(?s)r.toml.*'beam'.*smartdashboard"):
+    with pytest.raises(ConfigError, match=r"(?s)r.toml.*'beam'.*smartdashboard"):
         load_robots(config / "robots")
 
 
 def test_signals_without_season_file_rejected(tmp_path: Path) -> None:
     config = _config(tmp_path, ROBOT + _signal(), season=None)
-    with pytest.raises(ConfigError, match="(?s)r.toml.*season 2026"):
+    with pytest.raises(ConfigError, match=r"(?s)r.toml.*season 2026"):
         load_robots(config / "robots")
 
 
 def test_non_snake_case_metric_rejected(tmp_path: Path) -> None:
     config = _config(tmp_path, ROBOT + _signal(metric="IsDetected"))
-    with pytest.raises(ConfigError, match="(?s)r.toml.*metric"):
+    with pytest.raises(ConfigError, match=r"(?s)r.toml.*metric"):
         load_robots(config / "robots")
 
 
@@ -160,7 +160,7 @@ def test_unset_flashpoint_root_is_not_a_root(tmp_path: Path) -> None:
 
 def test_signal_under_undefined_flashpoint_root_rejected(tmp_path: Path) -> None:
     robot = ROBOT + _signal(id="rio-util", root="flashpoint", entry="CANBus/rio/Utilization")
-    with pytest.raises(ConfigError, match="(?s)rio-util.*flashpoint"):
+    with pytest.raises(ConfigError, match=r"(?s)rio-util.*flashpoint"):
         load_robots(_config(tmp_path, robot) / "robots")
 
 

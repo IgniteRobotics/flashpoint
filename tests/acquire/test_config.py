@@ -83,7 +83,7 @@ def test_wrong_type_names_the_key(tmp_path: Path) -> None:
 
 def test_malformed_toml_is_a_config_error(tmp_path: Path) -> None:
     (tmp_path / "acquire.toml").write_text("hosts = [\n")
-    with pytest.raises(AcquireConfigError, match="acquire.toml"):
+    with pytest.raises(AcquireConfigError, match=r"acquire.toml"):
         AcquireConfig.load(tmp_path)
 
 

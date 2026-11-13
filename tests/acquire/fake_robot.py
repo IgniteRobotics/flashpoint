@@ -433,4 +433,4 @@ class _StatvfsSFTPServer(SFTPServer):
                 me._send_packet(CMD_EXTENDED_REPLY, reply)
                 return
             msg.packet.seek(start)
-        super()._process(t, request_number, msg)  # type: ignore[misc]
+        super()._process(t, request_number, msg)  # type: ignore[misc]  # untyped paramiko base

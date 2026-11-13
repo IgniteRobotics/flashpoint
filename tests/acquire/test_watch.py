@@ -103,7 +103,7 @@ class Holder(NamedTuple):
 def holder(lake: LakePaths) -> Iterator[Holder]:
     """Another process holding the lake's acquire lock."""
     lake.meta.mkdir(parents=True)
-    proc = subprocess.Popen(  # noqa: S603
+    proc = subprocess.Popen(
         [sys.executable, "-c", HOLDER, str(lake.meta / "acquire.lock")],
         stdout=subprocess.PIPE,
         text=True,
@@ -178,7 +178,7 @@ def test_interrupt_mid_transfer_exits_within_5s_with_no_partial_final_file(
     argv = [sys.executable, "-m", "flashpoint", "acquire", "--watch", "--lake", str(lake.root),
             "--host", f"{fake_robot.host}:{fake_robot.port}", "--no-usb"]  # fmt: skip
     with log_path.open("w") as log_file:
-        proc = subprocess.Popen(argv, stdout=log_file, stderr=subprocess.STDOUT)  # noqa: S603
+        proc = subprocess.Popen(argv, stdout=log_file, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 30
             while not any(

@@ -19,7 +19,7 @@ def _members(values: dict[str, list[float]], units: dict[str, str] | None = None
     ]  # fmt: skip
 
 
-def _run(members: list[Member], own_z: dict[str, dict[str, float]] | None = None):  # type: ignore[no-untyped-def]
+def _run(members: list[Member], own_z: dict[str, dict[str, float]] | None = None):  # type: ignore[no-untyped-def]  # returns detector internals
     order = sorted({k for m in members for k in m.keys}, key=lambda k: int(k.split("qm")[1]))
     return sibling_findings("temp_max_c", members, order, CFG, own_z or {})
 

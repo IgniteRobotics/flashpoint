@@ -113,7 +113,7 @@ def test_inbox_path_keeps_relpath_under_source(tmp_path: Path) -> None:
     ],
 )
 def test_inbox_path_rejects_escaping_relpaths(tmp_path: Path, relpath: str) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unsafe relative path"):
         inbox_path(tmp_path, "host", relpath)
 
 
@@ -529,7 +529,7 @@ def test_core_never_records_failure_on_a_pulled_key(
     pull_ledger.record_success(job.key, "f" * 64, PullStatus.VERIFIED, include_active=False)
     result = verified_copy(job, pull_ledger, threading.Event())
     assert result.status == TransferStatus.SKIPPED
-    assert pull_ledger.get(job.key)["status"] == PullStatus.VERIFIED  # type: ignore[index]
+    assert pull_ledger.get(job.key)["status"] == PullStatus.VERIFIED  # type: ignore[index]  # job is in the ledger
 
 
 def test_record_failure_cannot_demote_a_verified_pull(pull_ledger: PullLedger) -> None:

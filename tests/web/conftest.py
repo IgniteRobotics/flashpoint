@@ -30,9 +30,9 @@ class Running:
         self, path: str, method: str = "GET", body: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> Reply:  # fmt: skip
-        request = Request(self.base + path, data=body, headers=headers or {}, method=method)  # noqa: S310 - local test server
+        request = Request(self.base + path, data=body, headers=headers or {}, method=method)
         try:
-            with urlopen(request) as response:  # noqa: S310
+            with urlopen(request) as response:
                 return Reply(response.status, dict(response.headers), response.read())
         except HTTPError as exc:
             return Reply(exc.code, dict(exc.headers), exc.read())

@@ -78,6 +78,6 @@ def test_q7_match_reaches_the_derived_tables_within_5_minutes(
         lake.ledger,
         f"SELECT gold_rows FROM derived_state WHERE session_id = '{q7[0]['session_id']}'",
     )
-    assert state and int(state[0]["gold_rows"]) > 0  # type: ignore[call-overload]
+    assert state and int(state[0]["gold_rows"]) > 0  # type: ignore[call-overload]  # ledger rows are untyped
     assert any((lake.root / "gold" / "match_features").glob("season=*/session_id=*/*.parquet"))
     assert [p for p in lake.inbox.rglob("*") if p.is_file()] == []

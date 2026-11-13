@@ -63,7 +63,7 @@ def test_each_filter_binds_and_selects(
     assert f".{column} = ?" in sql and f"'{expected}'" not in sql
     assert trend["points"]
     rows = queries._rows(
-        f"SELECT DISTINCT {column} AS v FROM features f WHERE f.match_key IN"  # noqa: S608
+        f"SELECT DISTINCT {column} AS v FROM features f WHERE f.match_key IN"
         f" (SELECT unnest(?)) AND f.unit_id IN (SELECT unnest(?))",
         [
             [p["match_key"] for p in trend["points"]],
