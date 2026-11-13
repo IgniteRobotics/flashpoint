@@ -26,10 +26,10 @@
 
 ## 5. CI
 
-- [ ] 5.1 In `ci.yml`: top-level `permissions: contents: read`, actions pinned by SHA, lint steps replaced by `pre-commit run --all-files --show-diff-on-failure` on Linux and Windows with a cached `~/.cache/pre-commit`, `--cov` and the floor steps on the py3.12 leg; verify the workflow tests in 1.4 pass
-- [ ] 5.2 Add `browser` and `clean-install` to `ci-ok`'s `needs`; verify on the PR that a forced browser failure (temporary commit, reverted) turns `ci-ok` red
-- [ ] 5.3 Pin and add permissions to `release.yml` and `openspec-drift.yml` (the drift workflow is mentor-owned: get a mentor's review); verify the workflow tests pass for all files
-- [ ] 5.4 Add `.github/dependabot.yml` (pip + github-actions, `development`, monthly, grouped) and `.github/workflows/codeql.yml` (python + javascript-typescript, vendor ignored); verify both run on the PR
+- [x] 5.1 In `ci.yml`: top-level `permissions: contents: read`, actions pinned by SHA, lint steps replaced by `pre-commit run --all-files --show-diff-on-failure` on Linux and Windows with a cached `~/.cache/pre-commit`, `--cov` and the floor steps on the py3.12 leg; verify the workflow tests in 1.4 pass
+- [x] 5.2 Add `browser` and `clean-install` to `ci-ok`'s `needs`; verify on the PR that a forced browser failure (temporary commit, reverted) turns `ci-ok` red
+- [x] 5.3 Pin and add permissions to `release.yml` and `openspec-drift.yml` (the drift workflow is mentor-owned: get a mentor's review); verify the workflow tests pass for all files
+- [x] 5.4 Add `.github/dependabot.yml` (pip + github-actions, `development`, monthly, grouped) and `.github/workflows/codeql.yml` (python + javascript-typescript, vendor ignored); verify both run on the PR
 - [ ] 5.5 [HUMAN] After merge, add a code-scanning rule (CodeQL, high or higher) to the `dev-main-pr-gate` ruleset; verify a PR view shows it as required
 
 ## 6. Docs

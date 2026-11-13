@@ -69,7 +69,7 @@ def test_python_fixture_fails_its_rule(name: str, tmp_path: Path) -> None:
     done = subprocess.run(
         [sys.executable, "-m", "ruff", "check", "--no-cache", "--output-format", "concise",
          "--config", str(REPO / "pyproject.toml"), str(target)],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="utf-8", check=False,
     )  # fmt: skip
     assert done.returncode == 1, done.stdout + done.stderr
     assert re.search(rf":\d+:\d+: {PY_RULES[name]}\b", done.stdout), (
@@ -110,7 +110,7 @@ def test_js_fixture_fails_its_rule(name: str, biome_dir: Path) -> None:
     done = subprocess.run(
         [npx, "--yes", f"@biomejs/biome@{_biome_version()}", "check", "--error-on-warnings",
          "--colors=off", name],
-        capture_output=True, text=True, check=False, cwd=biome_dir,
+        capture_output=True, text=True, encoding="utf-8", check=False, cwd=biome_dir,
     )  # fmt: skip
     output = done.stdout + done.stderr
     assert done.returncode != 0, output
