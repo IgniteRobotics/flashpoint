@@ -37,4 +37,4 @@
 - [x] 6.1 Add the coding standards section to `docs/guide/developer-guide.md` (each rule with its reason and enforcer, as in `specs/coding-standards`), link to the ignition-labs Flashpoint section, document `pre-commit run --all-files`, `blame.ignoreRevsFile`, the coverage floors, and the updated CI table; verify `pytest tests/test_docs.py` passes
 - [x] 6.2 Update `docs/rewrite/06-roadmap.md` §5: coverage scope is `readers/`, `lake/`, `semantics/physics.py`; name the floors and the new gates; verify the docs test passes
 - [ ] 6.3 [HUMAN] Ratify and merge the ignition-labs PR adding the Flashpoint section to the coding standards; then make the developer guide's text match it
-- [ ] 6.4 Full check: `pre-commit run --all-files`, `mypy src tests tools`, `pytest`, `pytest -m browser`, and `pytest -m corpus` all pass; CI is green with the new `ci-ok`
+- [x] 6.4 Full check: `pre-commit run --all-files`, `mypy src tests tools`, `pytest`, `pytest -m browser`, and `pytest -m corpus` all pass; CI is green with the new `ci-ok`
