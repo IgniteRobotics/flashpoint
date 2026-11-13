@@ -40,8 +40,11 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         paths = {}
         for key, path in LEGACY_FILES.items():
-            content = subprocess.run(
-                ["git", "show", f"{LEGACY_TAG}:{path}"], cwd=ROOT, check=True, capture_output=True
+            content = subprocess.run(  # noqa: S603 - git reading a fixed tag
+                ["git", "show", f"{LEGACY_TAG}:{path}"],  # noqa: S607 - git from PATH
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
             ).stdout
             paths[key] = Path(tmp) / Path(path).name
             paths[key].write_bytes(content)

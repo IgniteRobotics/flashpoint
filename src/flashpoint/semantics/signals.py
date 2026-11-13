@@ -121,7 +121,7 @@ def write_session(
             AND s.signal::VARCHAR IN (SELECT name FROM declared_signals)
     """  # noqa: S608 - ids and offsets are internal hex/int values
     con.execute(f"COPY ({query}) TO '{target}' (FORMAT parquet, COMPRESSION zstd)")
-    total: int = con.sql(f"SELECT count(*) FROM read_parquet('{target}')").fetchone()[0]  # type: ignore[index]
+    total: int = con.sql(f"SELECT count(*) FROM read_parquet('{target}')").fetchone()[0]  # type: ignore[index]  # count always returns a row  # noqa: S608 - target is a temp path we built
     final = signals_dir(lake) / f"season={season}" / f"session_id={session_id}"
     final.parent.mkdir(parents=True, exist_ok=True)
     remove_session(lake, session_id)

@@ -9,9 +9,9 @@
 
 ## 2. Python rules
 
-- [ ] 2.1 Add `pre-commit`, `pytest-cov` to the dev group; extend ruff `select`, per-file ignores, `mccabe.max-complexity = 12`, `TID251` banned-api; add mypy `ignore-without-code`; verify the Python fixtures in 1.3 now pass
-- [ ] 2.2 Fix or suppress (with reasons) the `S`, `BLE`, `DTZ`, `ARG`, `PERF`, `PT`, `RUF` hits in `src/`; give the existing bare `noqa` comments reasons; verify `ruff check .` is clean and the suppression test passes
-- [ ] 2.3 Same for `tools/` (tests/ was done in 1.0); mark the 9 functions over complexity 12 `# noqa: C901 - grandfathered (code-quality-gates)`; verify `ruff check .`, `mypy src tests tools`, and the unit run pass
+- [x] 2.1 Add `pre-commit`, `pytest-cov` to the dev group; extend ruff `select`, per-file ignores, `mccabe.max-complexity = 12`, `TID251` banned-api; add mypy `ignore-without-code`; verify the Python fixtures in 1.3 now pass
+- [x] 2.2 Fix or suppress (with reasons) the `S`, `BLE`, `DTZ`, `ARG`, `PERF`, `PT`, `RUF` hits in `src/`; give the existing bare `noqa` comments reasons; verify `ruff check .` is clean and the suppression test passes
+- [x] 2.3 Same for `tools/` (tests/ was done in 1.0); mark the 9 functions over complexity 12 `# noqa: C901 - grandfathered (code-quality-gates)`; verify `ruff check .`, `mypy src tests tools`, and the unit run pass
 
 ## 3. Frontend rules
 

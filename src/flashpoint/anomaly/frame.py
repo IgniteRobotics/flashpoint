@@ -72,10 +72,10 @@ def _read(
         f'"{c}"' if c in present else f'NULL::{_sql_type(t)} AS "{c}"' for c, t in schema.items()
     )
     frame = con.execute(
-        f"SELECT {select} FROM read_parquet(?, union_by_name = true) WHERE {where}",  # noqa: S608
+        f"SELECT {select} FROM read_parquet(?, union_by_name = true) WHERE {where}",  # noqa: S608 - columns from the fixed schema; filter built by callers
         [glob],
     ).pl()
-    return frame.cast(schema)  # type: ignore[arg-type]
+    return frame.cast(schema)  # type: ignore[arg-type]  # schema is a polars dict
 
 
 def _sql_type(dtype: pl.DataType) -> str:

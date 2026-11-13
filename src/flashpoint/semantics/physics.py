@@ -97,7 +97,7 @@ def _with(base: pl.DataFrame, other: pl.DataFrame, name: str, tolerance: int) ->
 
 def _constant(frame: pl.DataFrame, metric: str) -> float | None:
     values = frame.filter(pl.col("metric") == metric).get_column("value")
-    return float(values.median()) if len(values) and values.median() is not None else None  # type: ignore[arg-type]
+    return float(values.median()) if len(values) and values.median() is not None else None  # type: ignore[arg-type]  # median of a float column
 
 
 def supply_resistance(
@@ -164,11 +164,11 @@ def motor_features(
     out["stator_current_mean"], out["stator_current_p95"] = stats("stator_current")
     out["rotor_velocity_mean_rps"], _ = stats("rotor_velocity_rps")
     volts = get("supply_voltage")
-    out["supply_voltage_min"] = float(volts.get_column("value").min()) if volts.height else None  # type: ignore[arg-type]
+    out["supply_voltage_min"] = float(volts.get_column("value").min()) if volts.height else None  # type: ignore[arg-type]  # min of a float column
 
     temp = get("temp_c")
     out["temp_mean_c"], _ = stats("temp_c")
-    out["temp_max_c"] = float(temp.get_column("value").max()) if temp.height else None  # type: ignore[arg-type]
+    out["temp_max_c"] = float(temp.get_column("value").max()) if temp.height else None  # type: ignore[arg-type]  # max of a float column
     out["temp_rise_c_per_min"] = (
         float(
             np.polyfit(

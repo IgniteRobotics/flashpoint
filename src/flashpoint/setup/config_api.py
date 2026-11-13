@@ -46,7 +46,7 @@ def _file(root: Path, rel: str, validate: Callable[[], object]) -> dict[str, Any
             return entry
     try:
         validate()
-    except Exception as exc:  # each loader has its own error type
+    except Exception as exc:  # noqa: BLE001 - each loader has its own type; shown in the entry
         entry["error"] = f"{rel}: {describe_error(exc)}"
     return entry
 
@@ -61,13 +61,13 @@ def config_view(root: Path) -> dict[str, Any]:
     team["values"] = team.pop("data") or {}
     try:
         team["hosts"] = AcquireConfig.load(root).robot_hosts()
-    except Exception:
+    except Exception:  # noqa: BLE001 - the same file's error is in its entry
         team["hosts"] = []
     team["affects"] = editor.AFFECTS[CONFIG_FILE]
 
     try:
         seasons = load_config_seasons(root)
-    except Exception:
+    except Exception:  # noqa: BLE001 - robots load without seasons and show their own errors
         seasons = {}
     robots = []
     for path in sorted((root / "robots").glob("*.toml")):

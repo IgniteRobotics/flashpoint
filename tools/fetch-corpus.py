@@ -60,11 +60,11 @@ def download(name: str, release_url: str, out: Path) -> None:
         repo, tag = release
         cmd = [gh, "release", "download", tag, "--repo", repo, "--pattern", name]
         try:
-            subprocess.run([*cmd, "--output", str(out), "--clobber"], check=True)
+            subprocess.run([*cmd, "--output", str(out), "--clobber"], check=True)  # noqa: S603 - gh from PATH with our own arguments
         except subprocess.CalledProcessError as exc:
             raise OSError(f"gh release download failed (exit {exc.returncode})") from exc
         return
-    with urllib.request.urlopen(f"{release_url}/{name}") as response, out.open("wb") as f:
+    with urllib.request.urlopen(f"{release_url}/{name}") as response, out.open("wb") as f:  # noqa: S310 - https release URL from the manifest
         shutil.copyfileobj(response, f, CHUNK_SIZE)
 
 

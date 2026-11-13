@@ -404,7 +404,7 @@ def save_units(
         if tuple(header) != UNIT_COLUMNS:
             raise ValueError(f"columns {header}")
 
-    return _save(root, UNITS_FILE, expected_sha, lambda current: text, validate, AFFECTS["units"])
+    return _save(root, UNITS_FILE, expected_sha, lambda _current: text, validate, AFFECTS["units"])
 
 
 def load_units(root: Path) -> list[dict[str, str]]:

@@ -243,7 +243,7 @@ class RobotClient:
             sftp = paramiko.SFTPClient.from_transport(transport)
             if sftp is None:
                 raise paramiko.SSHException("SFTP subsystem refused")
-            sftp.get_channel().settimeout(SFTP_TIMEOUT_S)  # type: ignore[union-attr]
+            sftp.get_channel().settimeout(SFTP_TIMEOUT_S)  # type: ignore[union-attr]  # channel exists once SFTP opened
         except BaseException:
             transport.close()
             raise

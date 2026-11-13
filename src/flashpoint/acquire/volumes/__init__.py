@@ -29,7 +29,7 @@ class Volume:
 def run_os_command(args: list[str]) -> bytes:
     """Run an OS command with the shared timeout and return its stdout."""
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # noqa: S603 - argv is a fixed OS tool command built here
             args,
             capture_output=True,
             stdin=subprocess.DEVNULL,

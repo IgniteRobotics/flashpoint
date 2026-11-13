@@ -149,12 +149,12 @@ def stall_markers(
     source = _source(silver)
     stall = dict(
         con.execute(
-            f"SELECT slot_id, median(value) FROM {source}"  # noqa: S608
+            f"SELECT slot_id, median(value) FROM {source}"  # noqa: S608 - source is a quoted lake path
             " WHERE metric = 'stall_current' GROUP BY slot_id"
         ).fetchall()
     )
     frame = con.execute(
-        f"SELECT slot_id, metric, t_us, value FROM {source}"  # noqa: S608
+        f"SELECT slot_id, metric, t_us, value FROM {source}"  # noqa: S608 - source is a quoted lake path
         " WHERE metric IN ('stator_current', 'rotor_velocity_rps') AND t_us >= ? AND t_us < ?",
         [window.t0_us, window.end_us],
     ).pl()

@@ -30,7 +30,7 @@ def connect(lake: LakePaths) -> duckdb.DuckDBPyConnection:
     if any(lake.bronze.glob("season=*/log_id=*/*.parquet")):
         pattern = _quote(lake.bronze / "season=*" / "log_id=*" / "*.parquet")
         con.execute(
-            "CREATE VIEW samples AS SELECT * FROM read_parquet("
+            "CREATE VIEW samples AS SELECT * FROM read_parquet("  # noqa: S608 - pattern is a quoted lake path
             f"{pattern}, hive_partitioning = true, hive_types_autocast = false)"
         )
     else:
@@ -39,11 +39,11 @@ def connect(lake: LakePaths) -> duckdb.DuckDBPyConnection:
     if any(signals.glob("season=*/session_id=*/*.parquet")):
         pattern = _quote(signals / "season=*" / "session_id=*" / "*.parquet")
         con.execute(
-            "CREATE VIEW signals AS SELECT * FROM read_parquet("
+            "CREATE VIEW signals AS SELECT * FROM read_parquet("  # noqa: S608 - pattern is a quoted lake path
             f"{pattern}, hive_partitioning = true, hive_types_autocast = false)"
         )
     else:
         con.execute(_EMPTY_SIGNALS)
     for snapshot in sorted(lake.meta.glob("*.parquet")):
-        con.execute(f"CREATE VIEW meta_{snapshot.stem} AS SELECT * FROM {_quote(snapshot)}")
+        con.execute(f"CREATE VIEW meta_{snapshot.stem} AS SELECT * FROM {_quote(snapshot)}")  # noqa: S608 - snapshot is a quoted lake path
     return con

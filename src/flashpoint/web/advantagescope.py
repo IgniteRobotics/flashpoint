@@ -112,7 +112,7 @@ def locate(
 def find(config_dir: Path, **kwargs: object) -> tuple[Install | None, str | None]:
     """`locate` with the configured path; a problem is returned as text, never raised."""
     try:
-        install = locate(advantagescope_path(config_dir), **kwargs)  # type: ignore[arg-type]
+        install = locate(advantagescope_path(config_dir), **kwargs)  # type: ignore[arg-type]  # test overrides passed through
     except (LocateError, ReportConfigError) as exc:
         return None, str(exc)
     return (install, None) if install else (None, NOT_FOUND)
@@ -174,7 +174,7 @@ class Staged:
     linked: bool  # a hard link to the raw store (False: a copy)
 
 
-def _no_link(source: Path, target: Path) -> None:
+def _no_link(_source: Path, _target: Path) -> None:
     raise OSError("hard links are not used on this platform")
 
 

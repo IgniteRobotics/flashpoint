@@ -66,7 +66,7 @@ def spec_finding(
         limit = float(limits.brownout_high)
     else:
         med, high = _limits(metric, limits)
-        limit = float(med if med is not None else high)  # type: ignore[arg-type]
+        limit = float(med if med is not None else high)  # type: ignore[arg-type]  # one of the two limits is set
     size = len(keys)
     return Finding(
         subject=subject, method="SPEC", metric=metric, keys=keys, values=values,
