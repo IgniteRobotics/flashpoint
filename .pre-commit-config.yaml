@@ -1,0 +1,38 @@
+# One command runs every formatter and linter CI runs, at the same versions:
+#   poetry run pre-commit run --all-files
+# CI runs exactly this file, so a pin changed here changes CI too. mypy and the tests run
+# separately (too slow for a commit hook). Optional: `poetry run pre-commit install`.
+exclude: ^(src/flashpoint/web/static/vendor/|tests/fixtures/)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+  - repo: local
+    hooks:
+      # ruff's version lives in poetry.lock, so these run the project's own ruff.
+      - id: ruff-format
+        name: ruff format
+        entry: poetry run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: ruff check
+        entry: poetry run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+      # The app's JS and CSS. biome.json picks the files; the version is pinned here only.
+      - id: biome-check
+        name: biome check
+        entry: biome check --write --error-on-warnings --no-errors-on-unmatched --files-ignore-unknown=true
+        language: node
+        additional_dependencies: ["@biomejs/biome@2.6.7"]
+        types_or: [javascript, css]
