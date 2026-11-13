@@ -15,14 +15,14 @@
 
 ## 3. Frontend rules
 
-- [ ] 3.1 Add `biome.json` (includes, vendor/mode.js/index.html excluded, globals, `noRedundantUseStrict` and `useTemplate` off) and `.pre-commit-config.yaml` (local ruff hooks, `biome-check` pinned to 2.6.7, hygiene hooks); verify the JS fixtures in 1.3 now pass
-- [ ] 3.2 Run the Biome formatter only, commit it alone, add its SHA to `.git-blame-ignore-revs`; verify `pytest -m browser` passes on that commit
-- [ ] 3.3 Fix the remaining Biome errors and warnings in `shell.js` and `views/replay.js`; verify `biome ci --error-on-warnings` is clean for those files and the browser tests pass
-- [ ] 3.4 Same for `anomalies.js`, `history.js`, `live-can.js`, `setup.js`, `shell.css`; verify `pre-commit run --all-files` passes with no changes and the browser tests pass
+- [x] 3.1 Add `biome.json` (includes, vendor/mode.js/index.html excluded, globals, `noRedundantUseStrict` and `useTemplate` off) and `.pre-commit-config.yaml` (local ruff hooks, `biome-check` pinned to 2.6.7, hygiene hooks); verify the JS fixtures in 1.3 now pass
+- [x] 3.2 Run the Biome formatter only, commit it alone, add its SHA to `.git-blame-ignore-revs`; verify `pytest -m browser` passes on that commit
+- [x] 3.3 Fix the remaining Biome errors and warnings in `shell.js` and `views/replay.js`; verify `biome ci --error-on-warnings` is clean for those files and the browser tests pass
+- [x] 3.4 Same for `anomalies.js`, `history.js`, `live-can.js`, `setup.js`, `shell.css`; verify `pre-commit run --all-files` passes with no changes and the browser tests pass
 
 ## 4. Coverage
 
-- [ ] 4.1 Add `[tool.coverage]` (source, branch, `fail_under = 93`); the coverage leg sets `NUMBA_DISABLE_JIT=1`; and the per-package report commands for `readers/`, `lake/`, `semantics/physics.py` at 85%; verify they pass locally and fail when the floor is set 1 point above the measured value
+- [x] 4.1 Add `[tool.coverage]` (source, branch, `fail_under = 93`); the coverage leg sets `NUMBA_DISABLE_JIT=1`; and the per-package report commands for `readers/`, `lake/`, `semantics/physics.py` at 85%; verify they pass locally and fail when the floor is set 1 point above the measured value
 
 ## 5. CI
 
@@ -34,7 +34,7 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Add the coding standards section to `docs/guide/developer-guide.md` (each rule with its reason and enforcer, as in `specs/coding-standards`), link to the ignition-labs Flashpoint section, document `pre-commit run --all-files`, `blame.ignoreRevsFile`, the coverage floors, and the updated CI table; verify `pytest tests/test_docs.py` passes
-- [ ] 6.2 Update `docs/rewrite/06-roadmap.md` §5: coverage scope is `readers/`, `lake/`, `semantics/physics.py`; name the floors and the new gates; verify the docs test passes
+- [x] 6.1 Add the coding standards section to `docs/guide/developer-guide.md` (each rule with its reason and enforcer, as in `specs/coding-standards`), link to the ignition-labs Flashpoint section, document `pre-commit run --all-files`, `blame.ignoreRevsFile`, the coverage floors, and the updated CI table; verify `pytest tests/test_docs.py` passes
+- [x] 6.2 Update `docs/rewrite/06-roadmap.md` §5: coverage scope is `readers/`, `lake/`, `semantics/physics.py`; name the floors and the new gates; verify the docs test passes
 - [ ] 6.3 [HUMAN] Ratify and merge the ignition-labs PR adding the Flashpoint section to the coding standards; then make the developer guide's text match it
 - [ ] 6.4 Full check: `pre-commit run --all-files`, `mypy src tests tools`, `pytest`, `pytest -m browser`, and `pytest -m corpus` all pass; CI is green with the new `ci-ok`
