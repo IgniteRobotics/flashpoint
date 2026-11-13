@@ -7,7 +7,7 @@
         &match_type=&phase=&subsystem=&slot=<History-only filters, restored from the nav>
         &metric=<id>&by=unit|slot
    ========================================================================== */
-(function () {
+(() => {
   'use strict';
   const FP = window.FP;
   const { h } = FP;
@@ -752,7 +752,7 @@
     );
   }
 
-  async function showLogs(button, key) {
+  async function showLogs(_button, key) {
     const box = document.getElementById('unit-logs');
     const info = await FP.api('match/' + encodeURIComponent(key));
     FP.fill(
@@ -797,16 +797,16 @@
   }
   function setMetric(id) {
     ui.state.metric = id;
-    document
-      .querySelectorAll('[data-metric]')
-      .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metric === id)));
+    document.querySelectorAll('[data-metric]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.metric === id));
+    });
     refresh();
   }
   function setBy(by) {
     ui.state.by = by;
-    document
-      .querySelectorAll('[data-by]')
-      .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.by === by)));
+    document.querySelectorAll('[data-by]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.by === by));
+    });
     refresh();
   }
   function selectUnit(id) {
@@ -817,7 +817,7 @@
   // line, the competition marks passed to the chart and the labels it drew, and at(name, index):
   // the page coordinates of a plotted point.
   FP.historyChart = () =>
-    ui && ui.chart
+    ui?.chart
       ? {
           matches: ui.trend.matches.map((m) => m.match_key),
           marks: ui.marks,
@@ -845,7 +845,7 @@
     keep: EXTRA_KEYS, // History's own filters come back when it is opened from the navigation
     mount,
     unmount: () => {
-      if (ui && ui.chart) ui.chart.destroy();
+      if (ui?.chart) ui.chart.destroy();
       ui = null;
     },
   });

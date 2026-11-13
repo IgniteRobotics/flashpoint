@@ -9,7 +9,7 @@
    see them. Served mode only.
    URL: #view=live
    ========================================================================== */
-(function () {
+(() => {
   'use strict';
   const FP = window.FP;
   const { h } = FP;
@@ -223,7 +223,7 @@
   }
 
   function unmount() {
-    if (ui && ui.source) ui.source.close();
+    if (ui?.source) ui.source.close();
     ui = null;
   }
 
@@ -311,7 +311,7 @@
     robot.textContent = [
       s.robot_host
         ? 'robot ' + s.robot_host
-        : s.hosts && s.hosts.length
+        : s.hosts?.length
           ? 'trying ' + s.hosts.join(', ')
           : '',
       s.project ? 'project ' + s.project : '',
@@ -489,7 +489,7 @@
         h('span', null, h('b', { dataset: { total: 'resets' } }, String(d.resets)), ' resets'),
         h('span', { dataset: { supply: '' } }, volts(d.min_supply_v)),
       ),
-      d.faults && d.faults.length ? h('div', { class: 'small hot' }, d.faults.join(', ')) : null,
+      d.faults?.length ? h('div', { class: 'small hot' }, d.faults.join(', ')) : null,
       notes.length
         ? h(
             'div',

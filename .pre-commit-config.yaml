@@ -24,11 +24,13 @@ repos:
         entry: poetry run ruff format --force-exclude
         language: system
         types_or: [python, pyi]
+        files: ^(src|tests|tools)/  # ruff's own scope (pyproject include)
       - id: ruff-check
         name: ruff check
         entry: poetry run ruff check --fix --force-exclude
         language: system
         types_or: [python, pyi]
+        files: ^(src|tests|tools)/  # ruff's own scope (pyproject include)
       # The app's JS and CSS. biome.json picks the files; the version is pinned here only.
       - id: biome-check
         name: biome check

@@ -7,7 +7,7 @@
         &z=<from s>,<to s> (the visible window; omitted at the full match window)
    Tracks: battery | total | <metric>:<slot>, metric one of METRICS below.
    ========================================================================== */
-(function () {
+(() => {
   'use strict';
   const FP = window.FP;
   const { h } = FP;
@@ -43,7 +43,7 @@
     return null;
   };
   const tempAt = (points, t) => {
-    if (!points || !points.length) return null;
+    if (!points?.length) return null;
     let value = null;
     for (const [pt, v] of points) {
       if (pt <= t) value = v;
@@ -51,13 +51,12 @@
     }
     return value;
   };
-  const env = (d, slot, metric) => (d.series && d.series[slot] ? d.series[slot][metric] : null);
-  const notLogged = (d, slot, metric) =>
-    Boolean(d.not_logged && d.not_logged[slot] && d.not_logged[slot].includes(metric));
+  const env = (d, slot, metric) => (d.series?.[slot] ? d.series[slot][metric] : null);
+  const notLogged = (d, slot, metric) => Boolean(d.not_logged?.[slot]?.includes(metric));
   const slotIds = (d) => (d.slots || []).map((s) => s.id);
   const slotLabel = (d, slot) => {
     const found = (d.slots || []).find((s) => s.id === slot);
-    return found && found.role ? slot + ' · ' + found.role : slot;
+    return found?.role ? slot + ' · ' + found.role : slot;
   };
 
   /* ---------- anomaly badges: served from the API, static from the export's snapshot ---------- */
@@ -80,10 +79,13 @@
     }
     const byMatch = {};
     for (const a of items)
-      for (const key of a.flagged_keys) (byMatch[key] = byMatch[key] || []).push(a);
+      for (const key of a.flagged_keys) {
+        if (!byMatch[key]) byMatch[key] = [];
+        byMatch[key].push(a);
+      }
     return { sens, takenAt, byMatch };
   }
-  const anomaliesAt = (key) => (ui && ui.anoms ? ui.anoms.byMatch[key] || [] : []);
+  const anomaliesAt = (key) => (ui?.anoms ? ui.anoms.byMatch[key] || [] : []);
   function matchGlyph(key) {
     const found = anomaliesAt(key);
     if (!found.length) return null;
@@ -142,7 +144,7 @@
     const n = d.window.n;
     const out = new Array(n).fill(null);
     for (const slot of slotIds(d)) {
-      const mean = env(d, slot, 'supply_current') && env(d, slot, 'supply_current').mean;
+      const mean = env(d, slot, 'supply_current')?.mean;
       if (!mean) continue;
       for (let i = 0; i < n; i += 1) {
         const v = held(mean, d, i);
@@ -181,7 +183,7 @@
     if (!meta || !slot) return null;
     const label = slot + ' ' + meta.label;
     if (metric === 'temp_c') {
-      const points = d.temps && d.temps[slot];
+      const points = d.temps?.[slot];
       const values = points ? grid(d).map((x) => tempAt(points, x)) : null;
       return {
         label,
@@ -262,7 +264,10 @@
 
   function matchList(entries, selected, filters) {
     const events = {};
-    for (const e of entries) (events[e.event] = events[e.event] || []).push(e);
+    for (const e of entries) {
+      if (!events[e.event]) events[e.event] = [];
+      events[e.event].push(e);
+    }
     return Object.keys(events)
       .sort()
       .reverse()
@@ -412,7 +417,7 @@
 
   function downloads(sources) {
     const raw = FP.mode.raw !== false;
-    if (!sources || !sources.length)
+    if (!sources?.length)
       return h('p', { class: 'meta' }, 'No raw logs are recorded for this match.');
     if (!raw) {
       return h(
@@ -448,7 +453,7 @@
   }
 
   function asideDownloads(sources, key) {
-    const launchable = sources && sources.length && FP.mode.raw !== false;
+    const launchable = sources?.length && FP.mode.raw !== false;
     return h(
       'section',
       { 'aria-label': 'Open in AdvantageScope' },
@@ -483,7 +488,7 @@
             'No match has been built yet. On the laptop that holds the lake, run:',
           ),
           h('p', { class: 'prose' }, h('code', { class: 'code' }, 'flashpoint report')),
-          index && index.sessions_without_match_key
+          index?.sessions_without_match_key
             ? h(
                 'p',
                 { class: 'meta mt-3' },
@@ -611,7 +616,7 @@
       s === 'battery' || s === 'total' || (/^[a-z_]+:.+$/.test(s) && METRICS[s.split(':')[0]]);
     const out = defaults.map((def, i) => (specs[i] && valid(specs[i]) ? specs[i] : def));
     if (state.track && slotIds(d).includes(state.track) && !state.tr) {
-      out[2] = d.temps && d.temps[state.track] ? 'temp_c:' + state.track : out[2];
+      out[2] = d.temps?.[state.track] ? 'temp_c:' + state.track : out[2];
       out[3] = 'supply_current:' + state.track;
     }
     return out;
@@ -795,7 +800,7 @@
   /* Markers outside the visible window are hidden and counted on their side. */
   function placeMarkers() {
     const strip = document.getElementById('markers');
-    const chart = ui && ui.tracks.find((t) => t.chart);
+    const chart = ui?.tracks.find((t) => t.chart);
     if (!strip || !chart) return;
     // From ui.view, not u.valToPos: uPlot commits a new scale in a microtask after setX.
     const over = chart.chart.u.over.getBoundingClientRect();
@@ -892,7 +897,7 @@
   const shown = () => (ui.detail ? ui.detail.merged : ui.data);
 
   function renderTracks(container) {
-    for (const t of ui.tracks) t.chart && t.chart.destroy();
+    for (const t of ui.tracks) t.chart?.destroy();
     ui.tracks = [];
     const d = shown();
     const xs = grid(d);
@@ -982,10 +987,8 @@
     const slots = slotIds(d);
     const rows = slots.map((slot) => {
       const amps =
-        t == null
-          ? (d.maxima[slot] || {}).supply_current_max
-          : valueAt(d, 'supply_current:' + slot, t);
-      const temp = t == null ? (d.maxima[slot] || {}).temp_max_c : valueAt(d, 'temp_c:' + slot, t);
+        t == null ? d.maxima[slot]?.supply_current_max : valueAt(d, 'supply_current:' + slot, t);
+      const temp = t == null ? d.maxima[slot]?.temp_max_c : valueAt(d, 'temp_c:' + slot, t);
       let other = null;
       if (o) {
         const present = slotIds(o).includes(slot);
@@ -993,9 +996,9 @@
           ? {
               amps:
                 t == null
-                  ? (o.maxima[slot] || {}).supply_current_max
+                  ? o.maxima[slot]?.supply_current_max
                   : valueAt(o, 'supply_current:' + slot, t),
-              temp: t == null ? (o.maxima[slot] || {}).temp_max_c : valueAt(o, 'temp_c:' + slot, t),
+              temp: t == null ? o.maxima[slot]?.temp_max_c : valueAt(o, 'temp_c:' + slot, t),
               tempLogged: !notLogged(o, slot, 'temp_c'),
             }
           : null;
@@ -1309,7 +1312,8 @@
   }
   async function fetchDetail() {
     const mine = ui;
-    const seq = (ui.detailSeq += 1);
+    ui.detailSeq += 1;
+    const seq = ui.detailSeq;
     const view = { ...ui.view };
     let body;
     try {
@@ -1353,9 +1357,9 @@
   function selectMarker(i) {
     ui.marker = i;
     panTo(ui.data.markers[i].t);
-    document
-      .querySelectorAll('[data-marker]')
-      .forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.marker === i)));
+    document.querySelectorAll('[data-marker]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(+b.dataset.marker === i));
+    });
     renderEvent();
     setCursor(ui.data.markers[i].t);
   }
@@ -1404,7 +1408,7 @@
     defaultTracks,
     filterEntries,
     charts: () => (ui ? ui.tracks.filter((t) => t.chart).map((t) => t.chart.u) : []),
-    view: () => (ui && ui.view ? { ...ui.view } : null),
-    detail: () => (ui && ui.detail ? { ...ui.detail.merged.window } : null),
+    view: () => (ui?.view ? { ...ui.view } : null),
+    detail: () => (ui?.detail ? { ...ui.detail.merged.window } : null),
   };
 })();

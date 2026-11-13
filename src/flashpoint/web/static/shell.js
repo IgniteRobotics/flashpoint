@@ -10,10 +10,11 @@
    text nodes and refuses event-handler attributes and script URLs. Nothing in
    the app writes HTML strings. A test greps every file for the HTML sinks.
    ========================================================================== */
-(function () {
+(() => {
   'use strict';
 
-  const FP = window.FP || (window.FP = {});
+  if (!window.FP) window.FP = {};
+  const FP = window.FP;
   const MODE = window.FP_MODE || { static: window.location.protocol === 'file:', raw: true };
   FP.mode = MODE;
   /* The team's display name and number from theme.toml (team-branding), shown as text only:
@@ -141,8 +142,7 @@
     for (const [k, v] of Object.entries(next)) if (v != null && v !== '') params.set(k, v);
     const hash = '#' + params.toString();
     if (hash !== window.location.hash) window.history.replaceState(null, '', hash);
-    if (current && current.keep)
-      kept[current.id] = Object.fromEntries(current.keep.map((k) => [k, next[k]]));
+    if (current?.keep) kept[current.id] = Object.fromEntries(current.keep.map((k) => [k, next[k]]));
     updateNav(); // replaceState fires no hashchange, so the nav would keep stale filters
   };
   /* A link to `state`, carrying the current shared filters unless `state` sets the key (null
@@ -171,9 +171,9 @@
     );
   const navHref = (id) => FP.link({ ...(kept[id] || {}), view: id });
   function updateNav() {
-    document
-      .querySelectorAll('nav.tabs a[data-view]')
-      .forEach((a) => a.setAttribute('href', navHref(a.dataset.view)));
+    document.querySelectorAll('nav.tabs a[data-view]').forEach((a) => {
+      a.setAttribute('href', navHref(a.dataset.view));
+    });
   }
 
   /* ---------- Data: script tags (work from file://, where fetch() does not; #59) ---------- */
@@ -384,7 +384,7 @@
     const data = [opts.x];
     const series = [{}];
     const bands = [];
-    const gapFilter = (u, sidx, idx0, idx1, nullGaps) => {
+    const gapFilter = (_u, _sidx, _idx0, _idx1, nullGaps) => {
       if (!opts.gapX || !nullGaps) return nullGaps;
       const x0 = u.scales.x.min;
       const px = Math.abs(u.valToPos(x0 + opts.gapX, 'x', true) - u.valToPos(x0, 'x', true));
@@ -553,7 +553,7 @@
       grid: { stroke: t.lineSoft, width: 1 },
       ticks: { stroke: t.line, width: 1 },
       font: '11px ' + t.font,
-      values: label ? (u, vals) => vals.map(label) : undefined,
+      values: label ? (_u, vals) => vals.map(label) : undefined,
     });
     const width = Math.max(el.clientWidth, 200);
     const u = new window.uPlot(
@@ -575,7 +575,7 @@
           y: {
             range:
               opts.yRange ||
-              ((u2, min, max) => {
+              ((_u2, min, max) => {
                 const refs = (opts.refs || []).map((r) => r.value).filter((v) => v != null);
                 let lo = Math.min(min == null ? Infinity : min, ...refs);
                 let hi = Math.max(max == null ? -Infinity : max, ...refs);
@@ -696,7 +696,7 @@
     );
     if (opts.range) canvas.dataset.scale = opts.range.join(' ');
     const nums = values.filter((v) => v != null);
-    const ctx = canvas.getContext && canvas.getContext('2d');
+    const ctx = canvas.getContext?.('2d');
     if (!ctx || nums.length < 2) return canvas;
     const [lo, hi] = opts.range || [Math.min(...nums), Math.max(...nums)];
     const pad = (hi - lo) * 0.1 || 1;
@@ -961,7 +961,7 @@
     );
     const el = h(
       tag || 'aside',
-      { ...attrs, class: (attrs && attrs.class ? attrs.class + ' ' : '') + 'rail rail--' + side },
+      { ...attrs, class: (attrs?.class ? attrs.class + ' ' : '') + 'rail rail--' + side },
       head,
       strip,
       body,
@@ -1075,9 +1075,9 @@
   function setCrt(on) {
     crtOn = on;
     document.body.classList.toggle('no-scanlines', !on);
-    document
-      .querySelectorAll('[data-crt]')
-      .forEach((b) => b.setAttribute('aria-pressed', String(on)));
+    document.querySelectorAll('[data-crt]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(on));
+    });
     try {
       window.localStorage.setItem(CRT_KEY, on ? '1' : '0');
     } catch (_) {
@@ -1094,7 +1094,7 @@
     const view = list.find((v) => v.id === state.view) || list[0];
     if (!view) return;
     const root = document.getElementById('app');
-    if (current && current.unmount) current.unmount();
+    if (current?.unmount) current.unmount();
     current = view;
     FP.fill(root, header(view.id), h('main', { class: 'view', id: 'view' }));
     setCrt(crtOn);

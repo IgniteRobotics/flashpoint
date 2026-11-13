@@ -8,7 +8,7 @@
         &season=&robot=&event=&unit=<the shared filters, 'all' or a value (FP.filters),
           applied by the server (/api/anomalies)>
    ========================================================================== */
-(function () {
+(() => {
   'use strict';
   const FP = window.FP;
   const { h } = FP;
@@ -498,9 +498,9 @@
   }
 
   function markSelected() {
-    document
-      .querySelectorAll('#queue .anom')
-      .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === ui.id)));
+    document.querySelectorAll('#queue .anom').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.id === ui.id));
+    });
   }
 
   /* ---------- detail ---------- */
@@ -585,7 +585,7 @@
         actions(a),
       ),
       h('div', { id: 'triage-form' }),
-      ui.queue && ui.queue.restart_pending
+      ui.queue?.restart_pending
         ? h(
             'p',
             { class: 'callout mt-3', id: 'restart-pending' },
@@ -624,7 +624,7 @@
               ' · STARTED AT THE FIRST MATCH OF THE NEW EVENT',
           )
         : null,
-      a.evidence && a.evidence.points && a.evidence.points.length ? evidence(a) : null,
+      a.evidence?.points?.length ? evidence(a) : null,
       a.detected
         ? h(
             'div',
@@ -988,10 +988,10 @@
   }
 
   // For tests: the evidence chart's competition boundaries ([{ x, label }]).
-  FP.anomalyMarks = () => (ui && ui.marks ? ui.marks : null);
+  FP.anomalyMarks = () => (ui?.marks ? ui.marks : null);
   // For tests: the plotted evidence ({ name: values }).
   FP.anomalyChart = () =>
-    ui && ui.chart
+    ui?.chart
       ? Object.fromEntries(
           ui.chart.u.series.slice(1).map((s, i) => [s.label, ui.chart.u.data[i + 1]]),
         )
@@ -1003,7 +1003,7 @@
     needsApi: true,
     mount,
     unmount: () => {
-      if (ui && ui.chart) ui.chart.destroy();
+      if (ui?.chart) ui.chart.destroy();
       ui = null;
     },
     badge: async () => {

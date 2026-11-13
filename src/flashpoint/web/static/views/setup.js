@@ -7,7 +7,7 @@
    the network, the view shows each fix's command and the configuration read-only.
    URL: #view=setup&tab=checks|config|draft
    ========================================================================== */
-(function () {
+(() => {
   'use strict';
   const FP = window.FP;
   const { h } = FP;
@@ -223,7 +223,7 @@
   async function runFix(action, inputs, button) {
     const body = {};
     if (inputs.team) body.team = inputs.team.value.trim();
-    if (inputs.lake && inputs.lake.value.trim()) body.lake = inputs.lake.value.trim();
+    if (inputs.lake?.value.trim()) body.lake = inputs.lake.value.trim();
     if (inputs.path) body.path = inputs.path.value.trim();
     button.disabled = true;
     const mine = ui;
@@ -235,8 +235,7 @@
       ? {
           kind: 'ok',
           text:
-            reply.message +
-            (reply.changed && reply.changed.length ? ' (' + reply.changed.join(', ') + ')' : ''),
+            reply.message + (reply.changed?.length ? ' (' + reply.changed.join(', ') + ')' : ''),
         }
       : { kind: 'error', text: 'Not fixed: ' + (reply.reason || 'unknown error') + '.' };
     ui.config = null; // a fix can write configuration
@@ -533,7 +532,7 @@
   }
 
   function teamLabel(t) {
-    const number = t.team_number.trim() || (ui.config.team.values || {}).team;
+    const number = t.team_number.trim() || ui.config.team.values?.team;
     return [t.team_name.trim(), number].filter((part) => part != null && part !== '').join(' · ');
   }
 
@@ -543,7 +542,7 @@
     const onSave = () => save('theme', 'theme', { sha256: entry.sha256, values: themeValues(t) });
     const field = (label, control) =>
       h('label', { class: 'field' }, h('span', { class: 'group__label' }, label), control);
-    const acquireTeam = (ui.config.team.values || {}).team;
+    const acquireTeam = ui.config.team.values?.team;
     const name = input(
       t.team_name,
       (v) => {
@@ -690,7 +689,8 @@
     const mine = ui;
     if (!mine) return; // the view was left before the preview ran
     const values = themeValues(ui.edits.theme);
-    const seq = (ui.previewSeq = (ui.previewSeq || 0) + 1);
+    ui.previewSeq = (ui.previewSeq || 0) + 1;
+    const seq = ui.previewSeq;
     const colours = values.custom
       ? [values.custom.primary, values.custom.background, values.custom.warning]
       : [];
@@ -719,7 +719,7 @@
   function showPreview() {
     const el = document.getElementById('theme-preview');
     if (!el) return;
-    const tokens = ui.themePreview && ui.themePreview.tokens;
+    const tokens = ui.themePreview?.tokens;
     if (tokens)
       for (const [name, value] of Object.entries(tokens)) el.style.setProperty('--' + name, value);
     showPreviewTeam();
@@ -1027,7 +1027,8 @@
   function thresholdSection(entry) {
     const id = 'thr-' + slug(entry.name.replace('.toml', ''));
     const data = ui.edits.thresholds[entry.name];
-    const changed = ui.edits.changes[entry.name] || (ui.edits.changes[entry.name] = {});
+    if (!ui.edits.changes[entry.name]) ui.edits.changes[entry.name] = {};
+    const changed = ui.edits.changes[entry.name];
     const shown = (table, key, value) =>
       changed[table] && key in changed[table] ? changed[table][key] : value;
     const onSave = () =>
@@ -1038,7 +1039,8 @@
     const field = (table, key, original) => {
       const value = shown(table, key, original);
       const set = (v) => {
-        (changed[table] = changed[table] || {})[key] = v;
+        if (!changed[table]) changed[table] = {};
+        changed[table][key] = v;
       };
       let el;
       if (typeof value === 'boolean') {
