@@ -239,7 +239,7 @@ jobs:
           path: ~/.cache/flashpoint/owlet
           key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
       - run: poetry run python tools/fetch-corpus.py
-      - run: echo "TEMPORARY forced failure (task 5.2); reverted next commit" && exit 1
+      - run: poetry run pytest -m "browser and not perf"
 
   perf:
     name: perf (budgets, non-blocking)
