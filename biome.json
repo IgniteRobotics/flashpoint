@@ -18,6 +18,12 @@
     "formatter": { "quoteStyle": "single" },
     "globals": ["FP", "FP_MODE", "uPlot"]
   },
+  "overrides": [
+    {
+      "includes": ["src/flashpoint/web/static/tokens.css"],
+      "formatter": { "enabled": false }
+    }
+  ],
   "linter": {
     "enabled": true,
     "rules": {
