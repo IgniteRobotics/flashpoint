@@ -12,9 +12,11 @@ import shutil
 import subprocess
 import sys
 import tokenize
+import tomllib
 from pathlib import Path
 
 import pytest
+import yaml
 
 from tests.web.test_static_lint import MODULE_SYNTAX, SINKS
 
@@ -211,3 +213,30 @@ def test_workflow_actions_pinned_by_commit(path: Path) -> None:
         if not PINNED.search(match.group("ref")) or "# v" not in match.group("comment"):
             unpinned.append(f"{path.name}:{number}: {match.group('ref')}")
     assert not unpinned, "pin to a full commit with a '# vX.Y.Z' comment:\n" + "\n".join(unpinned)
+
+
+# --- dependencies ---------------------------------------------------------------------------
+
+DEPENDABOT = REPO / ".github" / "dependabot.yml"
+
+
+def _runtime_dependencies() -> list[str]:
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    extras = [dep for group in project.get("optional-dependencies", {}).values() for dep in group]
+    return [*project["dependencies"], *extras]
+
+
+def test_runtime_dependencies_have_an_upper_bound() -> None:
+    unbounded = [dep for dep in _runtime_dependencies() if "<" not in dep]
+    assert not unbounded, "cap below the next major (next minor for 0.x):\n" + "\n".join(unbounded)
+
+
+def test_dependabot_groups_leave_majors_out() -> None:
+    config = yaml.safe_load(DEPENDABOT.read_text(encoding="utf-8"))
+    offenders = [
+        f"{update['package-ecosystem']}: {name}"
+        for update in config["updates"]
+        for name, group in update.get("groups", {}).items()
+        if "major" in group.get("update-types", ["major", "minor", "patch"])
+    ]
+    assert not offenders, "group minor and patch only:\n" + "\n".join(offenders)
