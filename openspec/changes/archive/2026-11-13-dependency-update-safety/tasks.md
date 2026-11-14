@@ -14,5 +14,5 @@
 
 ## 4. Follow-up
 
-- [ ] 4.1 File issues for the duckdb 2 and polars 2 migrations, and for mypy 2
-- [ ] 4.2 Full check green locally and in CI
+- [x] 4.1 File issues for the duckdb 2 and polars 2 migrations, and for mypy 2 (#56, #57, #58)
+- [x] 4.2 Full check green locally and in CI (Windows timing flake on rerun, filed separately)
