@@ -30,11 +30,11 @@
 - [x] 5.2 Add `browser` and `clean-install` to `ci-ok`'s `needs`; verify on the PR that a forced browser failure (temporary commit, reverted) turns `ci-ok` red
 - [x] 5.3 Pin and add permissions to `release.yml` and `openspec-drift.yml` (the drift workflow is mentor-owned: get a mentor's review); verify the workflow tests pass for all files
 - [x] 5.4 Add `.github/dependabot.yml` (pip + github-actions, `development`, monthly, grouped) and `.github/workflows/codeql.yml` (python + javascript-typescript, vendor ignored); verify both run on the PR
-- [ ] 5.5 [HUMAN] After merge, add a code-scanning rule (CodeQL, high or higher) to the `dev-main-pr-gate` ruleset; verify a PR view shows it as required
+- [x] 5.5 [HUMAN] After merge, add a code-scanning rule (CodeQL, high or higher) to the `dev-main-pr-gate` ruleset; verify a PR view shows it as required
 
 ## 6. Docs
 
 - [x] 6.1 Add the coding standards section to `docs/guide/developer-guide.md` (each rule with its reason and enforcer, as in `specs/coding-standards`), link to the ignition-labs Flashpoint section, document `pre-commit run --all-files`, `blame.ignoreRevsFile`, the coverage floors, and the updated CI table; verify `pytest tests/test_docs.py` passes
 - [x] 6.2 Update `docs/rewrite/06-roadmap.md` §5: coverage scope is `readers/`, `lake/`, `semantics/physics.py`; name the floors and the new gates; verify the docs test passes
-- [ ] 6.3 [HUMAN] Ratify and merge the ignition-labs PR adding the Flashpoint section to the coding standards; then make the developer guide's text match it
+- [x] 6.3 [HUMAN] Ratify and merge the ignition-labs PR adding the Flashpoint section to the coding standards; then make the developer guide's text match it (ratified 2026-11-13, IgniteRobotics/ignition-labs#4)
 - [x] 6.4 Full check: `pre-commit run --all-files`, `mypy src tests tools`, `pytest`, `pytest -m browser`, and `pytest -m corpus` all pass; CI is green with the new `ci-ok`
