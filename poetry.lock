@@ -2445,6 +2445,18 @@ files = [
 cryptography = ">=37.0.0"
 
 [[package]]
+name = "types-pyyaml"
+version = "6.0.12.20261113"
+description = "Typing stubs for PyYAML"
+optional = false
+python-versions = ">=3.10"
+groups = ["dev"]
+files = [
+    {file = "types_pyyaml-6.0.12.20261113-py3-none-any.whl", hash = "sha256:3600749e613748afdc4327f0b17c3296cf880cdbc7335f320007abd9dd815f67"},
+    {file = "types_pyyaml-6.0.12.20261113.tar.gz", hash = "sha256:0828be2580fd94151182364f4d0158e4de62fdbeeb8d4296f7f7d2b6c22bb640"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.16.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -2514,4 +2526,4 @@ ml = ["scikit-learn"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "b7fcd842c3207df23384c52dc31427bc1a881dfb9b64aa6296bcbb445daedd2f"
+content-hash = "815a61ff27dcf2fefeef9649bf50f4c0799437f201cddcb1515f9a66364079e7"
