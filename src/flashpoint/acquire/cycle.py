@@ -336,7 +336,7 @@ def _robot_step(
             result.size_verified_hosts.append(outcome.id)
         if stop.is_set():
             outcome.status = SourceStatus.STOPPED
-    except Exception as exc:  # noqa: BLE001 - one source never stops the others
+    except Exception as exc:  # one source never stops the others
         log.warning("robot step failed: %s", _describe(exc), exc_info=_unexpected(exc))
         outcome.status, outcome.error = SourceStatus.ERROR, _describe(exc)
     return outcome
