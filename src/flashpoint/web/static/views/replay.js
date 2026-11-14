@@ -7,7 +7,7 @@
         &z=<from s>,<to s> (the visible window; omitted at the full match window)
    Tracks: battery | total | <metric>:<slot>, metric one of METRICS below.
    ========================================================================== */
-(function () {
+(() => {
   'use strict';
   const FP = window.FP;
   const { h } = FP;
@@ -38,21 +38,25 @@
   const held = (arr, d, i) => {
     if (!arr) return null;
     const back = Math.ceil(HOLD_S / d.window.width);
-    for (let k = Math.min(i, arr.length - 1); k >= 0 && k >= i - back; k -= 1) if (arr[k] != null) return arr[k];
+    for (let k = Math.min(i, arr.length - 1); k >= 0 && k >= i - back; k -= 1)
+      if (arr[k] != null) return arr[k];
     return null;
   };
   const tempAt = (points, t) => {
-    if (!points || !points.length) return null;
+    if (!points?.length) return null;
     let value = null;
-    for (const [pt, v] of points) { if (pt <= t) value = v; else break; }
+    for (const [pt, v] of points) {
+      if (pt <= t) value = v;
+      else break;
+    }
     return value;
   };
-  const env = (d, slot, metric) => (d.series && d.series[slot] ? d.series[slot][metric] : null);
-  const notLogged = (d, slot, metric) => Boolean(d.not_logged && d.not_logged[slot] && d.not_logged[slot].includes(metric));
+  const env = (d, slot, metric) => (d.series?.[slot] ? d.series[slot][metric] : null);
+  const notLogged = (d, slot, metric) => Boolean(d.not_logged?.[slot]?.includes(metric));
   const slotIds = (d) => (d.slots || []).map((s) => s.id);
   const slotLabel = (d, slot) => {
     const found = (d.slots || []).find((s) => s.id === slot);
-    return found && found.role ? slot + ' · ' + found.role : slot;
+    return found?.role ? slot + ' · ' + found.role : slot;
   };
 
   /* ---------- anomaly badges: served from the API, static from the export's snapshot ---------- */
@@ -74,38 +78,73 @@
       items = []; // no snapshot in an older export, or no detection yet
     }
     const byMatch = {};
-    for (const a of items) for (const key of a.flagged_keys) (byMatch[key] = byMatch[key] || []).push(a);
+    for (const a of items)
+      for (const key of a.flagged_keys) {
+        if (!byMatch[key]) byMatch[key] = [];
+        byMatch[key].push(a);
+      }
     return { sens, takenAt, byMatch };
   }
-  const anomaliesAt = (key) => (ui && ui.anoms ? ui.anoms.byMatch[key] || [] : []);
+  const anomaliesAt = (key) => (ui?.anoms ? ui.anoms.byMatch[key] || [] : []);
   function matchGlyph(key) {
     const found = anomaliesAt(key);
     if (!found.length) return null;
     const worst = found.map((a) => a.severity).sort((a, b) => SEV_RANK[a] - SEV_RANK[b])[0];
-    return h('span', { class: 'anom-glyph sev sev--' + worst.toLowerCase(), dataset: { anomaly: key },
-      title: found.length + ' open anomal' + (found.length === 1 ? 'y' : 'ies') + ' flagged in this match' }, worst);
+    return h(
+      'span',
+      {
+        class: 'anom-glyph sev sev--' + worst.toLowerCase(),
+        dataset: { anomaly: key },
+        title:
+          found.length +
+          ' open anomal' +
+          (found.length === 1 ? 'y' : 'ies') +
+          ' flagged in this match',
+      },
+      worst,
+    );
   }
   function trackBadges(d, spec) {
-    const slot = spec === 'battery' ? 'power' : (spec.includes(':') ? spec.split(':')[1] : null);
+    const slot = spec === 'battery' ? 'power' : spec.includes(':') ? spec.split(':')[1] : null;
     if (!slot) return null;
     const found = anomaliesAt(d.match_key).filter((a) => a.slot_id === slot && a.robot === d.robot);
     if (!found.length) return null;
     const snap = ui.anoms.takenAt;
-    return h('div', { class: 'track__badges' }, found.map((a) => {
-      const text = a.method + ' · ' + a.title;
-      const cls = 'badge sev sev--' + a.severity.toLowerCase();
-      return FP.mode.static
-        ? h('span', { class: cls, dataset: { anomalyBadge: a.id }, title: 'Anomaly snapshot taken ' + FP.when(snap) },
-          text, ' · snapshot ' + FP.when(snap))
-        : h('a', { class: cls, dataset: { anomalyBadge: a.id },
-          href: FP.link({ view: 'anomalies', tab: 'open', sens: ui.anoms.sens, id: a.id }) }, text);
-    }));
+    return h(
+      'div',
+      { class: 'track__badges' },
+      found.map((a) => {
+        const text = a.method + ' · ' + a.title;
+        const cls = 'badge sev sev--' + a.severity.toLowerCase();
+        return FP.mode.static
+          ? h(
+              'span',
+              {
+                class: cls,
+                dataset: { anomalyBadge: a.id },
+                title: 'Anomaly snapshot taken ' + FP.when(snap),
+              },
+              text,
+              ' · snapshot ' + FP.when(snap),
+            )
+          : h(
+              'a',
+              {
+                class: cls,
+                dataset: { anomalyBadge: a.id },
+                href: FP.link({ view: 'anomalies', tab: 'open', sens: ui.anoms.sens, id: a.id }),
+              },
+              text,
+            );
+      }),
+    );
   }
 
   function totalCurrent(d) {
-    const n = d.window.n; const out = new Array(n).fill(null);
+    const n = d.window.n;
+    const out = new Array(n).fill(null);
     for (const slot of slotIds(d)) {
-      const mean = env(d, slot, 'supply_current') && env(d, slot, 'supply_current').mean;
+      const mean = env(d, slot, 'supply_current')?.mean;
       if (!mean) continue;
       for (let i = 0; i < n; i += 1) {
         const v = held(mean, d, i);
@@ -120,22 +159,52 @@
     const limits = d.limits || {};
     if (spec === 'battery') {
       const proxy = d.battery_proxy ? d.battery_proxy.label : 'not logged';
-      return { label: 'Battery proxy (' + proxy + ')', unit: 'V', digits: 2, values: d.battery.mean, band: { lower: d.battery.min, upper: d.battery.max }, lowSeries: d.battery.min, refs: [{ value: limits.brownout_v, label: 'BROWNOUT ' + limits.brownout_v }] };
+      return {
+        label: 'Battery proxy (' + proxy + ')',
+        unit: 'V',
+        digits: 2,
+        values: d.battery.mean,
+        band: { lower: d.battery.min, upper: d.battery.max },
+        lowSeries: d.battery.min,
+        refs: [{ value: limits.brownout_v, label: 'BROWNOUT ' + limits.brownout_v }],
+      };
     }
     if (spec === 'total') {
-      return { label: 'Total supply current', unit: 'A', digits: 0, values: totalCurrent(d), refs: [] };
+      return {
+        label: 'Total supply current',
+        unit: 'A',
+        digits: 0,
+        values: totalCurrent(d),
+        refs: [],
+      };
     }
     const [metric, slot] = spec.split(':');
     const meta = METRICS[metric];
     if (!meta || !slot) return null;
     const label = slot + ' ' + meta.label;
     if (metric === 'temp_c') {
-      const points = d.temps && d.temps[slot];
+      const points = d.temps?.[slot];
       const values = points ? grid(d).map((x) => tempAt(points, x)) : null;
-      return { label, unit: meta.unit, digits: meta.digits, values, points, missing: !points, refs: [{ value: limits.temp_warn_c, label: 'WARN ' + limits.temp_warn_c }] };
+      return {
+        label,
+        unit: meta.unit,
+        digits: meta.digits,
+        values,
+        points,
+        missing: !points,
+        refs: [{ value: limits.temp_warn_c, label: 'WARN ' + limits.temp_warn_c }],
+      };
     }
     const e = env(d, slot, metric);
-    return { label, unit: meta.unit, digits: meta.digits, values: e ? e.mean : null, band: e ? { lower: e.min, upper: e.max } : null, missing: !e, refs: [] };
+    return {
+      label,
+      unit: meta.unit,
+      digits: meta.digits,
+      values: e ? e.mean : null,
+      band: e ? { lower: e.min, upper: e.max } : null,
+      missing: !e,
+      refs: [],
+    };
   }
 
   function valueAt(d, spec, t) {
@@ -158,8 +227,12 @@
 
   function defaultTracks(d) {
     const maxima = Object.entries(d.maxima || {});
-    const hottest = maxima.filter(([, m]) => m.temp_max_c != null).sort((a, b) => b[1].temp_max_c - a[1].temp_max_c)[0];
-    const busiest = maxima.filter(([, m]) => m.supply_current_max != null).sort((a, b) => b[1].supply_current_max - a[1].supply_current_max)[0];
+    const hottest = maxima
+      .filter(([, m]) => m.temp_max_c != null)
+      .sort((a, b) => b[1].temp_max_c - a[1].temp_max_c)[0];
+    const busiest = maxima
+      .filter(([, m]) => m.supply_current_max != null)
+      .sort((a, b) => b[1].supply_current_max - a[1].supply_current_max)[0];
     const first = slotIds(d)[0];
     return [
       'battery',
@@ -171,10 +244,19 @@
 
   /* ---------- rendering ---------- */
   function trackOptions(d) {
-    const options = [h('option', { value: 'battery' }, 'Battery proxy (V)'), h('option', { value: 'total' }, 'Total supply current (A)')];
+    const options = [
+      h('option', { value: 'battery' }, 'Battery proxy (V)'),
+      h('option', { value: 'total' }, 'Total supply current (A)'),
+    ];
     for (const slot of slotIds(d)) {
       for (const [metric, meta] of Object.entries(METRICS)) {
-        options.push(h('option', { value: metric + ':' + slot }, slot + ' · ' + meta.label + ' (' + meta.unit + ')'));
+        options.push(
+          h(
+            'option',
+            { value: metric + ':' + slot },
+            slot + ' · ' + meta.label + ' (' + meta.unit + ')',
+          ),
+        );
       }
     }
     return options;
@@ -182,27 +264,57 @@
 
   function matchList(entries, selected, filters) {
     const events = {};
-    for (const e of entries) (events[e.event] = events[e.event] || []).push(e);
-    return Object.keys(events).sort().reverse().map((event) => h('section', { class: 'match-list__event', 'aria-label': 'Event ' + event },
-      h('h3', { class: 'label' }, event),
-      h('div', { class: 'match-list' }, events[event].map((e) => {
-        const counts = e.markers || { WARN: 0, FAULT: 0 };
-        const status = e.status !== 'ok'
-          ? FP.status('retired', 'NO ALIGNED SAMPLES')
-          : h('span', { class: 'match-btn__counts' },
-            counts.FAULT ? FP.status('fault', counts.FAULT + ' FAULT') : null,
-            counts.WARN ? FP.status('warn', counts.WARN + ' WARN') : null,
-            !counts.FAULT && !counts.WARN ? FP.status('ok', '0 MARKERS') : null);
-        return h('a', {
-          class: 'match-btn' + (e.low_alignment && e.status === 'ok' ? ' is-low' : ''),
-          href: FP.link({ view: 'replay', m: e.key, ...filters }),
-          'aria-current': e.key === selected ? 'page' : null,
-          dataset: { match: e.key },
-        },
-        h('span', { class: 'match-btn__row' }, h('b', null, e.label), matchGlyph(e.key), status),
-        h('span', { class: 'meta' }, e.robot, ' · ', FP.when(e.start_utc)),
-        e.low_alignment && e.status === 'ok' ? h('span', { class: 'badge badge--low' }, '▲ LOW ALIGNMENT · ' + e.alignment) : null);
-      }))));
+    for (const e of entries) {
+      if (!events[e.event]) events[e.event] = [];
+      events[e.event].push(e);
+    }
+    return Object.keys(events)
+      .sort()
+      .reverse()
+      .map((event) =>
+        h(
+          'section',
+          { class: 'match-list__event', 'aria-label': 'Event ' + event },
+          h('h3', { class: 'label' }, event),
+          h(
+            'div',
+            { class: 'match-list' },
+            events[event].map((e) => {
+              const counts = e.markers || { WARN: 0, FAULT: 0 };
+              const status =
+                e.status !== 'ok'
+                  ? FP.status('retired', 'NO ALIGNED SAMPLES')
+                  : h(
+                      'span',
+                      { class: 'match-btn__counts' },
+                      counts.FAULT ? FP.status('fault', counts.FAULT + ' FAULT') : null,
+                      counts.WARN ? FP.status('warn', counts.WARN + ' WARN') : null,
+                      !counts.FAULT && !counts.WARN ? FP.status('ok', '0 MARKERS') : null,
+                    );
+              return h(
+                'a',
+                {
+                  class: 'match-btn' + (e.low_alignment && e.status === 'ok' ? ' is-low' : ''),
+                  href: FP.link({ view: 'replay', m: e.key, ...filters }),
+                  'aria-current': e.key === selected ? 'page' : null,
+                  dataset: { match: e.key },
+                },
+                h(
+                  'span',
+                  { class: 'match-btn__row' },
+                  h('b', null, e.label),
+                  matchGlyph(e.key),
+                  status,
+                ),
+                h('span', { class: 'meta' }, e.robot, ' · ', FP.when(e.start_utc)),
+                e.low_alignment && e.status === 'ok'
+                  ? h('span', { class: 'badge badge--low' }, '▲ LOW ALIGNMENT · ' + e.alignment)
+                  : null,
+              );
+            }),
+          ),
+        ),
+      );
   }
 
   /* ---------- match list filters (the shared season, robot, and event; spec: view-filters) ---------- */
@@ -214,15 +326,22 @@
     return entries.filter((e) => FILTERS.every((key) => f[key] === ALL || e[key] === f[key]));
   }
   const startKey = (e) => (e.start_utc ? '1' + e.start_utc : '0') + '|' + e.key; // no start sorts by key
-  const latest = (entries) => entries.reduce((best, e) => (best == null || startKey(e) > startKey(best) ? e : best), null);
+  const latest = (entries) =>
+    entries.reduce((best, e) => (best == null || startKey(e) > startKey(best) ? e : best), null);
   // An index built before REPORT_VERSION 2 has no season; an empty one has nothing to rebuild.
-  const seasonsKnown = (index) => Boolean(index) && (!index.matches.length || (index.version >= 2 && index.matches.every((e) => e.season != null)));
+  const seasonsKnown = (index) =>
+    Boolean(index) &&
+    (!index.matches.length || (index.version >= 2 && index.matches.every((e) => e.season != null)));
 
   /* The defaults apply only to a fresh address (no shared filter at all, not even 'all'). */
   function initialFilters(state, entries, selected, seasons) {
     if (FP.fresh(state)) {
       const base = selected || latest(entries);
-      return { season: base && seasons ? base.season : ALL, robot: ALL, event: base ? base.event : ALL };
+      return {
+        season: base && seasons ? base.season : ALL,
+        robot: ALL,
+        event: base ? base.event : ALL,
+      };
     }
     const f = FP.filters(state);
     return { season: seasons ? f.season : ALL, robot: f.robot, event: f.event };
@@ -232,10 +351,21 @@
     const f = { ...ui.filters, unit: FP.filters().unit };
     const bar = FP.filterBar({
       filters: f,
-      combos: ui.entries.map((e) => ({ season: e.season, robot: e.robot, event: e.event, last: startKey(e) })),
+      combos: ui.entries.map((e) => ({
+        season: e.season,
+        robot: e.robot,
+        event: e.event,
+        last: startKey(e),
+      })),
       unitNote: 'not applied in Replay',
       unknownText: '(not in this index)',
-      seasonNote: ui.seasons ? null : ['Rebuild with ', h('code', { class: 'code' }, 'flashpoint report'), ' to filter by season.'],
+      seasonNote: ui.seasons
+        ? null
+        : [
+            'Rebuild with ',
+            h('code', { class: 'code' }, 'flashpoint report'),
+            ' to filter by season.',
+          ],
       onChange: setFilters,
     });
     ui.bar = ui.bar ? FP.swap(ui.bar, bar) : bar;
@@ -246,13 +376,35 @@
     const entries = ui.entries;
     const shown = filterEntries(entries, f);
     const unknown = FP.unknownFilters(f, entries);
-    const hidden = ui.key && !shown.some((e) => e.key === ui.key) ? entries.find((e) => e.key === ui.key) : null;
-    const note = h('div', { id: 'filter-note', 'aria-live': 'polite' },
-      !shown.length ? h('div', { class: 'callout callout--quiet' },
-        h('p', null, 'No matches for these filters.'),
-        unknown.length ? h('p', null, 'No match in this index has ', unknown.join(', '), '.') : null,
-        h('button', { type: 'button', class: 'btn btn--sm mt-2', id: 'note-clear', on: { click: () => setFilters({ season: ALL, robot: ALL, event: ALL, unit: ALL }) } }, 'CLEAR FILTERS')) : null,
-      shown.length && hidden ? h('p', { class: 'meta' }, 'Selected match ' + hidden.label + ' is hidden by the filters.') : null);
+    const hidden =
+      ui.key && !shown.some((e) => e.key === ui.key) ? entries.find((e) => e.key === ui.key) : null;
+    const note = h(
+      'div',
+      { id: 'filter-note', 'aria-live': 'polite' },
+      !shown.length
+        ? h(
+            'div',
+            { class: 'callout callout--quiet' },
+            h('p', null, 'No matches for these filters.'),
+            unknown.length
+              ? h('p', null, 'No match in this index has ', unknown.join(', '), '.')
+              : null,
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'btn btn--sm mt-2',
+                id: 'note-clear',
+                on: { click: () => setFilters({ season: ALL, robot: ALL, event: ALL, unit: ALL }) },
+              },
+              'CLEAR FILTERS',
+            ),
+          )
+        : null,
+      shown.length && hidden
+        ? h('p', { class: 'meta' }, 'Selected match ' + hidden.label + ' is hidden by the filters.')
+        : null,
+    );
     FP.fill(ui.rail, note, matchList(shown, ui.key, f));
   }
 
@@ -265,24 +417,55 @@
 
   function downloads(sources) {
     const raw = FP.mode.raw !== false;
-    if (!sources || !sources.length) return h('p', { class: 'meta' }, 'No raw logs are recorded for this match.');
+    if (!sources?.length)
+      return h('p', { class: 'meta' }, 'No raw logs are recorded for this match.');
     if (!raw) {
-      return h('div', { class: 'downloads' },
-        h('p', { class: 'callout callout--quiet' }, 'Raw logs not included in this export. Their lake hashes:'),
-        sources.map((s) => h('div', { class: 'download' }, h('span', null, s.name), h('span', { class: 'download__hash' }, 'sha256 ', s.sha256))));
+      return h(
+        'div',
+        { class: 'downloads' },
+        h(
+          'p',
+          { class: 'callout callout--quiet' },
+          'Raw logs not included in this export. Their lake hashes:',
+        ),
+        sources.map((s) =>
+          h(
+            'div',
+            { class: 'download' },
+            h('span', null, s.name),
+            h('span', { class: 'download__hash' }, 'sha256 ', s.sha256),
+          ),
+        ),
+      );
     }
-    return h('div', { class: 'downloads' }, sources.map((s) => h('a', { class: 'download', href: FP.rawHref(s), download: s.download },
-      h('span', null, '⇩ ', s.part === 'wpilog' ? 'wpilog' : 'hoot · ' + s.part),
-      h('span', { class: 'download__hash' }, s.name))));
+    return h(
+      'div',
+      { class: 'downloads' },
+      sources.map((s) =>
+        h(
+          'a',
+          { class: 'download', href: FP.rawHref(s), download: s.download },
+          h('span', null, '⇩ ', s.part === 'wpilog' ? 'wpilog' : 'hoot · ' + s.part),
+          h('span', { class: 'download__hash' }, s.name),
+        ),
+      ),
+    );
   }
 
   function asideDownloads(sources, key) {
-    const launchable = sources && sources.length && FP.mode.raw !== false;
-    return h('section', { 'aria-label': 'Open in AdvantageScope' },
+    const launchable = sources?.length && FP.mode.raw !== false;
+    return h(
+      'section',
+      { 'aria-label': 'Open in AdvantageScope' },
       h('h2', { class: 'section-label' }, h('span', null, 'Open in AdvantageScope')),
-      h('p', { class: 'meta mb-3' }, 'Open the raw logs in AdvantageScope for a full-rate deep dive, or download them.'),
+      h(
+        'p',
+        { class: 'meta mb-3' },
+        'Open the raw logs in AdvantageScope for a full-rate deep dive, or download them.',
+      ),
       launchable ? FP.launchPanel(key) : null,
-      downloads(sources));
+      downloads(sources),
+    );
   }
 
   function notice(title, ...body) {
@@ -295,10 +478,26 @@
     if (!el.isConnected) return; // the route changed while waiting
     const entries = index ? index.matches : [];
     if (!entries.length && !state.m) {
-      FP.fill(el, notice('No Replay data',
-        h('p', { class: 'prose' }, 'No match has been built yet. On the laptop that holds the lake, run:'),
-        h('p', { class: 'prose' }, h('code', { class: 'code' }, 'flashpoint report')),
-        index && index.sessions_without_match_key ? h('p', { class: 'meta mt-3' }, index.sessions_without_match_key + ' session(s) without a match key have no Replay entry.') : null));
+      FP.fill(
+        el,
+        notice(
+          'No Replay data',
+          h(
+            'p',
+            { class: 'prose' },
+            'No match has been built yet. On the laptop that holds the lake, run:',
+          ),
+          h('p', { class: 'prose' }, h('code', { class: 'code' }, 'flashpoint report')),
+          index?.sessions_without_match_key
+            ? h(
+                'p',
+                { class: 'meta mt-3' },
+                index.sessions_without_match_key +
+                  ' session(s) without a match key have no Replay entry.',
+              )
+            : null,
+        ),
+      );
       return;
     }
     ui.entries = entries;
@@ -307,48 +506,104 @@
     if (ui !== mineAnoms || !el.isConnected) return;
     ui.anoms = anoms;
     ui.seasons = seasonsKnown(index);
-    ui.filters = initialFilters(state, entries, entries.find((e) => e.key === state.m), ui.seasons);
+    ui.filters = initialFilters(
+      state,
+      entries,
+      entries.find((e) => e.key === state.m),
+      ui.seasons,
+    );
     const shown = filterEntries(entries, ui.filters);
-    const key = state.m || (shown.find((e) => e.status === 'ok') || shown[0] || entries.find((e) => e.status === 'ok') || entries[0]).key; // state.m may be unbuilt
+    const key =
+      state.m ||
+      (
+        shown.find((e) => e.status === 'ok') ||
+        shown[0] ||
+        entries.find((e) => e.status === 'ok') ||
+        entries[0]
+      ).key; // state.m may be unbuilt
     const entry = entries.find((e) => e.key === key);
     const layout = h('div', { class: 'layout' });
-    const rail = FP.rail({ view: 'replay', side: 'l', label: 'Matches', tag: 'nav', attrs: { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' } });
+    const rail = FP.rail({
+      view: 'replay',
+      side: 'l',
+      label: 'Matches',
+      tag: 'nav',
+      attrs: { class: 'rail-l panel panel--rail-l', 'aria-label': 'Matches' },
+    });
     const main = h('div', { class: 'main pad', id: 'replay-main' });
-    const aside = FP.rail({ view: 'replay', side: 'r', label: 'Details', attrs: { class: 'rail-r panel panel--rail-r', 'aria-label': 'Marker, readout, and raw logs' } });
+    const aside = FP.rail({
+      view: 'replay',
+      side: 'r',
+      label: 'Details',
+      attrs: { class: 'rail-r panel panel--rail-r', 'aria-label': 'Marker, readout, and raw logs' },
+    });
     aside.body.classList.add('stack');
-    ui.main = main; ui.aside = aside.body; ui.rail = rail.body; ui.key = key;
+    ui.main = main;
+    ui.aside = aside.body;
+    ui.rail = rail.body;
+    ui.key = key;
     renderBar();
     FP.fill(el, ui.bar, FP.fill(layout, rail.el, main, aside.el));
     renderRail();
     FP.setFilters({ ...ui.filters });
 
     if (!entry) {
-      FP.fill(main, notice(key, h('p', { class: 'prose' }, 'Replay data for this match is not built.'),
-        FP.mode.static ? h('p', { class: 'prose' }, 'This export does not include it.') : h('p', { class: 'prose' }, 'Build it with ', h('code', { class: 'code' }, 'flashpoint report --match ' + key))));
+      FP.fill(
+        main,
+        notice(
+          key,
+          h('p', { class: 'prose' }, 'Replay data for this match is not built.'),
+          FP.mode.static
+            ? h('p', { class: 'prose' }, 'This export does not include it.')
+            : h(
+                'p',
+                { class: 'prose' },
+                'Build it with ',
+                h('code', { class: 'code' }, 'flashpoint report --match ' + key),
+              ),
+        ),
+      );
       if (!FP.mode.static) {
         try {
           const info = await FP.api('match/' + encodeURIComponent(key));
           FP.fill(ui.aside, asideDownloads(info.sources, key));
-        } catch (err) { FP.fill(ui.aside, h('p', { class: 'meta' }, String(err.message))); }
+        } catch (err) {
+          FP.fill(ui.aside, h('p', { class: 'meta' }, String(err.message)));
+        }
       }
       return;
     }
     if (entry.status !== 'ok') {
       const d = await FP.loadMatch(entry);
-      FP.fill(main, notice(entry.label + ' · no aligned samples', h('p', { class: 'prose' }, d.reason), h('p', { class: 'meta mt-3' }, d.match_key, ' · ', d.robot)));
+      FP.fill(
+        main,
+        notice(
+          entry.label + ' · no aligned samples',
+          h('p', { class: 'prose' }, d.reason),
+          h('p', { class: 'meta mt-3' }, d.match_key, ' · ', d.robot),
+        ),
+      );
       FP.fill(ui.aside, asideDownloads(d.sources, d.match_key));
       return;
     }
     const mine = ui;
     ui.data = await FP.loadMatch(entry);
     if (ui !== mine || !el.isConnected) return;
-    const overlayEntry = state.o && state.o !== key ? entries.find((e) => e.key === state.o && e.status === 'ok') : null;
+    const overlayEntry =
+      state.o && state.o !== key
+        ? entries.find((e) => e.key === state.o && e.status === 'ok')
+        : null;
     ui.overlay = overlayEntry ? await FP.loadMatch(overlayEntry) : null;
     if (ui !== mine || !el.isConnected) return;
     ui.specs = parseTracks(state, ui.data);
-    ui.full = { from: ui.data.window.t0, to: +(ui.data.window.t0 + ui.data.window.n * ui.data.window.width).toFixed(3) };
+    ui.full = {
+      from: ui.data.window.t0,
+      to: +(ui.data.window.t0 + ui.data.window.n * ui.data.window.width).toFixed(3),
+    };
     ui.view = parseView(state.z);
-    ui.detail = null; ui.detailSeq = 0; ui.detailError = null;
+    ui.detail = null;
+    ui.detailSeq = 0;
+    ui.detailError = null;
     ui.cursor = state.t != null && state.t !== '' && !Number.isNaN(+state.t) ? +state.t : null;
     ui.marker = state.ev != null && state.ev !== '' ? +state.ev : null;
     render();
@@ -357,10 +612,11 @@
   function parseTracks(state, d) {
     const defaults = defaultTracks(d);
     const specs = (state.tr || '').split(',').filter(Boolean);
-    const valid = (s) => s === 'battery' || s === 'total' || (/^[a-z_]+:.+$/.test(s) && METRICS[s.split(':')[0]]);
+    const valid = (s) =>
+      s === 'battery' || s === 'total' || (/^[a-z_]+:.+$/.test(s) && METRICS[s.split(':')[0]]);
     const out = defaults.map((def, i) => (specs[i] && valid(specs[i]) ? specs[i] : def));
     if (state.track && slotIds(d).includes(state.track) && !state.tr) {
-      out[2] = d.temps && d.temps[state.track] ? 'temp_c:' + state.track : out[2];
+      out[2] = d.temps?.[state.track] ? 'temp_c:' + state.track : out[2];
       out[3] = 'supply_current:' + state.track;
     }
     return out;
@@ -371,47 +627,164 @@
     const o = ui.overlay;
     const main = ui.main;
     const entries = ui.entries.filter((e) => e.status === 'ok' && e.key !== d.match_key);
-    const header = h('div', { class: 'title-row' },
+    const header = h(
+      'div',
+      { class: 'title-row' },
       h('h1', { class: 'title-d3' }, d.label),
       h('span', { class: 'meta' }, d.match_key),
-      h('button', { type: 'button', class: 'btn btn--sm', on: { click: copyLink } }, 'COPY LINK'));
-    const meta = h('div', { class: 'match-meta' },
+      h('button', { type: 'button', class: 'btn btn--sm', on: { click: copyLink } }, 'COPY LINK'),
+    );
+    const meta = h(
+      'div',
+      { class: 'match-meta' },
       h('span', null, 'robot ', h('b', null, d.robot)),
       h('span', null, 'event ', h('b', null, d.event)),
       h('span', null, 'start ', h('b', null, FP.when(d.start_utc))),
       h('span', null, 'duration ', h('b', null, FP.fmt(d.duration_s, 1) + ' s')),
-      h('span', null, 'alignment ', h('b', null, d.alignment + (d.alignment_method ? ' (' + d.alignment_method + ')' : ''))),
-      h('span', { class: 'wrap-anywhere' }, 'logs ', h('b', null, (d.sources || []).map((s) => s.name).join(', '))));
-    const notes = h('div', { class: 'notes' },
-      d.low_alignment ? h('p', { class: 'callout' }, '▲ Low alignment confidence (' + d.alignment + '): hoot and wpilog times may disagree. Check events against AdvantageScope.') : null,
-      d.temperature && !d.temperature.available ? h('p', { class: 'callout' }, 'Temperature not logged. ' + (d.temperature.reason || '')) : null,
-      (d.notes || []).map((n) => h('p', { class: 'callout callout--quiet' }, n)));
-    const markers = h('section', { class: 'markers', id: 'markers', 'aria-label': 'Markers on the timeline' });
-    const zoomBar = h('div', { class: 'zoom-bar' },
+      h(
+        'span',
+        null,
+        'alignment ',
+        h('b', null, d.alignment + (d.alignment_method ? ' (' + d.alignment_method + ')' : '')),
+      ),
+      h(
+        'span',
+        { class: 'wrap-anywhere' },
+        'logs ',
+        h('b', null, (d.sources || []).map((s) => s.name).join(', ')),
+      ),
+    );
+    const notes = h(
+      'div',
+      { class: 'notes' },
+      d.low_alignment
+        ? h(
+            'p',
+            { class: 'callout' },
+            '▲ Low alignment confidence (' +
+              d.alignment +
+              '): hoot and wpilog times may disagree. Check events against AdvantageScope.',
+          )
+        : null,
+      d.temperature && !d.temperature.available
+        ? h('p', { class: 'callout' }, 'Temperature not logged. ' + (d.temperature.reason || ''))
+        : null,
+      (d.notes || []).map((n) => h('p', { class: 'callout callout--quiet' }, n)),
+    );
+    const markers = h('section', {
+      class: 'markers',
+      id: 'markers',
+      'aria-label': 'Markers on the timeline',
+    });
+    const zoomBar = h(
+      'div',
+      { class: 'zoom-bar' },
       h('span', { class: 'group__label' }, 'WINDOW'),
       h('span', { class: 'zoom-bar__window', id: 'view-window', 'aria-live': 'polite' }),
       h('span', { class: 'meta', id: 'resolution' }),
       h('span', { class: 'app-header__spacer' }),
-      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-out', 'aria-label': 'Zoom out', title: 'Zoom out (-)', on: { click: () => zoomBy(1 / ZOOM_STEP) } }, '−'),
-      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-in', 'aria-label': 'Zoom in', title: 'Zoom in (+), Ctrl/⌘ + scroll, or shift-drag a track', on: { click: () => zoomBy(ZOOM_STEP) } }, '+'),
-      h('button', { type: 'button', class: 'btn btn--sm', id: 'zoom-reset', title: 'Full match (0)', on: { click: () => setView(ui.full.from, ui.full.to) } }, 'FULL MATCH'));
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--sm',
+          id: 'zoom-out',
+          'aria-label': 'Zoom out',
+          title: 'Zoom out (-)',
+          on: { click: () => zoomBy(1 / ZOOM_STEP) },
+        },
+        '−',
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--sm',
+          id: 'zoom-in',
+          'aria-label': 'Zoom in',
+          title: 'Zoom in (+), Ctrl/⌘ + scroll, or shift-drag a track',
+          on: { click: () => zoomBy(ZOOM_STEP) },
+        },
+        '+',
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--sm',
+          id: 'zoom-reset',
+          title: 'Full match (0)',
+          on: { click: () => setView(ui.full.from, ui.full.to) },
+        },
+        'FULL MATCH',
+      ),
+    );
     const tracks = h('div', { class: 'tracks', id: 'tracks' });
     const scrub = h('input', {
-      id: 'scrub', type: 'range', min: String(d.window.t0), max: String(+(d.window.t0 + d.window.n * d.window.width).toFixed(3)),
-      step: String(d.window.width), value: String(ui.cursor == null ? d.window.t0 : ui.cursor), 'aria-label': 'Cursor time',
+      id: 'scrub',
+      type: 'range',
+      min: String(d.window.t0),
+      max: String(+(d.window.t0 + d.window.n * d.window.width).toFixed(3)),
+      step: String(d.window.width),
+      value: String(ui.cursor == null ? d.window.t0 : ui.cursor),
+      'aria-label': 'Cursor time',
       on: { input: (event) => setCursor(+event.target.value) },
     });
-    const scrubRow = h('div', { class: 'scrub' },
-      h('label', { for: 'scrub', class: 'group__label' }, 'SCRUB'), scrub,
+    const scrubRow = h(
+      'div',
+      { class: 'scrub' },
+      h('label', { for: 'scrub', class: 'group__label' }, 'SCRUB'),
+      scrub,
       h('span', { class: 'scrub__label', id: 'scrub-label' }),
-      h('button', { type: 'button', class: 'btn btn--sm', id: 'clear-cursor', on: { click: () => setCursor(null) } }, 'MAXIMA'));
-    const compare = h('div', { class: 'compare mt-6' },
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--sm',
+          id: 'clear-cursor',
+          on: { click: () => setCursor(null) },
+        },
+        'MAXIMA',
+      ),
+    );
+    const compare = h(
+      'div',
+      { class: 'compare mt-6' },
       h('label', { class: 'group__label', for: 'compare' }, 'COMPARE'),
-      h('select', { class: 'select', id: 'compare', on: { change: (event) => setOverlay(event.target.value) } },
+      h(
+        'select',
+        {
+          class: 'select',
+          id: 'compare',
+          on: { change: (event) => setOverlay(event.target.value) },
+        },
         h('option', { value: '' }, 'no overlay'),
-        entries.map((e) => h('option', { value: e.key, selected: o && o.match_key === e.key }, e.label + ' · ' + e.key))),
-      o ? h('p', { class: 'meta' }, 'Overlay ', h('b', null, o.label), ' drawn dashed, aligned on match time.') : null);
-    const timeline = h('div', { class: 'timeline', id: 'timeline', on: { keydown: timelineKey } }, zoomBar, markers, tracks, scrubRow);
+        entries.map((e) =>
+          h(
+            'option',
+            { value: e.key, selected: o && o.match_key === e.key },
+            e.label + ' · ' + e.key,
+          ),
+        ),
+      ),
+      o
+        ? h(
+            'p',
+            { class: 'meta' },
+            'Overlay ',
+            h('b', null, o.label),
+            ' drawn dashed, aligned on match time.',
+          )
+        : null,
+    );
+    const timeline = h(
+      'div',
+      { class: 'timeline', id: 'timeline', on: { keydown: timelineKey } },
+      zoomBar,
+      markers,
+      tracks,
+      scrubRow,
+    );
     FP.fill(main, header, meta, notes, timeline, compare);
     renderMarkers(markers);
     if (ui.resize) ui.resize.disconnect();
@@ -427,17 +800,20 @@
   /* Markers outside the visible window are hidden and counted on their side. */
   function placeMarkers() {
     const strip = document.getElementById('markers');
-    const chart = ui && ui.tracks.find((t) => t.chart);
+    const chart = ui?.tracks.find((t) => t.chart);
     if (!strip || !chart) return;
     // From ui.view, not u.valToPos: uPlot commits a new scale in a microtask after setX.
     const over = chart.chart.u.over.getBoundingClientRect();
     const offset = over.left - strip.getBoundingClientRect().left;
     const toPx = (t) => ((t - ui.view.from) / (ui.view.to - ui.view.from)) * over.width;
-    let left = 0; let right = 0;
+    let left = 0;
+    let right = 0;
     strip.querySelectorAll('[data-marker]').forEach((b) => {
       const m = ui.data.markers[+b.dataset.marker];
-      const before = m.t < ui.view.from; const after = m.t > ui.view.to;
-      left += before; right += after;
+      const before = m.t < ui.view.from;
+      const after = m.t > ui.view.to;
+      left += before;
+      right += after;
       b.hidden = before || after;
       b.style.left = (offset + toPx(m.t)).toFixed(1) + 'px';
     });
@@ -446,7 +822,14 @@
       if (!b) return;
       b.hidden = n === 0;
       b.textContent = text;
-      b.setAttribute('aria-label', n + ' hidden marker' + (n === 1 ? '' : 's') + (id === 'markers-left' ? ' before' : ' after') + ' the window; select the nearest');
+      b.setAttribute(
+        'aria-label',
+        n +
+          ' hidden marker' +
+          (n === 1 ? '' : 's') +
+          (id === 'markers-left' ? ' before' : ' after') +
+          ' the window; select the nearest',
+      );
     };
     side('markers-left', left, '◂ ' + left);
     side('markers-right', right, right + ' ▸');
@@ -456,7 +839,11 @@
     let best = null;
     (ui.data.markers || []).forEach((m, i) => {
       if (dir < 0 ? m.t < ui.view.from : m.t > ui.view.to) {
-        if (best == null || (dir < 0 ? m.t > ui.data.markers[best].t : m.t < ui.data.markers[best].t)) best = i;
+        if (
+          best == null ||
+          (dir < 0 ? m.t > ui.data.markers[best].t : m.t < ui.data.markers[best].t)
+        )
+          best = i;
       }
     });
     return best;
@@ -465,31 +852,52 @@
   function renderMarkers(strip) {
     const d = ui.data;
     const span = d.window.n * d.window.width;
-    for (const [id, dir] of [['markers-left', -1], ['markers-right', 1]]) {
-      strip.appendChild(h('button', { type: 'button', class: 'marker-count marker-count--' + (dir < 0 ? 'left' : 'right'), id, hidden: true,
-        on: { click: () => { const i = nearestHidden(dir); if (i != null) selectMarker(i); } } }));
+    for (const [id, dir] of [
+      ['markers-left', -1],
+      ['markers-right', 1],
+    ]) {
+      strip.appendChild(
+        h('button', {
+          type: 'button',
+          class: 'marker-count marker-count--' + (dir < 0 ? 'left' : 'right'),
+          id,
+          hidden: true,
+          on: {
+            click: () => {
+              const i = nearestHidden(dir);
+              if (i != null) selectMarker(i);
+            },
+          },
+        }),
+      );
     }
     (d.markers || []).forEach((m, i) => {
       const left = ((m.t - d.window.t0) / span) * 100;
-      strip.appendChild(h('button', {
-        type: 'button',
-        class: 'marker marker--' + m.level,
-        style: { left: left.toFixed(3) + '%' },
-        'aria-pressed': String(ui.marker === i),
-        'aria-label': m.level + ' ' + m.source + ' at T+' + m.t.toFixed(1) + ' s: ' + m.message,
-        title: m.message,
-        dataset: { marker: String(i) },
-        on: { click: () => selectMarker(i) },
-      }, m.level === 'FAULT' ? '✕' : '▲'));
+      strip.appendChild(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'marker marker--' + m.level,
+            style: { left: left.toFixed(3) + '%' },
+            'aria-pressed': String(ui.marker === i),
+            'aria-label': m.level + ' ' + m.source + ' at T+' + m.t.toFixed(1) + ' s: ' + m.message,
+            title: m.message,
+            dataset: { marker: String(i) },
+            on: { click: () => selectMarker(i) },
+          },
+          m.level === 'FAULT' ? '✕' : '▲',
+        ),
+      );
     });
   }
 
   /* The primary match as drawn: stored, or with the served detail merged over it. Same shape, so
      trackData() and valueAt() work on either. */
-  const shown = () => ui.detail ? ui.detail.merged : ui.data;
+  const shown = () => (ui.detail ? ui.detail.merged : ui.data);
 
   function renderTracks(container) {
-    for (const t of ui.tracks) t.chart && t.chart.destroy();
+    for (const t of ui.tracks) t.chart?.destroy();
     ui.tracks = [];
     const d = shown();
     const xs = grid(d);
@@ -498,28 +906,45 @@
     ui.specs.forEach((spec, index) => {
       const td = trackData(d, spec) || { label: spec, missing: true, refs: [] };
       const now = h('span', { 'data-now': String(index) }, '—');
-      const picker = h('select', {
-        class: 'select track__pick', 'aria-label': 'Track ' + (index + 1) + ' signal',
-        on: { change: (event) => setTrack(index, event.target.value) },
-      }, trackOptions(d));
+      const picker = h(
+        'select',
+        {
+          class: 'select track__pick',
+          'aria-label': 'Track ' + (index + 1) + ' signal',
+          on: { change: (event) => setTrack(index, event.target.value) },
+        },
+        trackOptions(d),
+      );
       picker.value = spec;
       const plot = h('div', { class: 'track__plot' });
-      const label = h('div', { class: 'track__label' },
+      const label = h(
+        'div',
+        { class: 'track__label' },
         h('div', { class: 'track__name' }, td.label.toUpperCase()),
         h('div', { class: 'track__now' }, now, ' ', h('span', { class: 'meta' }, td.unit || '')),
         h('div', { class: 'track__range', 'data-range': String(index) }),
         picker,
-        trackBadges(d, spec));
+        trackBadges(d, spec),
+      );
       container.appendChild(h('div', { class: 'track' }, label, plot));
       const entry = { spec, td, now, plot, range: label.querySelector('[data-range]') };
       if (td.missing || !td.values) {
         FP.fill(plot, h('p', { class: 'notlogged notice' }, 'not logged'));
         entry.range.textContent = 'not logged';
       } else {
-        const series = [{ label: td.label, values: td.values, stroke: tokens.accent, width: 1.5, band: td.band }];
+        const series = [
+          { label: td.label, values: td.values, stroke: tokens.accent, width: 1.5, band: td.band },
+        ];
         if (ui.overlay) {
           const ov = trackData(ui.overlay, spec);
-          if (ov && !ov.missing) series.push({ label: ui.overlay.label, values: overlayValues(d, ui.overlay, spec), stroke: tokens.accentDim, width: 1.5, dash: [5, 3] });
+          if (ov && !ov.missing)
+            series.push({
+              label: ui.overlay.label,
+              values: overlayValues(d, ui.overlay, spec),
+              stroke: tokens.accentDim,
+              width: 1.5,
+              dash: [5, 3],
+            });
         }
         entry.xs = xs;
         entry.chart = FP.track(plot, {
@@ -527,7 +952,11 @@
           x: xs,
           series,
           refs: td.refs,
-          shade: phases.map((p) => ({ from: p.start, to: p.end == null ? xs[xs.length - 1] : p.end, alpha: p.name === 'auto' ? 0.07 : 0.035 })),
+          shade: phases.map((p) => ({
+            from: p.start,
+            to: p.end == null ? xs[xs.length - 1] : p.end,
+            alpha: p.name === 'auto' ? 0.07 : 0.035,
+          })),
           gapX: HOLD_S,
           cursor: () => ui.cursor,
           onPick: (x) => setCursor(Math.max(xs[0], Math.min(xs[xs.length - 1], x))),
@@ -535,7 +964,9 @@
           onZoom: (factor, x) => zoomBy(factor, x),
           xLabel: (v) => 'T+' + (ui.view.to - ui.view.from < 10 ? v.toFixed(1) : Math.round(v)),
           yLabel: (v) => FP.fmt(v, Math.abs(v) >= 100 ? 0 : 1),
-          ariaLabel: td.label + ' over the visible window. The range and the values at the cursor are in the track label and the readout.',
+          ariaLabel:
+            td.label +
+            ' over the visible window. The range and the values at the cursor are in the track label and the readout.',
         });
       }
       ui.tracks.push(entry);
@@ -546,37 +977,86 @@
   }
 
   function readoutRows() {
-    const d = ui.data; const o = ui.overlay; const t = ui.cursor;
-    const limits = { warn: d.limits ? d.limits.temp_warn_c : 65, fault: d.limits ? d.limits.temp_fault_c : 75 };
+    const d = ui.data;
+    const o = ui.overlay;
+    const t = ui.cursor;
+    const limits = {
+      warn: d.limits ? d.limits.temp_warn_c : 65,
+      fault: d.limits ? d.limits.temp_fault_c : 75,
+    };
     const slots = slotIds(d);
     const rows = slots.map((slot) => {
-      const amps = t == null ? (d.maxima[slot] || {}).supply_current_max : valueAt(d, 'supply_current:' + slot, t);
-      const temp = t == null ? (d.maxima[slot] || {}).temp_max_c : valueAt(d, 'temp_c:' + slot, t);
+      const amps =
+        t == null ? d.maxima[slot]?.supply_current_max : valueAt(d, 'supply_current:' + slot, t);
+      const temp = t == null ? d.maxima[slot]?.temp_max_c : valueAt(d, 'temp_c:' + slot, t);
       let other = null;
       if (o) {
         const present = slotIds(o).includes(slot);
-        other = present ? {
-          amps: t == null ? (o.maxima[slot] || {}).supply_current_max : valueAt(o, 'supply_current:' + slot, t),
-          temp: t == null ? (o.maxima[slot] || {}).temp_max_c : valueAt(o, 'temp_c:' + slot, t),
-          tempLogged: !notLogged(o, slot, 'temp_c'),
-        } : null;
+        other = present
+          ? {
+              amps:
+                t == null
+                  ? o.maxima[slot]?.supply_current_max
+                  : valueAt(o, 'supply_current:' + slot, t),
+              temp: t == null ? o.maxima[slot]?.temp_max_c : valueAt(o, 'temp_c:' + slot, t),
+              tempLogged: !notLogged(o, slot, 'temp_c'),
+            }
+          : null;
       }
-      return { slot, amps, temp, tempLogged: !notLogged(d, slot, 'temp_c'), ampsLogged: !notLogged(d, slot, 'supply_current'), other, present: !o || other != null };
+      return {
+        slot,
+        amps,
+        temp,
+        tempLogged: !notLogged(d, slot, 'temp_c'),
+        ampsLogged: !notLogged(d, slot, 'supply_current'),
+        other,
+        present: !o || other != null,
+      };
     });
-    if (t == null) rows.sort((a, b) => (b.temp == null ? -1 : b.temp) - (a.temp == null ? -1 : a.temp));
+    if (t == null)
+      rows.sort((a, b) => (b.temp == null ? -1 : b.temp) - (a.temp == null ? -1 : a.temp));
     return { rows, limits };
   }
 
   function renderAside() {
     const d = ui.data;
-    const event = h('section', { id: 'event', 'aria-live': 'polite', 'aria-label': 'Selected marker' });
-    const readout = h('section', { 'aria-label': 'Readout' },
+    const event = h('section', {
+      id: 'event',
+      'aria-live': 'polite',
+      'aria-label': 'Selected marker',
+    });
+    const readout = h(
+      'section',
+      { 'aria-label': 'Readout' },
       h('h2', { class: 'section-label' }, h('span', { id: 'readout-label' })),
-      h('div', { class: 'table-wrap' }, h('table', { class: 'table readout-table' },
-        h('thead', null, h('tr', null,
-          h('th', { scope: 'col' }, 'Slot'), h('th', { scope: 'col', class: 'num' }, 'A'), h('th', { scope: 'col', class: 'num' }, '°C'), h('th', { scope: 'col' }, h('span', { class: 'sr-only' }, 'Status')),
-          ui.overlay ? [h('th', { scope: 'col', class: 'num' }, ui.overlay.label + ' A'), h('th', { scope: 'col', class: 'num' }, ui.overlay.label + ' °C')] : null)),
-        h('tbody', { id: 'readout' }))));
+      h(
+        'div',
+        { class: 'table-wrap' },
+        h(
+          'table',
+          { class: 'table readout-table' },
+          h(
+            'thead',
+            null,
+            h(
+              'tr',
+              null,
+              h('th', { scope: 'col' }, 'Slot'),
+              h('th', { scope: 'col', class: 'num' }, 'A'),
+              h('th', { scope: 'col', class: 'num' }, '°C'),
+              h('th', { scope: 'col' }, h('span', { class: 'sr-only' }, 'Status')),
+              ui.overlay
+                ? [
+                    h('th', { scope: 'col', class: 'num' }, ui.overlay.label + ' A'),
+                    h('th', { scope: 'col', class: 'num' }, ui.overlay.label + ' °C'),
+                  ]
+                : null,
+            ),
+          ),
+          h('tbody', { id: 'readout' }),
+        ),
+      ),
+    );
     FP.fill(ui.aside, event, readout, asideDownloads(d.sources, d.match_key));
     renderEvent();
   }
@@ -586,13 +1066,37 @@
     if (!box) return;
     const d = ui.data;
     const m = ui.marker != null ? (d.markers || [])[ui.marker] : null;
-    FP.fill(box, h('h2', { class: 'section-label' }, h('span', null, 'Marker')),
-      m ? h('div', { class: 'alert event-card ' + (m.level === 'FAULT' ? 'is-fault' : 'is-warn') },
-        h('div', { class: 'alert__head' }, FP.status(m.level === 'FAULT' ? 'fault' : 'warn', m.level + ' · ' + m.source), h('span', { class: 'muted' }, 'T+' + m.t.toFixed(1) + ' s')),
-        h('p', { class: 'event-card__msg' }, m.message),
-        m.end != null ? h('p', { class: 'meta mt-2' }, 'Until T+' + m.end.toFixed(1) + ' s') : null,
-        h('p', { class: 'meta muted mt-3' }, 'Markers come from fixed rules (config/report.toml) and state what the log shows; they do not name a cause.'))
-        : h('p', { class: 'meta' }, (d.markers || []).length ? 'Select a marker above the tracks to jump to it.' : 'No rule fired in this match.'));
+    FP.fill(
+      box,
+      h('h2', { class: 'section-label' }, h('span', null, 'Marker')),
+      m
+        ? h(
+            'div',
+            { class: 'alert event-card ' + (m.level === 'FAULT' ? 'is-fault' : 'is-warn') },
+            h(
+              'div',
+              { class: 'alert__head' },
+              FP.status(m.level === 'FAULT' ? 'fault' : 'warn', m.level + ' · ' + m.source),
+              h('span', { class: 'muted' }, 'T+' + m.t.toFixed(1) + ' s'),
+            ),
+            h('p', { class: 'event-card__msg' }, m.message),
+            m.end != null
+              ? h('p', { class: 'meta mt-2' }, 'Until T+' + m.end.toFixed(1) + ' s')
+              : null,
+            h(
+              'p',
+              { class: 'meta muted mt-3' },
+              'Markers come from fixed rules (config/report.toml) and state what the log shows; they do not name a cause.',
+            ),
+          )
+        : h(
+            'p',
+            { class: 'meta' },
+            (d.markers || []).length
+              ? 'Select a marker above the tracks to jump to it.'
+              : 'No rule fired in this match.',
+          ),
+    );
   }
 
   function cell(value, digits, logged) {
@@ -601,10 +1105,16 @@
   }
 
   function updateCursor() {
-    const d = ui.data; const t = ui.cursor;
+    const d = ui.data;
+    const t = ui.cursor;
     const label = document.getElementById('scrub-label');
     const scrub = document.getElementById('scrub');
-    const phase = t == null ? null : (d.phases || []).find((p) => (p.start == null || t >= p.start) && (p.end == null || t < p.end));
+    const phase =
+      t == null
+        ? null
+        : (d.phases || []).find(
+            (p) => (p.start == null || t >= p.start) && (p.end == null || t < p.end),
+          );
     if (label) label.textContent = t == null ? 'no cursor' : 'T+' + t.toFixed(2) + ' s';
     if (scrub && t != null) scrub.value = String(t);
     const clear = document.getElementById('clear-cursor');
@@ -616,25 +1126,53 @@
       if (track.chart) track.chart.redraw();
     }
     const heading = document.getElementById('readout-label');
-    if (heading) heading.textContent = t == null ? 'Match maxima · hottest first' : 'At T+' + t.toFixed(1) + ' s' + (phase ? ' · ' + phase.name.toUpperCase() : '');
+    if (heading)
+      heading.textContent =
+        t == null
+          ? 'Match maxima · hottest first'
+          : 'At T+' + t.toFixed(1) + ' s' + (phase ? ' · ' + phase.name.toUpperCase() : '');
     const body = document.getElementById('readout');
     if (body) {
       const { rows, limits } = readoutRows();
-      FP.fill(body, rows.map((r) => {
-        const level = r.tempLogged ? FP.tempLevel(r.temp, limits) : null;
-        return h('tr', { class: level === 'fault' ? 'is-low' : null, dataset: { slot: r.slot } },
-          h('td', { class: 'v wrap-anywhere' }, slotLabel(d, r.slot)),
-          cell(r.amps, 1, r.ampsLogged),
-          cell(r.temp, 0, r.tempLogged),
-          h('td', null, level ? FP.status(level) : null),
-          ui.overlay ? (r.other ? [cell(r.other.amps, 1, true), cell(r.other.temp, 0, r.other.tempLogged)] : [h('td', { class: 'num absent' }, 'absent'), h('td', { class: 'num absent' }, 'absent')]) : null);
-      }));
+      FP.fill(
+        body,
+        rows.map((r) => {
+          const level = r.tempLogged ? FP.tempLevel(r.temp, limits) : null;
+          return h(
+            'tr',
+            { class: level === 'fault' ? 'is-low' : null, dataset: { slot: r.slot } },
+            h('td', { class: 'v wrap-anywhere' }, slotLabel(d, r.slot)),
+            cell(r.amps, 1, r.ampsLogged),
+            cell(r.temp, 0, r.tempLogged),
+            h('td', null, level ? FP.status(level) : null),
+            ui.overlay
+              ? r.other
+                ? [cell(r.other.amps, 1, true), cell(r.other.temp, 0, r.other.tempLogged)]
+                : [
+                    h('td', { class: 'num absent' }, 'absent'),
+                    h('td', { class: 'num absent' }, 'absent'),
+                  ]
+              : null,
+          );
+        }),
+      );
     }
     writeState();
   }
   function writeState() {
-    const d = ui.data; const t = ui.cursor;
-    FP.setState({ view: 'replay', m: d.match_key, o: ui.overlay ? ui.overlay.match_key : null, t: t == null ? null : t.toFixed(2), ev: ui.marker, tr: ui.specs.join(','), track: null, ...ui.filters, z: isFull() ? null : ui.view.from.toFixed(2) + ',' + ui.view.to.toFixed(2) });
+    const d = ui.data;
+    const t = ui.cursor;
+    FP.setState({
+      view: 'replay',
+      m: d.match_key,
+      o: ui.overlay ? ui.overlay.match_key : null,
+      t: t == null ? null : t.toFixed(2),
+      ev: ui.marker,
+      tr: ui.specs.join(','),
+      track: null,
+      ...ui.filters,
+      z: isFull() ? null : ui.view.from.toFixed(2) + ',' + ui.view.to.toFixed(2),
+    });
   }
 
   /* ---------- the shared x window ---------- */
@@ -643,15 +1181,22 @@
     const full = ui.full;
     const span = Math.min(full.to - full.from, Math.max(MIN_SPAN_S, to - from));
     let lo = Math.max(full.from, Math.min(from, full.to - span));
-    if (to - from < MIN_SPAN_S) lo = Math.max(full.from, Math.min((from + to) / 2 - span / 2, full.to - span));
+    if (to - from < MIN_SPAN_S)
+      lo = Math.max(full.from, Math.min((from + to) / 2 - span / 2, full.to - span));
     return { from: lo, to: lo + span };
   }
   /* `z=<from>,<to>` from the address; anything invalid or wholly outside the match is the full window. */
   function parseView(z) {
     const parts = String(z || '').split(',');
     const [from, to] = parts.map(Number);
-    const valid = parts.length === 2 && parts.every((x) => x.trim() !== '') && Number.isFinite(from) && Number.isFinite(to)
-      && from < to && to > ui.full.from && from < ui.full.to;
+    const valid =
+      parts.length === 2 &&
+      parts.every((x) => x.trim() !== '') &&
+      Number.isFinite(from) &&
+      Number.isFinite(to) &&
+      from < to &&
+      to > ui.full.from &&
+      from < ui.full.to;
     return valid ? clampView(from, to) : { ...ui.full };
   }
   const isFull = () => ui.view.from <= ui.full.from + 1e-6 && ui.view.to >= ui.full.to - 1e-6;
@@ -670,7 +1215,12 @@
     scheduleDetail();
   }
   function zoomBy(factor, at) {
-    const anchor = at != null ? at : (ui.cursor != null && ui.cursor >= ui.view.from && ui.cursor <= ui.view.to ? ui.cursor : (ui.view.from + ui.view.to) / 2);
+    const anchor =
+      at != null
+        ? at
+        : ui.cursor != null && ui.cursor >= ui.view.from && ui.cursor <= ui.view.to
+          ? ui.cursor
+          : (ui.view.from + ui.view.to) / 2;
     const from = anchor - (anchor - ui.view.from) / factor;
     const to = anchor + (ui.view.to - anchor) / factor;
     setView(from, to);
@@ -692,8 +1242,17 @@
     for (const track of ui.tracks) {
       if (!track.chart) continue;
       const nums = [];
-      track.xs.forEach((x, i) => { const v = track.td.values[i]; if (v != null && x >= ui.view.from && x <= ui.view.to) nums.push(v); });
-      track.range.textContent = nums.length ? FP.fmt(Math.min(...nums), track.td.digits) + ' – ' + FP.fmt(Math.max(...nums), track.td.digits) + ' ' + track.td.unit : 'no samples';
+      track.xs.forEach((x, i) => {
+        const v = track.td.values[i];
+        if (v != null && x >= ui.view.from && x <= ui.view.to) nums.push(v);
+      });
+      track.range.textContent = nums.length
+        ? FP.fmt(Math.min(...nums), track.td.digits) +
+          ' – ' +
+          FP.fmt(Math.max(...nums), track.td.digits) +
+          ' ' +
+          track.td.unit
+        : 'no samples';
     }
   }
   const zoomedIn = () => ui.view.to - ui.view.from < DETAIL_BELOW * (ui.full.to - ui.full.from);
@@ -703,10 +1262,16 @@
     const note = document.getElementById('resolution');
     if (!note) return;
     if (ui.detail) {
-      const overlay = ui.overlay ? ' · overlay ' + ui.overlay.label + ' at ' + ms(ui.overlay.window.width) : '';
+      const overlay = ui.overlay
+        ? ' · overlay ' + ui.overlay.label + ' at ' + ms(ui.overlay.window.width)
+        : '';
       note.textContent = ms(ui.detail.merged.window.width) + ' buckets from the lake' + overlay;
     } else if (zoomedIn()) {
-      note.textContent = 'bucket resolution (' + ms(ui.data.window.width) + ')' + (ui.detailError ? ' · finer data unavailable: ' + ui.detailError : '');
+      note.textContent =
+        'bucket resolution (' +
+        ms(ui.data.window.width) +
+        ')' +
+        (ui.detailError ? ' · finer data unavailable: ' + ui.detailError : '');
     } else note.textContent = '';
   }
 
@@ -714,9 +1279,16 @@
   /* The detail still covers the window at no worse resolution than a fresh fetch would. */
   function detailFits() {
     const span = ui.view.to - ui.view.from;
-    const fresh = Math.max(WIDTH_STEP_S, Math.ceil(span / 1000 / WIDTH_STEP_S - 1e-9) * WIDTH_STEP_S);
-    return zoomedIn() && ui.detail.from <= ui.view.from + 1e-6 && ui.detail.to >= ui.view.to - 1e-6
-      && ui.detail.merged.window.width <= fresh + 1e-9;
+    const fresh = Math.max(
+      WIDTH_STEP_S,
+      Math.ceil(span / 1000 / WIDTH_STEP_S - 1e-9) * WIDTH_STEP_S,
+    );
+    return (
+      zoomedIn() &&
+      ui.detail.from <= ui.view.from + 1e-6 &&
+      ui.detail.to >= ui.view.to - 1e-6 &&
+      ui.detail.merged.window.width <= fresh + 1e-9
+    );
   }
   function redrawTracks() {
     const tracks = document.getElementById('tracks');
@@ -740,11 +1312,15 @@
   }
   async function fetchDetail() {
     const mine = ui;
-    const seq = (ui.detailSeq += 1);
+    ui.detailSeq += 1;
+    const seq = ui.detailSeq;
     const view = { ...ui.view };
     let body;
     try {
-      body = await FP.api('envelope/' + encodeURIComponent(ui.data.match_key), { from: view.from.toFixed(3), to: view.to.toFixed(3) });
+      body = await FP.api('envelope/' + encodeURIComponent(ui.data.match_key), {
+        from: view.from.toFixed(3),
+        to: view.to.toFixed(3),
+      });
     } catch (err) {
       body = { available: false, reason: String(err.message) };
     }
@@ -757,8 +1333,16 @@
     ui.detailError = null;
     const w = body.window;
     ui.detail = {
-      from: w.t0, to: w.t0 + w.n * w.width,
-      merged: { ...ui.data, window: w, series: body.series, battery: body.battery, temps: body.temps, not_logged: body.not_logged },
+      from: w.t0,
+      to: w.t0 + w.n * w.width,
+      merged: {
+        ...ui.data,
+        window: w,
+        series: body.series,
+        battery: body.battery,
+        temps: body.temps,
+        not_logged: body.not_logged,
+      },
     };
     redrawTracks();
     placeMarkers();
@@ -773,7 +1357,9 @@
   function selectMarker(i) {
     ui.marker = i;
     panTo(ui.data.markers[i].t);
-    document.querySelectorAll('[data-marker]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.marker === i)));
+    document.querySelectorAll('[data-marker]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(+b.dataset.marker === i));
+    });
     renderEvent();
     setCursor(ui.data.markers[i].t);
   }
@@ -790,9 +1376,15 @@
   }
   function copyLink() {
     const text = window.location.href;
-    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).catch(() => {});
+    if (navigator.clipboard && window.isSecureContext)
+      navigator.clipboard.writeText(text).catch(() => {});
     const button = document.activeElement;
-    if (button && button.tagName === 'BUTTON') { button.textContent = 'COPIED'; setTimeout(() => { button.textContent = 'COPY LINK'; }, 1200); }
+    if (button && button.tagName === 'BUTTON') {
+      button.textContent = 'COPIED';
+      setTimeout(() => {
+        button.textContent = 'COPY LINK';
+      }, 1200);
+    }
   }
 
   FP.view({
@@ -809,10 +1401,14 @@
       ui = null;
     },
   });
-  FP.replay = { // for tests
-    trackData, valueAt, defaultTracks, filterEntries,
+  FP.replay = {
+    // for tests
+    trackData,
+    valueAt,
+    defaultTracks,
+    filterEntries,
     charts: () => (ui ? ui.tracks.filter((t) => t.chart).map((t) => t.chart.u) : []),
-    view: () => (ui && ui.view ? { ...ui.view } : null),
-    detail: () => (ui && ui.detail ? { ...ui.detail.merged.window } : null),
+    view: () => (ui?.view ? { ...ui.view } : null),
+    detail: () => (ui?.detail ? { ...ui.detail.merged.window } : null),
   };
 })();

@@ -46,6 +46,8 @@ robotpy-wpiutil = "^2026.2.2"
 types-paramiko = "^5.0.0.20260724"
 pytest-timeout = "^2.4.0"
 pytest-playwright = "^0.9.0"
+pre-commit = "^4.7.0"
+pytest-cov = "^7.1.0"
 
 [build-system]
 requires = ["poetry-core>=2.2.0,<3.0.0"]
@@ -69,15 +71,72 @@ line-length = 100
 target-version = "py311"
 # Lint the package, its tests, and the tools.
 include = ["src/**/*.py", "tests/**/*.py", "tools/**/*.py"]
+# Deliberately bad files for the gate self-tests (tests/test_quality.py).
+extend-exclude = ["tests/fixtures/quality"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "PTH"]
+# The coding standards live in docs/guide/developer-guide.md (source: ignition-labs). Every
+# rule here is blocking. tests/test_quality.py proves each enforced rule still fires.
+select = [
+    "E", "F", "W", "I", "B", "UP", "N", "SIM", "PTH",
+    "S",     # security: subprocess, SQL, URLs, binds
+    "BLE",   # no catch-all except outside a recorded boundary
+    "T20",   # no print in library code
+    "DTZ",   # timezone-aware date-times
+    "C90",   # complexity ceiling
+    "ARG",   # unused arguments
+    "PERF",  # needless loops
+    "PT",    # pytest style
+    "PGH",   # no blanket noqa
+    "RUF",   # includes RUF100: no unused noqa
+    "TID",   # banned APIs below
+]
+# Asserts state invariants for the type checker; Flashpoint never runs under -O.
+ignore = ["S101"]
+# En dash for ranges in UI text ("qm3–qm7").
+allowed-confusables = ["–"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"sys.exit".msg = "Library code doesn't exit the process (#57); raise, and let the CLI exit."
+"os._exit".msg = "Library code doesn't exit the process (#57)."
+"os.system".msg = "Never a shell string (#54); use subprocess with an argument list."
+"os.popen".msg = "Never a shell string (#54); use subprocess with an argument list."
+
+[tool.ruff.lint.per-file-ignores]
+# The command-line entry point owns process exit and terminal output.
+"src/flashpoint/cli.py" = ["T20", "TID251"]
+"src/flashpoint/__main__.py" = ["T20", "TID251"]
+"tools/**" = ["T20", "TID251"]
+# Tests assert, use fake secrets, call local servers and subprocesses on purpose, and request
+# fixtures for their side effects; their fake CLIs exit. PT018 would split 526 compound asserts
+# in frozen tests.
+"tests/**" = [
+    "S101", "S104", "S105", "S106", "S310", "S311", "S603", "S607", "S608",
+    "T20", "TID251", "ARG", "PT018", "RUF001",
+]
 
 [tool.mypy]
 strict = true
 python_version = "3.11"
+exclude = ["^tests/fixtures/quality/"]
+enable_error_code = ["ignore-without-code"]
 
 [[tool.mypy.overrides]]
 # Third-party packages without type stubs.
 module = ["pyarrow", "pyarrow.*", "numba", "numba.*", "wpiutil", "wpiutil.*", "sklearn", "sklearn.*"]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+# Measured on the unit run with NUMBA_DISABLE_JIT=1 (the reader kernels are invisible when
+# compiled). The CI py3.12 leg sets it; set it yourself to reproduce CI's numbers.
+source = ["flashpoint"]
+branch = true
+
+[tool.coverage.report]
+# Floors go up, never down; lowering one needs a mentor's approval. The 85% floors on readers/,
+# lake/, and semantics/physics.py are separate steps in .github/workflows/ci.yml.
+fail_under = 93
+skip_covered = true

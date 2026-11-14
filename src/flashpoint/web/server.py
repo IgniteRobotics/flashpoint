@@ -158,7 +158,7 @@ class FlashpointServer(ThreadingHTTPServer):
     def url(self) -> str:
         host, port = self.server_address[:2]
         host = host.decode() if isinstance(host, bytes) else str(host)
-        shown = "127.0.0.1" if host in ("0.0.0.0", "") else host  # noqa: S104
+        shown = "127.0.0.1" if host in ("0.0.0.0", "") else host  # noqa: S104 - shows a friendlier host, binds nothing
         return f"http://{shown}:{port}/"
 
 
@@ -167,7 +167,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "flashpoint"
     sys_version = ""
 
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - stdlib signature
+    def log_message(self, format: str, *args: Any) -> None:
         pass  # quiet: the pit laptop's terminal shows the summary, not every request
 
     def _headers(self, status: int, content_type: str, length: int, extra: dict[str, str]) -> None:
@@ -205,10 +205,10 @@ class Handler(BaseHTTPRequestHandler):
             with path.open("rb") as f:
                 shutil.copyfileobj(f, self.wfile)
 
-    def do_HEAD(self) -> None:  # noqa: N802 - stdlib naming
+    def do_HEAD(self) -> None:
         self.do_GET()
 
-    def do_GET(self) -> None:  # noqa: N802 - stdlib naming
+    def do_GET(self) -> None:  # noqa: C901 - grandfathered (code-quality-gates)
         url = urlsplit(self.path)
         path = unquote(url.path)
         try:
@@ -331,9 +331,9 @@ class Handler(BaseHTTPRequestHandler):
             HTTPStatus.METHOD_NOT_ALLOWED, b"read-only\n", "text/plain", {"Allow": "GET, HEAD"}
         )
 
-    do_DELETE = do_PATCH = _method_not_allowed  # noqa: N815
+    do_DELETE = do_PATCH = _method_not_allowed  # noqa: N815 - stdlib handler naming
 
-    def do_PUT(self) -> None:  # noqa: N802 - stdlib naming
+    def do_PUT(self) -> None:
         path = urlsplit(self.path).path
         if not path.startswith(CONFIG_PREFIX):
             self._method_not_allowed()
@@ -347,7 +347,7 @@ class Handler(BaseHTTPRequestHandler):
                 status, payload = config_api.save_section(self.server.config_dir, section, body)
             self._send_json(status, payload)
 
-    def do_POST(self) -> None:  # noqa: N802 - stdlib naming
+    def do_POST(self) -> None:
         path = urlsplit(self.path).path
         triage = TRIAGE_PATH.match(path)
         fix = FIX_PATH.match(path)
@@ -547,10 +547,10 @@ def run(server: FlashpointServer, banner: str | None = None) -> int:
     """Serve until interrupted; Ctrl-C exits cleanly with 0, even right after the banner."""
     try:
         if banner is not None:
-            print(banner, flush=True)
+            print(banner, flush=True)  # noqa: T201 - the serve command's banner
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nstopped", file=sys.stderr)
+        print("\nstopped", file=sys.stderr)  # noqa: T201 - the serve command's exit message
     finally:
         server.server_close()
         server.queries.close()

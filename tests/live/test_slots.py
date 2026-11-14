@@ -32,13 +32,13 @@ def test_mapped_device() -> None:
     assert (info.id, info.role) == ("drive-fl", "front-left drive")
     # Same model and CAN id on the other bus is a different slot (or none).
     assert slots.slot_for("rio", "TalonFX", 11) is None
-    assert slots.slot_for("rio", "TalonFX", 10).id == "intake-roller-follower"  # type: ignore[union-attr]
-    assert slots.slot_for("DriveTrain", "Pigeon2", 10).id == "gyro"  # type: ignore[union-attr]
+    assert slots.slot_for("rio", "TalonFX", 10).id == "intake-roller-follower"  # type: ignore[union-attr]  # slot is in the fixture
+    assert slots.slot_for("DriveTrain", "Pigeon2", 10).id == "gyro"  # type: ignore[union-attr]  # slot is in the fixture
 
 
 def test_unknown_bus_name_is_tried_as_a_hoot_bus() -> None:
     slots = RobotSlots(robot_2026())
-    assert slots.slot_for("canivore", "TalonFX", 12).id == "steer-fl"  # type: ignore[union-attr]
+    assert slots.slot_for("canivore", "TalonFX", 12).id == "steer-fl"  # type: ignore[union-attr]  # slot is in the fixture
     assert slots.slot_for("Elevator", "TalonFX", 99) is None
 
 
@@ -99,7 +99,7 @@ def test_latest_season_wins() -> None:
 
 
 def test_load_resolver_from_a_config_root(tmp_path: Path) -> None:
-    assert load_resolver(REPO_CONFIG)("Robot-2026").robot == "2026-comp"  # type: ignore[union-attr]
+    assert load_resolver(REPO_CONFIG)("Robot-2026").robot == "2026-comp"  # type: ignore[union-attr]  # robot is in the fixture
     assert load_resolver(tmp_path)("Robot-2026") is None  # no robots folder
     (tmp_path / "robots").mkdir()
     (tmp_path / "robots" / "broken.toml").write_text("robot = [")

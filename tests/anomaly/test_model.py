@@ -29,7 +29,7 @@ def _season(root: Path) -> LakePaths:
     odd = 3 * PER_EVENT + 10  # event 4: one unit-match far off on several features at once
     for metric, shift in (("temp_max_c", 9.0), ("stator_current_p95", -12.0),
                           ("temp_rise_c_per_min", 2.0)):  # fmt: skip
-        gold.series[("drive-fl", metric)][odd] += shift  # type: ignore[operator]
+        gold.series[("drive-fl", metric)][odd] += shift  # type: ignore[operator]  # gold series values are typed loosely
     return gold.write()
 
 

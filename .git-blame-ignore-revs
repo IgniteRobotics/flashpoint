@@ -1,0 +1,5 @@
+# Format-only commits for `git blame` to skip:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Biome adoption: app JS and CSS reformatted (code-quality-gates, #50)
+aea39f0cb130820a36fda36c30e40b656e9d4b63

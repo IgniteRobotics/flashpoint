@@ -12,9 +12,7 @@ def test_acquire_entry_path_does_not_import_heavy_libraries() -> None:
         "import flashpoint.cli, flashpoint.acquire.watch\n"
         f"print([m for m in {HEAVY!r} if m in sys.modules])\n"
     )
-    done = subprocess.run(  # noqa: S603
-        [sys.executable, "-c", code], capture_output=True, text=True, check=True
-    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert done.stdout.strip() == "[]"
 
 
@@ -29,7 +27,5 @@ def test_report_and_serve_imports_stay_deferred() -> None:
         " 'flashpoint.anomaly.backtest', 'numpy')"
         " if m in sys.modules])\n"
     )
-    done = subprocess.run(  # noqa: S603
-        [sys.executable, "-c", code], capture_output=True, text=True, check=True
-    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert done.stdout.strip() == "[]"

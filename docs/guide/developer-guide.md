@@ -61,10 +61,7 @@ Ubuntu sets up a few traps for a fresh install:
 | `examples/robot-java/` | Suggested robot-code samples (not built or compiled in CI) |
 | `tests/` | The test suite, mirroring `src/flashpoint/` |
 
-Conventions:
-- Type hints everywhere (mypy `--strict`).
-- `snake_case` functions, `PascalCase` classes, `SCREAMING_SNAKE_CASE` constants, `kebab-case` file and folder names outside the Python package.
-- Imports go external, then internal, then local.
+The code conventions are the [coding standards](#coding-standards) below.
 
 The domain rules (long format at rest, as-of joins with explicit tolerance, never trust filenames over FMS data, offline first, never delete robot logs) are in [`openspec/config.yaml`](../../openspec/config.yaml).
 
@@ -74,15 +71,76 @@ The domain rules (long format at rest, as-of joins with explicit tolerance, neve
 - Colours come from the role-named tokens in `web/static/tokens.css`: `--accent`, `--accent-hi`, `--accent-mid`, `--accent-dim`, `--accent-muted`, `--warn`, `--on-accent`, `--prose`, the `-rgb` channel forms (`--accent-rgb`, `--warn-rgb`, `--bg-rgb`), and the colours built from them (`--glow-NN`, `--grid-line`). `theme.css` loads after `tokens.css` and overrides them with the team's palette; `flashpoint.theme` derives that map from `theme.toml`. Never write a colour by hand. `tests/web/test_static_lint.py` fails on an `rgb()` or `rgba()` colour other than black outside `tokens.css`, on a hex colour in a `.css` file, and on the old amber names (`--amber*`, `--on-amber`, `--hot`). A hex colour in a `.js` file is not caught, so check those yourself.
 - Charts can't read CSS variables. Get colours from `FP.tokens()` (`accent`, `accentHi`, `accentMid`, `accentDim`, `accentMuted`, `line`, `lineSoft`, `lineStrong`, `warn`, `accentRgb`, `surface1`, `font`). They're read once and cached until the page reloads.
 
-## Lint and type checks
+## Checks and coding standards
 
 ```sh
-poetry run ruff check .
-poetry run ruff format --check .      # drop --check to reformat
+poetry run pre-commit run --all-files   # every formatter and linter, at CI's versions
 poetry run mypy src tests tools
 ```
 
-CI runs all three; a failure blocks the merge.
+The first command runs ruff (format and lint), Biome (the app's JS and CSS), and a few file-hygiene hooks, using the versions pinned in `.pre-commit-config.yaml`. CI runs the same file, so if it passes for you it passes in CI. It fixes what it can and leaves the rest for you. Biome needs Node.js on your `PATH`; if pre-commit can't set it up, `npx @biomejs/biome@2.6.7 check` runs the same check. `poetry run pre-commit install` makes it run on every commit, which is optional.
+
+The JS and CSS were reformatted in one commit when Biome was adopted. Run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips it (GitHub's blame view already does).
+
+Coverage is measured on the unit run, with Numba's compiler off so coverage can see the reader kernels:
+
+```sh
+NUMBA_DISABLE_JIT=1 poetry run pytest --cov
+```
+
+It fails below 93% overall. CI also fails if `readers/`, `lake/`, or `semantics/physics.py` drops below 85%. Floors go up, never down; lowering one needs a mentor's approval in the pull request.
+
+### Coding standards
+
+These rules are also the [Flashpoint section of the team coding standards](https://igniterobotics.github.io/ignition-labs/programming/coding-standards/#flashpoint-python-and-javascript). That page is the source: when the two differ, it's right and this section gets fixed. **Check** rules fail the required CI check. **Review** rules are a reviewer's job.
+
+**Python: formatting, naming, and types**
+
+- Formatting and import order come from `ruff format` and `ruff check`. *(Check)*
+- `snake_case` functions and variables, `PascalCase` classes, `SCREAMING_SNAKE_CASE` constants, `kebab-case` file and folder names outside the Python package. *(Check, except filenames: Review)*
+- Type hints on everything; `mypy --strict` passes. *(Check)*
+
+Why: one style means a diff shows only what changed, and strict types catch a class of bug before the code runs.
+
+**Python: suppressions name the rule and the reason**
+
+- `# noqa: S608 - table name from the ledger schema`, and `# type: ignore[arg-type]  # fixture dict is untyped`. A bare `# noqa`, a type ignore with no code or no reason, or a suppression for a rule that isn't firing fails the check. *(Check)*
+
+Why: a suppression claims someone looked at this line. Without a rule it hides every future problem on the line; without a reason nobody can tell if they were right.
+
+**Python: processes, shells, and SQL**
+
+- Only the command-line entry point (`cli.py`, `__main__.py`) and `tools/` exit the process or print. *(Check)*
+- Subprocesses take an argument list, never a shell string. `shell=True`, `os.system`, and `os.popen` are never allowed, even with a suppression. Each subprocess call says where its arguments come from. *(Check)*
+- SQL is built only from internal identifiers (lake paths, fixed column and view names); values go in as bound parameters. A line that builds SQL from strings says which identifiers it fills in. *(Check)*
+
+Why: one bad log calling `sys.exit` mid-batch stops every log after it (#57). A shell string with a filename in it breaks on a space and can run what the name smuggled in (#54). SQL built from data is the same bug.
+
+**Python: errors, time, and complexity**
+
+- No catch-all `except` except at a boundary that records the error and carries on (a per-file ingest loop, a request handler, a service loop); the suppression names the boundary. A handler that logs the exception passes on its own. *(Check)*
+- Date-times are timezone-aware. *(Check)*
+- Functions stay at cyclomatic complexity 12 or under. The nine that were over when this was adopted carry `# noqa: C901 - grandfathered (code-quality-gates)` and must not get worse. *(Check for new code; Review for grandfathered functions)*
+
+Why: a catch-all in the wrong place turns a visible crash into silently wrong numbers. Robot logs come from different clocks, and a naive date-time is off by hours without saying so.
+
+**Python: tests**
+
+- Every change comes with tests. Unit tests use synthetic fixtures; tests that need real logs are marked `corpus`. *(Review)*
+- Coverage stays at or above the floors above. *(Check)*
+- Once implementation of a change starts, nobody edits its tests to make them pass. *(Review)*
+- Tests are exempt from a few rules on purpose (asserts, local servers and subprocesses, fixture arguments, compound asserts); see `[tool.ruff.lint.per-file-ignores]` in `pyproject.toml`.
+
+**Browser app**
+
+- Classic scripts only: no `import`/`export`, no build step. Each file runs in strict mode and touches only the `FP` namespace, `FP_MODE`, and `uPlot`. *(Check)*
+- Views build the page only through `h()`. No `innerHTML`, inline handlers, `eval`, or `new Function` (#56). *(Check)*
+- No remote hosts, and colours only from the role-named tokens (see [the browser app](#the-browser-app)). *(Check)*
+- JS and CSS pass Biome's recommended rules with warnings as errors, and match its formatter. A `biome-ignore` comment carries a reason. Vendored files are never edited. *(Check)*
+
+Why: the Replay export opens by double-click from a pit laptop with no network, and browsers refuse ES modules from `file://`. Log data includes names from robot code, so anything that turns strings into HTML is an injection waiting for the wrong match name.
+
+`tests/test_quality.py` keeps the gates honest: a deliberately bad file for each check rule (in `tests/fixtures/quality/`) must fail it, and the suppression and workflow rules are checked there too.
 
 ## Tests
 
@@ -119,15 +177,16 @@ It downloads with `gh release download` if the GitHub CLI is installed (run `gh 
 | Job | Runs | Blocks merge |
 |---|---|---|
 | `docs` | Docs-only changes: `tests/test_docs.py` (links, CLI reference) | Through `ci-ok` |
-| `lint-test (py3.11)`, `lint-test (py3.12)` | ruff, ruff format, mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra | Through `ci-ok` |
-| `windows (py3.12)` | ruff, mypy, unit tests on Windows | No, but fix it |
-| `clean install (ubuntu, macos, windows)` | The built wheel in an empty venv: `--version`, and `doctor` with no configuration | No, but fix it |
+| `lint-test (py3.11)`, `lint-test (py3.12)` | pre-commit (ruff, Biome, hygiene hooks), mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra and runs the unit tests with coverage and the floors | Through `ci-ok` |
+| `windows (py3.12)` | pre-commit, mypy, unit tests on Windows | No, but fix it |
+| `clean install (ubuntu, macos, windows)` | The built wheel in an empty venv: `--version`, and `doctor` with no configuration | Through `ci-ok` |
 | `corpus` | The corpus tests, including the rclone restore drill | Through `ci-ok` |
-| `browser (Chromium)` | The web app in Chromium, served and from `file://` | No, but fix it |
-| `perf (budgets, non-blocking)` | Time and memory budgets, on pushes to `main` only. Allowed to fail; read it when it does | No |
-| `ci-ok` | Passes when `changes` passed, `docs` or `lint-test` ran, and nothing it depends on failed. The only required check | Yes |
+| `browser (Chromium)` | The web app in Chromium, served and from `file://` | Through `ci-ok` |
+| `perf (budgets, non-blocking)` | Time and memory budgets, on pushes to `main` and `development`. Allowed to fail; read it when it does | No |
+| `codeql` (separate workflow) | Code scanning for Python and JavaScript, on PRs, pushes, and weekly. A high or critical alert blocks the merge through the ruleset | Yes, through the ruleset |
+| `ci-ok` | Passes when `changes` passed, `docs` or `lint-test` ran, and none of `docs`, `lint-test`, `corpus`, `browser`, or `clean install` failed. The required check | Yes |
 
-The corpus jobs fetch through `gh` using the workflow's `GH_TOKEN`, and cache the corpus and owlet between runs.
+The corpus jobs fetch through `gh` using the workflow's `GH_TOKEN`, and cache the corpus and owlet between runs. Every workflow runs with a read-only token unless a job needs more, and actions are pinned to a commit; Dependabot opens one grouped update PR a month for Python packages and one for actions, against `development`.
 
 ## How changes are made
 

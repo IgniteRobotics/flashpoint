@@ -31,8 +31,8 @@ def _write(tmp_path: Path, text: str, name: str = "r.toml") -> Path:
 def test_repo_2026_config_is_valid() -> None:
     robot = load_robot(REPO_CONFIG / "2026-comp.toml")
     assert len(robot.slots) == 23
-    assert robot.slot_for("rio", "TalonFX", 10).id == "intake-roller-follower"  # type: ignore[union-attr]
-    assert robot.slot_for(CANIVORE, "TalonFX", 11).id == "drive-fl"  # type: ignore[union-attr]
+    assert robot.slot_for("rio", "TalonFX", 10).id == "intake-roller-follower"  # type: ignore[union-attr]  # slot is in the fixture
+    assert robot.slot_for(CANIVORE, "TalonFX", 11).id == "drive-fl"  # type: ignore[union-attr]  # slot is in the fixture
     assert robot.slot_for("rio", "TalonFX", 11) is None
     subsystems = {s.subsystem for s in robot.signals}
     assert {"intake", "shooter", "indexer", "hunter", "drivetrain"} <= subsystems
@@ -49,12 +49,12 @@ def test_battery_proxy_is_optional(tmp_path: Path) -> None:
 
 def test_unknown_battery_proxy_rejected(tmp_path: Path) -> None:
     text = BASE.replace('project = "Robot-2026"', 'project = "Robot-2026"\nbattery_proxy = "pdh"')
-    with pytest.raises(ConfigError, match="(?s)r.toml.*'pdh'"):
+    with pytest.raises(ConfigError, match=r"(?s)r.toml.*'pdh'"):
         load_robot(_write(tmp_path, text))
 
 
 def test_unknown_key_rejected(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match="(?s)r.toml.*colour"):
+    with pytest.raises(ConfigError, match=r"(?s)r.toml.*colour"):
         load_robot(_write(tmp_path, BASE + 'colour = "red"\n'))
 
 
@@ -90,8 +90,8 @@ def test_select_robot_by_project_and_season(tmp_path: Path) -> None:
     )
     robots = load_robots(tmp_path)
 
-    assert select_robot(robots, "Robot-2026", "2026").robot == "r"  # type: ignore[union-attr]
-    assert select_robot(robots, "Robot-2026", "2025").robot == "old"  # type: ignore[union-attr]
+    assert select_robot(robots, "Robot-2026", "2026").robot == "r"  # type: ignore[union-attr]  # robot is in the fixture
+    assert select_robot(robots, "Robot-2026", "2025").robot == "old"  # type: ignore[union-attr]  # robot is in the fixture
     assert select_robot(robots, "Other", "2026") is None
     assert select_robot(robots, None, "2026").robot == "r"  # type: ignore[union-attr]  # season's only robot
     assert select_robot(robots, None, "2024") is None
@@ -149,7 +149,7 @@ def test_repo_2026_sibling_groups() -> None:
     ]
     assert groups["intake-roller"] == ["intake-roller", "intake-roller-follower"]
     assert groups["intake-extension"] == ["intake-extension", "intake-extension-follower"]
-    assert robot.sibling_group("drive-br").name == "drive"  # type: ignore[union-attr]
+    assert robot.sibling_group("drive-br").name == "drive"  # type: ignore[union-attr]  # group is in the fixture
     assert robot.sibling_group("hood") is None
 
 

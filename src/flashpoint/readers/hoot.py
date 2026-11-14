@@ -163,7 +163,7 @@ class OwletRegistry:
         # Unique per process and thread, so concurrent downloaders never share a temp file.
         tmp = target.with_name(f"{target.name}.{os.getpid()}.{threading.get_ident()}.part")
         try:
-            with urllib.request.urlopen(url, timeout=60) as response, tmp.open("wb") as out:
+            with urllib.request.urlopen(url, timeout=60) as response, tmp.open("wb") as out:  # noqa: S310 - https URL from the pinned owlet manifest
                 shutil.copyfileobj(response, out, 1 << 20)
         except OSError as exc:
             tmp.unlink(missing_ok=True)
@@ -193,7 +193,7 @@ def _run(args: list[str]) -> _OwletOutput:
     detail = ""
     for attempt in range(1, OWLET_ATTEMPTS + 1):
         try:
-            done = subprocess.run(args, capture_output=True, text=True, timeout=OWLET_TIMEOUT_S)
+            done = subprocess.run(args, capture_output=True, text=True, timeout=OWLET_TIMEOUT_S)  # noqa: S603 - owlet binary from the checksummed registry
         except subprocess.TimeoutExpired as exc:
             raise HootError("owlet-timeout", " ".join(args[:2])) from exc
         incomplete = INCOMPLETE_READ_MARKER in done.stderr or INCOMPLETE_READ_MARKER in done.stdout

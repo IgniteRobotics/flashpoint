@@ -21,7 +21,7 @@ def _config(tmp_path: Path, anomaly_toml: str = "") -> Path:
 
 
 def _run(lake: LakePaths, config_dir: Path, **kwargs: object) -> detect.DetectResult:
-    return detect.detect(lake, config_dir, **kwargs)  # type: ignore[arg-type]
+    return detect.detect(lake, config_dir, **kwargs)  # type: ignore[arg-type]  # test kwargs forwarded as-is
 
 
 def _rows(lake: LakePaths) -> list[dict[str, object]]:

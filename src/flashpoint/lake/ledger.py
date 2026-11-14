@@ -268,7 +268,7 @@ class Ledger:
         """Atomically replace every metadata row for a log (table name -> rows)."""
         with self._db:
             for table in METADATA_TABLES:
-                self._db.execute(f"DELETE FROM {table} WHERE log_id = ?", (log_id,))  # noqa: S608
+                self._db.execute(f"DELETE FROM {table} WHERE log_id = ?", (log_id,))  # noqa: S608 - table from METADATA_TABLES
             for table, table_rows in rows.items():
                 if table not in METADATA_TABLES:
                     raise ValueError(f"unknown metadata table {table!r}")
@@ -276,7 +276,7 @@ class Ledger:
                     cols = ", ".join(row)
                     marks = ", ".join("?" for _ in row)
                     self._db.execute(
-                        f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608
+                        f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608 - table and columns from the ledger schema
                         tuple(row.values()),
                     )
 
@@ -289,11 +289,11 @@ class Ledger:
         if table not in DERIVED_TABLES:
             raise ValueError(f"not a derived table: {table!r}")
         with self._db:
-            self._db.execute(f"DELETE FROM {table}")  # noqa: S608
+            self._db.execute(f"DELETE FROM {table}")  # noqa: S608 - table checked against the derived tables above
             for row in rows:
                 cols, marks = ", ".join(row), ", ".join("?" for _ in row)
                 self._db.execute(
-                    f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608
+                    f"INSERT INTO {table} ({cols}) VALUES ({marks})",  # noqa: S608 - table and columns from the ledger schema
                     tuple(row.values()),
                 )
 
@@ -302,7 +302,7 @@ class Ledger:
         values = [row[c] for c in TRIAGE_COLUMNS]
         with self._db:
             cursor = self._db.execute(
-                f"INSERT INTO anomaly_triage (at, {', '.join(TRIAGE_COLUMNS)})"  # noqa: S608
+                f"INSERT INTO anomaly_triage (at, {', '.join(TRIAGE_COLUMNS)})"  # noqa: S608 - columns from TRIAGE_COLUMNS
                 f" VALUES (?, {', '.join('?' for _ in TRIAGE_COLUMNS)})",
                 (_now(), *values),
             )
@@ -343,7 +343,7 @@ class Ledger:
         for table in tables:
             info = self._db.execute(f"PRAGMA table_info({table})").fetchall()
             schema = pa.schema([(c[1], sql_to_arrow.get(c[2], pa.string())) for c in info])
-            rows = self.query(f"SELECT * FROM {table}")  # noqa: S608
+            rows = self.query(f"SELECT * FROM {table}")  # noqa: S608 - table from the ledger schema
             tmp = meta_dir / f"{table}.parquet.part"
             pq.write_table(pa.Table.from_pylist(rows, schema=schema), tmp)
             tmp.replace(meta_dir / f"{table}.parquet")

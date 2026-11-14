@@ -203,7 +203,7 @@ def _connect(config: AcquireConfig) -> RobotClient | None:
     return RobotClient.connect(config)
 
 
-def run_cycle(
+def run_cycle(  # noqa: C901 - grandfathered (code-quality-gates)
     config: AcquireConfig,
     lake: LakePaths,
     pulls: PullLedger,
@@ -245,31 +245,31 @@ def run_cycle(
         _robot_step(config, pulls, lake, result, stop, include_active, dry_run, sleep, connect)
     )
     if not stop.is_set():
-        result.sources += _volume_step(media, result, stop, dry_run)
+        result.sources += _volume_step(media, stop, dry_run)
     if not dry_run and not stop.is_set():
         try:
             _inbox_step(config, lake, pulls, result, stop, sleep, ingest_command)
-        except Exception as exc:  # noqa: BLE001 - the cycle must still report
+        except Exception as exc:  # the cycle must still report
             log.exception("inbox ingest failed")
             result.errors.append(f"inbox: {_describe(exc)}")
     if not dry_run and result.derive_pending and not stop.is_set():
         try:
             _derive_step(lake, result, stop, derive_command)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.exception("derive step failed")
             result.errors.append(f"derive: {_describe(exc)}")
     if not dry_run and not stop.is_set():
         try:
             if restart_pending(lake):
                 _detect_step(lake, result, stop, detect_command)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.exception("detect step failed")
             result.errors.append(f"detect: {_describe(exc)}")
     derive_failed = result.derive is not None and result.derive.returncode != 0
     if not dry_run and result.report_pending and not derive_failed and not stop.is_set():
         try:
             _report_step(lake, result, stop, report_command)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.exception("Replay build step failed")
             result.errors.append(f"report: {_describe(exc)}")
     if not dry_run:
@@ -280,7 +280,7 @@ def run_cycle(
     if backup is not None and not dry_run and not stop.is_set():
         try:
             backup(result)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.exception("backup step failed")
             result.errors.append(f"backup: {_describe(exc)}")
     result.stopped = stop.is_set()
@@ -347,11 +347,11 @@ def _unexpected(exc: BaseException) -> bool:
 
 
 def _volume_step(
-    media: RemovableMedia, result: CycleResult, stop: threading.Event, dry_run: bool
+    media: RemovableMedia, stop: threading.Event, dry_run: bool
 ) -> list[SourceOutcome]:
     try:
         selections = media.select()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.exception("removable volume detection failed")
         return [SourceOutcome("volume", "", "", SourceStatus.ERROR, _describe(exc))]
     outcomes: list[SourceOutcome] = []
@@ -375,7 +375,7 @@ def _volume_outcome(
         outcome.transfers = media.pull([selection], stop=stop)
         if stop.is_set():
             outcome.status = SourceStatus.STOPPED
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.exception("volume %s failed", volume.label)
         outcome.status, outcome.error = SourceStatus.ERROR, _describe(exc)
     return outcome
@@ -398,9 +398,11 @@ def _inbox_logs(inbox: Path) -> list[Path]:
         return []
     found: list[Path] = []
     for directory, _dirs, files in os.walk(inbox):
-        for name in files:
-            if not name.startswith(".") and Path(name).suffix.lower() in LOG_SUFFIXES:
-                found.append(Path(directory, name))
+        found.extend(
+            Path(directory, name)
+            for name in files
+            if not name.startswith(".") and Path(name).suffix.lower() in LOG_SUFFIXES
+        )
     return sorted(found)
 
 

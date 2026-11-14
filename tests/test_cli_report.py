@@ -106,7 +106,7 @@ def test_report_lock_of_a_killed_holder_is_taken_over(
     lake: MatchLake, capsys: pytest.CaptureFixture[str]
 ) -> None:
     lock = lake.root / "meta" / "report.lock"
-    proc = subprocess.Popen(  # noqa: S603
+    proc = subprocess.Popen(
         [sys.executable, "-c", HOLDER, str(lock)], stdout=subprocess.PIPE, text=True
     )
     try:
@@ -149,7 +149,7 @@ _SERVE = "import sys\nfrom flashpoint.cli import main\nsys.exit(main(sys.argv[1:
 @pytest.mark.parametrize("build", [True, False])
 def test_serve_builds_then_stops_cleanly(lake: MatchLake, build: bool) -> None:
     args = [sys.executable, "-c", _SERVE, "serve", "--lake", str(lake.root), "--port", "0"]
-    process = subprocess.Popen(  # noqa: S603
+    process = subprocess.Popen(
         args + ([] if build else ["--no-build"]),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -178,15 +178,13 @@ def test_serve_starts_while_a_build_holds_the_lock(
     before = _report_tree(lake)
     args = [sys.executable, "-c", _SERVE, "serve", "--lake", str(lake.root), "--port", "0"]
     with AcquireLock(lake.root / "meta" / "report.lock"):
-        process = subprocess.Popen(  # noqa: S603
-            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
+        process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             assert process.stdout is not None
             banner = process.stdout.readline()
             assert banner.startswith(f"Flashpoint (lake {lake.root}) at http://127.0.0.1:")
             url = banner.split(" at ", 1)[1].strip()
-            with urllib.request.urlopen(f"{url}/data/matches.js") as response:  # noqa: S310
+            with urllib.request.urlopen(f"{url}/data/matches.js") as response:
                 assert response.read() == before["data/matches.js"][1]
             process.send_signal(signal.SIGINT)
             assert process.wait(timeout=10) == 0
@@ -205,7 +203,7 @@ def test_serve_host_warning_and_bad_port(
     import flashpoint.web.server as server
 
     monkeypatch.setattr(server, "run", lambda s, banner=None: (s.server_close(), 0)[1])
-    assert main(["serve", "--lake", str(lake.root), "--no-build", "--host", "0.0.0.0",  # noqa: S104
+    assert main(["serve", "--lake", str(lake.root), "--no-build", "--host", "0.0.0.0",
                  "--port", "0"]) == 0  # fmt: skip
     captured = capsys.readouterr()
     assert "pit network" in captured.err and "no password" in captured.err
@@ -246,6 +244,6 @@ def test_serve_wires_the_launcher(
     assert main(["serve", "--lake", str(lake.root), "--no-build", "--port", "0"]) == 0
     assert seen[-1] == {"available": True, "reason": None, "app": str(app), "found_by": "config"}
     assert not old.exists()  # stale staging removed at start
-    assert main(["serve", "--lake", str(lake.root), "--no-build", "--host", "0.0.0.0",  # noqa: S104
+    assert main(["serve", "--lake", str(lake.root), "--no-build", "--host", "0.0.0.0",
                  "--port", "0"]) == 0  # fmt: skip
     assert seen[-1]["available"] is False and seen[-1]["reason"] == "shared on the network"

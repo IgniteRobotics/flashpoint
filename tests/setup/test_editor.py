@@ -65,7 +65,7 @@ def test_duplicate_slot_refused(root: Path) -> None:
 def test_changed_on_disk(root: Path) -> None:
     sha = editor.file_sha(root, "report.toml")  # the bundled default the view loaded
     (root / "report.toml").write_text("[thresholds]\ntemp_warn_c = 60.0  # hand edit\n")
-    with pytest.raises(SaveError, match="report.toml") as caught:
+    with pytest.raises(SaveError, match=r"report.toml") as caught:
         editor.save_thresholds(root, "report.toml", {"thresholds": {"temp_warn_c": 61.0}}, sha)
     assert caught.value.status == 409
     assert "hand edit" in (root / "report.toml").read_text()

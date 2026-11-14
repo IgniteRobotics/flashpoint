@@ -63,10 +63,10 @@ def migrate_device_maps(
                     }
     for path in nt_maps:
         with path.open(newline="") as f:
-            for row in csv.DictReader(f):
-                report.append(
-                    f"unmapped {path.name}: {row['entry']} (NetworkTables signal, not a CAN slot)"
-                )
+            report.extend(
+                f"unmapped {path.name}: {row['entry']} (NetworkTables signal, not a CAN slot)"
+                for row in csv.DictReader(f)
+            )
 
     lines = [
         f"# Migrated from legacy datamaps by tools/migrate-legacy-config.py ({len(slots)} slots).",

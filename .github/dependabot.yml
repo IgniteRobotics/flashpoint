@@ -1,0 +1,20 @@
+# Dependency updates land on development, one grouped PR per ecosystem per month
+# (spec: ci-quality-gates). pre-commit hook pins are bumped by hand in the season pass.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    target-branch: development
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: development
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

@@ -38,7 +38,7 @@ def _copy(
     src: Path,
     dst: Path,
     immutable: bool,
-    excludes: list[str] = [],  # noqa: B006
+    excludes: list[str] = [],  # noqa: B006 - read-only default, never mutated
     backup_dir: Path | None = None,
 ) -> int:
     code = 0

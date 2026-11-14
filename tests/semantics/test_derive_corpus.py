@@ -143,7 +143,7 @@ def test_q7_silver(corpus_lake: Any) -> None:
         f" FROM read_parquet('{path}')"
     ).fetchone()
     assert stats is not None
-    slots, units, t_min, t_max, teleop_rows = stats
+    slots, units, _t_min, t_max, teleop_rows = stats
     assert slots == 22 and units == 22
     assert (
         t_max > 290_000_000

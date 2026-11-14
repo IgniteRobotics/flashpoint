@@ -36,7 +36,7 @@ def _strip_nt(name: str) -> str:
 
 def _iqr(values: np.ndarray) -> int:
     q1, q3 = np.percentile(values, [25, 75])
-    return int(round(q3 - q1))
+    return round(float(q3 - q1))
 
 
 def _unique_values(frame: pl.DataFrame, key: str) -> pl.DataFrame:

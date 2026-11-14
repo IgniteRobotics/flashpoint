@@ -96,7 +96,7 @@ def test_metric_subset(tmp_path: Path) -> None:
 
 
 def test_bad_toml(tmp_path: Path) -> None:
-    with pytest.raises(AnomalyConfigError, match="anomaly.toml"):
+    with pytest.raises(AnomalyConfigError, match=r"anomaly.toml"):
         load_anomaly_config(_write(tmp_path, "["))
 
 

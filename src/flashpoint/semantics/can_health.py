@@ -84,7 +84,7 @@ def _enabled(con: duckdb.DuckDBPyConnection, source: str, last_us: int) -> list[
     """Runs of RobotEnable = true; each sample holds until the next, the last until the hoot
     ends."""
     rows = con.execute(
-        f"SELECT ts_us, v_bool FROM {source} WHERE signal = ? ORDER BY ts_us",  # noqa: S608
+        f"SELECT ts_us, v_bool FROM {source} WHERE signal = ? ORDER BY ts_us",  # noqa: S608 - source is a quoted lake path
         [HOOT_ENABLE],
     ).fetchall()
     windows: list[tuple[int, int]] = []
@@ -173,14 +173,14 @@ def analyse_hoot(con: duckdb.DuckDBPyConnection, lake: LakePaths, log_id: str) -
     signals = [
         r[0]
         for r in con.execute(
-            f"SELECT DISTINCT signal FROM {source} WHERE signal LIKE 'Phoenix6/%/Timestamp'"  # noqa: S608
+            f"SELECT DISTINCT signal FROM {source} WHERE signal LIKE 'Phoenix6/%/Timestamp'"  # noqa: S608 - source is a quoted lake path
         ).fetchall()
     ]
     # One device at a time: bronze is sorted by (signal, ts_us), so each read touches few row
     # groups and memory stays at one device's frames.
     frames = {
         _device(signal): con.execute(
-            f"SELECT ts_us FROM {source} WHERE signal = ? ORDER BY ts_us",  # noqa: S608
+            f"SELECT ts_us FROM {source} WHERE signal = ? ORDER BY ts_us",  # noqa: S608 - source is a quoted lake path
             [signal],
         ).fetchnumpy()["ts_us"]
         for signal in sorted(signals)
@@ -197,7 +197,7 @@ def analyse_hoot(con: duckdb.DuckDBPyConnection, lake: LakePaths, log_id: str) -
         inside = _inside(g0, counted)
         if not inside.any():
             continue
-        med = int(round(float(np.median(g1[inside] - g0[inside]))))
+        med = round(float(np.median(g1[inside] - g0[inside])))
         nominal[device] = med
         keep = inside & (g1 - g0 >= GAP_FACTOR * med)
         starts += g0[keep].tolist()
@@ -226,7 +226,7 @@ def analyse_hoot(con: duckdb.DuckDBPyConnection, lake: LakePaths, log_id: str) -
                 device,
                 int(gap_start[i]),
                 int(gap_end[i]),
-                max(int(round(length / nominal[device])) - 1, 0),
+                max(round(float(length / nominal[device])) - 1, 0),
                 siblings > 0 and 2 * others >= siblings,
             )
         )
@@ -456,7 +456,7 @@ def _events(ctx: _Context, hoot: HootInput, health: HootHealth) -> list[dict[str
             **ctx.base(), "log_id": hoot.log_id, "bus": hoot.bus, "device": device,
             "slot_id": slot, "unit_id": _unit_at(ctx.ranges[slot], lake_t) if slot else None,
             "kind": kind, "hoot_t_us": t, "t_us": lake_t,
-            "match_time_us": lake_t - start_us if timed else None,  # type: ignore[operator]
+            "match_time_us": lake_t - start_us if timed else None,  # type: ignore[operator]  # start_us is set when timed
             "duration_ms": None, "enabled": None, "reset_before": None, "reset_after": None,
             **extra,
         }  # fmt: skip

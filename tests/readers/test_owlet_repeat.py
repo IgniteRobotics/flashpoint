@@ -34,13 +34,13 @@ def test_owlet_failure_rate(
     for i in range(RUNS):
         out = tmp_path / f"run{i}.wpilog"
         args = [str(owlet), str(path), str(out), "-f", "wpilog", "-s", ",".join(selected)]
-        done = subprocess.run(args, capture_output=True, text=True, timeout=hoot.OWLET_TIMEOUT_S)  # noqa: S603
+        done = subprocess.run(args, capture_output=True, text=True, timeout=hoot.OWLET_TIMEOUT_S)
         last = (done.stderr or done.stdout).strip().splitlines()[-1:] or ["no output"]
         results.append((done.returncode, last[0]))
         out.unlink(missing_ok=True)
     failures = [r for r in results if r[0] != 0]
-    print(f"\nowlet {path.name}: {len(failures)}/{RUNS} runs failed")  # noqa: T201
+    print(f"\nowlet {path.name}: {len(failures)}/{RUNS} runs failed")
     for code, line in failures:
-        print(f"  exit {code}: {line}")  # noqa: T201
+        print(f"  exit {code}: {line}")
     both = [i for i in range(RUNS - 1) if results[i][0] != 0 and results[i + 1][0] != 0]
     assert not both, f"two runs in a row failed at {both}: one retry would not have saved them"

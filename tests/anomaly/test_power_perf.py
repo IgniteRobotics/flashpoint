@@ -49,7 +49,7 @@ def _run(lake: Path, mode: str) -> dict[str, float]:
         [sys.executable, "-c", _COUNT, str(lake), mode], capture_output=True, text=True
     )
     assert done.returncode == 0, done.stdout + done.stderr
-    return json.loads(done.stdout.strip().splitlines()[-1])  # type: ignore[no-any-return]
+    return json.loads(done.stdout.strip().splitlines()[-1])  # type: ignore[no-any-return]  # JSON from the child process
 
 
 def test_q7_uncached_brownout_count(

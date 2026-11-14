@@ -123,7 +123,7 @@ def _column(rows: pl.DataFrame, metric: str) -> np.ndarray:
     return rows.get_column(metric).cast(pl.Float64).fill_null(np.nan).to_numpy()
 
 
-def compute(
+def compute(  # noqa: C901 - grandfathered (code-quality-gates)
     lake: LakePaths,
     settings: Settings,
     restarts: bool = True,

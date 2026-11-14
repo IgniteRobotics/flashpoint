@@ -308,7 +308,7 @@ def test_stick_removed_mid_copy(
 
     def yank(path: Path, n: int) -> BinaryIO | None:
         if path == big:
-            return _YankedStick(path, stick.mount)  # type: ignore[return-value]
+            return _YankedStick(path, stick.mount)  # type: ignore[return-value]  # fake stick
         return None
 
     monkeypatch.setattr(removable, "_open_readonly", _Opens(yank))
