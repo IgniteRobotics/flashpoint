@@ -1,6 +1,6 @@
 [project]
 name = "flashpoint"
-version = "0.1.0"
+version = "0.2.0"
 description = "FRC robot telemetry platform: ingest WPILib and CTRE logs, track motor health across a robot's life"
 authors = [{ name = "Ignite Robotics" }]
 license = "BSD-3-Clause"
