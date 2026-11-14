@@ -38,7 +38,7 @@ pipx install --python python3.12 flashpoint
 
 `--python` picks which Python pipx uses; name any 3.11 to 3.13 you have. On Windows, `python3.12` usually isn't found: run `py -3.12 -c "import sys; print(sys.executable)"` and give that full path instead. If the laptop has no internet at the pit, see [Installing without internet](user-guide.md#installing-without-internet).
 
-**Check your version first.** Team names and colours (`--team-name`, `--palette`, `theme.toml` and [section 8](#8-team-name-and-colours)) are newer than Flashpoint 0.1.0, the only release on PyPI so far. Run `flashpoint --version`. If it says `flashpoint 0.1.0`, leave out `--team-name` and `--palette` below (0.1.0 stops with "unrecognized arguments") and skip section 8, or [install from a checkout](user-guide.md#installing-from-a-checkout) to get them now.
+**Check your version first.** Team names and colours (`--team-name`, `--palette`, `theme.toml` and [section 8](#8-team-name-and-colours)) need Flashpoint 0.2.0 or later. Run `flashpoint --version`. If it says `flashpoint 0.1.0`, run `pipx upgrade flashpoint` first (0.1.0 stops with "unrecognized arguments").
 
 Then create your configuration. Use your own team number and name:
 
