@@ -150,10 +150,9 @@ def primary_session(meta: "LakeMeta", aligned: list[dict[str, Any]]) -> dict[str
     """Of the sessions with silver, the one with the most silver rows."""
     return max(
         aligned,
-        key=lambda s: (meta.one("derived_state", session_id=s["session_id"]) or {}).get(
-            "silver_rows"
-        )
-        or 0,
+        key=lambda s: (
+            (meta.one("derived_state", session_id=s["session_id"]) or {}).get("silver_rows") or 0
+        ),
     )
 
 

@@ -76,7 +76,7 @@ def build_manifest(index: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    with urllib.request.urlopen(INDEX_URL) as response:  # noqa: S310 - CTRE's https download index
+    with urllib.request.urlopen(INDEX_URL) as response:
         index = json.load(response)
     MANIFEST.write_text(build_manifest(index))
     print(f"wrote {MANIFEST}", file=sys.stderr)

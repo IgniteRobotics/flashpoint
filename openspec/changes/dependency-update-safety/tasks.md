@@ -5,12 +5,12 @@
 
 ## 2. Dependencies
 
-- [ ] 2.1 Cap the runtime and optional dependencies per the design and refresh `poetry.lock`
-- [ ] 2.2 Bump ruff to 0.17, drop the suppressions it no longer needs, apply its formatting
+- [x] 2.1 Cap the runtime and optional dependencies per the design and refresh `poetry.lock`
+- [x] 2.2 Bump ruff to 0.17, drop the suppressions it no longer needs, apply its formatting
 
 ## 3. Dependabot
 
-- [ ] 3.1 Group minor and patch only, and set `versioning-strategy: increase-if-necessary` for pip
+- [x] 3.1 Group minor and patch only, and set `versioning-strategy: increase-if-necessary` for pip
 
 ## 4. Follow-up
 
