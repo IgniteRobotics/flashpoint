@@ -164,7 +164,7 @@ def test_draft_from_q7_and_save(
         assert page.locator("#draft-slots tbody tr").count() == 21
         page.click("#draft-save")
         page.wait_for_selector("#msg-draft[role='alert']")  # slots aren't named yet
-        fill_all: Callable[[str], None] = lambda field: page.eval_on_selector_all(  # noqa: E731
+        fill_all: Callable[[str], None] = lambda field: page.eval_on_selector_all(  # noqa: E731 - one-line helper inside the test
             f"#draft-slots input[data-field='{field}']",
             "els => els.forEach(e => { e.value = 'x'; e.dispatchEvent(new Event('input')); })",
         )

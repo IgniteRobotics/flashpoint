@@ -156,7 +156,7 @@ def _run(
 ) -> CycleResult:
     kwargs.setdefault("sleep", _no_sleep)
     kwargs.setdefault("stop", threading.Event())
-    return run_cycle(config, lake, pulls, media, connect=connect, **kwargs)  # type: ignore[arg-type]
+    return run_cycle(config, lake, pulls, media, connect=connect, **kwargs)  # type: ignore[arg-type]  # test kwargs forwarded as-is
 
 
 @pytest.fixture
@@ -699,7 +699,7 @@ def test_windows_stop_kills_and_waits_when_ctrl_break_fails(
     monkeypatch.setattr(cycle, "sys", SimpleNamespace(platform="win32"))
     monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", 1, raising=False)
     proc = _UnsignalableProc()
-    cycle._end_process_group(proc)  # type: ignore[arg-type]
+    cycle._end_process_group(proc)  # type: ignore[arg-type]  # fake process
     assert proc.calls == ["signal", "kill", "wait"]
 
 

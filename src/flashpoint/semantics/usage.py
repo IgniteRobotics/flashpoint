@@ -162,7 +162,7 @@ def session_usage(
         # One unit at a time keeps memory bounded by a unit's samples, not the session's.
         # (execute() with parameters: a parameterised con.sql() relation is ~25x slower here.)
         samples = con.execute(
-            f"SELECT metric, t_us, value FROM {source}"  # noqa: S608
+            f"SELECT metric, t_us, value FROM {source}"  # noqa: S608 - source is a quoted lake path
             f" WHERE slot_id = ? AND unit_id = ? AND metric IN ({names})",
             [slot_id, unit_id],
         ).pl()

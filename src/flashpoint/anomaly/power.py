@@ -56,7 +56,7 @@ def thresholds_hash(report: ReportConfig, proxy_slot: str | None) -> str:
     return hashlib.sha256(json.dumps(rule).encode()).hexdigest()[:16]
 
 
-def _fingerprint(lake: LakePaths, meta: LakeMeta, session: dict[str, Any], silver: Path) -> str:
+def _fingerprint(meta: LakeMeta, session: dict[str, Any], silver: Path) -> str:
     files = sorted(
         (p.name, p.stat().st_size, p.stat().st_mtime_ns) for p in silver.glob("*.parquet")
     )
@@ -99,7 +99,7 @@ def _count(
         if m["kind"] == "brownout" and m["level"] == "FAULT"
     )
     query, params = proxy.series_sql(found, span.silver, window.t0_us, window.end_us)
-    lowest = con.execute(f"SELECT min(value) FROM ({query})", params).fetchone()  # noqa: S608
+    lowest = con.execute(f"SELECT min(value) FROM ({query})", params).fetchone()  # noqa: S608 - query built by proxy.series_sql; values bound
     low = None if lowest is None or lowest[0] is None else float(lowest[0])
     return brownouts, low, found.label
 
@@ -131,7 +131,7 @@ def brownout_counts(
             primary = primary_session(meta, aligned)
             silver = silver_path(lake, primary)
             assert silver is not None
-            fingerprint = _fingerprint(lake, meta, primary, silver)
+            fingerprint = _fingerprint(meta, primary, silver)
             proxy_slot = declared.get(primary["robot"])
             thresholds = thresholds_hash(report, proxy_slot)
             old = previous.get(key)

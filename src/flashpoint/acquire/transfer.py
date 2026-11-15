@@ -214,7 +214,7 @@ def sweep_parts(inbox: Path) -> int:
     return removed
 
 
-def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> TransferResult:
+def verified_copy(job: CopyJob, ledger: PullLedger, stop: threading.Event) -> TransferResult:  # noqa: C901 - grandfathered (code-quality-gates)
     """Copy to `<dest>.part` while hashing, verify size then hash, `os.replace` to `dest`.
 
     On any failure the `.part` is removed and an attempt is recorded (the third makes the pull

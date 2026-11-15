@@ -1,0 +1,12 @@
+{
+  "session_id": "abc123",
+  "cwd": "/work/robot",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git push origin feature/intake",
+    "description": "Push the branch"
+  },
+  "tool_use_id": "toolu_01ABC124"
+}

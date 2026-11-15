@@ -48,7 +48,7 @@ def _run(lake: Path) -> dict[str, float]:
     done = subprocess.run([sys.executable, "-c", _DETECT, str(lake)], capture_output=True,
                           text=True)  # fmt: skip
     assert done.returncode == 0, done.stdout + done.stderr
-    return json.loads(done.stdout.strip().splitlines()[-1])  # type: ignore[no-any-return]
+    return json.loads(done.stdout.strip().splitlines()[-1])  # type: ignore[no-any-return]  # JSON from the child process
 
 
 def test_season_budget(tmp_path: Path) -> None:

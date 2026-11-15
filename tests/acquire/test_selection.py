@@ -143,7 +143,7 @@ def test_growing_file_is_not_selected_until_stable(
     fake_robot: FakeRobot, robot_client: RobotClient, pull_ledger: PullLedger
 ) -> None:
     _robot_session(fake_robot)
-    grow = lambda: _put(fake_robot, f"{ROOT}/FRC_2.wpilog", b"two-and-more", 2005)  # noqa: E731
+    grow = lambda: _put(fake_robot, f"{ROOT}/FRC_2.wpilog", b"two-and-more", 2005)  # noqa: E731 - growth step passed to the poller
     first = select_robot_files(
         robot_client, pull_ledger, include_active=False, settle_s=5, sleep=Sleep(grow)
     )
@@ -178,7 +178,7 @@ def test_include_active_pulls_active_files_without_settling(
     fake_robot: FakeRobot, robot_client: RobotClient, pull_ledger: PullLedger
 ) -> None:
     _robot_session(fake_robot)
-    grow_current = lambda: _put(fake_robot, f"{ROOT}/FRC_3.wpilog", b"three+", 3001)  # noqa: E731
+    grow_current = lambda: _put(fake_robot, f"{ROOT}/FRC_3.wpilog", b"three+", 3001)  # noqa: E731 - growth step passed to the poller
     selection = select_robot_files(
         robot_client, pull_ledger, include_active=True, settle_s=5, sleep=Sleep(grow_current)
     )

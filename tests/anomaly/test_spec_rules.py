@@ -8,7 +8,7 @@ LIMITS = SpecLimits()
 KEYS = [f"2026syn_qm{i + 1}" for i in range(6)]
 
 
-def _finding(metric: str, values: list[float | None], enabled: list[float] | None = None):  # type: ignore[no-untyped-def]
+def _finding(metric: str, values: list[float | None], enabled: list[float] | None = None):  # type: ignore[no-untyped-def]  # returns detector internals
     x = np.array([np.nan if v is None else v for v in values], dtype=float)
     on = None if enabled is None else np.array(enabled, dtype=float)
     return spec_finding("ctre:X", metric, KEYS[: len(values)], x, LIMITS, on)

@@ -195,7 +195,7 @@ class Detector:
 
     # --- comparing ------------------------------------------------------------------------
 
-    def update(self, snapshot: Snapshot, at: float) -> list[Event]:
+    def update(self, snapshot: Snapshot, at: float) -> list[Event]:  # noqa: C901 - grandfathered (code-quality-gates)
         """Compare `snapshot` with the previous one; `at` is when the server received it."""
         self._top(snapshot)
         if self.status != "ok":
@@ -232,8 +232,10 @@ class Detector:
                     kind = "reconnected" if value else "disconnected"
                     events.append(self._device_event(kind, at, device))
                 elif name == "Faults":
-                    for fault in contract.fault_names(value & ~old):
-                        events.append(self._device_event("fault", at, device, fault=fault))
+                    events.extend(
+                        self._device_event("fault", at, device, fault=fault)
+                        for fault in contract.fault_names(value & ~old)
+                    )
             # Fields with a bad value this time lose their baseline.
             device.values = {
                 **{k: v for k, v in previous.items() if k not in device.notes},

@@ -26,7 +26,7 @@ def _version_key(version: str) -> tuple[int, ...]:
 
 def _digests(url: str) -> tuple[str, str]:
     sha1, sha256 = hashlib.sha1(), hashlib.sha256()  # noqa: S324 - CTRE publishes SHA-1
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url) as response:  # noqa: S310 - CTRE's https download index
         for block in iter(lambda: response.read(1 << 20), b""):
             sha1.update(block)
             sha256.update(block)

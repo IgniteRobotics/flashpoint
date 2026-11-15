@@ -211,7 +211,7 @@ def backtest(lake: LakePaths, config_dir: Path) -> BacktestResult:
                 "appeared_at_normal": r["detected_normal_match_key"],
             }
             for r in computed.rows
-        ],  # fmt: skip
+        ],
         "coverage": {
             "matches_judged": len(computed.frame.starts),
             "skipped": dict(sorted(computed.frame.skipped.items())),

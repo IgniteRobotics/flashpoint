@@ -82,13 +82,13 @@ def discover(paths: Iterable[Path]) -> list[Path]:
     found: list[Path] = []
     for path in paths:
         candidates = path.rglob("*") if path.is_dir() else [path]
-        for candidate in candidates:
-            if (
-                candidate.is_file()
-                and candidate.suffix.lower() in SUFFIX_KIND
-                and not candidate.name.startswith(".")
-            ):
-                found.append(candidate)
+        found.extend(
+            candidate
+            for candidate in candidates
+            if candidate.is_file()
+            and candidate.suffix.lower() in SUFFIX_KIND
+            and not candidate.name.startswith(".")
+        )
     return sorted(set(found))
 
 

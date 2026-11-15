@@ -125,7 +125,7 @@ class Deriver:
 
     def _samples(self, log_id: str, where: str) -> pl.DataFrame:
         return self.con.sql(
-            f"SELECT {_SAMPLE_COLUMNS} FROM samples WHERE log_id = ? AND ({where})",  # noqa: S608
+            f"SELECT {_SAMPLE_COLUMNS} FROM samples WHERE log_id = ? AND ({where})",  # noqa: S608 - where built from quoted signal names
             params=[log_id],
         ).pl()
 

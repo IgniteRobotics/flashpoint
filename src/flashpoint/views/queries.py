@@ -182,12 +182,12 @@ class HistoryQueries:
                 if hive and glob is not None
                 else f"read_parquet({_quote(files[0])})"
             )
-            present = {row[0] for row in con.execute(f"DESCRIBE SELECT * FROM {source}").fetchall()}
+            present = {row[0] for row in con.execute(f"DESCRIBE SELECT * FROM {source}").fetchall()}  # noqa: S608 - source is a quoted lake path
             select = ", ".join(
                 f'"{c}"' if c in present else f'NULL::{t} AS "{c}"' for c, t in columns.items()
             )
             extra = ", season" if hive else ""
-            con.execute(f"CREATE VIEW {name} AS SELECT {select}{extra} FROM {source}")
+            con.execute(f"CREATE VIEW {name} AS SELECT {select}{extra} FROM {source}")  # noqa: S608 - view and columns from fixed whitelists
         else:
             select = ", ".join(f'NULL::{t} AS "{c}"' for c, t in columns.items())
             extra = ", NULL::VARCHAR AS season" if hive else ""
@@ -322,7 +322,7 @@ class HistoryQueries:
         self._check(filters)
         where, params = _where(filters, (*_MATCH_SCOPE, "phase"), "f")
         return self._rows(
-            f"SELECT DISTINCT f.match_key, f.t, f.event, f.robot FROM features f"  # noqa: S608
+            f"SELECT DISTINCT f.match_key, f.t, f.event, f.robot FROM features f"  # noqa: S608 - where from fixed filter names; values bound
             f" WHERE {where} ORDER BY f.t, f.match_key",
             params,
         )
@@ -388,7 +388,7 @@ class HistoryQueries:
         """Each unit's highest match temperature in range: health is temperature only."""
         where, params = _where(filters, Filters.names(), "f")
         rows = self._rows(
-            f"SELECT f.unit_id, max(f.temp_max_c) AS temp_max_c FROM features f"  # noqa: S608
+            f"SELECT f.unit_id, max(f.temp_max_c) AS temp_max_c FROM features f"  # noqa: S608 - where from fixed filter names; values bound
             f" WHERE {where} GROUP BY f.unit_id",
             params,
         )
@@ -429,14 +429,14 @@ class HistoryQueries:
         self._check(filters)
         where, params = _where(filters, Filters.names(), "f")
         counts = self._rows(
-            f"SELECT count(DISTINCT f.unit_id) AS units, count(DISTINCT f.match_key) AS matches"
-            f" FROM features f WHERE {where}",  # noqa: S608
+            f"SELECT count(DISTINCT f.unit_id) AS units, count(DISTINCT f.match_key) AS matches"  # noqa: S608 - where clause from fixed filter names; values bound
+            f" FROM features f WHERE {where}",
             params,
         )[0]
         usage_keys = [k for k in Filters.names() if k != "phase"]
         uwhere, uparams = _where(filters, usage_keys, "u")
         hours = self._rows(
-            f"SELECT coalesce(sum(u.powered_s), 0) / 3600 AS powered_h FROM usage u"  # noqa: S608
+            f"SELECT coalesce(sum(u.powered_s), 0) / 3600 AS powered_h FROM usage u"  # noqa: S608 - where from fixed filter names; values bound
             f" WHERE {uwhere}",
             uparams,
         )[0]["powered_h"]
@@ -545,7 +545,7 @@ class HistoryQueries:
                 min(coalesce(u.t, u.session_start)) AS first_seen,
                 max(coalesce(u.t, u.session_start)) AS last_seen
             FROM usage u WHERE {usage_where}
-            """,  # noqa: S608
+            """,  # noqa: S608 - where from fixed filter names; values bound
             usage_params,
         )[0]
         if not mine and not totals["usage_rows"]:

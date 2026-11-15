@@ -193,7 +193,7 @@ class FakeRobot:
                 self._apply(step)
             self._inst.flush()
 
-    def _apply(self, step: Step) -> None:
+    def _apply(self, step: Step) -> None:  # noqa: C901 - grandfathered (code-quality-gates)
         match step:
             case SetDevice(bus=bus, device=device, values=values):
                 for name, value in values.items():
@@ -300,7 +300,7 @@ def run_scenario(
 ) -> int:
     """Run a scenario until `stop` is set (or Ctrl+C); returns the number of updates sent."""
     stop = stop or threading.Event()
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 - simulated telemetry, not security
     sent = 0
     with FakeRobot(IGNITE_2026, port=port, host=host) as robot:
         steps = SCENARIOS[name](IGNITE_2026, rng)
@@ -324,12 +324,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1", help="address to listen on")
     parser.add_argument("--period", type=float, default=1.0, help="seconds between updates")
     args = parser.parse_args(argv)
-    print(
+    print(  # noqa: T201 - the fake robot's command-line banner
         f"fake robot: {args.scenario} on {args.host}:{args.port};"
         f" run `flashpoint serve --robot-host {args.host}` and open Live CAN (Ctrl+C to stop)"
     )
     sent = run_scenario(args.scenario, args.port, args.period, host=args.host)
-    print(f"stopped after {sent} updates")
+    print(f"stopped after {sent} updates")  # noqa: T201 - the fake robot's command-line banner
     return 0
 
 

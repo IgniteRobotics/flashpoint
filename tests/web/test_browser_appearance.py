@@ -179,7 +179,7 @@ def test_keyboard_reaches_appearance(page: Any, site: dict[str, Any]) -> None:
 def test_read_only_when_shared(page: Any, tmp_path: Path) -> None:
     from tests.web.test_browser import NetworkServer
 
-    server, root = _site(tmp_path, LakePaths(tmp_path / "lake"), NetworkServer)
+    server, _root = _site(tmp_path, LakePaths(tmp_path / "lake"), NetworkServer)
     try:
         watch = _appearance(page, f"http://127.0.0.1:{server.server_address[1]}/")
         assert page.locator("#save-theme").count() == 0

@@ -146,7 +146,7 @@ def test_launch_keeps_its_4_kb_limit(setup_app: tuple[Any, FixRecorder]) -> None
 def test_check_results_reach_the_view_unchanged(setup_app: tuple[Any, FixRecorder]) -> None:
     app, _ = setup_app
     server: FlashpointServer = app.server
-    server.check_context = lambda: _Stub()  # type: ignore[assignment, return-value]
+    server.check_context = lambda: _Stub()  # type: ignore[assignment, return-value]  # stub context
     body = app.json("/api/setup/checks")[1]
     assert body["checks"] == [CheckResult("x", "X", "warning", "m", command="c").to_dict()]
 

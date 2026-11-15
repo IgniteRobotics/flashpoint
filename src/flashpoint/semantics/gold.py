@@ -60,7 +60,7 @@ def session_features(
     # used here: it contains the motor itself.
     proxy = (
         con.sql(
-            f"SELECT t_us, value FROM {source}"  # noqa: S608
+            f"SELECT t_us, value FROM {source}"  # noqa: S608 - source is a quoted lake path
             " WHERE slot_id = ? AND metric = 'supply_voltage' AND phase IN ('auto', 'teleop')"
             " ORDER BY t_us",
             params=[robot.battery_proxy],
@@ -72,7 +72,7 @@ def session_features(
     for slot_id, unit_id in sorted(motors):
         # One motor at a time keeps memory bounded by a motor's samples, not the session's.
         motor = con.sql(
-            f"SELECT metric, t_us, value FROM {source}"  # noqa: S608
+            f"SELECT metric, t_us, value FROM {source}"  # noqa: S608 - source is a quoted lake path
             " WHERE slot_id = ? AND unit_id = ? AND phase IN ('auto', 'teleop')",
             params=[slot_id, unit_id],
         ).pl()

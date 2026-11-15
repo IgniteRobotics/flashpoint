@@ -72,7 +72,7 @@ def test_step_row() -> None:
 
 
 def test_low_confidence_with_a_short_baseline() -> None:
-    x = np.array(steady(45.0, 7) + [55.0, 55.5, 54.5])
+    x = np.array([*steady(45.0, 7), 55.0, 55.5, 54.5])
     keys = KEYS[:10]
     step, _, _ = unit_findings("ctre:X", "temp_max_c", keys, x, NORMAL, STRICT)
     (episode,) = episodes(step.flagged)
@@ -110,7 +110,7 @@ def test_sibling_row_carries_the_peer() -> None:
 
 def test_evidence_is_capped_at_40_matches() -> None:
     keys = [f"2026syn_qm{i + 1}" for i in range(60)]
-    x = np.array(steady(45.0, 57) + [55.0, 55.5, 54.5])
+    x = np.array([*steady(45.0, 57), 55.0, 55.5, 54.5])
     step, _, _ = unit_findings("ctre:X", "temp_max_c", keys, x, NORMAL, STRICT)
     (episode,) = episodes(step.flagged)
     points = json.loads(str(describe(step, episode, CTX)["evidence"]))["points"]

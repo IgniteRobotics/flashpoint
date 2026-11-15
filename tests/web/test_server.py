@@ -118,7 +118,7 @@ def test_symlink_out_of_static_is_refused(tmp_path: Path) -> None:
 
 def test_is_local() -> None:
     assert is_local("127.0.0.1") and is_local("::1") and is_local("localhost")
-    assert not is_local("0.0.0.0") and not is_local("10.68.29.5")  # noqa: S104
+    assert not is_local("0.0.0.0") and not is_local("10.68.29.5")
 
 
 _SERVE = """
@@ -151,11 +151,11 @@ def test_serve_command_lazy_and_clean_interrupt(tmp_path: Path) -> None:
         line = process.stdout.readline()
         url = line.split()[-1]
         assert url.startswith("http://127.0.0.1:")
-        with urlopen(url) as response:  # noqa: S310 - local test server
+        with urlopen(url) as response:
             assert response.status == 200
         time.sleep(0.5)
         assert _rss_kib(process.pid) < 150 * 1024  # DuckDB not opened yet
-        with urlopen(url + "api/summary") as response:  # noqa: S310
+        with urlopen(url + "api/summary") as response:
             assert json.loads(response.read())["empty"] is True
         process.send_signal(signal.SIGINT)
         assert process.wait(timeout=10) == 0
@@ -169,7 +169,7 @@ def test_host_warning() -> None:
     from flashpoint.web.server import host_warning
 
     assert host_warning("127.0.0.1") is None
-    warning = host_warning("0.0.0.0")  # noqa: S104
+    warning = host_warning("0.0.0.0")
     assert warning is not None and "pit network" in warning and "no password" in warning
 
 

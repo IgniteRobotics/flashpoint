@@ -106,7 +106,7 @@ def test_idle_cycle_with_a_reachable_robot_is_under_3s(
 def robot_process(tmp_path: Path) -> Iterator[tuple[int, Path]]:
     """A fake robot in a separate process: (port, root)."""
     root = tmp_path / "rio"
-    proc = subprocess.Popen(  # noqa: S603
+    proc = subprocess.Popen(
         [sys.executable, "-c", _ROBOT, str(root)],
         cwd=REPO,
         stdin=subprocess.PIPE,
@@ -128,7 +128,7 @@ def robot_process(tmp_path: Path) -> Iterator[tuple[int, Path]]:
 
 def _wait_for(predicate: "object", timeout: float, log: Path) -> None:
     deadline = time.monotonic() + timeout
-    while not predicate():  # type: ignore[operator]
+    while not predicate():  # type: ignore[operator]  # predicate is a callable
         assert time.monotonic() < deadline, f"timed out; watch log:\n{log.read_text()}"
         time.sleep(0.1)
 
@@ -175,7 +175,7 @@ def test_watch_process_peak_rss_is_within_150mb(
     argv = [sys.executable, "-c", _WATCH, "acquire", "--watch", "--lake", str(lake.root),
             "--host", f"127.0.0.1:{port}", "--no-usb"]  # fmt: skip
     with log.open("w") as log_file:
-        proc = subprocess.Popen(  # noqa: S603
+        proc = subprocess.Popen(
             argv,
             env={**os.environ, **env},
             stdout=subprocess.PIPE,

@@ -62,7 +62,7 @@ def fix_init(ctx: CheckContext, body: Any) -> dict[str, Any]:
     return _done(f"created the configuration in {ctx.config_root}", changed)
 
 
-def fix_owlet(ctx: CheckContext, body: Any) -> dict[str, Any]:
+def fix_owlet(ctx: CheckContext, _body: Any) -> dict[str, Any]:
     registry = ctx.registry(ctx.cache_root)
     changed = []
     for compliancy in owlet_compliancies(ctx)[0]:
@@ -151,7 +151,7 @@ def _systemd_dir(ctx: CheckContext) -> Path:
     return base / "systemd" / "user"
 
 
-def fix_service_install(ctx: CheckContext, body: Any) -> dict[str, Any]:
+def fix_service_install(ctx: CheckContext, _body: Any) -> dict[str, Any]:
     _not_on_macos(ctx)
     executable = _executable(ctx)
     if ctx.system == "Windows":
@@ -175,7 +175,7 @@ def fix_service_install(ctx: CheckContext, body: Any) -> dict[str, Any]:
     return _done(f"installed {unit}; start it to begin importing", [str(unit)])
 
 
-def fix_service_start(ctx: CheckContext, body: Any) -> dict[str, Any]:
+def fix_service_start(ctx: CheckContext, _body: Any) -> dict[str, Any]:
     _not_on_macos(ctx)
     if ctx.system == "Windows":
         _command(ctx, ["schtasks", "/Run", "/TN", SERVICE_NAME])

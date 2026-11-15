@@ -365,7 +365,7 @@ def test_triage_is_the_only_write(serve: Any, tmp_path: Path) -> None:
         tables = [r["name"] for r in ledger.query(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name != 'anomaly_triage'"
         )]  # fmt: skip
-        assert all(ledger.query(f"SELECT count(*) AS n FROM {t}")[0]["n"] == 0 for t in tables)  # noqa: S608
+        assert all(ledger.query(f"SELECT count(*) AS n FROM {t}")[0]["n"] == 0 for t in tables)
     finally:
         ledger.close()
 

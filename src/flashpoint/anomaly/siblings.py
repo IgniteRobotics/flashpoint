@@ -50,7 +50,7 @@ def _scatter(size: int, index: list[int], values: np.ndarray, fill: float = np.n
     return out
 
 
-def sibling_findings(
+def sibling_findings(  # noqa: C901 - grandfathered (code-quality-gates)
     metric: str,
     members: list[Member],
     order: list[str],

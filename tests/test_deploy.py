@@ -10,7 +10,7 @@ def _text(root: ET.Element, path: str) -> str | None:
 
 
 def test_windows_task_runs_watch_at_logon() -> None:
-    root = ET.parse(DEPLOY / "windows" / "flashpoint-acquire.xml").getroot()
+    root = ET.parse(DEPLOY / "windows" / "flashpoint-acquire.xml").getroot()  # noqa: S314 - the repo's own task file
     assert root.find("t:Triggers/t:LogonTrigger", NS) is not None
     assert _text(root, "t:Actions/t:Exec/t:Command") == r"%USERPROFILE%\.local\bin\flashpoint.exe"
     assert _text(root, "t:Actions/t:Exec/t:Arguments") == "acquire --watch"

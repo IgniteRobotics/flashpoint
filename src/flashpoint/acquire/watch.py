@@ -451,7 +451,7 @@ def run_acquire(
         try:
             lock.acquire()
         except LockHeldError as exc:
-            print(exc, file=sys.stderr)
+            print(exc, file=sys.stderr)  # noqa: T201 - the watch command's own terminal output
             return EXIT_LOCKED
         try:
             return _loop(

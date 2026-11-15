@@ -77,7 +77,7 @@ def group_sessions(wpilogs: list[WpilogLog], hoots: list[HootLog]) -> list[Sessi
             and _same(w.match, group.match)
         ]
         if candidates:
-            best = min(candidates, key=lambda w: abs((group.start - w.utc_start).total_seconds()))  # type: ignore[operator]
+            best = min(candidates, key=lambda w: abs((group.start - w.utc_start).total_seconds()))  # type: ignore[operator]  # candidates all have utc_start
             sessions[best.log_id].hoot_groups.append(group)
         else:
             session_id = f"hoot-{group.stamp}-{group.log_ids[0][:12]}"

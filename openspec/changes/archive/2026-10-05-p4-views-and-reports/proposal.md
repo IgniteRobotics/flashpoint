@@ -13,7 +13,7 @@ The views follow Josh's design canvas, "Flashpoint UI Prototypes" (2026-10-05). 
   - at most 2 MB of precomputed min/max envelopes per match;
   - escaped content and vendored JS;
   - an "Open in AdvantageScope" download of the raw logs.
-  
+
   `flashpoint report --static` exports Replay as a folder that opens offline with no server.
 - **History** (lifetime, per unit and per slot, across matches, events, seasons, and robots): served from a local read-only API, with filters run as DuckDB queries, not client-side.
 - **Device panel**: odometry (hours, Wh, thermal cycles, stall time) and a lifeline of the slots that serial has occupied. Odometry counts **every** session, practice included, through a new per-session usage table (gold only covers match-keyed sessions)

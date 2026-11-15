@@ -131,7 +131,7 @@ def test_bad_colour_names_the_key_and_the_expected_form(tmp_path: Path, value: s
 def test_bad_theme_files_are_refused_naming_the_problem(
     tmp_path: Path, text: str, needle: str
 ) -> None:
-    with pytest.raises(theme.ThemeError, match="theme.toml") as caught:
+    with pytest.raises(theme.ThemeError, match=r"theme.toml") as caught:
         theme.load_theme_config(_write(tmp_path, text))
     assert needle in str(caught.value)
 

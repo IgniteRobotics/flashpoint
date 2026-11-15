@@ -434,7 +434,7 @@ def test_restore_copies_raw_and_meta_and_resets_pipeline_version(
     assert "run: flashpoint rebuild" in out
     assert _hashes(restored.raw) == hashes
     rows = ledger_rows(restored.ledger, "SELECT sha256, pipeline_version FROM files")
-    assert sorted(r["sha256"] for r in rows) == sorted(hashes.values())  # type: ignore[type-var]
+    assert sorted(r["sha256"] for r in rows) == sorted(hashes.values())  # type: ignore[type-var]  # ledger rows are untyped
     assert {r["pipeline_version"] for r in rows} == {None}
     ledger = Ledger(restored.ledger)
     try:
@@ -469,7 +469,7 @@ def test_restore_force_replaces_the_ledger_and_its_stale_wal(
 
     assert code == 0
     rows = ledger_rows(other.ledger, "SELECT sha256, size FROM files")
-    assert sorted(r["sha256"] for r in rows) == sorted(hashes.values())  # type: ignore[type-var]
+    assert sorted(r["sha256"] for r in rows) == sorted(hashes.values())  # type: ignore[type-var]  # ledger rows are untyped
     assert {r["size"] for r in rows} == {len(b"log 0")}
 
 

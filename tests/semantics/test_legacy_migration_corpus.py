@@ -56,10 +56,10 @@ def _rows(path: Path) -> list[str]:
 
 
 def test_every_legacy_row_and_prefix_is_accounted_for(migrated: dict[str, object]) -> None:
-    paths: dict[str, Path] = migrated["paths"]  # type: ignore[assignment]
-    report: list[str] = migrated["report"]  # type: ignore[assignment]
-    signals = tomllib.loads(migrated["signals"])["signal"]  # type: ignore[arg-type]
-    roots = tomllib.loads(migrated["season"])["roots"]  # type: ignore[arg-type]
+    paths: dict[str, Path] = migrated["paths"]  # type: ignore[assignment]  # fixture dict is untyped
+    report: list[str] = migrated["report"]  # type: ignore[assignment]  # fixture dict is untyped
+    signals = tomllib.loads(migrated["signals"])["signal"]  # type: ignore[arg-type]  # fixture dict is untyped
+    roots = tomllib.loads(migrated["season"])["roots"]  # type: ignore[arg-type]  # fixture dict is untyped
     mapped = {(s["root"], s["entry"]) for s in signals}
     for key, root in (("metrics", "robot"), ("vision", "photonvision")):
         for entry in _rows(paths[key]):
@@ -77,6 +77,6 @@ def test_every_legacy_row_and_prefix_is_accounted_for(migrated: dict[str, object
 def test_committed_configuration_is_the_migration_output(migrated: dict[str, object]) -> None:
     assert (REPO / "config" / "seasons" / "2025.toml").read_text() == migrated["season"]
     robot = (REPO / "config" / "robots" / "2025-comp.toml").read_text()
-    assert robot.endswith(migrated["signals"])  # type: ignore[arg-type]
-    for line in migrated["report"]:  # type: ignore[attr-defined]
+    assert robot.endswith(migrated["signals"])  # type: ignore[arg-type]  # fixture dict is untyped
+    for line in migrated["report"]:  # type: ignore[attr-defined]  # fixture dict is untyped
         assert f"#   {line}\n" in robot

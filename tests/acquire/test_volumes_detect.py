@@ -35,7 +35,7 @@ def test_detect_dispatches_on_platform(
     monkeypatch.setattr(windows, "detect_windows", fake("windows"))
     monkeypatch.setattr(sys, "platform", platform)
     assert volumes.detect() == [STICK]
-    assert called == [module.__name__.rsplit(".", 1)[1]]  # type: ignore[attr-defined]
+    assert called == [module.__name__.rsplit(".", 1)[1]]  # type: ignore[attr-defined]  # module set by parametrize
 
 
 def test_detect_unknown_platform_finds_nothing(monkeypatch: pytest.MonkeyPatch) -> None:

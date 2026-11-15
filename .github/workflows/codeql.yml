@@ -1,0 +1,40 @@
+name: codeql
+
+# Code scanning for the Python backend and the app's JavaScript (spec: ci-quality-gates).
+# A high or critical alert blocks merging through the dev-main-pr-gate ruleset.
+on:
+  pull_request:
+    branches: [main, development]
+  push:
+    branches: [main, development]
+  schedule:
+    - cron: "17 6 * * 1"  # weekly, Monday morning UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config: |
+            paths-ignore:
+              - src/flashpoint/web/static/vendor
+              - tests/fixtures
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:${{ matrix.language }}

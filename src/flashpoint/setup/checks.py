@@ -67,7 +67,7 @@ class CheckResult:
 
 
 def _run(args: Sequence[str]) -> "subprocess.CompletedProcess[str]":
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603 - fixed service-manager commands
         list(args), capture_output=True, text=True, timeout=SERVICE_TIMEOUT_S, check=False
     )
 
@@ -80,7 +80,7 @@ def _find_advantagescope(root: Path) -> tuple[Any, str | None]:
 
 def current_season() -> int:
     """The FRC season is the calendar year of its January kickoff."""
-    return dt.date.today().year
+    return dt.datetime.now().astimezone().year
 
 
 @dataclass
@@ -140,7 +140,7 @@ def _file(ctx: CheckContext, name: str, load: Callable[[], object]) -> CheckResu
 
     try:
         load()
-    except Exception as exc:  # each loader raises its own error type; all are shown as text
+    except Exception as exc:  # noqa: BLE001 - each loader raises its own type; all shown as text
         command = f"fix {config.config_file(ctx.config_root, name)}"
         if isinstance(exc, MissingSeasonError):
             seasons = ctx.config_root / "seasons"

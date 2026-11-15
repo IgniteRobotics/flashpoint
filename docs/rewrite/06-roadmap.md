@@ -295,7 +295,7 @@ gitGraph
 
 ## 5. Quality gates (every phase)
 
-- **CI:** `pytest --strict-markers`, coverage on `src/flashpoint/{readers,lake,physics}` ≥ 85%, ruff, mypy `--strict`.
+- **CI:** `pytest --strict-markers`; unit-run coverage ≥ 93% overall and ≥ 85% on `src/flashpoint/readers/`, `lake/`, and `semantics/physics.py` (measured with the Numba JIT off); ruff with the security, error-handling, and complexity rules; Biome lint and format on the app's JS and CSS; mypy `--strict`. The required check also waits on the browser and clean-install jobs; CodeQL alerts block through the ruleset. The rules and their reasons are the coding standards in the [developer guide](../guide/developer-guide.md#coding-standards) (code-quality-gates, #50).
 - **Golden-corpus E2E** on every PR. Add a perf budget check from P1 onward.
 - **Container builds:** amd64 and arm64.
 - **Docs:** the ADR log is updated when a decision changes.

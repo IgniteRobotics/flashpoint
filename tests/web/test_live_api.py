@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from collections.abc import Iterator
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
@@ -150,7 +151,7 @@ def test_snapshots_at_most_two_per_second(live_server: FlashpointServer, robot: 
             kind, _, at = stream.next()
             if kind == "snapshot":
                 times.append(at)
-        gaps = [b - a for a, b in zip(times, times[1:], strict=False)]
+        gaps = [b - a for a, b in pairwise(times)]
         assert min(gaps) > 0.4, gaps
     finally:
         stop.set()
@@ -209,9 +210,9 @@ def test_overflowed_subscriber_stream_ends(
     stream = Stream(port_of(live_server))
     try:
         stream.until("snapshot")
-        for sub in list(live_server.live._subs):  # noqa: SLF001 - simulate a stuck browser
+        for sub in list(live_server.live._subs):
             sub.overflowed = True
-        with pytest.raises(EOFError):
+        with pytest.raises(EOFError):  # noqa: PT012 - reads until the server drops the stream
             while True:
                 stream.next()
     finally:
@@ -236,7 +237,7 @@ def _serve_state(tmp_path: Path, *extra: str) -> dict[str, Any]:
     try:
         assert process.stdout is not None
         url = process.stdout.readline().split()[-1]
-        with urlopen(url + "api/live/can/state") as response:  # noqa: S310 - local test server
+        with urlopen(url + "api/live/can/state") as response:
             return dict(json.loads(response.read()))
     finally:
         process.kill()
@@ -270,7 +271,7 @@ def test_no_robot(tmp_path: Path) -> None:
         for _ in range(3):
             for path in ("/", "/data/matches.js", "/api/summary", "/static/shell.js"):
                 start = time.monotonic()
-                with urlopen(base + path) as response:  # noqa: S310 - local test server
+                with urlopen(base + path) as response:
                     assert response.status == 200
                 assert time.monotonic() - start < 0.5, path
             time.sleep(0.3)

@@ -18,6 +18,8 @@ SINKS = re.compile(
     r"\b(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new\s+Function\b)"
 )
 INLINE_HANDLER = re.compile(r"""\bon[a-z]+\s*=\s*["'`]""", re.IGNORECASE)
+# Classic scripts only (spec: coding-standards): browsers refuse ES modules from file://.
+MODULE_SYNTAX = re.compile(r"^\s*(?:import|export)\b", re.MULTILINE)
 REMOTE = re.compile(r"""(?:\b(?:https?|wss?|ftp):|(?:url\(|src=|href=)\s*["']?//)""", re.I)
 LICENSE_BANNER = re.compile(r"/\*!.*?\*/", re.DOTALL)
 
@@ -39,6 +41,16 @@ def test_no_html_sinks_or_eval(path: Path) -> None:
 def test_no_remote_host(path: Path) -> None:
     text = LICENSE_BANNER.sub("", path.read_text(encoding="utf-8"))
     assert not REMOTE.findall(text), f"{path.name} references a remote host"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [p for p in APP_FILES if p.suffix == ".js" and "vendor" not in p.parts],
+    ids=lambda p: p.relative_to(STATIC_DIR).as_posix(),
+)
+def test_app_scripts_are_classic_scripts(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    assert not MODULE_SYNTAX.findall(text), f"{path.name} uses import/export"
 
 
 def test_html_has_no_inline_script_or_style() -> None:

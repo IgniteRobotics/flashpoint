@@ -281,10 +281,10 @@ def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) ->
     """
     base = [sys.executable, "-m", "flashpoint"]
     derive = [*base, "derive", "--lake", str(lake.root), *(["--all"] if derive_all else [])]
-    if subprocess.run(derive, check=False).returncode != 0 or not build_report:
+    if subprocess.run(derive, check=False).returncode != 0 or not build_report:  # noqa: S603 - argv is our own interpreter and module
         return
     report = [*base, "report", "--lake", str(lake.root)]
-    done = subprocess.run(report, check=False, capture_output=True, text=True)
+    done = subprocess.run(report, check=False, capture_output=True, text=True)  # noqa: S603 - argv is our own interpreter and module
     if done.returncode == 0:
         print(done.stdout, end="")
     elif done.returncode == EXIT_LOCKED:
@@ -458,7 +458,7 @@ def _serve(lake: LakePaths, args: argparse.Namespace) -> int:
     if not args.no_build and (lake.meta / "sessions.parquet").is_file():
         # A fresh process keeps the server's idle memory free of the build's high-water mark.
         build = [sys.executable, "-m", "flashpoint", "report", "--lake", str(lake.root)]
-        subprocess.run(build, check=False)
+        subprocess.run(build, check=False)  # noqa: S603 - argv is our own interpreter and module
     try:
         robots_dir = config.config_root() / "robots"
         robots = load_robots(robots_dir) if robots_dir.is_dir() else []
@@ -629,7 +629,7 @@ def _acquire_status(lake: LakePaths) -> list[str]:
 CHECK_MARKS = {"ok": "ok", "warning": "WARN", "problem": "PROBLEM", "n/a": "n/a"}
 
 
-def _doctor(lake: LakePaths) -> int:
+def _doctor(lake: LakePaths) -> int:  # noqa: C901 - grandfathered (code-quality-gates)
     from flashpoint.semantics.robot_config import ConfigError, load_config_seasons, load_robots
     from flashpoint.setup.checks import CheckContext, has_problem, run_checks
     from flashpoint.web import advantagescope
@@ -694,7 +694,7 @@ def _doctor(lake: LakePaths) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 - grandfathered (code-quality-gates)
     args = _parser().parse_args(list(sys.argv[1:] if argv is None else argv))
     if args.command is None:
         _parser().print_help()

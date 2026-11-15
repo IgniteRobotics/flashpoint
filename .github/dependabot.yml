@@ -1,0 +1,26 @@
+# Dependency updates land on development (spec: ci-quality-gates). Minor and patch updates come
+# as one grouped PR per ecosystem per month; each major update comes as its own PR, so one
+# breaking package can't hold up the rest. pre-commit hook pins are bumped by hand in the
+# season pass.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    target-branch: development
+    schedule:
+      interval: monthly
+    # Only touch pyproject.toml when a new version falls outside the declared range (a major).
+    versioning-strategy: increase-if-necessary
+    groups:
+      python:
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: development
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
