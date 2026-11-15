@@ -29,6 +29,8 @@ flowchart LR
     P4 --> P4g
     P4g --> P4h[Team branding]
     P4 --> P4d[Replay UX]
+    P4h --> MVP[MVP public<br>release]
+    P5 --> MVP
     P5 --> P6[P6 Prediction<br>& fleet]
 ```
 
@@ -201,6 +203,20 @@ Each team sees its own name and colours instead of Ignite's:
 - **Palette:** presets (`amber`, today's look, stays the default) or a custom primary, background and warning colour, with every shade derived from them.
 - **Readable by rule:** text keeps 4.5:1 contrast on every surface and warnings stay distinct from the primary colour; a failing palette is refused with a suggested fix.
 - Applies to every view, the charts and static exports. Colour tokens are renamed from amber to roles (`--accent*`, `--warn`).
+
+### MVP public release (L, follow-up to Team setup and P5)
+> **Tracking:** [#68](https://github.com/IgniteRobotics/flashpoint/issues/68) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3). **OpenSpec:** `mvp-public-release` (umbrella), `mvp-install-and-first-run`, `mvp-outside-team-logs`, `mvp-documentation`.
+
+Announce Flashpoint to other FRC teams on Chief Delphi before the 2027 kickoff. A team that isn't 6829 installs from PyPI and gets useful, honest results from stock `.wpilog` and `.hoot` logs, unaided. macOS, Linux and Windows are all required; Windows ships last and may be rough, but must work end to end.
+- **Milestones:**
+  - **M0** stop the bleeding, 2026-11-21: 0.2.0 on PyPI, 0.1.0 yanked, tracker cleaned up, outreach for outside logs started.
+  - **M1** installs anywhere, first run makes sense, 12-05: one install command that brings its own Python, a cross-OS smoke, first-run copy, the 2027 season (`mvp-install-and-first-run`).
+  - **M2** honest results on other teams' logs, 12-12: non-Pro hoots, AdvantageKit identity, anomalies first impression, outside logs by 11-28 (`mvp-outside-team-logs`).
+  - **M3** Windows, beta, release candidate, 12-19: Windows walkthrough, an outside-mentor beta by 12-14, support files, 0.3.0 on PyPI.
+  - **M4** announce, 2027-01-04 (kickoff 01-09), then a kickoff-week 0.3.1 for 2027 owlet and pyntcore.
+- **Docs throughout** (`mvp-documentation`): a docs site with Why Flashpoint, how-tos, screenshots and animations from the release UI, a hosted demo, a robot-side "what to log" guide, and a hardware and log matrix with known limits.
+- **Cutline:** the proposal of `mvp-public-release` lists MVP-blocking, nice-to-have and post-MVP issues. Robot-side code (#6, #7, #9), REV, Systemcore and full AdvantageKit alignment are out.
+- **Fallback:** label before fixing. Robot auto-pull "beta", Live CAN "experimental", Anomalies "beta", untested matrix rows "not tested", hoot-only sessions warned.
 
 ### Replay UX (S, follow-up to P4)
 > **Tracking:** [flashpoint-private#73](https://github.com/IgniteRobotics/flashpoint-private/issues/73) on the [Flashpoint project](https://github.com/orgs/IgniteRobotics/projects/3).
