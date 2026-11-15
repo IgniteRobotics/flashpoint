@@ -1,0 +1,29 @@
+name: Feature request
+description: Something you'd like Flashpoint to show or do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Not sure it's a feature yet? Start in [Q&A discussions](https://github.com/IgniteRobotics/flashpoint/discussions/categories/q-a).
+  - type: textarea
+    id: what
+    attributes:
+      label: What you want to see
+      description: What would you like to see or do, and what would it help your team find or fix?
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Which view or command
+      description: The view (Replay, History, Anomalies, Live CAN, Setup) or the command (`flashpoint ...`) it's about.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: What your logs have
+      description: If it needs data from the robot, which entries or signals your logs have that it could use. Don't attach logs.
+    validations:
+      required: false

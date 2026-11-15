@@ -55,6 +55,8 @@ poetry run flashpoint doctor
 - [How it works](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
 - [Developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/developer-guide.md): build, test, CI, and how changes are made.
 
+**Getting help:** ask questions in [Q&A discussions](https://github.com/IgniteRobotics/flashpoint/discussions/categories/q-a), and report bugs with the [issue forms](https://github.com/IgniteRobotics/flashpoint/issues/new/choose). Don't attach match logs to a public issue.
+
 ## Project
 
 - **Code:** the `flashpoint` package in `src/flashpoint/`.

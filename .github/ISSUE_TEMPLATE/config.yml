@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/IgniteRobotics/flashpoint/discussions/categories/q-a
+    about: How to install, import logs, read a view, or set up your robot. Answers are searchable for the next team.
+  - name: Documentation
+    url: https://github.com/IgniteRobotics/flashpoint/tree/main/docs/guide
+    about: The user guide, auto-import, team setup and CLI reference.
