@@ -397,6 +397,6 @@ These touch full logs only through the capture and demo jobs:
 
 ## Open Questions
 
-1. **Pre-release docs versions (Josh, umbrella).** D-c deploys `/0.3/` for `v0.3.0rc1` so that rc's PyPI images resolve under the umbrella's release-build gate, and #72's in-app links follow the same rule (aligned 2026-11-14). The alternative is to let the gate accept `/dev/` images and send rc links to `/dev/`. Default: deploy `X.Y` for pre-releases, as written.
+1. **Pre-release docs versions (Josh, umbrella).** D-c deploys `/0.3/` for `v0.3.0rc1` so that rc's PyPI images resolve under the umbrella's release-build gate, and #72's in-app links follow the same rule (aligned 2026-11-14). The alternative is to let the gate accept `/dev/` images and send rc links to `/dev/`. Resolved 2026-11-15: Josh confirmed deploying `X.Y` for pre-releases, as written.
 2. **Sample data for media (Josh).** Should a few more 2026 GACMP/GASUW matches be published as `samples-v1` assets, so History has more than five points and Anomalies shows real findings? Default: no; capture from corpus-v1 only. Task 8.1 is written for either case.
 3. **Pages squash threshold.** 300 MB is a guess; it can be tuned after the first releases.

@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: CAN-gap floors scale with frame rate
-The spread floors for the two CAN-gap baseline metrics, isolated CAN gaps and frames missed per enabled minute, SHALL be set for a device sending 50 frames per second. For faster devices they SHALL scale up in proportion to the device's nominal frame rate. The floor used for a unit and metric SHALL be the configured floor × max(1, rate ÷ 50), using the median nominal frame rate of the unit's rows in the baseline window and the match being judged. Rows with no recorded frame rate (derived before rates were recorded) SHALL use the configured floor unchanged. The scaling SHALL apply to DRIFT, STEP and SIBLING, at every sensitivity. It SHALL NOT change the SPEC limit on the longest isolated gap, which stays in milliseconds whatever the rate. The "why it was flagged" text of a CAN-gap anomaly SHALL state the frame rate and the floor used.
+The spread floors for the two CAN-gap baseline metrics, isolated CAN gaps and frames missed per enabled minute, SHALL stay as configured for a device sending at most 125 frames per second, which covers roboRIO-bus status rates. For a device sending more than 125 frames per second they SHALL scale up in proportion to its nominal frame rate. The floor used for a unit and metric SHALL be the configured floor when the rate is at most 125, and the configured floor × (rate ÷ 50) when it is above 125, using the median nominal frame rate of the unit's rows in the baseline window and the match being judged. Rows with no recorded frame rate (derived before rates were recorded) SHALL use the configured floor unchanged. The scaling SHALL apply to DRIFT, STEP and SIBLING, at every sensitivity. It SHALL NOT change the SPEC limit on the longest isolated gap, which stays in milliseconds whatever the rate. The "why it was flagged" text of a CAN-gap anomaly SHALL state the frame rate and the floor used.
 
 #### Scenario: Jitter on a 250 Hz CANivore
 - **WHEN** a synthetic 250 Hz unit has 0 isolated gaps and 0 frames missed per minute for 15 matches, then 9 isolated gaps of about 12 ms and 3.7 frames missed per enabled minute in each of the next 5 matches
@@ -14,6 +14,10 @@ The spread floors for the two CAN-gap baseline metrics, isolated CAN gaps and fr
 #### Scenario: Dropout on a corpus match
 - **WHEN** detection runs on a synthetic copy of corpus `2026-gacmp-q7` in which one CANivore drive motor is silent for 1 s while enabled
 - **THEN** there is a HIGH SPEC anomaly on that unit's longest isolated gap, and no CAN-gap anomaly on any other CANivore unit
+
+#### Scenario: Rio-rate device keeps today's floor
+- **WHEN** a synthetic 105 Hz unit has the same isolated-gap and frames-missed history as a corpus rio Talon FX with a normal-sensitivity DRIFT today
+- **THEN** it is judged with the configured floors, and it has the same DRIFT at normal sensitivity as before frame rates were recorded
 
 #### Scenario: Slow device keeps the configured floor
 - **WHEN** a synthetic 4 Hz unit and a synthetic 50 Hz unit each have the same history of isolated gaps

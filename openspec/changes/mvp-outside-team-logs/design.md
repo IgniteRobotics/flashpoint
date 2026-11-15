@@ -82,7 +82,7 @@ They live in one constant block in `meta/extract.py`. A real log that differs is
 ### 2. AdvantageKit wall-clock anchor
 `_anchor()` tries `systemTime`, then the AdvantageKit epoch entry, then the filename. It uses the same >2020 plausibility filter and the median offset. With an offset, `utc_end` exists, and `group_sessions()` pairs the log with its hoots unchanged.
 
-Alignment then falls to `wall-clock` (very low). AdvantageKit's CTRE swerve template doesn't publish `DriveState/Pose` to NetworkTables, and enable edges read `DS:enabled`. Framing still works, because it prefers hoot `RobotMode` (`framing_for`). Replay shows the existing low-alignment warning. That is honest for M2. The one-line `/DriverStation/Enabled` alias for enable edges stays post-MVP, per the brief; see Open questions.
+Alignment then falls to `wall-clock` (very low). AdvantageKit's CTRE swerve template doesn't publish `DriveState/Pose` to NetworkTables, and enable edges read `DS:enabled`. Framing still works, because it prefers hoot `RobotMode` (`framing_for`). Replay shows the existing low-alignment warning. That is honest for M2. The `/DriverStation/Enabled` alias for enable edges (size S) comes into M2 only if a real AdvantageKit log arrives by 2026-11-28 (Josh, 2026-11-15): it lifts AdvantageKit alignment from very low to low. The `session-grouping` delta carries it; task 2.5 drops that delta if no real log arrives, and the alias goes to a post-MVP issue.
 
 Alternative: estimate a filename-anchored `utc_end` as the start plus the log span. Rejected: AdvantageKit renames its file when the clock syncs, not at log start, so the window would be wrong by an unknown amount.
 
@@ -122,12 +122,13 @@ Alternative: hide fallback brownouts below normal sensitivity. Rejected: a real 
 
 ### 7. Rate-relative CAN-gap floors (refines D10)
 - **Derive.** CAN-health device rows gain `frame_rate_hz` = 1e6 / `nominal_us`, already computed in `can_health.py`. This costs nothing to compute, but it is a new gold column, so `DERIVE_VERSION` +1.
-- **Detection.** The floor is the configured floor × max(1, rate ÷ `CAN_FLOOR_REFERENCE_HZ`), with the reference fixed at 50 Hz. The rate is the median rate over the baseline window plus the judged match. It applies wherever a floor is used: `detect.py` `_rules()`, `siblings.py` (`floor = cfg.baseline.floors[metric]`) and `model.py` (`judge(..., cfg.baseline.floors[metric], ...)`).
-- **Reference rate: 50 Hz, and rio floors rise too.**
-  - Ignite's measured rates (Context) put the rio at 100–111 Hz, not below 50 Hz, so a 50 Hz reference doubles the rio floors as well (×2.0–2.2, and ×2.1 for CANivore CANcoders).
-  - A reference high enough to leave the rio alone (≥ 111 Hz) would scale 250 Hz devices by only ×2.25. That would leave CANivore jitter at |z| up to about 3.8, still a normal-sensitivity DRIFT (2.5), so #77's acceptance would fail.
-  - 50 Hz is chosen because it meets #77, and it's the rate the shipped floors were reasoned about. The cost is that weak rio CAN-gap trends get quieter. Ignite's real rio stalls are at |z| 17–93 and stay HIGH. The two rio DRIFT findings at normal sensitivity (|z| ≈ 3.9) fall to about 1.8 and show at strict only. Task 4.4 lists every rio finding that moves, and Josh decides (Open questions).
+- **Detection.** The floor is the configured floor when the rate is at most `CAN_FLOOR_RIO_MAX_HZ` (125 Hz), and the configured floor × rate ÷ `CAN_FLOOR_REFERENCE_HZ` (50 Hz) above it. The rate is the median rate over the baseline window plus the judged match. It applies wherever a floor is used: `detect.py` `_rules()`, `siblings.py` (`floor = cfg.baseline.floors[metric]`) and `model.py` (`judge(..., cfg.baseline.floors[metric], ...)`).
+- **Piecewise rule: rio rates keep today's floors (Josh, 2026-11-15).**
+  - Ignite's measured rates (Context) put the rio at 100–111 Hz and CANivore CANcoders at about 105 Hz. A plain ×max(1, rate ÷ 50) would double their floors and move the two rio DRIFT findings at normal sensitivity (|z| ≈ 3.9) to strict. Josh chose to keep today's behaviour there.
+  - Above 125 Hz the scale is rate ÷ 50, so a 250 Hz CANivore device gets ×5, which #77 needs. A single higher reference (≥ 111 Hz) would scale 250 Hz by only ×2.25 and leave CANivore jitter at |z| up to about 3.8, a normal-sensitivity DRIFT.
+  - The step at 125 Hz (×1 to ×2.5) is deliberate. Phoenix status frames sit at the default rates (rio ~100 Hz, CANivore 250 Hz), so few devices land near it. A team that configures a device just above 125 Hz gets the scaled floors, and the why text states the rate and floor so a mentor can see it.
   - This is a constant, not a config key: one fewer knob for new teams. A team can still raise `floors` in `anomaly.toml`.
+- **Expected effect on rio-rate devices (≤ 125 Hz):** none; floors and findings are unchanged, including the CANivore CANcoders at ~105 Hz. Task 4.4 checks that their jitter doesn't add findings.
 - **Expected effect on a 250 Hz device:** floors become 12.5 gaps and 5 missed/min. The jitter case (9 gaps, 3.7/min) is z < 1. Ignite's 41 CANivore findings scale from |z| ≤ 8.5 to about ≤ 1.7, which is below every normal threshold. Only an occasional strict DRIFT (1.5) remains possible, and task 4.4 counts it. A 1 s dropout per match is ~100 missed/min, z ≈ 20, so still a HIGH STEP. The SPEC gap limit (250 ms / 1 s) is untouched, so a single real dropout is still caught.
 - **Alternatives:**
   - A minimum gap length in derive (ignore gaps under ~25 ms). Rejected: it changes the measurement, the Replay markers and the can-health spec. Ignite's starved-rio stalls of 20–50 ms are real.
@@ -135,7 +136,7 @@ Alternative: hide fallback brownouts below normal sensitivity. Rejected: a real 
   - Higher fixed floors. Rejected: they blind slow (4 Hz) devices, where one missed frame matters.
 
 ### 8. Pro coverage check
-A new entry in the `setup/checks.py` registry runs one ledger query over `hoot_logs` grouped by bus and `pro_licensed`. It is a warning, never a problem, and has no fix. It is ADDED as its own requirement, so it doesn't collide with `mvp-install-and-first-run`'s edits to "Setup checks".
+A new entry in the `setup/checks.py` registry runs one ledger query over `hoot_logs` grouped by bus and `pro_licensed`. It is always ok, with an informational message: a non-Pro team, the common case, can't clear it without buying Pro, so a warning would be the same permanent-warning trap the M1 change removes for backup (Josh, 2026-11-15). It has no fix. It is ADDED as its own requirement, so it doesn't collide with `mvp-install-and-first-run`'s edits to "Setup checks".
 
 ### 9. Beta label and guide
 - `anomalies.js` adds a BETA tag and a note to the header. Its link comes from the server's `GET /api/docs` map, and the Pro check's link (§8) from `docs_url()` in `flashpoint/docs_links.py`; `mvp-install-and-first-run` (D-b, #72, its tasks 2.3–2.4, due 12-05) adds both. The shipped JS holds no address (static lint, ADR-0013), and `mvp-public-release` forbids `blob/development` links, so there is no interim constant: if #72 hasn't merged, the note names the page by title and the link is added when it lands.
@@ -183,7 +184,7 @@ AdvantageKit wpilogs are often larger than ours, because they log every input at
 - [AdvantageKit names guessed wrong] → They sit in one constant block, and spec scenarios use synthetic logs built from that block. A real log in task 8.3 is the check. If none arrives, the matrix says "not tested".
 - [Hoot label wrong after a mid-match logger restart] → It is used only when the wpilog has nothing. The earliest group wins, and a conflict is warned.
 - [Rate scaling hides a real slow degradation on a 250 Hz device] → The SPEC gap limit still catches any gap ≥ 250 ms. A 1 s/match dropout still makes a HIGH STEP. The scaling is shown in the why text, so a mentor can see it.
-- [The 50 Hz reference quiets weak rio CAN-gap trends (rio runs at 100–111 Hz)] → Real rio stalls (|z| 17–93) stay HIGH. Task 4.4 recounts on the Ignite lake and lists every rio finding that moves severity or sensitivity, for Josh to accept or to move the reference.
+- [Devices configured just above 125 Hz jump from ×1 to ×2.5] → Rare at default Phoenix rates. The why text shows the rate and floor. Task 4.4 lists any device between 110 and 150 Hz on the Ignite lake.
 - [N/A list misses a model] → An unknown model defaults to temperature-capable, so it reads NEEDS PRO or NO DATA rather than hiding a real problem. A model goes on the list only after a scan shows Flashpoint tracks no temperature for it.
 - [Health ranks change for Ignite] → The four CANcoders and the Pigeon 2 move from NO DATA to N/A. There is no other change on Pro lakes.
 - [Conflicts with sibling MVP changes] → `team-setup` and `match-reports` are ADDED-only here. `project-documentation` has no delta. Page content goes onto `mvp-documentation`'s pages (§9).
@@ -199,9 +200,7 @@ AdvantageKit wpilogs are often larger than ours, because they log every input at
 
 ## Open Questions
 
+Resolved by Josh on 2026-11-15: the Pro coverage check is ok with an informational message (§8); rio-rate devices keep today's CAN-gap floors (§7); an AdvantageKit simulation log is enough to confirm entry names when no real log arrives, with the filename time zone and epoch values recorded "not confirmed" and the matrix saying "not tested on real logs" (task 2.1); the `/DriverStation/Enabled` alias comes into M2 if a real AdvantageKit log arrives by 11-28 (task 2.5).
+
 - AdvantageKit's exact entry and filename names (§1, §2), to settle on the first real log. They don't change the specs.
-- Should the `/DriverStation/Enabled` enable-edge alias come into M2 if a real AdvantageKit log arrives by 11-28? It is about S and lifts AdvantageKit alignment from very low to low. The brief says post-MVP, so it is left out of the tasks.
 - Whether owlet fails or skips Pro-only signals on a non-Pro hoot (§5). Both paths are built.
-- **Rio floors (§7).** A 50 Hz reference also doubles the floors on Ignite's 100–111 Hz rio devices. Real rio stalls stay HIGH, but weak rio CAN-gap drifts move from normal to strict. Is that acceptable, or should rio-class rates (≤ 125 Hz) keep today's floors, with only faster devices scaling? The second option needs a piecewise rule and a re-check of the CANivore jitter count in 4.4.
-- **Pro check level (§8).** A non-Pro team, the common case, would see a permanent `doctor` warning it can't fix without buying Pro. That is the same trap the M1 change removed for backup. Should the check be ok with an informational message instead?
-- **AdvantageKit simulation fallback (task 2.1).** AdvantageKit's template writes no wpilog in SIM mode unless a `WPILOGWriter` is added. A sim filename uses the laptop's time zone, not UTC. So a sim log confirms entry names, but not the filename time zone or the `SystemStats` epoch values.

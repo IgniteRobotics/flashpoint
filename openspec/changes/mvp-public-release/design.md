@@ -3,10 +3,10 @@
 See proposal.md for the scope and cutline, and `specs/public-release/spec.md` for the release and support behaviour. The current state that shapes the plan (checked 2026-11-14):
 
 - **PyPI** has only 0.1.0 (`requires-python >=3.11,<3.14`, duckdb and polars uncapped). **TestPyPI** has `0.2.0.dev1` from the team-setup dry run (2026-10-30), so that version can't be uploaded again.
-- **0.2.0** is in flight: PR #69 (`development` → `main`, no closing keyword) is open. `CHANGELOG.md` has a `0.2.0 - 2026-11-13` section. Dependabot #64 and #65 landed after it and change only the lock file and dev tools; the runtime caps are unchanged.
+- **0.2.0** is in flight: PR #69 (`development` → `main`, no closing keyword) merged 2026-11-15; the `v0.2.0` tag is still to be pushed (a GitHub pre-release named `v0.2.0` was created on the `v0.1.0` tag by mistake and is deleted in task 2.3). `CHANGELOG.md` has a `0.2.0 - 2026-11-13` section. Dependabot #64 and #65 landed after it and change only the lock file and dev tools; the runtime caps are unchanged.
 - **`release.yml`** builds on a `v*` tag and publishes to PyPI through the `pypi` environment by trusted publishing; a manual run publishes to TestPyPI. It creates no GitHub Release, so the repo's latest release is `corpus-v1`.
 - **Repo:** public; default branch `development`; Discussions off; private vulnerability reporting off; community profile 50% (no CONTRIBUTING, code of conduct or issue templates). New issues use the org's `bug`, `feature` and `hotfix` forms, which are written for robot code. PRs from non-collaborators are closed by the org's daily sweep (PR #32, a first-time contributor's fix for #11, was closed unmerged on 2026-10-29 and asked for feedback).
-- **Merging:** the `dev-main-pr-gate` ruleset needs one approval and an up-to-date branch on `main` and `development`. Josh is the only regular approver; he has said he will admin-merge.
+- **Merging:** the `dev-main-pr-gate` ruleset needs one approval and an up-to-date branch on `main` and `development`. Josh is the only regular approver and admin-merges every PR (decided 2026-11-15); no second approver is planned.
 - **Docs links** in `pyproject.toml` and `README.md` point at `blob/main`.
 - **OpenSpec:** `p3-log-acquisition` is open at 45/49 (only `[HUMAN]` 11.x left). `p6-failure-prediction` is a proposal-only stub from the OpenSpec init. Issue #13 has false ticks from 2026-11-11 (P0 7.2, P3 11.2, P5 9.3).
 
@@ -47,10 +47,10 @@ See proposal.md for the scope and cutline, and `specs/public-release/spec.md` fo
 
 ### D-c. Critical path
 1. **Outside logs** (Josh is asking; hard date 11-28). AK identity, non-Pro handling, matrix rows, the anomaly sanity check and the beta all wait on them.
-2. **Josh as the only merger.** Strict up-to-date means every merge forces the next PR to rebase and re-run CI (about 20–40 min). Over Thanksgiving (11-26) and winter break this is the slowest link. Mitigation: small PRs; Josh merges in two batches a week (D-g); a second mentor in `code-reviewers` approves when available.
+2. **Josh as the only merger.** Strict up-to-date means every merge forces the next PR to rebase and re-run CI (about 20–40 min). Over Thanksgiving (11-26) and winter break this is the slowest link. Mitigation: small PRs; Josh admin-merges in two batches a week (D-g).
 3. **The robot session** for P3 11.1, booked before 12-07.
 4. **The outside mentor beta**, done by 12-14. It installs `0.3.0rc1` from PyPI (D-f).
-5. **A Windows machine and a person** for the M3 walkthrough. Nobody has done a Windows install end to end yet.
+5. **A Windows machine** for the M3 walkthrough, which Josh does by 12-17. Nobody has done a Windows install end to end yet.
 
 ### D-d. Capacity and the label-before-fix fallback
 - About 22 blocking items (mostly S) plus about 7 M items is 25–35 person-days, plus 3–4 human sessions, in roughly 4 effective weeks (Thanksgiving, then winter break from about 12-20). It fits only if mentors take the M items and students take copy, docs and the S fixes.
@@ -89,17 +89,17 @@ See proposal.md for the scope and cutline, and `specs/public-release/spec.md` fo
 - **Planning:** all four change folders land together from `feature/68-mvp-public-release` into `development` in one PR that references #68 without a closing keyword.
 - **Implementation:** one `feature/<issue>-<name>` branch per issue (or per tight bundle, such as #72 with #37/#38/#44), cut from `development`, PR into `development` with a closing keyword for that issue. Each sibling's last PR carries its `openspec archive` commit.
 - **Docs collisions:** `mvp-install-and-first-run` and `mvp-outside-team-logs` edit guide text in place. `mvp-documentation` owns moving and restructuring `docs/guide/` and does its moves in one early PR (by 11-28); after that, nobody else moves guide files.
-- **Merge rhythm:** Josh admin-merges on fixed days (Tue and Sat). A PR that is green and approved by then goes in; others rebase after.
+- **Merge rhythm:** Josh admin-merges on fixed days (Tue and Sat). A PR that is green by then goes in; others rebase after. Admin merge still requires `ci-ok` green; it only stands in for the approval.
 - **Release PRs:** `development` → `main` for each release (0.2.0, 0.3.0rc1, 0.3.0, 0.3.1), then the tag on `main`. Hotfixes go `hotfix/*` → `main` and back into `development`.
 - **Archive order** (checked against every delta on 2026-11-14):
   1. `p3-log-acquisition` first (M0, task 1.8). `mvp-install-and-first-run` adds requirements to `log-acquisition`, which exists only in that unarchived change.
   2. `mvp-install-and-first-run` and `mvp-outside-team-logs`, in either order, as each finishes. Both touch `team-setup` and `match-reports`, but no requirement is touched by both: install MODIFIES "Installable public package", "Configuration home", "Initialising a configuration" and "Setup checks" and ADDS "Documentation links" and "Empty Replay explains what to do"; outside ADDS only "Phoenix Pro coverage check" and "Temperature on non-Pro hoots". Whichever archives second re-runs `openspec validate --all` first. Install drops its "Robot pull labelled beta" requirement before archive if the robot session passes (its task 8.5). Outside folds the old `match-reports` "Replay view" sentence on non-Pro cells into its new requirement at archive (its design Risks).
   3. `mvp-documentation` after the 0.3.0 tag (its group 15 checks the tagged deploy). It is the only change touching `project-documentation`, so it doesn't depend on the others' order.
   4. This change last, after 0.3.1, with any open `[HUMAN]` tasks moved to #13; the archive comment goes on #68. It is the only change touching `public-release` and `live-can-health`.
-  - Every other capability has one owner: `backup-status`, `config-editor`, `session-grouping`, `ci-quality-gates`, `log-acquisition` (install); `match-identity`, `log-metadata`, `hoot-conversion`, `lifetime-trends`, `anomaly-detection`, `anomaly-review`, `can-health` (outside).
+  - Every other capability has one owner: `backup-status`, `config-editor`, `ci-quality-gates`, `log-acquisition` (install); `session-grouping` is shared: install ADDS "Hoot-only sessions are reported" and outside MODIFIES "Clock alignment with confidence" (only if its task 2.5 adopts the AdvantageKit enable alias); `match-identity`, `log-metadata`, `hoot-conversion`, `lifetime-trends`, `anomaly-detection`, `anomaly-review`, `can-health` (outside).
 
 ### D-h. Kickoff-week 0.3.1
-- **Owner:** Josh unless another mentor is named in the checklist by M3. **Target:** Sat 2027-01-16, one week after kickoff.
+- **Owner:** Josh (confirmed 2026-11-15). **Target:** Sat 2027-01-16, one week after kickoff.
 - **Contents:**
   - owlet entries for the 2027 hoot format, once CTRE publishes them (`tools/update-owlet-manifest.py`, D4);
   - the pyntcore cap widened for 2027 once its wheels exist;
@@ -143,5 +143,9 @@ This change touches full logs only through the gates:
 
 ## Open Questions
 
-- Who is the contact named in the code of conduct for reports? (Security reports go through private vulnerability reporting, so they need no address.)
-- Who besides Josh can do the Windows walkthrough on a clean machine (task 8.2, with `mvp-install-and-first-run` 1.4's Windows row), and on what date by 12-17?
+Resolved by Josh on 2026-11-15:
+- Josh owns every named role: the code-of-conduct contact, the Windows walkthrough (by 12-17), the outside-mentor beta, the Chief Delphi thread, and 0.3.1.
+- Josh admin-merges; no second approver.
+- `0.3.0rc1` goes to PyPI as a pre-release with `/0.3/` docs under a pre-release banner, so `mvp-documentation` 13.3 and 13.6 land by 12-05.
+
+None open.

@@ -121,5 +121,5 @@ See proposal.md for the motivation and the seven delta specs for behaviour. What
 
 ## Open Questions
 - The page-to-path rule (for example `auto-import/#backup-and-restore` or `how-to/robot-pull/`), from `mvp-documentation`'s restructure. It lives only in `docs_links.py`, so it doesn't change the specs or tasks.
-- Who owns the kickoff-week 0.3.1, and on what date. `mvp-public-release` task 9.2 defaults it to Josh, 2027-01-16; Josh confirms there, not here.
+- Resolved 2026-11-15: Josh owns the kickoff-week 0.3.1, target 2027-01-16 (`mvp-public-release` task 9.2).
 - Page-to-path slugs arrive from `mvp-documentation` task 5.2 (a comment on #72); task 2.3 here waits on it.
