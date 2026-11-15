@@ -36,7 +36,8 @@
 ## 5. Live CAN experimental label (closes out #22)
 
 - [ ] 5.1 After #72's documentation addresses land (team-setup "Documentation links", `mvp-install-and-first-run` 2.4): write failing browser tests for "Label in the view" and "Robot publishes nothing" against the fake robot; add the label and its one-line reason to the Live CAN view, linking the guide by the address `/api/docs` provides. Verify `pytest -m browser -k live` passes
-- [ ] 5.2 Write a failing docs test for "Guide states the status"; add the opening status paragraph to `docs/guide/live-can-health.md`. Verify `pytest tests/test_docs.py` passes
+- [x] 5.2 Write a failing docs test for "Guide states the status"; add the opening status paragraph to `docs/guide/live-can-health.md`. Verify `pytest tests/test_docs.py` passes
+  - Done 2026-11-15; the view's label (5.1) still waits on #72's documentation addresses
 
 ## 6. Support for outside teams (#79, by 2026-12-07, before the beta)
 
