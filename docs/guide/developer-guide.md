@@ -245,4 +245,4 @@ Release-preparation pull requests (the promote PR, changelog moves) reference th
 
 ## Updating owlet
 
-CTRE releases new owlet builds for new hoot format versions. The versions and checksums are pinned in `src/flashpoint/readers/owlet-manifest.toml`. `poetry run python tools/update-owlet-manifest.py` rewrites that file from CTRE's download index: the newest stable owlet for each format version, on every platform, with checksums computed by downloading each binary. It runs as soon as you start it (it takes no options), so expect several minutes of downloads, and review the diff before committing.
+CTRE releases new owlet builds for new hoot format versions. The versions and checksums are pinned in `src/flashpoint/readers/owlet-manifest.toml`. `poetry run python tools/update-owlet-manifest.py` rewrites that file from CTRE's download index: the newest stable owlet for each format version, on every platform, with checksums computed by downloading each binary. It takes no options besides `--help` and starts as soon as you run it, so expect several minutes of downloads, and review the diff before committing.
