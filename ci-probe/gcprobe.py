@@ -38,6 +38,13 @@ def pytest_runtest_call(item):  # type: ignore[no-untyped-def]
         yield
     finally:
         module.backup_status = original
+        counts = gc.get_count()
+        started = time.perf_counter()
+        collected = gc.collect()
+        EVENTS.append(
+            f"full gc.collect() after the call: {(time.perf_counter() - started) * 1000:.1f} ms, "
+            f"collected={collected}, counts before={counts}, tracked objects={len(gc.get_objects())}"
+        )
 
 
 def pytest_terminal_summary(terminalreporter):  # type: ignore[no-untyped-def]
