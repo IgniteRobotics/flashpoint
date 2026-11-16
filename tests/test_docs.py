@@ -139,3 +139,53 @@ def test_guide_matches_the_contract() -> None:
     assert f"Contract version: `{contract.CONTRACT_VERSION}`" in text
     for bit, name in contract.FAULT_BITS.items():
         assert f"{bit} {name}" in text
+
+
+# --- release checklist (spec public-release) ------------------------------------------------
+
+DEVELOPER_GUIDE = REPO / "docs" / "guide" / "developer-guide.md"
+CHECKLIST_STEPS = (
+    ("promote", re.compile(r"`development`.*`main`|promot", re.IGNORECASE)),
+    ("TestPyPI dry run", re.compile(r"TestPyPI.*dry run|dry run.*TestPyPI", re.IGNORECASE)),
+    ("smoke on the tag", re.compile(r"smoke", re.IGNORECASE)),
+    ("clean installs", re.compile(r"clean install.*macOS.*Linux.*Windows", re.IGNORECASE)),
+    ("tag and approve", re.compile(r"\btag\b.*approv", re.IGNORECASE)),
+    ("GitHub Release and latest", re.compile(r"GitHub Release.*latest", re.IGNORECASE)),
+    ("yank policy", re.compile(r"\byank", re.IGNORECASE)),
+    ("docs deploy", re.compile(r"documentation.*deploy|docs.*deploy", re.IGNORECASE)),
+)
+NUMBERED = re.compile(r"^(\d+)\. (.*)$")
+NEXT_PATCH = re.compile(
+    r"^\*\*Next patch release:\*\* "
+    r"(?:none scheduled\.|\d+\.\d+\.\d+, owner .+, target \d{4}-\d{2}-\d{2}\.)$",
+    re.MULTILINE,
+)
+
+
+def _guide_section(heading: str) -> str:
+    text = DEVELOPER_GUIDE.read_text(encoding="utf-8")
+    assert f"\n{heading}\n" in text, f"developer guide has no '{heading}' section"
+    return text.split(f"\n{heading}\n", 1)[1].split("\n## ", 1)[0]
+
+
+def test_release_checklist_lists_the_eight_steps_in_order() -> None:
+    section = _guide_section("## Releasing")
+    items = [m for line in section.splitlines() if (m := NUMBERED.match(line))]
+    assert [int(m[1]) for m in items] == list(range(1, 9))
+    for (name, pattern), item in zip(CHECKLIST_STEPS, items, strict=True):
+        assert pattern.search(item[2]), f"step {item[1]} should be '{name}': {item[2]}"
+
+
+def test_release_checklist_forbids_closing_keywords_in_prep_prs() -> None:
+    section = _guide_section("## Releasing")
+    assert "closing keyword" in section
+    assert "`development`" in section
+    assert re.search(r"close.*by hand", section, re.IGNORECASE)
+
+
+def test_release_checklist_names_the_next_patch_release() -> None:
+    assert NEXT_PATCH.search(_guide_section("## Releasing"))
+
+
+def test_corpus_releases_are_never_latest() -> None:
+    assert "--latest=false" in _guide_section("### The golden corpus")
