@@ -95,7 +95,8 @@ jobs:
         if: matrix.python == '3.12'
         env:
           NUMBA_DISABLE_JIT: "1"
-        run: poetry run pytest -m "not corpus and not browser and not perf" --cov --cov-report=term-missing:skip-covered
+          PYTHONPATH: ci-probe
+        run: poetry run pytest -m "not corpus and not browser and not perf" --cov --cov-report=term-missing:skip-covered -p gcprobe
       - name: Coverage floors on the core packages (85%)
         if: matrix.python == '3.12'
         run: |
