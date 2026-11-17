@@ -1,5 +1,7 @@
 # Live CAN health
 
+**Status: experimental.** Live CAN needs robot code that publishes CAN health ([below](#adding-it-to-robot-code)), and it can report false dropouts on fast buses: on our robot's CANivore, with signals at 250 Hz, gaps under 15 ms were counted as dropouts. Until a per-bus dropout window ([#66](https://github.com/IgniteRobotics/flashpoint/issues/66)) lands and the pit check on a real robot passes, treat a lone dropout on a fast bus with suspicion and confirm it in Replay's CAN health.
+
 The **Live CAN** view shows, while you work on the robot, which CTRE device dropped out, rebooted or faulted, and whether it was one device or the whole bus. Use it to find loose CAN and power connectors:
 
 - **Shake test** (robot disabled): wiggle each harness, one at a time, and watch for a dropout on the device you're touching.

@@ -119,6 +119,18 @@ GUIDE_TYPES = {"integer": "int", "double": "double", "boolean": "boolean", "stri
 CONTRACT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(\w+)\s*\|")
 
 
+def test_live_guide_states_the_experimental_status() -> None:
+    """Spec live-can-health, "Live CAN is marked experimental": "Guide states the status"."""
+    text = LIVE_GUIDE.read_text(encoding="utf-8")
+    first = text.split("\n\n", 2)[1]
+    assert not first.startswith("#"), "the guide's first paragraph should follow its title"
+    lowered = first.lower()
+    assert "experimental" in lowered
+    assert "robot code" in lowered
+    assert "false dropouts" in lowered
+    assert "fast bus" in lowered
+
+
 def guide_contract() -> dict[str, str]:
     """The guide's contract table: topic pattern (relative to the root) -> contract type."""
     text = LIVE_GUIDE.read_text(encoding="utf-8")
