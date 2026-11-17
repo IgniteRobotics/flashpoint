@@ -168,7 +168,7 @@ About 180 MB of real robot logs (release `corpus-v1`), described with sizes and 
 poetry run python tools/fetch-corpus.py
 ```
 
-It downloads with `gh release download` if the GitHub CLI is installed (run `gh auth login` first), otherwise over plain HTTPS, checks every hash, and stores the files in `~/.cache/flashpoint/corpus/corpus-v1/`. Set `FLASHPOINT_CORPUS_DIR` to put them elsewhere, or `--from DIR` to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release.
+It downloads with `gh release download` if the GitHub CLI is installed (run `gh auth login` first), otherwise over plain HTTPS, checks every hash, and stores the files in `~/.cache/flashpoint/corpus/corpus-v1/`. Set `FLASHPOINT_CORPUS_DIR` to put them elsewhere, or `--from DIR` to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release. Create it with `gh release create corpus-vN --latest=false ...`: a corpus release must never be the repository's latest release, which belongs to the newest package version. Check with `gh release list --json tagName,isLatest`: only the newest package version says `true`.
 
 ## CI
 
@@ -214,6 +214,25 @@ Tasks marked `[HUMAN]` need a person: a pit check, a field test. They stay open 
 - Both branches are protected the same way: the `ci-ok` check must pass, a pull request needs one approving review, and only org admins and the `code-reviewers` team can merge. Nobody can force-push or delete them. Never push to either directly.
 - The rewrite was built on a separate `rewrite` branch and merged into `main` on 2026-10-22. The pre-rewrite tree is kept at the `legacy-2025` tag.
 
+## Releasing
+
+A `v*` tag on `main` does the publishing: `.github/workflows/release.yml` takes the version's section from `CHANGELOG.md` (and stops, naming the version, if there isn't one), checks the package page for moving or wrong-version documentation links (`tools/check-release-links.py`), builds, publishes to PyPI once the `pypi` environment is approved, and then creates the GitHub Release with that section as its notes. A final version (`X.Y.Z`) is marked latest; a pre-release (`X.Y.Zrc1`) is marked as a pre-release and leaves latest alone. A manual run of the workflow publishes to TestPyPI only and creates no GitHub Release.
+
+Follow these steps for every release, in order:
+
+1. **Promote.** Move the `Unreleased` entries in `CHANGELOG.md` into a `## X.Y.Z - YYYY-MM-DD` section, then open a pull request from `development` to `main`.
+2. **TestPyPI dry run.** Run the `release` workflow by hand from `main` with an unused `X.Y.Z.devN` (TestPyPI never takes a version twice, so check which numbers are gone), then install it in a clean venv: `pipx install --index-url https://test.pypi.org/simple/ --pip-args="--extra-index-url https://pypi.org/simple/" flashpoint==X.Y.Z.devN`.
+3. **Smoke on the tag.** The cross-platform first-run smoke runs on macOS, Linux and Windows for the commit you're about to tag, and runs again on the tag, where the PyPI publish waits for it. Don't tag over a red smoke.
+4. **Clean installs** of the dry-run version on macOS, Linux and Windows: `flashpoint --version`, `init`, ingest one corpus match, `report`, and open Replay.
+5. **Tag, then approve.** `git tag vX.Y.Z` on `main` and push it. When the build job passes, approve the `pypi` environment.
+6. **Check the GitHub Release and the latest marker.** `gh release list` shows `vX.Y.Z` with its changelog section, marked Latest for a final version, and `corpus-v*` never Latest. If the release job failed after PyPI published, create it by hand: `python3 tools/changelog-section.py X.Y.Z > notes.md`, then `gh release create vX.Y.Z --verify-tag --notes-file notes.md --latest`.
+7. **Yank policy.** Yank a published version only when installing it gives wrong results or breaks. The reason names the version to install instead, for example 0.1.0: "uncapped duckdb/polars; install 0.2.0".
+8. **Documentation deploy.** Deploy the documentation for the version, so the docs site serves `/X.Y/` and `latest` points at it. A docs-only fix can redeploy the current minor's docs without a package release.
+
+Release-preparation pull requests (the promote PR, changelog moves) reference the release issue as `Refs #N` and never with a closing keyword. The default branch is `development`, so a closing keyword there closes the issue as soon as the preparation PR merges, before anything ships. That is how #61 closed early. Close the release issue by hand once the package index shows the version. Feature pull requests keep their closing keyword.
+
+**Next patch release:** 0.3.1, owner Josh, target 2027-01-16.
+
 ## Where decisions and research live
 
 | Path | What |
@@ -226,4 +245,4 @@ Tasks marked `[HUMAN]` need a person: a pit check, a field test. They stay open 
 
 ## Updating owlet
 
-CTRE releases new owlet builds for new hoot format versions. The versions and checksums are pinned in `src/flashpoint/readers/owlet-manifest.toml`. `poetry run python tools/update-owlet-manifest.py` rewrites that file from CTRE's download index: the newest stable owlet for each format version, on every platform, with checksums computed by downloading each binary. It runs as soon as you start it (it takes no options), so expect several minutes of downloads, and review the diff before committing.
+CTRE releases new owlet builds for new hoot format versions. The versions and checksums are pinned in `src/flashpoint/readers/owlet-manifest.toml`. `poetry run python tools/update-owlet-manifest.py` rewrites that file from CTRE's download index: the newest stable owlet for each format version, on every platform, with checksums computed by downloading each binary. It takes no options besides `--help` and starts as soon as you run it, so expect several minutes of downloads, and review the diff before committing.
