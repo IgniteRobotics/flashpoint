@@ -1,6 +1,7 @@
 """When a backup is overdue (spec: backup-status), from the ledger, the configuration and the
 status file's backup slot. No rclone: the rule only reads recorded state."""
 
+import gc
 import json
 import os
 import sqlite3
@@ -222,10 +223,18 @@ def test_fast_enough_for_every_navigation(lake: LakePaths, root: Path) -> None:
     _logs(lake, *[timedelta(minutes=i) for i in range(3000)])
     _backed_up(lake, timedelta(days=1), root)
 
-    started = time.perf_counter()
-    backup_status(lake, root, CONFIGURED, NOW)
+    # Time the call, not a collection of the whole test session's heap (#97): a full GC there
+    # takes about 70 ms on CI and can land inside the window.
+    gc.collect()
+    gc.disable()
+    try:
+        started = time.perf_counter()
+        backup_status(lake, root, CONFIGURED, NOW)
+        elapsed = time.perf_counter() - started
+    finally:
+        gc.enable()
 
-    assert time.perf_counter() - started < 0.05
+    assert elapsed < 0.05
 
 
 def test_never_writes_the_ledger(lake: LakePaths, root: Path) -> None:
