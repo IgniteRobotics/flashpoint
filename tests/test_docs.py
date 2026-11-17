@@ -105,6 +105,15 @@ def test_readme_links_work_on_pypi() -> None:
     assert problems == [], "\n".join(problems)
 
 
+def test_readme_says_where_to_get_help() -> None:
+    """Spec public-release, "Questions have a public place": the README points questions at Q&A
+    discussions and bugs at the issue forms."""
+    text = (REPO / "README.md").read_text(encoding="utf-8")
+    line = next((line for line in text.splitlines() if "Getting help" in line), "")
+    assert "https://github.com/IgniteRobotics/flashpoint/discussions/categories/q-a" in line
+    assert "https://github.com/IgniteRobotics/flashpoint/issues/new/choose" in line
+
+
 def test_every_subcommand_is_in_the_cli_reference() -> None:
     text = CLI_REFERENCE.read_text(encoding="utf-8") if CLI_REFERENCE.exists() else ""
     headings = set(re.findall(r"^## `flashpoint ([a-z-]+)`", text, flags=re.MULTILINE))
