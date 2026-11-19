@@ -18,7 +18,9 @@ Exit codes: `0` success, `1` failed (for `ingest` and `rebuild`: a file failed o
 
 ## `flashpoint init`
 
-Create your config folder: `acquire.toml` with your team number and lake folder, `theme.toml` with the name and colours the app shows, plus copies of the default settings files to edit. Without `--team`, `--lake`, `--team-name` or `--palette` it asks for them (in a terminal only; leave the name blank for none). It never overwrites a file: run it again and it lists what already exists and changes nothing. The robot addresses acquire tries come from the team number.
+Create your config folder: `acquire.toml` with your team number and lake folder, `theme.toml` with the name and colours the app shows, plus copies of the default settings files to edit. Without `--team`, `--lake`, `--team-name` or `--palette` it asks for them (in a terminal only; leave the name blank for none). It never overwrites a file: run it again and it lists what already exists and changes nothing. The robot addresses acquire tries come from the team number. Of the season files Flashpoint ships, it copies the current season's and earlier ones; a later season is read from Flashpoint itself until you copy it.
+
+It prints each file it created, then the next step: `next: import a match's logs with flashpoint ingest <folder> (it drafts your robot from them), then run flashpoint serve`.
 
 | Option | What it does |
 |---|---|
@@ -152,7 +154,9 @@ Stop it with Ctrl-C.
 
 ## `flashpoint acquire`
 
-Pull new logs from the roboRIO (over SFTP) and from USB drives plugged into this machine, verify each copy, then ingest and derive them. It never deletes or changes anything on the robot or the drive. Settings come from `acquire.toml`; see [Automatic import](auto-import.md).
+Pull new logs from the roboRIO (over SFTP) and from USB drives plugged into this machine, verify each copy, then ingest and derive them. It never deletes or changes anything on the robot or the drive. On the robot, each file's checksum runs at the lowest CPU priority (`nice -n 19`) so robot code keeps the processor. Settings come from `acquire.toml`; see [Automatic import](auto-import.md).
+
+Pulling from the robot and running acquire as a service (`--watch`) are **beta, tested on one robot**; `--help` says so. Importing from USB drives isn't labelled.
 
 | Option | What it does |
 |---|---|

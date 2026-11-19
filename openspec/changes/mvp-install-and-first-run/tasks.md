@@ -74,5 +74,5 @@ Dates: every task without `[HUMAN]` is due by M1 (2026-12-05), the smoke job inc
 
 ## 10. Wrap-up
 
-- [ ] 10.1 Update the CLI reference for the `acquire` label and the `init` output; update `docs/rewrite/06-roadmap.md`'s MVP section only if a decision here changed (status goes on #68 and the project board, per `openspec/config.yaml`); verify `pytest tests/test_docs.py` passes
+- [x] 10.1 Update the CLI reference for the `acquire` label and the `init` output; update `docs/rewrite/06-roadmap.md`'s MVP section only if a decision here changed (status goes on #68 and the project board, per `openspec/config.yaml`); verify `pytest tests/test_docs.py` passes
 - [ ] 10.2 Run the full suite (`PYENV_VERSION=flashpoint poetry run pytest`, `-m browser`, `-m corpus`), `poetry run ruff check .`, `poetry run mypy`, and `openspec validate mvp-install-and-first-run --strict`; verify all pass
