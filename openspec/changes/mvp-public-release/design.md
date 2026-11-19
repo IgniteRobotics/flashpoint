@@ -149,3 +149,25 @@ Resolved by Josh on 2026-11-15:
 - `0.3.0rc1` goes to PyPI as a pre-release with `/0.3/` docs under a pre-release banner, so `mvp-documentation` 13.3 and 13.6 land by 12-05.
 
 None open.
+
+## Results
+
+### M0 smoke (task 2.6), 2026-11-19
+
+0.2.0 from PyPI, each step from a fresh venv, configuration folder, lake and owlet cache (`FLASHPOINT_CACHE`), with corpus match GACMP Q7 (wpilog + rio hoot + CANivore hoot) downloaded from the `corpus-v1` release.
+
+| Step | macOS (Python 3.12.8) |
+|---|---|
+| `pip install flashpoint==0.2.0` | `flashpoint 0.2.0`; duckdb 1.5.6, polars 1.44.2 |
+| `doctor` before `init` | names `flashpoint init` |
+| `init --team 6829 --lake … --team-name … --palette amber` | 8 files written, exit 0 |
+| `ingest` (3 files) | `3 ingested, 0 skipped, 0 failed, 0 quarantined`, 22.6 s wall time including the owlet 26.3.0 download |
+| `report` | `built 0, unchanged 1` (ingest already built Replay), 0.5 s |
+| `serve`, Replay | lists `2026gacmp_qm7`, but its data is `no-aligned-samples`, alignment `none`, no charts |
+| `doctor` after | 1 problem ("no robot configured for season 2026"), backup warning |
+
+Linux: same result (Josh, 2026-11-19).
+
+**Finding: with no robot file, Replay shows no data for a match that has its wpilog and hoots.** `derive` builds device samples only for sessions with a known robot (`semantics/derive.py`, sessions with `robot != 'unknown'`), so nothing reaches silver. The Replay reason then says "no wpilog-aligned device data (for example, hoots without a wpilog)", which is wrong here. Control: the same three files with Ignite's `config/` give status `ok`, alignment `high` and 1.06 MB of Replay data. This is the first-run path for every outside team. It goes to `mvp-install-and-first-run` (#72), whose "Empty Replay" states don't cover it.
+
+0.1.0 was yanked on 2026-11-19 (task 2.4) without a reason text; PyPI only takes one when yanking, so it stays empty unless 0.1.0 is un-yanked and yanked again.
