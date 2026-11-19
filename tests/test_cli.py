@@ -150,6 +150,34 @@ def test_derive_without_a_robot_warns(
     assert "no robot" in err and "flashpoint init" not in err
 
 
+def test_init_names_ingest_then_serve(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """team-setup "First run": the last line names the next steps, in the guide's order."""
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(tmp_path / "cfg"))
+    assert main(["init", "--team", "254", "--lake", str(tmp_path / "lake"),
+                 "--team-name", "", "--palette", "amber"]) == 0  # fmt: skip
+    last = capsys.readouterr().out.strip().splitlines()[-1]
+    assert "flashpoint ingest" in last and "flashpoint serve" in last
+    assert last.index("flashpoint ingest") < last.index("flashpoint serve")
+
+
+def test_derive_without_a_robot_names_draft_robot(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """team-setup "Derive with no robot": the warning names Draft robot in the Setup view."""
+    from flashpoint.setup.init import init_config
+
+    lake = _ingested(tmp_path)  # a wpilog with no hoots: nothing to draft from
+    root = tmp_path / "cfg"
+    init_config(root, team=254, lake=lake)
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(root))
+    capsys.readouterr()
+    assert main(["derive", "--lake", str(lake)]) == 0
+    err = capsys.readouterr().err
+    assert "Draft robot" in err and "Setup" in err
+
+
 def test_derive_with_configuration_is_quiet(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

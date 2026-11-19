@@ -8,6 +8,7 @@ names; saving goes through `flashpoint.setup.editor` like any other edit.
 
 import json
 import re
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +45,18 @@ def list_sessions(lake: LakePaths) -> list[dict[str, Any]]:
         " FROM sessions s LEFT JOIN logs l ON l.log_id = s.wpilog_id"
         " ORDER BY coalesce(l.utc_start, '') DESC, s.session_id",
     )
+
+
+def import_command(lake: str, system: str) -> str:
+    """The command that imports one match's logs into `lake`, quoted for the platform's shell:
+    shlex on POSIX, double quotes on Windows (both PowerShell and cmd take them)."""
+    quoted = f'"{lake}"' if system == "Windows" else shlex.quote(lake)
+    return f"flashpoint ingest --lake {quoted} <folder>"
+
+
+def quarantined_count(lake: LakePaths) -> int:
+    rows = _query(lake, "SELECT count(*) AS n FROM files WHERE stage = 'quarantined'")
+    return int(rows[0]["n"]) if rows else 0
 
 
 def _hoot_bus(bus: str, canivores: set[str]) -> str:

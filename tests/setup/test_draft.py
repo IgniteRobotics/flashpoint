@@ -169,3 +169,38 @@ def test_draft_saved_as_an_existing_robot_id(
     with pytest.raises(editor.SaveError, match="2026-comp"):
         editor.save_robot(root, "2026-comp", robot, None, new=True)
     assert (root / "robots" / "2026-comp.toml").read_bytes() == before
+
+
+# --- empty lake: the import command (config-editor "Lake path with a space") -------------
+
+
+@pytest.mark.parametrize(
+    ("lake", "system", "expected"),
+    [
+        (
+            "C:\\Users\\Team 254\\flashpoint-lake",
+            "Windows",
+            'flashpoint ingest --lake "C:\\Users\\Team 254\\flashpoint-lake" <folder>',
+        ),
+        (
+            "/Users/team 254/flashpoint-lake",
+            "Darwin",
+            "flashpoint ingest --lake '/Users/team 254/flashpoint-lake' <folder>",
+        ),
+        ("/home/frc/lake", "Linux", "flashpoint ingest --lake /home/frc/lake <folder>"),
+    ],
+)
+def test_import_command_quotes_the_lake(lake: str, system: str, expected: str) -> None:
+    from flashpoint.setup.draft import import_command
+
+    assert import_command(lake, system) == expected
+
+
+def test_posix_import_command_passes_the_lake_as_one_argument() -> None:
+    import shlex
+
+    from flashpoint.setup.draft import import_command
+
+    args = shlex.split(import_command("/Users/team 254/it's-lake", "Darwin"))
+    assert args[:3] == ["flashpoint", "ingest", "--lake"]
+    assert args[3] == "/Users/team 254/it's-lake"

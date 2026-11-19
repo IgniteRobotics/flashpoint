@@ -19,6 +19,7 @@ robot while a live view is open. They write nothing.
 import contextlib
 import ipaddress
 import json
+import platform
 import re
 import select
 import shutil
@@ -241,7 +242,7 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == BACKUP_STATUS_PATH:
                 self._send_json(HTTPStatus.OK, self._backup_status())
             elif url.path == SESSIONS_PATH:
-                self._send_json(HTTPStatus.OK, {"sessions": draft.list_sessions(self.server.lake)})
+                self._send_json(HTTPStatus.OK, self._sessions())
             elif url.path == DRAFT_PATH:
                 self._draft(parse_qs(url.query))
             elif url.path == DOCS_PATH:
@@ -318,6 +319,18 @@ class Handler(BaseHTTPRequestHandler):
             return bool(self.connection.recv(1, socket.MSG_PEEK) == b"")
         except (OSError, ValueError):
             return True
+
+    def _sessions(self) -> dict[str, Any]:
+        """Sessions to draft from; on an empty lake, how to import one (config-editor)."""
+        lake = self.server.lake
+        payload: dict[str, Any] = {"sessions": draft.list_sessions(lake)}
+        if not payload["sessions"]:
+            payload |= {
+                "lake": str(lake.root),
+                "import_command": draft.import_command(str(lake.root), platform.system()),
+                "quarantined": draft.quarantined_count(lake),
+            }
+        return payload
 
     def _draft(self, params: dict[str, list[str]]) -> None:
         session = params.get("session", [])

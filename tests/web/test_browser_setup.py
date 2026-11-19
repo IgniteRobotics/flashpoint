@@ -1,6 +1,7 @@
 """The Setup view in Chromium (specs: team-setup, config-editor)."""
 
 import dataclasses
+import platform
 import shutil
 import threading
 import tomllib
@@ -253,3 +254,45 @@ def test_no_badge_when_nothing_is_overdue(page: Any, fresh_site: str) -> None:
     assert page.locator("[data-badge='setup']").is_hidden()
     assert page.locator("[data-check='backup']").get_attribute("data-status") == "ok"
     assert watch.clean(), watch
+
+
+# --- Draft robot on an empty lake (config-editor "Empty lake", "Only quarantined files") ----
+
+
+def test_draft_robot_on_an_empty_lake(page: Any, site: dict[str, Any]) -> None:
+    from flashpoint.setup.draft import import_command
+
+    watch = _setup(page, site["url"], "draft")
+    page.wait_for_selector("#draft-none")
+    text = page.inner_text("#draft-none")
+    lake = str(Path(site["root"]).parent / "lake")
+    assert page.inner_text("#draft-import") == import_command(lake, platform.system())
+    assert ".wpilog" in text and ".hoot" in text and "reload" in text.lower()
+    href = page.locator("#draft-guide").get_attribute("href") or ""
+    assert href.startswith("https://igniterobotics.github.io/flashpoint/")
+    assert href.endswith("#import-logs-by-hand")
+    assert "quarantined" not in text
+    assert watch.clean(), watch
+
+
+def test_draft_robot_with_only_quarantined_files(page: Any, tmp_path: Path) -> None:
+    from flashpoint.lake.ledger import Ledger
+
+    lake = LakePaths(tmp_path / "lake")
+    lake.ensure()
+    ledger = Ledger(lake.ledger)
+    try:
+        ledger.register("e" * 64, "hoot", 0, lake.raw / "e")
+        ledger.quarantine("e" * 64, "empty-file", config.PIPELINE_VERSION)
+    finally:
+        ledger.close()
+    server, _ = _site(tmp_path, lake)
+    try:
+        watch = _setup(page, f"http://127.0.0.1:{server.server_address[1]}/", "draft")
+        page.wait_for_selector("#draft-none")
+        text = page.inner_text("#draft-none")
+        assert "1 file was quarantined" in text and "flashpoint doctor" in text
+        assert page.locator("#draft-import").count() == 1
+        assert watch.clean(), watch
+    finally:
+        _stop(server)

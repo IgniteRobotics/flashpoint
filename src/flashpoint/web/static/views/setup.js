@@ -1132,7 +1132,10 @@
       FP.fill(body, h('p', { class: 'meta' }, 'Loading sessions…'));
       const mine = ui;
       try {
-        ui.sessions = (await FP.api('setup/sessions')).sessions;
+        const listed = await FP.api('setup/sessions');
+        ui.sessions = listed.sessions;
+        ui.emptyLake = listed;
+        await FP.docs();
       } catch (err) {
         ui.sessions = [];
         ui.messages.draft = { kind: 'error', text: 'Could not list sessions: ' + err.message };
@@ -1167,13 +1170,51 @@
       ),
       ui.sessions.length
         ? h('div', { class: 'row mt-2' }, select, go)
-        : h(
-            'p',
-            { class: 'meta', id: 'draft-none' },
-            'No imported logs yet. Run flashpoint ingest first.',
-          ),
+        : emptyLake(ui.emptyLake || {}),
       message('draft'),
       ui.draft ? draftForm() : null,
+    );
+  }
+
+  // No session to draft from: how to import one (config-editor, "Draft a robot from a log").
+  function emptyLake(listed) {
+    const quarantined = listed.quarantined || 0;
+    return h(
+      'div',
+      { class: 'callout', id: 'draft-none' },
+      h('p', { class: 'prose' }, 'No imported logs yet. Import one match first:'),
+      h(
+        'p',
+        { class: 'prose' },
+        h(
+          'code',
+          { class: 'code', id: 'draft-import' },
+          listed.import_command || 'flashpoint ingest <folder>',
+        ),
+      ),
+      h(
+        'p',
+        { class: 'meta' },
+        "The folder holds one match's .wpilog and .hoot files: from the robot's USB stick, from flashpoint acquire, or downloaded. Reload this page when the import finishes, and this tab is ready.",
+      ),
+      quarantined
+        ? h(
+            'p',
+            { class: 'meta' },
+            (quarantined === 1 ? '1 file was' : quarantined + ' files were') + ' quarantined. Run ',
+            h('code', { class: 'code' }, 'flashpoint doctor'),
+            ' to see why.',
+          )
+        : null,
+      h(
+        'p',
+        { class: 'meta' },
+        'See the ',
+        FP.docLink('import-logs', 'User guide, \u201cImport logs by hand\u201d', {
+          id: 'draft-guide',
+        }),
+        '.',
+      ),
     );
   }
 

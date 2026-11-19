@@ -243,7 +243,10 @@ def _init(
         print(f"  {path.relative_to(root).as_posix()}")
     for path in result.existing:
         print(f"  {path.relative_to(root).as_posix()} (already there, kept)")
-    print(f"next: add your robot file to {root / 'robots'}, then run `flashpoint doctor`")
+    print(
+        "next: import a match's logs with `flashpoint ingest <folder>` (it drafts your robot"
+        " from them), then run `flashpoint serve`"
+    )
     return 0
 
 
@@ -309,7 +312,8 @@ def _derive(lake: LakePaths, force: bool) -> int:
               " slot or signal is mapped.", file=sys.stderr)  # fmt: skip
     elif not any((root / "robots").glob("*.toml")):
         print(f"warning: no robot configured in {root / 'robots'}: slots and signals stay"
-              " unmapped until you add one", file=sys.stderr)  # fmt: skip
+              " unmapped. Draft one from a log in the Setup view (`flashpoint serve`, then"
+              " Setup > Draft robot), or add a robot file there.", file=sys.stderr)  # fmt: skip
     try:
         deriver = Deriver(lake, root)
     except ConfigError as exc:
