@@ -26,10 +26,12 @@
   - Done 2026-11-17: run 44160031952 from `main` published `0.2.0.dev2` to TestPyPI; a clean Python 3.12 venv installed it, `--version` printed `0.2.0.dev2`, and `doctor` with no config folder named `flashpoint init` (an empty existing folder counts as a configuration, so the check needs a folder that doesn't exist). pip in a venv instead of pipx (not installed on this Mac)
 - [x] 2.3 [HUMAN] Josh: delete the GitHub pre-release named `v0.2.0` that was created on the `v0.1.0` tag (2026-11-15), then tag `v0.2.0` on `main`, push it, and approve the `pypi` environment. Verify https://pypi.org/p/flashpoint shows 0.2.0 and `pipx install --python python3.12 flashpoint` gives 0.2.0 with duckdb and polars below 2
   - Done 2026-11-17: the `v0.2.0` tag was already on `main`'s head (`fe3daf4`), pushed 2026-11-15 with the stray pre-release; its run 43736923957 had built and was waiting at `pypi`. Deleted the pre-release (tag kept), Josh approved, PyPI shows 0.2.0. A clean 3.12 venv `pip install flashpoint` gives 0.2.0 with duckdb 1.5.6 and polars 1.44.2
-- [ ] 2.4 [HUMAN] Josh: yank 0.1.0 on PyPI with the reason "uncapped duckdb/polars; install 0.2.0". Verify `pip install flashpoint` resolves 0.2.0 and `pip install flashpoint==0.1.0` warns that it is yanked
+- [x] 2.4 [HUMAN] Josh: yank 0.1.0 on PyPI with the reason "uncapped duckdb/polars; install 0.2.0". Verify `pip install flashpoint` resolves 0.2.0 and `pip install flashpoint==0.1.0` warns that it is yanked
+  - Done 2026-11-19 by Josh; PyPI shows 0.1.0 yanked, with no reason text (see design.md, Results)
 - [x] 2.5 Create the GitHub Release `v0.2.0` by hand with the changelog's 0.2.0 section as notes, marked latest, and set `corpus-v1` to not latest. Verify `gh release list` shows `v0.2.0` as Latest
   - Done 2026-11-17: `gh release create v0.2.0 --verify-tag --latest` with notes from `tools/changelog-section.py` on `main`'s CHANGELOG.md; `gh release list` shows v0.2.0 Latest, `corpus-v1` not
-- [ ] 2.6 [HUMAN] M0 smoke by hand: on a macOS and a Linux machine, install 0.2.0 from PyPI, run `init`, ingest one corpus match, run `report`, open Replay. Record the result in design.md, then close #61 with a comment linking PyPI and the release. Verify #61 is closed only after PyPI shows 0.2.0
+- [x] 2.6 [HUMAN] M0 smoke by hand: on a macOS and a Linux machine, install 0.2.0 from PyPI, run `init`, ingest one corpus match, run `report`, open Replay. Record the result in design.md, then close #61 with a comment linking PyPI and the release. Verify #61 is closed only after PyPI shows 0.2.0
+  - Done 2026-11-19: macOS (Claude) and Linux (Josh) pass every step, but Replay has no data without a robot file; recorded in design.md, Results, and taken to `mvp-install-and-first-run` (#72)
 
 ## 3. M0 gate (2026-11-21)
 
