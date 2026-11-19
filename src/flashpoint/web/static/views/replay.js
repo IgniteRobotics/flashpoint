@@ -580,6 +580,25 @@
     return link;
   }
 
+  // A match with no robot: Draft robot in Setup (a link when served; a name in a static export).
+  function draftRobotLink() {
+    return h(
+      'p',
+      { class: 'prose' },
+      FP.mode.static
+        ? h(
+            'span',
+            { id: 'replay-draft-robot' },
+            'Draft robot is in the Setup view of flashpoint serve.',
+          )
+        : h(
+            'a',
+            { href: '#view=setup&tab=draft', id: 'replay-draft-robot' },
+            'Open Setup > Draft robot',
+          ),
+    );
+  }
+
   async function mount(el, state) {
     ui = { el, state, tracks: [], data: null, overlay: null };
     const index = await FP.loadIndex();
@@ -671,6 +690,7 @@
         notice(
           entry.label + ' · no aligned samples',
           h('p', { class: 'prose' }, d.reason),
+          d.reason_cause === 'no-robot' ? draftRobotLink() : null,
           h('p', { class: 'meta mt-3' }, d.match_key, ' · ', d.robot),
         ),
       );

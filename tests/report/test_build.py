@@ -286,6 +286,37 @@ def test_select_event_and_keys(tmp_path: Path) -> None:
     ]  # fmt: skip
 
 
+def test_hoot_only_reason_says_there_is_no_wpilog(tmp_path: Path) -> None:
+    """match-reports "Hoot-only session": the reason names the cause."""
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_e10", "hoot-2026-04-11_19-29-15-c027", None, with_wpilog=False,
+                   phases=[("pre", None, None)])  # fmt: skip
+    _build(lake)
+    reason = _load(data_dir(lake.lake) / "matches.js", "FP.index")["matches"][0]["reason"]
+    assert "no wpilog to align its hoots to" in reason
+    assert _load(data_dir(lake.lake) / "2026gacmp_e10.js")["reason_cause"] == "hoot-only"
+
+
+def test_match_with_no_robot_names_project_season_and_draft_robot(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_qm7", "q7", None, robot="unknown")
+    lake.tables["logs"][-3]["project"] = "Robot-2026"  # the wpilog's row (then two hoots)
+    _build(lake)
+    data = _load(data_dir(lake.lake) / "2026gacmp_qm7.js")
+    assert data["status"] == "no-aligned-samples" and data["reason_cause"] == "no-robot"
+    assert "Robot-2026" in data["reason"] and "2026" in data["reason"]
+    assert "Draft robot" in data["reason"] and "hoot" not in data["reason"].lower()
+
+
+def test_other_unaligned_match_blames_the_alignment(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_qm7", "q7", None)  # a robot and a wpilog, but nothing aligned
+    _build(lake)
+    data = _load(data_dir(lake.lake) / "2026gacmp_qm7.js")
+    assert data["reason_cause"] == "not-aligned"
+    assert "no device data could be aligned to the wpilog" in data["reason"]
+
+
 def test_hoot_only_session_listed_with_reason(tmp_path: Path) -> None:
     lake = MatchLake(tmp_path / "lake")
     lake.add_match("2026gacmp_e10", "hoot-2026-04-11_19-29-15-c027", None, with_wpilog=False,

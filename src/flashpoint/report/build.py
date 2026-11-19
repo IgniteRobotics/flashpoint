@@ -124,6 +124,21 @@ def lake_index_counts(lake: LakePaths) -> dict[str, int]:
     return index_counts(found["sessions"], found["files"])
 
 
+def _unaligned_reason(session: dict[str, Any], log: dict[str, Any]) -> tuple[str, str]:
+    """Why a match has no aligned samples, by cause (match-reports, "Partial and unmatched")."""
+    raw = " Only the raw logs are available."
+    if not session["wpilog_id"]:
+        return "hoot-only", f"No aligned samples: there is no wpilog to align its hoots to.{raw}"
+    if session["robot"] == "unknown":
+        project = log.get("project") or "(no project name)"
+        return "no-robot", (
+            f"No aligned samples: no robot is configured for robot code {project} in season"
+            f" {session['season']}, so its devices aren't matched to slots. Add one with Draft"
+            f" robot in the Setup view.{raw}"
+        )
+    return "not-aligned", f"No aligned samples: no device data could be aligned to the wpilog.{raw}"
+
+
 class LakeMeta:
     """The meta Parquet snapshots a build reads (never the SQLite ledger)."""
 
@@ -439,6 +454,7 @@ class ReportBuilder:
         if not aligned:
             primary = sessions[0]
             log = self.meta.one("logs", log_id=primary["wpilog_id"]) or {}
+            cause, reason = _unaligned_reason(primary, log)
             return {
                 "version": REPORT_VERSION,
                 "match_key": key,
@@ -448,8 +464,8 @@ class ReportBuilder:
                 "season": primary["season"],
                 "start_utc": log.get("utc_start"),
                 "status": "no-aligned-samples",
-                "reason": "No aligned samples: this match has no wpilog-aligned device data"
-                " (for example, hoots without a wpilog). Only the raw logs are available.",
+                "reason": reason,
+                "reason_cause": cause,
                 "alignment": "none",
                 "low_alignment": True,
                 "sources": sources,

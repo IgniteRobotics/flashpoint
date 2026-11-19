@@ -160,3 +160,22 @@ def test_built_index_counts(built: Any) -> None:
     assert index["sessions_without_match_key"] == 1
     assert index["keyed_sessions"] == index["sessions"] - 1
     assert index["quarantined"] >= 1  # 2026-gadal-q11-empty, the zero-byte hoot
+
+
+def test_q7_with_no_robot_names_its_cause(
+    corpus_group: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """match-reports "Match with no robot", on corpus Q7 imported with --no-robot-draft."""
+    from flashpoint.cli import main
+    from flashpoint.lake.paths import LakePaths
+    from flashpoint.setup.init import init_config
+
+    root, lake = tmp_path / "cfg", tmp_path / "lake"
+    init_config(root, team=254, lake=lake)
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(root))
+    files = [str(p) for p in corpus_group("2026-gacmp-q7")]
+    assert main(["ingest", "--no-robot-draft", "--lake", str(lake), *files]) == 0
+    data = _load(data_dir(LakePaths(lake)) / "2026gacmp_qm7.js")
+    assert data["status"] == "no-aligned-samples" and data["reason_cause"] == "no-robot"
+    assert "Robot-2026" in data["reason"] and "2026" in data["reason"]
+    assert "hoots without a wpilog" not in data["reason"]

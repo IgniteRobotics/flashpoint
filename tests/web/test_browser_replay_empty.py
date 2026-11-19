@@ -126,3 +126,43 @@ def test_static_export_of_practice_logs(page: Any, tmp_path: Path) -> None:
     assert "flashpoint report" not in page.inner_text("#replay-empty")
     assert watch.clean(), watch
     assert watch.remote == []
+
+
+# --- a match with no robot links Draft robot (match-reports "Partial and unmatched") --------
+
+
+def _no_robot_lake(root: Path) -> MatchLake:
+    lake = MatchLake(root)
+    lake.add_match("2026gacmp_qm7", "q7", None, robot="unknown")
+    lake.tables["logs"][-3]["project"] = "Robot-2026"
+    builder = ReportBuilder(lake.write_meta(), config.config_root())
+    try:
+        builder.build()
+    finally:
+        builder.close()
+    return lake
+
+
+def test_match_with_no_robot_links_draft_robot(page: Any, tmp_path: Path) -> None:
+    lake = _no_robot_lake(tmp_path / "lake")
+    server, url = _served(lake.lake)
+    try:
+        watch = _open(page, url, "#view=replay&m=2026gacmp_qm7")
+        page.wait_for_selector("#replay-draft-robot")
+        link = page.locator("#replay-draft-robot")
+        assert link.get_attribute("href") == "#view=setup&tab=draft"
+        assert "Robot-2026" in page.inner_text(".notice")
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
+
+
+def test_match_with_no_robot_in_a_static_export(page: Any, tmp_path: Path) -> None:
+    lake = _no_robot_lake(tmp_path / "lake")
+    export = tmp_path / "export"
+    export_static(lake.lake, export)
+    watch = _open(page, (export / "index.html").as_uri(), "#view=replay&m=2026gacmp_qm7")
+    page.wait_for_selector("#replay-draft-robot")
+    assert page.locator("#replay-draft-robot").get_attribute("href") is None
+    assert "Draft robot" in page.inner_text("#replay-draft-robot")
+    assert watch.clean(), watch
