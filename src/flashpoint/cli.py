@@ -335,6 +335,19 @@ def _draft_robots(lake: LakePaths, root: Path) -> None:
         )
 
 
+def _warn_hoot_only(labels: list[str]) -> None:
+    """Sessions with hoots but no wpilog get no motor history (session-grouping)."""
+    if not labels:
+        return
+    shown = ", ".join(labels[:3]) + (f" and {len(labels) - 3} more" if len(labels) > 3 else "")
+    print(
+        f"warning: {len(labels)} session(s) with hoots but no wpilog ({shown}): their motors get"
+        " no history (no aligned samples, usage or match features). Motor history needs the"
+        " robot to write a wpilog too: turn on WPILib data logging (DataLogManager.start()).",
+        file=sys.stderr,
+    )
+
+
 def _derive(lake: LakePaths, force: bool, robot_draft: bool = True) -> int:
     from flashpoint.semantics.derive import Deriver
     from flashpoint.semantics.robot_config import ConfigError
@@ -359,6 +372,7 @@ def _derive(lake: LakePaths, force: bool, robot_draft: bool = True) -> int:
     finally:
         deriver.close()
     print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
+    _warn_hoot_only(deriver.hoot_only)
     # Detection is part of every derive; it skips itself when gold and config are unchanged.
     # Its own failure (configuration, lock) is reported but does not fail the derive.
     _detect(lake, force=False)

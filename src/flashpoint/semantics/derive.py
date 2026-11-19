@@ -76,6 +76,7 @@ class Deriver:
             else []
         )
         self._con: duckdb.DuckDBPyConnection | None = None
+        self.hoot_only: list[str] = []
 
     @property
     def con(self) -> duckdb.DuckDBPyConnection:
@@ -537,7 +538,10 @@ class Deriver:
         return rows[0]["utc_start"] if rows else None
 
     def run(self, force: bool = False) -> dict[str, int]:
-        """Sessions, identity, framing, then silver and gold for sessions whose inputs changed."""
+        """Sessions, identity, framing, then silver and gold for sessions whose inputs changed.
+
+        Afterwards `hoot_only` lists the rebuilt sessions with hoots but no wpilog (match key,
+        else the hoots' start stamp): they get no aligned samples (session-grouping)."""
         run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-derive"
         self.derive_sessions()
         self.derive_identity()
@@ -559,10 +563,13 @@ class Deriver:
                 (r["session_id"], r) for r in self.ledger.query("SELECT * FROM derived_state")
             )
         }
+        hoot_only: list[str] = []
         for session in self.ledger.query("SELECT * FROM sessions"):
             sid = session["session_id"]
             if sid not in stale:
                 continue
+            if not session["wpilog_id"]:
+                hoot_only.append(session["match_key"] or sid.removeprefix("hoot-")[:19])
             robot = robots.get(session["robot"])
             hoots = self.ledger.query(
                 "SELECT log_id, confidence FROM session_hoots WHERE session_id = ?", (sid,)
@@ -617,6 +624,7 @@ class Deriver:
             self.lake.root / "gold" / "_staging",
         ):
             shutil.rmtree(staging, ignore_errors=True)
+        self.hoot_only = sorted(hoot_only)
         return {"sessions": len(current), "rebuilt": len(stale)}
 
 

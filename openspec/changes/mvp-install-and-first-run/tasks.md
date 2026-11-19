@@ -50,10 +50,10 @@ Dates: every task without `[HUMAN]` is due by M1 (2026-12-05), the smoke job inc
 
 ## 7. Hoot-only sessions, warning only (#8)
 
-- [ ] 7.1 Write failing tests: "Hoot logger restart" (all E10 files; one warning naming `2026gacmp_e10`, exit 0, check ok with 1), "Hoots only" (Q19 2025; check warning naming 2025 and WPILib data logging), "Re-run with nothing new", "Quarantined hoot"; verify they fail (corpus marker for the E10 and Q19 cases)
-- [ ] 7.2 Return the rebuilt hoot-only sessions from derive and print the warning in `_derive`; verify the derive-side 7.1 tests pass and E10 derive time is within 5% of before
-- [ ] 7.3 Add the `hoot-only` check; verify the check-side 7.1 tests pass and the full checks run stays < 2 s
-- [ ] 7.4 Add a paragraph to the user guide's "Import logs by hand" saying that motor history needs a wpilog, and what the warning means; hand the line to `mvp-documentation` for the robot-side "What to log" guide (#83); verify `pytest tests/test_docs.py` passes
+- [x] 7.1 Write failing tests: "Hoot logger restart" (all E10 files; one warning naming `2026gacmp_e10`, exit 0, check ok with 1), "Hoots only" (Q19 2025; check warning naming 2025 and WPILib data logging), "Re-run with nothing new", "Quarantined hoot"; verify they fail (corpus marker for the E10 and Q19 cases)
+- [x] 7.2 Return the rebuilt hoot-only sessions from derive and print the warning in `_derive`; verify the derive-side 7.1 tests pass and E10 derive time is within 5% of before
+- [x] 7.3 Add the `hoot-only` check; verify the check-side 7.1 tests pass and the full checks run stays < 2 s
+- [x] 7.4 Add a paragraph to the user guide's "Import logs by hand" saying that motor history needs a wpilog, and what the warning means; hand the line to `mvp-documentation` for the robot-side "What to log" guide (#83); verify `pytest tests/test_docs.py` passes
 
 ## 8. Robot pull: low-priority hash and beta label (#74)
 

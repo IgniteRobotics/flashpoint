@@ -138,6 +138,7 @@ At the end, `ingest` prints a summary like this:
 - **FAILED** means the laptop failed, not the file. Usually there was no internet to download owlet, the tool that reads `.hoot` files. Run `flashpoint ingest` again once you're online, or let automatic import retry it. If owlet crashes on the same file 3 times, the file is quarantined.
 - To retry quarantined files, for example after updating Flashpoint, run `flashpoint rebuild --quarantined`. It works from the lake's own copies, so you don't need the original logs.
 - **"declared signal(s) not written"** lines mean the robot config expects a NetworkTables entry that the log doesn't have, which is normal for older code. It only matters if you were looking for that signal.
+- **"session(s) with hoots but no wpilog"** means some hoots had no `.wpilog` from the same time to align to. Their motors get no history: no Replay charts, usage or match features. Motor history needs both files, the hoots from Phoenix 6 and a wpilog from WPILib data logging (`DataLogManager.start()` in `robotInit()`). One such session among many is usually the hoot logger restarting mid-event, and is safe to ignore. When every session of a season is like this, `doctor`'s "Hoots without a wpilog" check warns too: the robot code isn't writing wpilogs.
 
 Ingest then works out matches, aligns the logs, runs anomaly detection, and updates Replay, all on its own.
 

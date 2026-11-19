@@ -105,27 +105,33 @@ class CheckContext:
     home: Path = field(default_factory=Path.home)
     now: Callable[[], dt.datetime] = lambda: dt.datetime.now(dt.UTC)
     which: Callable[[str], str | None] = shutil.which
-    _lake_seasons: set[int] | None = field(default=None, init=False, repr=False)
+    _sessions: list[dict[str, Any]] | None = field(default=None, init=False, repr=False)
 
     @classmethod
     def default(cls, config_root: Path, lake: LakePaths) -> "CheckContext":
         return cls(config_root, lake, config.cache_root())
 
-    def lake_seasons(self) -> set[int]:
-        """Seasons the lake holds sessions from (a quarantined file forms none); read once."""
-        if self._lake_seasons is None:
-            self._lake_seasons = set()
+    def lake_sessions(self) -> list[dict[str, Any]]:
+        """The lake's sessions (season, wpilog_id, hoot count), read once for every check that
+        needs them. A quarantined file forms no session."""
+        if self._sessions is None:
+            self._sessions = []
             if self.lake.ledger.is_file():
                 try:
                     ledger = Ledger(self.lake.ledger)
                     try:
-                        rows = ledger.query("SELECT DISTINCT season FROM sessions")
+                        self._sessions = ledger.query(
+                            "SELECT s.season, s.wpilog_id, (SELECT count(*) FROM session_hoots h"
+                            " WHERE h.session_id = s.session_id) AS hoots FROM sessions s"
+                        )
                     finally:
                         ledger.close()
                 except sqlite3.Error:
-                    rows = []
-                self._lake_seasons = {int(r["season"]) for r in rows if str(r["season"]).isdigit()}
-        return self._lake_seasons
+                    pass  # the backup check reports an unreadable ledger
+        return self._sessions
+
+    def lake_seasons(self) -> set[int]:
+        return {int(r["season"]) for r in self.lake_sessions() if str(r["season"]).isdigit()}
 
 
 # --- configuration ------------------------------------------------------------------------
@@ -474,6 +480,38 @@ def _owlet(ctx: CheckContext) -> list[CheckResult]:
     return results
 
 
+def _hoot_only(ctx: CheckContext) -> CheckResult:
+    """Sessions with hoots but no wpilog get no motor history (session-grouping). A warning
+    only when the latest season with hoots has no wpilog at all: a few hoot-only sessions
+    among many (a logger restart) are reported at ingest, when they can be acted on."""
+    check_id, title = "hoot-only", "Hoots without a wpilog"
+    with_hoots = [r for r in ctx.lake_sessions() if r["hoots"] and str(r["season"]).isdigit()]
+    if not with_hoots:
+        return CheckResult(check_id, title, "ok", "no sessions with hoots yet")
+    latest = max(int(r["season"]) for r in with_hoots)
+    in_season = [r for r in with_hoots if int(r["season"]) == latest]
+    only = sum(1 for r in in_season if not r["wpilog_id"])
+    if only and only == len(in_season):
+        return CheckResult(
+            check_id,
+            title,
+            "warning",
+            f"none of the {only} {latest} session(s) with hoots has a wpilog, so their motors get"
+            " no history (no aligned samples, usage or match features)",
+            command="make the robot write a wpilog too: turn on WPILib data logging"
+            " (DataLogManager.start() in robotInit)",
+        )
+    if only:
+        return CheckResult(
+            check_id,
+            title,
+            "ok",
+            f"{only} of {len(in_season)} {latest} session(s) with hoots have no wpilog"
+            " (their motors get no history; the others do)",
+        )
+    return CheckResult(check_id, title, "ok", "every session with hoots has a wpilog")
+
+
 def _advantagescope(ctx: CheckContext) -> CheckResult:
     title = "AdvantageScope"
     install, problem = ctx.find_advantagescope(ctx.config_root)
@@ -594,6 +632,7 @@ def run_checks(ctx: CheckContext) -> list[CheckResult]:
         _lake(ctx),
         _backup(ctx, acquire),
         *_owlet(ctx),
+        _hoot_only(ctx),
         _advantagescope(ctx),
         _service(ctx),
         _python(ctx),
