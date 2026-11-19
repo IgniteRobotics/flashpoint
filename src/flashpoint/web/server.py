@@ -119,7 +119,7 @@ class FlashpointServer(ThreadingHTTPServer):
         static_dir: Path = STATIC_DIR,
         launcher: Launcher | None = None,
         anomalies: AnomalyQueries | None = None,
-        spawner: Callable[[list[str]], None] = spawn,
+        spawner: Callable[[list[str]], Any] = spawn,
         live: LiveCanService | None = None,
         robot_hosts: list[str] | None = None,
     ) -> None:
@@ -134,6 +134,7 @@ class FlashpointServer(ThreadingHTTPServer):
         self.static_dir = static_dir
         self.launcher = launcher or Launcher(None)
         self.spawner = spawner  # starts `flashpoint detect` after a baseline restart
+        self.rebuild: Any = None  # the `derive --report` a draft save started, while it runs
         self.config_dir = config_root()
         self.check_context: Callable[[], CheckContext] = lambda: CheckContext.default(
             self.config_dir, self.lake
@@ -363,7 +364,35 @@ class Handler(BaseHTTPRequestHandler):
             section = unquote(path.removeprefix(CONFIG_PREFIX))
             with self.server.setup_lock:
                 status, payload = config_api.save_section(self.server.config_dir, section, body)
+                new_robot = (
+                    section.startswith("robots/") and isinstance(body, dict) and body.get("new")
+                )
+                if payload.get("saved") and new_robot:
+                    payload |= self._start_rebuild()
             self._send_json(status, payload)
+
+    def _start_rebuild(self) -> dict[str, Any]:
+        """A new robot file (a saved draft) re-derives the lake and rebuilds Replay, detached
+        (config-editor). Nothing starts while this server's rebuild or a Replay build runs."""
+        from flashpoint.acquire.watch import AcquireLock, LockHeldError
+        from flashpoint.cli import REPORT_LOCK
+
+        server = self.server
+        running = server.rebuild is not None and server.rebuild.poll() is None
+        if not running:
+            try:
+                with AcquireLock(server.lake.meta / REPORT_LOCK):
+                    pass
+            except LockHeldError:
+                running = True
+        if running:
+            return {"rebuild_running": True}
+        argv = [sys.executable, "-m", "flashpoint", "derive", "--lake", str(server.lake.root)]
+        try:
+            server.rebuild = server.spawner([*argv, "--report"])
+        except OSError as exc:
+            return {"rebuild_error": f"could not start the rebuild: {exc}"}
+        return {"rebuild_pending": True}
 
     def do_POST(self) -> None:
         path = urlsplit(self.path).path

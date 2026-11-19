@@ -88,6 +88,7 @@ Build the match-level data from what `ingest` read. That means grouping each wpi
 |---|---|
 | `--all` | Rebuild every session. Use it after editing a robot file in `robots/` in your config folder |
 | `--no-robot-draft` | Don't draft a robot file for a season that has none |
+| `--report` | Then build Replay data for the matches that changed, as `ingest` does. Saving a draft in Setup > Draft robot runs `derive --report` in the background |
 
 ```sh
 flashpoint derive --all

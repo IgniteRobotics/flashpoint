@@ -1275,10 +1275,14 @@
       });
       if (ui !== mine) return;
       if (reply.saved) {
-        ui.messages.draft = {
-          kind: 'ok',
-          text: 'Saved ' + reply.path + '. Next: ' + reply.affects + '.',
-        };
+        const next = reply.rebuild_pending
+          ? 'Rebuilding the lake in the background; reload Replay when it finishes (a minute or two).'
+          : reply.rebuild_running
+            ? 'A rebuild is already running on this lake; reload Replay when it finishes.'
+            : reply.rebuild_error
+              ? reply.rebuild_error + '. Next: ' + reply.affects + '.'
+              : 'Next: ' + reply.affects + '.';
+        ui.messages.draft = { kind: 'ok', text: 'Saved ' + reply.path + '. ' + next };
         ui.draft = null;
         ui.config = null;
         await loadChecks();

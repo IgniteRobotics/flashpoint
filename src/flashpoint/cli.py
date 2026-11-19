@@ -111,6 +111,11 @@ def _parser() -> argparse.ArgumentParser:
         "--all", action="store_true", help="rebuild every session, not only changed ones"
     )
     derive.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
+    derive.add_argument(
+        "--report",
+        action="store_true",
+        help="then build Replay data for the matches that changed, as ingest does",
+    )
     lake_arg(derive)
 
     detect = sub.add_parser(
@@ -293,7 +298,12 @@ def _derive_and_report(
     derive += [] if robot_draft else ["--no-robot-draft"]
     if subprocess.run(derive, check=False).returncode != 0 or not build_report:  # noqa: S603 - argv is our own interpreter and module
         return
-    report = [*base, "report", "--lake", str(lake.root)]
+    _report_after(lake)
+
+
+def _report_after(lake: LakePaths) -> None:
+    """The incremental Replay build after a derive, in its own process (see above)."""
+    report = [sys.executable, "-m", "flashpoint", "report", "--lake", str(lake.root)]
     done = subprocess.run(report, check=False, capture_output=True, text=True)  # noqa: S603 - argv is our own interpreter and module
     if done.returncode == 0:
         print(done.stdout, end="")
@@ -735,7 +745,10 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 - grandfathere
     if args.command == "doctor":
         return _doctor(lake)
     if args.command == "derive":
-        return _derive(lake, force=args.all, robot_draft=not args.no_robot_draft)
+        code = _derive(lake, force=args.all, robot_draft=not args.no_robot_draft)
+        if code == 0 and args.report:
+            _report_after(lake)
+        return code
     if args.command == "detect":
         return _detect(lake, force=args.all)
     if args.command == "backtest":

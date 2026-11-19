@@ -5,7 +5,7 @@ import platform
 import shutil
 import threading
 import tomllib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -306,3 +306,93 @@ def test_unnamed_slots_are_marked(page: Any, site: dict[str, Any]) -> None:
     named = page.locator("#robot-2026-comp-slots tbody tr:not([data-unnamed])")
     assert named.count() > 0 and "UNNAMED" not in named.first.inner_text()
     assert watch.clean(), watch
+
+
+# --- a draft save rebuilds the lake (config-editor "Save starts a rebuild") -----------------
+
+
+def _draft_and_save(page: Any, url: str) -> str:
+    _setup(page, url, "draft")
+    page.click("#draft-go")
+    page.wait_for_selector("#draft-slots tbody tr")
+    page.click("#draft-save")
+    page.wait_for_selector("#msg-draft[role='status']")
+    return str(page.inner_text("#msg-draft"))
+
+
+def _synthetic_site(tmp_path: Path) -> tuple[FlashpointServer, Path, list[list[str]]]:
+    from tests.setup.test_draft import _synthetic
+
+    lake = _synthetic(tmp_path)
+    server, root = _site(tmp_path, lake)
+    spawned: list[list[str]] = []
+    server.spawner = spawned.append
+    return server, root, spawned
+
+
+def test_draft_save_starts_a_rebuild(page: Any, tmp_path: Path) -> None:
+    server, _root, spawned = _synthetic_site(tmp_path)
+    try:
+        text = _draft_and_save(page, f"http://127.0.0.1:{server.server_address[1]}/")
+    finally:
+        _stop(server)
+    assert "rebuilding" in text.lower() and "reload Replay" in text
+    (argv,) = spawned
+    assert argv[1:] == ["-m", "flashpoint", "derive", "--lake", str(tmp_path / "lake"), "--report"]
+
+
+def test_draft_save_while_a_rebuild_is_running(page: Any, tmp_path: Path) -> None:
+    from flashpoint.acquire.watch import AcquireLock
+
+    server, root, spawned = _synthetic_site(tmp_path)
+    try:
+        with AcquireLock(tmp_path / "lake" / "meta" / "report.lock"):  # `flashpoint report`
+            text = _draft_and_save(page, f"http://127.0.0.1:{server.server_address[1]}/")
+    finally:
+        _stop(server)
+    assert "already running" in text
+    assert spawned == []
+    assert list((root / "robots").glob("2026-practice.toml"))  # the robot file is saved
+
+
+@pytest.mark.corpus
+def test_draft_save_rebuilds_q7(
+    page: Any,
+    tmp_path: Path,
+    corpus_group: Callable[[str], list[Path]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End to end: Q7 imported with no robot shows no aligned samples; saving the draft in
+    Setup rebuilds in the background, after which Q7's Replay data is ok."""
+    import json
+    import time
+
+    from flashpoint.cli import main
+    from flashpoint.report.paths import data_dir
+    from flashpoint.setup.init import init_config
+
+    root = tmp_path / "cfg"
+    lake = LakePaths(tmp_path / "lake")
+    init_config(root, team=254, lake=lake.root)
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(root))
+    q7 = [str(p) for p in corpus_group("2026-gacmp-q7")]
+    assert main(["ingest", "--no-robot-draft", "--lake", str(lake.root), *q7]) == 0
+
+    def status() -> str:
+        text = (data_dir(lake) / "matches.js").read_text("utf-8")
+        index = json.loads(text[text.index("(") + 1 : text.rindex(")")])
+        return str({m["key"]: m for m in index["matches"]}["2026gacmp_qm7"]["status"])
+
+    assert status() == "no-aligned-samples"
+    server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake))
+    server.config_dir = root
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        text = _draft_and_save(page, f"http://127.0.0.1:{server.server_address[1]}/")
+        assert "rebuilding" in text.lower()
+        deadline = time.monotonic() + 300
+        while status() != "ok" and time.monotonic() < deadline:
+            time.sleep(2)
+    finally:
+        _stop(server)
+    assert status() == "ok"

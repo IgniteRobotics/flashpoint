@@ -125,8 +125,8 @@ def test_two_robot_projects(tmp_path: Path) -> None:
     ]
     robots = _robots(root)
     assert len(robots["2026-comp"].slots) == 3  # from comp-q1, the session with most devices
-    assert select_robot(list(robots.values()), "Robot-2026", "2026").robot == "2026-comp"
-    assert select_robot(list(robots.values()), "Practice-2026", "2026").robot == "2026-practice"
+    assert select_robot(list(robots.values()), "Robot-2026", "2026") is robots["2026-comp"]
+    assert select_robot(list(robots.values()), "Practice-2026", "2026") is robots["2026-practice"]
     for robot in ("2026-comp", "2026-practice"):
         first = (root / "robots" / f"{robot}.toml").read_text("utf-8").splitlines()[0]
         assert first.startswith(DRAFT_COMMENT) and "Setup > Robots" in first
