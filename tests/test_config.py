@@ -109,7 +109,7 @@ def test_loaders_use_the_bundled_defaults(tmp_path: Path) -> None:
     assert load_anomaly_config(tmp_path) == load_anomaly_config(bundled)
     assert load_causes(tmp_path) == load_causes(bundled)
     assert load_causes(tmp_path)  # the bundled catalogue is not empty
-    assert set(load_config_seasons(tmp_path)) == {2025, 2026}
+    assert set(load_config_seasons(tmp_path)) == {2025, 2026, 2027}
     assert load_theme(tmp_path) == load_theme(bundled)
 
 

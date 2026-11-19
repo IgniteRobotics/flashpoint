@@ -125,7 +125,7 @@ The [user guide](user-guide.md#describe-a-robot) shows a whole robot file, with 
 
 **Your motor list.** `units/units-seed.csv` lists every motor the team owns, including spares on the shelf, by serial number, with a label you write on the motor. Fill it in with Tuner X: [how to fill it in](../../config/units/README.md). Once the CAN inventory logger runs on the robot, Flashpoint keeps track of motors in the robot on its own; the list still covers spares and labels.
 
-**New seasons.** `init` copies the season files Flashpoint knows (2025 and 2026 for this version). For a later year, copy last year's file to `seasons/<year>.toml` and change `season =`; see [Starting a new season](user-guide.md#starting-a-new-season).
+**New seasons.** Flashpoint ships season files for 2025, 2026 and 2027 in this version. `init` copies the current season's and earlier ones; later years are read from Flashpoint itself until you copy one to change it. See [Starting a new season](user-guide.md#starting-a-new-season).
 
 ## 5. Getting logs in
 

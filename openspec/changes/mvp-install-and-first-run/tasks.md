@@ -43,10 +43,10 @@ Dates: every task without `[HUMAN]` is due by M1 (2026-12-05), the smoke job inc
 
 ## 6. 2027 season (#73)
 
-- [ ] 6.1 Write failing tests: "New year, last year's logs", "Current-season logs and no robot" and "Only a quarantined log this season" for the robot-season check, with the fix naming Draft robot; "Newer bundled season on an existing configuration" and "Team's season file wins"; "Init before the next season" with the date injected; the wheel holds `seasons/2027.toml`; verify they fail
-- [ ] 6.2 Add the lake-seasons read to `CheckContext` and change the robot-season level and fix; verify its 6.1 tests pass and the full checks run stays < 2 s on the corpus lake
-- [ ] 6.3 Make `init` copy seasons up to the current one, and ship `defaults/seasons/2027.toml`; verify the remaining 6.1 tests pass
-- [ ] 6.4 Update the user guide's "Starting a new season" for the bundled 2027 file and the January warning, and hand `mvp-documentation` the 2027 lines for the known-limits page (2027 hoots need the owlet that 0.3.1 adds; pyntcore is capped `<2027` until 0.3.1; Systemcore untested); comment on #73 that the 0.3.1 owner and date live in `mvp-public-release` 9.2; verify `pytest tests/test_docs.py` passes
+- [x] 6.1 Write failing tests: "New year, last year's logs", "Current-season logs and no robot" and "Only a quarantined log this season" for the robot-season check, with the fix naming Draft robot; "Newer bundled season on an existing configuration" and "Team's season file wins"; "Init before the next season" with the date injected; the wheel holds `seasons/2027.toml`; verify they fail
+- [x] 6.2 Add the lake-seasons read to `CheckContext` and change the robot-season level and fix; verify its 6.1 tests pass and the full checks run stays < 2 s on the corpus lake
+- [x] 6.3 Make `init` copy seasons up to the current one, and ship `defaults/seasons/2027.toml`; verify the remaining 6.1 tests pass
+- [x] 6.4 Update the user guide's "Starting a new season" for the bundled 2027 file and the January warning, and hand `mvp-documentation` the 2027 lines for the known-limits page (2027 hoots need the owlet that 0.3.1 adds; pyntcore is capped `<2027` until 0.3.1; Systemcore untested); comment on #73 that the 0.3.1 owner and date live in `mvp-public-release` 9.2; verify `pytest tests/test_docs.py` passes
 
 ## 7. Hoot-only sessions, warning only (#8)
 

@@ -105,10 +105,27 @@ class CheckContext:
     home: Path = field(default_factory=Path.home)
     now: Callable[[], dt.datetime] = lambda: dt.datetime.now(dt.UTC)
     which: Callable[[str], str | None] = shutil.which
+    _lake_seasons: set[int] | None = field(default=None, init=False, repr=False)
 
     @classmethod
     def default(cls, config_root: Path, lake: LakePaths) -> "CheckContext":
         return cls(config_root, lake, config.cache_root())
+
+    def lake_seasons(self) -> set[int]:
+        """Seasons the lake holds sessions from (a quarantined file forms none); read once."""
+        if self._lake_seasons is None:
+            self._lake_seasons = set()
+            if self.lake.ledger.is_file():
+                try:
+                    ledger = Ledger(self.lake.ledger)
+                    try:
+                        rows = ledger.query("SELECT DISTINCT season FROM sessions")
+                    finally:
+                        ledger.close()
+                except sqlite3.Error:
+                    rows = []
+                self._lake_seasons = {int(r["season"]) for r in rows if str(r["season"]).isdigit()}
+        return self._lake_seasons
 
 
 # --- configuration ------------------------------------------------------------------------
@@ -293,12 +310,26 @@ def _robot_season(ctx: CheckContext, robots: list[Any]) -> CheckResult:
                 command="name each slot's subsystem and role in Setup > Robots",
             )
         return CheckResult("robot-season", title, "ok", f"{', '.join(r.robot for r in current)}")
+    command = (
+        "draft one in Setup > Draft robot (`flashpoint serve`), or add a robot file to"
+        f" {ctx.config_root / 'robots'}"
+    )
+    if ctx.season in ctx.lake_seasons():
+        return CheckResult(
+            "robot-season",
+            title,
+            "problem",
+            f"no robot configured for season {ctx.season}, and the lake has {ctx.season} logs:"
+            " their motors aren't matched to slots",
+            command=command,
+        )
     return CheckResult(
         "robot-season",
         title,
-        "problem",
-        f"no robot configured for season {ctx.season}: motors aren't matched to slots",
-        command=f"add a robot file to {ctx.config_root / 'robots'}",
+        "warning",
+        f"no robot configured for season {ctx.season}; the lake has no {ctx.season} logs yet"
+        " (the first import of this season's logs drafts one)",
+        command=command,
     )
 
 

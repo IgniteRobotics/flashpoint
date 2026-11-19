@@ -21,6 +21,7 @@ DEFAULT_FILES = {
     "flashpoint/defaults/theme.toml",
     "flashpoint/defaults/seasons/2025.toml",
     "flashpoint/defaults/seasons/2026.toml",
+    "flashpoint/defaults/seasons/2027.toml",
     "flashpoint/defaults/units/units-seed.csv",
 }
 
@@ -69,7 +70,7 @@ def test_bundled_seasons_leave_the_robot_root_to_the_team() -> None:
     from flashpoint.semantics.robot_config import load_seasons
 
     seasons = load_seasons(DEFAULTS_ROOT / "seasons")
-    assert set(seasons) == {2025, 2026}
+    assert set(seasons) == {2025, 2026, 2027}
     for season in seasons.values():
         assert "robot" not in season.root_names()
         assert season.root_names()["fms"] == "NT:/FMSInfo/"

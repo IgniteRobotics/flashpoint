@@ -92,14 +92,15 @@ def test_invalid_robot_file(tmp_path: Path) -> None:
 def test_robot_for_a_season_with_no_season_file(tmp_path: Path) -> None:
     root = _ignite(tmp_path)
     robot = root / "robots" / "2026-comp.toml"
-    text = robot.read_text().replace("season = 2026", "season = 2027", 1)
-    (root / "robots" / "2027-comp.toml").write_text(text.replace('"2026-comp"', '"2027-comp"', 1))
-    checks = _by_id(run_checks(_context(root, tmp_path / "lake", season=2027)))
-    bad = checks["file:robots/2027-comp.toml"]
-    assert bad.status == "problem" and "seasons/2027.toml" in bad.message
+    # 2028: the first season this release ships no season file for.
+    text = robot.read_text().replace("season = 2026", "season = 2028", 1)
+    (root / "robots" / "2028-comp.toml").write_text(text.replace('"2026-comp"', '"2028-comp"', 1))
+    checks = _by_id(run_checks(_context(root, tmp_path / "lake", season=2028)))
+    bad = checks["file:robots/2028-comp.toml"]
+    assert bad.status == "problem" and "seasons/2028.toml" in bad.message
     # The fix is the season file, not the robot file (native separators: a path to type).
-    assert bad.command is not None and str(root / "seasons" / "2027.toml") in bad.command
-    assert str(root / "seasons" / "2026.toml") in bad.command
+    assert bad.command is not None and str(root / "seasons" / "2028.toml") in bad.command
+    assert str(root / "seasons" / "2027.toml") in bad.command
 
 
 def test_broken_threshold_file(tmp_path: Path) -> None:
@@ -121,14 +122,16 @@ def test_bad_acquire_file(tmp_path: Path) -> None:
     assert checks["team"].status == "problem"
 
 
-def test_after_init_only_the_robot_is_missing(tmp_path: Path) -> None:
+def test_after_init_there_is_no_problem(tmp_path: Path) -> None:
+    """team-setup "First run": no problem, and the robot-season check is a warning."""
     from flashpoint.setup.init import init_config
 
     root = tmp_path / "cfg"
     init_config(root, team=254, lake=tmp_path / "lake")
     results = run_checks(_context(root, tmp_path / "lake"))
     problems = [r.id for r in results if r.status == "problem"]
-    assert problems == ["robot-season"]
+    assert problems == []
+    assert _by_id(results)["robot-season"].status == "warning"
     checks = _by_id(results)
     assert "254" in checks["team"].message and "10.2.54.2" in checks["team"].message
 
@@ -146,7 +149,105 @@ def test_team_from_hosts_only_is_ok(tmp_path: Path) -> None:
 def test_robot_for_another_season_only(tmp_path: Path) -> None:
     root = _ignite(tmp_path)
     robot = _by_id(run_checks(_context(root, tmp_path / "lake", season=2027)))["robot-season"]
-    assert robot.status == "problem" and "2027" in robot.message
+    assert robot.status == "warning" and "2027" in robot.message  # no 2027 logs yet
+
+
+def _lake_with_sessions(lake: Path, seasons: list[str], quarantined: int = 0) -> None:
+    paths = LakePaths(lake)
+    paths.meta.mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(paths.ledger)
+    try:
+        for i, season in enumerate(seasons):
+            ledger.execute(
+                "INSERT INTO sessions (session_id, season, robot) VALUES (?, ?, 'unknown')",
+                (f"s{i}", season),
+            )
+        for i in range(quarantined):
+            sha = f"{i:064x}"
+            ledger.register(sha, "hoot", 0, paths.raw / sha)
+            ledger.quarantine(sha, "empty-file", config.PIPELINE_VERSION)
+    finally:
+        ledger.close()
+
+
+def _initialised(tmp_path: Path) -> Path:
+    from flashpoint.setup.init import init_config
+
+    root = tmp_path / "cfg"
+    init_config(root, team=254, lake=tmp_path / "lake")
+    return root
+
+
+def test_new_year_last_years_logs_is_a_warning(tmp_path: Path) -> None:
+    root = _initialised(tmp_path)
+    _lake_with_sessions(tmp_path / "lake", ["2026"])
+    results = run_checks(_context(root, tmp_path / "lake", season=2027))
+    robot = _by_id(results)["robot-season"]
+    assert robot.status == "warning" and "no 2027 logs" in robot.message
+    assert "Draft robot" in (robot.command or "")
+    assert "robot-season" not in [r.id for r in results if r.status == "problem"]
+
+
+def test_current_season_logs_and_no_robot_is_a_problem(tmp_path: Path) -> None:
+    root = _initialised(tmp_path)
+    _lake_with_sessions(tmp_path / "lake", ["2025", "2026"])
+    robot = _by_id(run_checks(_context(root, tmp_path / "lake", season=2026)))["robot-season"]
+    command = robot.command or ""
+    assert robot.status == "problem"
+    assert "Draft robot" in command and str(root / "robots") in command
+    assert command.index("Draft robot") < command.index(str(root / "robots"))
+
+
+def test_only_a_quarantined_log_this_season_is_a_warning(tmp_path: Path) -> None:
+    root = _initialised(tmp_path)
+    _lake_with_sessions(tmp_path / "lake", [], quarantined=1)
+    robot = _by_id(run_checks(_context(root, tmp_path / "lake", season=2026)))["robot-season"]
+    assert robot.status == "warning"
+
+
+@pytest.mark.corpus
+def test_new_year_on_the_corpus_lake(corpus_lake: LakePaths, tmp_path: Path) -> None:
+    from flashpoint.semantics.derive import Deriver
+
+    root = _initialised(tmp_path)
+    deriver = Deriver(corpus_lake, root)  # the corpus lake's sessions, derived with no robot
+    try:
+        deriver.derive_sessions()
+    finally:
+        deriver.close()
+    ctx = CheckContext(root, corpus_lake, tmp_path / "cache", season=2027)
+    robot = _by_id(run_checks(ctx))["robot-season"]
+    assert robot.status == "warning" and "no 2027 logs" in robot.message
+
+
+def test_newer_bundled_season_on_an_existing_configuration(tmp_path: Path) -> None:
+    """team-setup "Newer bundled season": 2027 loads from the package on a 0.2-era root."""
+    root = _initialised(tmp_path)
+    assert not (root / "seasons" / "2027.toml").exists()
+    (root / "robots" / "2027-comp.toml").write_text(
+        'robot = "2027-comp"\nseason = 2027\nproject = "Robot-2027"\n\n'
+        '[[slot]]\nid = "talonfx-1"\nbus = "rio"\nmodel = "TalonFX"\ncan_id = 1\n'
+        'subsystem = "drive"\nrole = "fl"\n\n'
+        '[[signal]]\nid = "match-number"\nroot = "fms"\nentry = "MatchNumber"\n'
+        'subsystem = "match"\nmetric = "number"\n',
+        encoding="utf-8",
+    )
+    checks = _by_id(run_checks(_context(root, tmp_path / "lake", season=2027)))
+    assert checks["file:robots/2027-comp.toml"].status == "ok"
+    season = checks["file:seasons/2027.toml"]
+    assert season.status == "ok" and season.default
+
+
+def test_teams_season_file_wins(tmp_path: Path) -> None:
+    from flashpoint.semantics.robot_config import load_config_seasons
+
+    root = _initialised(tmp_path)
+    path = root / "seasons" / "2026.toml"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("[roots]\n", '[roots]\nrobot = "NT:Robot/team/"\n', 1), encoding="utf-8"
+    )
+    assert load_config_seasons(root)[2026].root_names()["robot"] == "NT:Robot/team/"
 
 
 def _drafted_robot(root: Path, subsystems: list[str], comment: bool = True) -> None:

@@ -11,7 +11,7 @@ import tomlkit
 
 from flashpoint.acquire.config import CONFIG_FILE
 from flashpoint.config import DEFAULTS_ROOT
-from flashpoint.setup.checks import describe_error
+from flashpoint.setup.checks import current_season, describe_error
 from flashpoint.theme import (
     DEFAULT_PALETTE,
     PRESET_NAMES,
@@ -21,15 +21,20 @@ from flashpoint.theme import (
 )
 
 TEAM_MIN, TEAM_MAX = 1, 99999
-# Bundled files a team is expected to edit; copied so the copy is theirs.
+# Bundled files a team is expected to edit; copied so the copy is theirs. Season files are
+# copied up to the current season only (`_season_files`): a later season stays the bundled
+# default, so a fix to it in a later release still reaches this configuration.
 EDITABLE_DEFAULTS = (
     "report.toml",
     "anomaly.toml",
     "anomaly-causes.toml",
-    "seasons/2025.toml",
-    "seasons/2026.toml",
     "units/units-seed.csv",
 )
+
+
+def _season_files(season: int) -> list[str]:
+    bundled = sorted((DEFAULTS_ROOT / "seasons").glob("*.toml"))
+    return [f"seasons/{p.name}" for p in bundled if p.stem.isdigit() and int(p.stem) <= season]
 
 
 class InitError(ValueError):
@@ -116,6 +121,7 @@ def init_config(
     lake: Path,
     team_name: str | None = None,
     palette: str = DEFAULT_PALETTE,
+    season: int | None = None,
 ) -> InitResult:
     """Write a starting configuration; never overwrite. With `acquire.toml` already present,
     change nothing and report the files that exist. `theme.toml` gets the team's display name
@@ -132,7 +138,12 @@ def init_config(
     except OSError as exc:
         raise InitError(f"cannot create the lake folder {lake}: {exc}") from exc
     (root / "robots").mkdir(parents=True, exist_ok=True)
-    for name in EDITABLE_DEFAULTS:
+    names = [
+        *EDITABLE_DEFAULTS[:3],
+        *_season_files(season or current_season()),
+        *EDITABLE_DEFAULTS[3:],
+    ]
+    for name in names:
         target = root / name
         if target.exists():
             result.existing.append(target)
