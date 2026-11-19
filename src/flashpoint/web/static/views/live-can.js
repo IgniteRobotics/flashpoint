@@ -15,8 +15,11 @@
   const { h } = FP;
 
   const STREAM = 'api/live/can/stream';
-  // The app references no remote host (offline in the pit), so the guide is named, not linked.
-  const GUIDE = 'docs/guide/live-can-health.md';
+  // The guide's address comes from the server (FP.docLink); without one it is named by title.
+  const GUIDE = [
+    'live-can-publisher',
+    'Live CAN health guide, \u201cAdding it to robot code\u201d',
+  ];
   const MAX_LOG = 500;
   const MAX_MARK = 60;
   // Device states, worst first, with the status language the rest of the app uses.
@@ -111,6 +114,9 @@
       seq: 0,
     };
     ui = mine;
+    FP.docs().then(() => {
+      if (ui === mine && mine.snapshot) render();
+    });
     const markInput = h('input', {
       class: 'input',
       id: 'live-mark-input',
@@ -353,9 +359,9 @@
         'The robot is connected, but its code is not publishing live CAN health under ',
         h('code', { class: 'code' }, '/Flashpoint/Live/CANHealth/'),
         '. ',
-        'To add it to robot code, see ',
-        h('code', { class: 'code', id: 'live-guide' }, GUIDE),
-        ' in the Flashpoint repository.',
+        'To add it to robot code, see the ',
+        FP.docLink(GUIDE[0], GUIDE[1], { id: 'live-guide' }),
+        '.',
       );
     }
     if (s.status === 'unsupported') {

@@ -22,6 +22,7 @@ from pydantic import ValidationError
 from flashpoint import config
 from flashpoint.acquire.config import CONFIG_FILE as ACQUIRE_FILE
 from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
+from flashpoint.docs_links import docs_url
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
@@ -46,7 +47,6 @@ FIX_LABELS = {
 # Shared settings files, each the team's copy or else the bundled default.
 SETTINGS_FILES = ("report.toml", "anomaly.toml", "anomaly-causes.toml", "theme.toml")
 INIT_COMMAND = "flashpoint init --team <number>"
-BACKUP_GUIDE = "see docs/guide/auto-import.md#backup-and-restore"
 
 Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 Finder = Callable[[Path], tuple[Any, str | None]]
@@ -318,7 +318,11 @@ def _backup(ctx: CheckContext, acquire: AcquireConfig | None) -> CheckResult:
     status = backup_status(ctx.lake, ctx.config_root, settings, ctx.now())
     command = None
     if status.level != "ok":
-        command = "flashpoint backup" if status.configured else BACKUP_GUIDE
+        command = (
+            "flashpoint backup"
+            if status.configured
+            else f"see {docs_url('auto-import', 'backup-and-restore')}"
+        )
     level: Status = (
         "problem"
         if status.level == "problem"
@@ -482,7 +486,7 @@ def _service(ctx: CheckContext) -> CheckResult:
         "warning",
         "not installed: logs are imported only when you run `flashpoint acquire`",
         fix_action="service-install",
-        command="see docs/guide/auto-import.md",
+        command=f"see {docs_url('auto-import', 'run-it-in-the-background')}",
     )
 
 

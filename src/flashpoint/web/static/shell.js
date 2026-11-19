@@ -227,6 +227,27 @@
     if (!response.ok) throw new Error(body.error || response.statusText);
     return body;
   };
+  /* ---------- Docs links: addresses come from the server (GET /api/docs), so no file here
+     names a remote host. With no server (a static export) a link is the guide's title. ---------- */
+  FP.docsLinks = {};
+  let docsLoad = null;
+  FP.docs = () => {
+    if (!docsLoad) {
+      docsLoad = (MODE.static ? Promise.resolve({}) : FP.api('docs').catch(() => ({}))).then(
+        (links) => {
+          FP.docsLinks = links || {};
+          return FP.docsLinks;
+        },
+      );
+    }
+    return docsLoad;
+  };
+  FP.docLink = (key, title, attrs = {}) => {
+    const url = FP.docsLinks[key];
+    return url
+      ? h('a', { ...attrs, href: url, target: '_blank', rel: 'noopener' }, title)
+      : h('span', attrs, title);
+  };
   /* ---------- Open in AdvantageScope (served on this machine only; ADR-0014) ---------- */
   let launchState = null;
   FP.launchAvailability = () => {

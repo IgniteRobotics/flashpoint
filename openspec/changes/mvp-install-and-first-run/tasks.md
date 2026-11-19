@@ -12,10 +12,10 @@ Dates: every task without `[HUMAN]` is due by M1 (2026-12-05), the smoke job inc
 
 ## 2. Documentation links (#72)
 
-- [ ] 2.1 Write failing tests for the links module: no string under `src/flashpoint` shown to users contains `docs/guide/`; every check in a synthetic not-ok state gives docs addresses that start with the published base ("Every check's fix"); every `docs_url` page and section exists as a source page and heading anchor in the docs tree; addresses use `0.3` for 0.3.1 and 0.3.0rc1, and `dev` for 0.4.0.dev2 ("Links match the installed version"); verify they fail
-- [ ] 2.2 Write failing tests for the app side: `GET /api/docs` returns the page map; Live CAN shows the published address in served mode and the title in a static export ("Live CAN guide reference", "Static export names the guide"); verify they fail
-- [ ] 2.3 Add `flashpoint/docs_links.py` (the versioned docs site base, the page slugs `mvp-documentation` posts on #72 in its task 5.2) and replace `BACKUP_GUIDE` and the service guide string in `checks.py`; verify the 2.1 tests pass
-- [ ] 2.4 Add `GET /api/docs` and replace `live-can.js`'s file name with the served address or the title; verify the 2.2 tests and `tests/web/test_static_lint.py` pass
+- [x] 2.1 Write failing tests for the links module: no string under `src/flashpoint` shown to users contains `docs/guide/`; every check in a synthetic not-ok state gives docs addresses that start with the published base ("Every check's fix"); every `docs_url` page and section exists as a source page and heading anchor in the docs tree; addresses use `0.3` for 0.3.1 and 0.3.0rc1, and `dev` for 0.4.0.dev2 ("Links match the installed version"); verify they fail
+- [x] 2.2 Write failing tests for the app side: `GET /api/docs` returns the page map; Live CAN shows the published address in served mode and the title in a static export ("Live CAN guide reference", "Static export names the guide"); verify they fail
+- [x] 2.3 Add `flashpoint/docs_links.py` (the versioned docs site base, the page slugs `mvp-documentation` posts on #72 in its task 5.2) and replace `BACKUP_GUIDE` and the service guide string in `checks.py`; verify the 2.1 tests pass
+- [x] 2.4 Add `GET /api/docs` and replace `live-can.js`'s file name with the served address or the title; verify the 2.2 tests and `tests/web/test_static_lint.py` pass
 
 ## 3. Backup is optional (#72, #44)
 

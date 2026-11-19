@@ -2,7 +2,8 @@
 
 Routes: `/` and `/static/*` from the package (`/static/mode.js` carries the team), `/theme.css`
 (the team's colour tokens, team-branding D-d), `/data/*` from `<lake>/report/data/`,
-`/raw/<sha256>/<name>` for ledger hashes only, and `/api/*`. Everything else is 404.
+`/raw/<sha256>/<name>` for ledger hashes only, and `/api/*` (`/api/docs` gives the views their
+docs addresses, team-setup "Documentation links"). Everything else is 404.
 The non-GET routes are the guarded `POST /api/launch` (ADR-0014),
 `POST /api/anomalies/<id>/triage` (ADR-0015), and the setup writes of ADR-0017:
 `POST /api/setup/fix/<action>` and `PUT /api/config/<section>`. Logs and derived layers stay
@@ -35,6 +36,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from flashpoint.acquire.backup import backup_status
 from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, BackupConfig
 from flashpoint.config import config_root
+from flashpoint.docs_links import app_links
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
 from flashpoint.live.service import LiveCanService
@@ -65,6 +67,7 @@ BACKUP_STATUS_PATH = "/api/backup/status"
 CONFIG_PATH = "/api/config"
 SESSIONS_PATH = "/api/setup/sessions"
 DRAFT_PATH = "/api/setup/draft"
+DOCS_PATH = "/api/docs"
 CONFIG_PREFIX = "/api/config/"
 FIX_PREFIX = "/api/setup/fix/"
 FIX_PATH = re.compile(r"^/api/setup/fix/([a-z-]+)$")
@@ -241,6 +244,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.OK, {"sessions": draft.list_sessions(self.server.lake)})
             elif url.path == DRAFT_PATH:
                 self._draft(parse_qs(url.query))
+            elif url.path == DOCS_PATH:
+                self._send_json(HTTPStatus.OK, app_links())
             elif url.path == CONFIG_PATH:
                 sections = config_api.config_view(self.server.config_dir)
                 payload = {

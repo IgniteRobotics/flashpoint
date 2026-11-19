@@ -19,7 +19,8 @@ from tests.live.test_fake_robot import DEVICES, free_port
 from tests.web.test_browser import Watch, _open, _stop
 
 pytestmark = pytest.mark.browser
-GUIDE = "docs/guide/live-can-health.md"
+PUBLISHED = "https://igniterobotics.github.io/flashpoint/"
+GUIDE_TITLE = "Live CAN health guide, \u201cAdding it to robot code\u201d"
 
 
 def _serve(tmp_path: Path, port: int) -> FlashpointServer:
@@ -177,9 +178,36 @@ def test_robot_code_without_the_publisher(page: Any, tmp_path: Path) -> None:
             watch = _open(page, f"http://127.0.0.1:{server.server_address[1]}/", "#view=live")
             page.wait_for_selector("#live-not-publishing", timeout=5000)
             assert page.inner_text("#live-connection") == "NOT PUBLISHING"
-            assert page.inner_text("#live-guide") == GUIDE
+            guide = page.locator("#live-guide")
+            href = guide.get_attribute("href") or ""
+            assert href.startswith(PUBLISHED) and href.endswith("#adding-it-to-robot-code")
             assert page.locator(".mech").count() == 0
             assert watch.clean(), watch
+        finally:
+            _stop(server)
+
+
+def test_without_the_docs_api_the_guide_is_named(page: Any, tmp_path: Path) -> None:
+    """Live CAN guide reference: with no docs addresses (as in a static export), the view
+    names the guide page and section by title and requests no address."""
+    with FakeRobot(DEVICES, port=free_port(), publish=False) as fake:
+        server = _serve(tmp_path, fake.port)
+        try:
+            page.route("**/api/docs", lambda route: route.fulfill(status=404, body="{}"))
+            remote: list[str] = []
+            page.on(
+                "request",
+                lambda r: (
+                    remote.append(r.url) if not r.url.startswith("http://127.0.0.1") else None
+                ),
+            )
+            # page.goto, not _open: _open's catch-all route would take precedence over this one.
+            page.goto(f"http://127.0.0.1:{server.server_address[1]}/#view=live")
+            page.wait_for_selector("#live-not-publishing", timeout=5000)
+            guide = page.locator("#live-guide")
+            assert guide.inner_text() == GUIDE_TITLE
+            assert guide.get_attribute("href") is None
+            assert remote == []
         finally:
             _stop(server)
 
