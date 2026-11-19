@@ -3,6 +3,7 @@
 Usage:
     python tools/fetch-corpus.py               # download missing files from the release
     python tools/fetch-corpus.py --from DIR    # seed from a local directory instead
+    python tools/fetch-corpus.py --group G     # only one group (e.g. 2026-gacmp-e10)
 
 Files land in $FLASHPOINT_CORPUS_DIR/<version>/ (default ~/.cache/flashpoint/corpus/<version>/).
 Existing files with a matching hash are left alone, so re-runs are cheap.
@@ -89,6 +90,7 @@ def fetch_entry(entry: dict[str, Any], dest: Path, release_url: str, source: Pat
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     parser.add_argument("--from", dest="source", type=Path, help="seed from a local directory")
+    parser.add_argument("--group", help="fetch only this group's files (e.g. 2026-gacmp-e10)")
     args = parser.parse_args(argv)
 
     with MANIFEST_PATH.open("rb") as f:
@@ -97,8 +99,15 @@ def main(argv: list[str] | None = None) -> int:
     target = root / manifest["version"]
     target.mkdir(parents=True, exist_ok=True)
 
+    entries = manifest["file"]
+    if args.group is not None:
+        entries = [e for e in entries if e["group"] == args.group]
+        if not entries:
+            known = ", ".join(sorted({e["group"] for e in manifest["file"]}))
+            print(f"no corpus group {args.group!r}; groups: {known}", file=sys.stderr)
+            return 2
     failures = 0
-    for entry in manifest["file"]:
+    for entry in entries:
         dest = target / entry["name"]
         if is_valid(dest, entry):
             print(f"ok      {entry['name']}")

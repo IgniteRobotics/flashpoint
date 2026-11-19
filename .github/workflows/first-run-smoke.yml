@@ -1,0 +1,75 @@
+name: first-run-smoke
+
+# A team's first hour on Linux, macOS and Windows: the documented `uv tool install`, `init`,
+# one corpus match ingested with a real owlet download, Replay with aligned data, and `serve`
+# (spec ci-quality-gates, "First-run smoke on every platform"; tools/first-run-smoke.py).
+# Not part of ci-ok, so a flaky run never blocks a merge. release.yml calls it with the wheel
+# its build made, and the PyPI publish waits for it on all three platforms.
+on:
+  schedule:
+    - cron: "17 7 * * *"  # nightly, on the default branch
+  pull_request:
+    paths:
+      - "src/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - "tools/first-run-smoke.py"
+      - "tools/fetch-corpus.py"
+      - "tests/corpus/manifest.toml"
+      - ".github/workflows/first-run-smoke.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      wheel-artifact:
+        description: "Name of an artifact holding the wheel to test (a release build). Empty: build from the checkout."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: first-run-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  smoke:
+    name: first-run smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    env:
+      FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # fetch-corpus.py downloads through gh, which needs a token
+      WHEEL_ARTIFACT: ${{ inputs.wheel-artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Runs the smoke script only; uv installs its own Python 3.13 for Flashpoint.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      # The corpus is cached; the owlet is not, so every run downloads and verifies it.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .corpus
+          key: corpus-smoke-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: env.WHEEL_ARTIFACT != ''
+        with:
+          name: ${{ env.WHEEL_ARTIFACT }}
+          path: dist/
+      - name: First-run smoke
+        run: |
+          wheel=()
+          if [ -n "$WHEEL_ARTIFACT" ]; then
+            wheel=(--wheel "$(ls dist/*.whl)")
+          fi
+          python tools/first-run-smoke.py --work "$RUNNER_TEMP/smoke" "${wheel[@]}"
