@@ -88,6 +88,8 @@ def _parser() -> argparse.ArgumentParser:
     )
     no_report_help = "skip the incremental Replay build after derive"
     ingest.add_argument("--no-report", action="store_true", help=no_report_help)
+    no_draft_help = "don't draft a robot file for a season that has none (see Setup > Draft robot)"
+    ingest.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
 
     rebuild = sub.add_parser(
         "rebuild", help="reprocess files from an older pipeline version, and failed files"
@@ -99,6 +101,7 @@ def _parser() -> argparse.ArgumentParser:
         help="reprocess only quarantined files, from their raw copies",
     )
     rebuild.add_argument("--no-report", action="store_true", help=no_report_help)
+    rebuild.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
     lake_arg(rebuild)
 
     derive = sub.add_parser(
@@ -107,6 +110,7 @@ def _parser() -> argparse.ArgumentParser:
     derive.add_argument(
         "--all", action="store_true", help="rebuild every session, not only changed ones"
     )
+    derive.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
     lake_arg(derive)
 
     detect = sub.add_parser(
@@ -275,7 +279,9 @@ def _summarize(report: "IngestReport") -> None:
 REPORT_TAIL_LINES = 15
 
 
-def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) -> None:
+def _derive_and_report(
+    lake: LakePaths, derive_all: bool, build_report: bool, robot_draft: bool = True
+) -> None:
     """Derive, then build Replay data, each in a fresh process.
 
     Separate processes keep peak memory at max(ingest, derive, report) rather than their sum,
@@ -284,6 +290,7 @@ def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) ->
     """
     base = [sys.executable, "-m", "flashpoint"]
     derive = [*base, "derive", "--lake", str(lake.root), *(["--all"] if derive_all else [])]
+    derive += [] if robot_draft else ["--no-robot-draft"]
     if subprocess.run(derive, check=False).returncode != 0 or not build_report:  # noqa: S603 - argv is our own interpreter and module
         return
     report = [*base, "report", "--lake", str(lake.root)]
@@ -302,11 +309,29 @@ def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) ->
         print("\n".join(tail), file=sys.stderr)
 
 
-def _derive(lake: LakePaths, force: bool) -> int:
+def _draft_robots(lake: LakePaths, root: Path) -> None:
+    """The first derive drafts the robot for a season with no robot file (team-setup)."""
+    from flashpoint.setup.draft import DraftError, auto_draft
+
+    try:
+        drafted = auto_draft(lake, root)
+    except DraftError as exc:  # read-only, or the editor refused the draft
+        print(f"warning: {exc}", file=sys.stderr)
+        return
+    for d in drafted:
+        print(
+            f"drafted robot {d.robot} from {d.source} ({d.devices} devices) into"
+            f" {root / d.path}: name each slot's subsystem and role in Setup > Robots"
+        )
+
+
+def _derive(lake: LakePaths, force: bool, robot_draft: bool = True) -> int:
     from flashpoint.semantics.derive import Deriver
     from flashpoint.semantics.robot_config import ConfigError
 
     root = config.config_root()
+    if robot_draft:
+        _draft_robots(lake, root)
     if not (root / "acquire.toml").is_file():
         print(f"warning: no configuration in {root}: run `flashpoint init`. Until then no robot,"
               " slot or signal is mapped.", file=sys.stderr)  # fmt: skip
@@ -710,7 +735,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 - grandfathere
     if args.command == "doctor":
         return _doctor(lake)
     if args.command == "derive":
-        return _derive(lake, force=args.all)
+        return _derive(lake, force=args.all, robot_draft=not args.no_robot_draft)
     if args.command == "detect":
         return _detect(lake, force=args.all)
     if args.command == "backtest":
@@ -748,5 +773,10 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 - grandfathere
     _summarize(report)
     rebuild = args.command == "rebuild"
     if (rebuild or not args.no_derive) and report.count("success"):
-        _derive_and_report(lake, derive_all=rebuild, build_report=not args.no_report)
+        _derive_and_report(
+            lake,
+            derive_all=rebuild,
+            build_report=not args.no_report,
+            robot_draft=not args.no_robot_draft,
+        )
     return report.exit_code

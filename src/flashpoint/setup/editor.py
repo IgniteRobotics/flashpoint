@@ -332,9 +332,11 @@ def save_robot(
     data: Mapping[str, Any],
     expected_sha: str | None,
     new: bool = False,
+    header: str | None = None,
 ) -> SaveResult:
     """Save a robot (TOML key names: robot, season, project, battery_proxy, slot, signal, bus,
-    siblings). Arrays of tables are merged by id, so untouched entries keep their comments."""
+    siblings). Arrays of tables are merged by id, so untouched entries keep their comments.
+    `header` (comment lines) opens a new file, such as the automatic draft's note."""
     from flashpoint.semantics.robot_config import load_config_seasons, load_robot, load_robots
 
     rel = robot_file(robot_id)
@@ -360,7 +362,9 @@ def save_robot(
         root,
         rel,
         expected_sha,
-        lambda current: _render(current, edit),
+        lambda current: (
+            (f"{header}\n" if header and current is None else "") + _render(current, edit)
+        ),
         lambda scratch: load_robot(scratch / rel, seasons),
         AFFECTS["robots"],
     )

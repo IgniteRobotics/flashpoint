@@ -41,6 +41,7 @@ Copy `.wpilog` and `.hoot` files into the lake and read them. You can pass files
 | `--jobs N` | Hoot files converted in parallel. Default: half your CPU cores |
 | `--no-derive` | Skip the automatic `derive`, and so the Replay build too |
 | `--no-report` | Skip the automatic Replay build after `derive` |
+| `--no-robot-draft` | Don't draft a robot file for a season that has none (see [`flashpoint derive`](#flashpoint-derive)) |
 
 ```sh
 flashpoint ingest ~/Downloads/GACMP/
@@ -68,6 +69,7 @@ Reprocess, from its raw copy, every file that an older version of Flashpoint pro
 | `--profile all` | Export every hoot signal instead of the health set, as with `ingest`. Default `health` |
 | `--quarantined` | Reprocess only quarantined files, with a fresh count of 3 tries. Use it after a fix (a new owlet, a Flashpoint update), or for a file that crashed owlet 3 times. A file that is truly bad is quarantined again |
 | `--no-report` | Skip the automatic Replay build after `derive` |
+| `--no-robot-draft` | Don't draft a robot file for a season that has none (see [`flashpoint derive`](#flashpoint-derive)) |
 
 A file whose raw copy is missing is listed as `MISSING RAW` and left as it is.
 
@@ -80,9 +82,12 @@ flashpoint rebuild --quarantined
 
 Build the match-level data from what `ingest` read. That means grouping each wpilog with its hoots, aligning their clocks, mapping devices to robot slots and physical units, framing auto and teleop, and computing per-motor match features. Only sessions whose inputs changed are rebuilt. Detection runs at the end.
 
+**The first derive drafts your robot.** When the lake holds logs from a season that has no robot file in your config folder, `derive` first drafts one per robot-code project, from the match with the most CAN devices, and saves it as `robots/<season>-comp.toml` (a second project gets `-practice`). It prints `drafted robot 2026-comp from 2026gacmp_qm7 (22 devices) into ...`, and the file's first line says it was drafted. Name each slot's subsystem and role in Setup > Robots, and keep the drafted slot ids. A season that already has any robot file is never touched. Hoot-only logs have no robot-code project, so they draft nothing: use Setup > Draft robot for them. With no configuration (`flashpoint init`) nothing is drafted, and a read-only config folder is named in a warning. Since `ingest`, `rebuild` and the acquire cycle run `derive`, they draft too.
+
 | Option | What it does |
 |---|---|
 | `--all` | Rebuild every session. Use it after editing a robot file in `robots/` in your config folder |
+| `--no-robot-draft` | Don't draft a robot file for a season that has none |
 
 ```sh
 flashpoint derive --all
