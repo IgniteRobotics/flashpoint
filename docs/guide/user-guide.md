@@ -24,19 +24,27 @@ Everything runs on one laptop with no internet.
 
 ## Install
 
-You need a computer running macOS, Linux, or Windows, with:
-- Python 3.11, 3.12, or 3.13. Not 3.14: Flashpoint doesn't support it yet. Check with `python3 --version`.
-- [pipx](https://pipx.pypa.io/), which installs command-line tools in their own space (`brew install pipx` on macOS, `python3 -m pip install --user pipx` elsewhere).
+You need a computer running one of:
+- macOS 13 or later;
+- Linux with glibc 2.35 or later (Ubuntu 22.04 or later);
+- Windows on an x86-64 PC (not Windows on ARM).
 
-Then, once:
+Flashpoint runs on Python 3.11 to 3.14 (not 3.15 yet). You don't have to install that Python yourself: [uv](https://docs.astral.sh/uv/) downloads one for Flashpoint if your computer doesn't have a suitable one.
 
-```sh
-pipx install --python python3.12 flashpoint
-flashpoint init --team 1234
-flashpoint doctor
-```
+1. Install uv, once. On macOS, `brew install uv`. On Windows, `winget install --id=astral-sh.uv -e`. On Linux (or any of them), use [uv's installer](https://docs.astral.sh/uv/getting-started/installation/). Open a new terminal afterwards.
+2. Install Flashpoint and create your configuration:
 
-`--python` picks which Python pipx uses. Name any 3.11–3.13 you have installed. On Windows, use `py -3.12` to find it, or give the full path.
+   ```sh
+   uv tool install --python 3.13 flashpoint
+   flashpoint init --team 1234
+   flashpoint doctor
+   ```
+
+If `flashpoint` isn't found after the install, run `uv tool update-shell` and open a new terminal.
+
+**With pipx instead.** If you already use [pipx](https://pipx.pypa.io/), it works too, but it needs a Python 3.11 to 3.14 already installed:
+- macOS and Linux: `pipx install --python python3.13 flashpoint` (any of `python3.11` to `python3.14` that you have).
+- Windows: in the python.org installer, tick "py launcher". Then `py -3.13 -m pip install --user pipx`, and `py -3.13 -m pipx install flashpoint`.
 
 `flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, your team name and colours (`theme.toml`), and copies of the default settings. Anything you leave out (`--team`, `--lake`, `--team-name`, `--palette`) it asks for in a terminal; leave the name blank for none. See [`flashpoint init`](cli-reference.md#flashpoint-init) for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
 
@@ -45,14 +53,16 @@ flashpoint doctor
 ### Updating
 
 ```sh
-pipx upgrade flashpoint
+uv tool upgrade flashpoint
 ```
 
-Your config folder and lake are kept.
+If you installed with pipx, run `pipx upgrade flashpoint` instead. Your config folder and lake are kept either way.
+
+**Switching from pipx to uv** is optional. Run `pipx uninstall flashpoint`, then `uv tool install --python 3.13 flashpoint`. Your config folder and lake aren't touched.
 
 ### Installing without internet
 
-On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `pipx install --python python3.12 /Volumes/USB/flashpoint-<version>-py3-none-any.whl` (use the file name you downloaded, or `E:\...` on Windows). pipx still needs Flashpoint's dependencies, so do this on a laptop that has installed it once before, or bring their wheels too.
+On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `uv tool install --python 3.13 /Volumes/USB/flashpoint-<version>-py3-none-any.whl` (use the file name you downloaded, or `E:\...` on Windows). The install still needs Flashpoint's dependencies and a Python, so do this on a laptop that has installed it once before, or bring their wheels too.
 
 ### Installing from a checkout
 
@@ -61,7 +71,7 @@ For Ignite's own laptops, or to try changes that aren't released yet, install fr
 ```sh
 git clone https://github.com/IgniteRobotics/flashpoint.git
 cd flashpoint
-pipx install --python python3.12 .
+uv tool install --python 3.13 .
 ```
 
 Ignite's configuration (robots, units, failure labels) is the checkout's `config/` folder. Point Flashpoint at it in your shell profile (`~/.zshrc` or `~/.bashrc`), or copy it to `~/.config/flashpoint`:
@@ -70,7 +80,7 @@ Ignite's configuration (robots, units, failure labels) is the checkout's `config
 export FLASHPOINT_CONFIG="$HOME/flashpoint/config"
 ```
 
-On Windows, set it once with `setx FLASHPOINT_CONFIG "%USERPROFILE%\flashpoint\config"`, then open a new terminal. To update a checkout install: `git pull`, then `pipx install --force --python python3.12 .`.
+On Windows, set it once with `setx FLASHPOINT_CONFIG "%USERPROFILE%\flashpoint\config"`, then open a new terminal. To update a checkout install: `git pull`, then `uv tool install --force --python 3.13 .`.
 
 ## Before an event: get ready offline
 
@@ -338,7 +348,7 @@ You probably won't need to change these, but they're all team-editable (in the S
 
 Flashpoint doesn't need to be reinstalled each year, but a new season needs a few things before its first event. Do them after kickoff, when the new robot code first runs:
 
-1. **Update Flashpoint** (`pipx upgrade flashpoint`). A new season's CTRE hoot format needs a Flashpoint that knows its owlet; an older one says the lake "has C*N* hoots, which this Flashpoint can't read".
+1. **Update Flashpoint** (`uv tool upgrade flashpoint`, or `pipx upgrade flashpoint` if you installed with pipx). A new season's CTRE hoot format needs a Flashpoint that knows its owlet; an older one says the lake "has C*N* hoots, which this Flashpoint can't read".
 2. **Add the season file.** Copy `seasons/<last year>.toml` in your config folder to `seasons/<this year>.toml`, change `season =` to this year, and check each root against the new robot code, especially `robot`. Flashpoint ships season files only for the years it knows, and `flashpoint init` copies only those, so a new year's file is yours to add. Without it, a robot file that declares signals doesn't load; `doctor` names the file to create.
 3. **Add the robot file.** Ingest a log from the new robot (with internet, so owlet downloads), then use **Draft robot** in the Setup view. It names the robot `<year>-comp` (then `<year>-practice` for a second one), with this season's year and project name, and saves it as `robots/<robot>.toml`. Last season's robot file stays, so its logs keep their mapping.
 4. **Check the robot code still writes** the [CAN inventory, bus status and build info](robot-side.md) entries. A new robot project is easy to start without them.

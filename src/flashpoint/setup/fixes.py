@@ -131,7 +131,10 @@ def _command(ctx: CheckContext, args: Sequence[str]) -> None:
 def _executable(ctx: CheckContext) -> str:
     found = ctx.which("flashpoint")
     if not found:
-        raise FixError("can't find the flashpoint command; install it with pipx first")
+        raise FixError(
+            "can't find the flashpoint command; install it first with"
+            " `uv tool install --python 3.13 flashpoint` (or pipx)"
+        )
     return found
 
 

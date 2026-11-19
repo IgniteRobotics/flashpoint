@@ -24,10 +24,10 @@ For a deep dive into a single log, it opens AdvantageScope.
 
 ## Quickstart
 
-Needs Python 3.11–3.13 (not 3.14) and [pipx](https://pipx.pypa.io/). `--python` picks which one pipx uses; name any 3.11–3.13 you have.
+Needs [uv](https://docs.astral.sh/uv/), which brings its own Python (pipx works too; see the user guide).
 
 ```sh
-pipx install --python python3.12 flashpoint
+uv tool install --python 3.13 flashpoint
 flashpoint init --team <your team number>
 flashpoint ingest path/to/logs/
 flashpoint serve                   # open http://127.0.0.1:8000/

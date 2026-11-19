@@ -97,7 +97,7 @@ The easiest way is the Setup view: its acquire service check has an **Install** 
 
 ### Linux (systemd user service)
 
-Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../../src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where pipx puts it. Install it:
+Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../../src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where `uv tool install` and pipx put it. Install it:
 
 ```sh
 mkdir -p ~/.config/systemd/user

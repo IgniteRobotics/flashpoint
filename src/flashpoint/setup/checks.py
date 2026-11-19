@@ -27,7 +27,12 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
 
 Status = Literal["ok", "warning", "problem", "n/a"]
-PYTHON_RANGE = ((3, 11), (3, 13))
+PYTHON_RANGE = ((3, 11), (3, 14))
+# The documented install (ADR-0018): uv brings its own Python; pipx is the alternative.
+INSTALL_COMMAND = "uv tool install --python 3.13 flashpoint"
+UPGRADE_COMMAND = (
+    "uv tool upgrade flashpoint (or, if you installed with pipx: pipx upgrade flashpoint)"
+)
 SERVICE_NAME = "flashpoint-acquire"
 SERVICE_TIMEOUT_S = 5
 # Fix actions the app can run, with the button label (see flashpoint.setup.fixes).
@@ -356,7 +361,7 @@ def _owlet(ctx: CheckContext) -> list[CheckResult]:
                     title,
                     "problem",
                     f"the lake has C{compliancy} hoots, which this Flashpoint can't read",
-                    command="pipx upgrade flashpoint",
+                    command=UPGRADE_COMMAND,
                 )
             )
             continue
@@ -496,8 +501,8 @@ def _python(ctx: CheckContext) -> CheckResult:
         "python",
         "Python",
         "problem",
-        f"Python {shown} isn't supported (3.11 to 3.13)",
-        command="pipx reinstall --python python3.12 flashpoint",
+        f"Python {shown} isn't supported (3.11 to 3.14)",
+        command=f"{INSTALL_COMMAND} (uv downloads a supported Python)",
     )
 
 

@@ -4,7 +4,7 @@ This page takes a new FRC team from nothing to a working Flashpoint, in order. E
 
 **What you need:**
 - a pit laptop running macOS, Linux or Windows, with internet for the first setup;
-- Python 3.11, 3.12 or 3.13 on it (not 3.14);
+- macOS 13 or later, Linux with glibc 2.35 or later (Ubuntu 22.04 or later), or Windows on an x86-64 PC;
 - robot code that uses CTRE Phoenix 6 motors and writes `.wpilog` files (most WPILib robots already do);
 - a few recent logs from your robot (`.wpilog` and `.hoot` files), copied off the roboRIO or its USB stick;
 - about an hour, plus time in the shop to read motor serial numbers with Tuner X.
@@ -18,13 +18,12 @@ Flashpoint reads WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.h
 ## 2. Prerequisites
 
 - **Operating system:** macOS, Linux or Windows. All three can import, serve and back up. Running automatic import as a background service is set up for Linux and Windows; on macOS you leave it running in a terminal ([details](auto-import.md#macos)).
-- **Python:** 3.11, 3.12 or 3.13. Check with `python3 --version` (`py --list` on Windows).
-- **pipx**, which installs command-line tools in their own space:
-  - macOS: `brew install pipx`
-  - Debian or Ubuntu: `sudo apt install pipx` (`pip install --user pipx` fails there with "externally-managed-environment")
-  - Windows and other systems: `python -m pip install --user pipx`
+- **uv**, which installs command-line tools in their own space and brings its own Python (Flashpoint runs on 3.11 to 3.14, not 3.15 yet):
+  - macOS: `brew install uv`
+  - Windows: `winget install --id=astral-sh.uv -e`
+  - Linux and other systems: [uv's installer](https://docs.astral.sh/uv/getting-started/installation/)
 
-  Then run `pipx ensurepath` once and open a new terminal. Without that, the `flashpoint` command often isn't found after you install it.
+  Then open a new terminal. pipx works too if you already use it; see [Install](user-guide.md#install).
 - **rclone**, only if you want off-laptop backups ([section 7](#7-backups-and-moving-to-another-laptop)).
 - **AdvantageScope** (comes with WPILib), only if you want the "Open in AdvantageScope" button in Replay.
 
@@ -33,12 +32,12 @@ Flashpoint reads WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.h
 The package on PyPI is called `flashpoint`:
 
 ```sh
-pipx install --python python3.12 flashpoint
+uv tool install --python 3.13 flashpoint
 ```
 
-`--python` picks which Python pipx uses; name any 3.11 to 3.13 you have. On Windows, `python3.12` usually isn't found: run `py -3.12 -c "import sys; print(sys.executable)"` and give that full path instead. If the laptop has no internet at the pit, see [Installing without internet](user-guide.md#installing-without-internet).
+uv downloads Python 3.13 for Flashpoint if the laptop doesn't have it. If `flashpoint` isn't found afterwards, run `uv tool update-shell` and open a new terminal. To use pipx instead, see [Install](user-guide.md#install). If the laptop has no internet at the pit, see [Installing without internet](user-guide.md#installing-without-internet).
 
-**Check your version first.** Team names and colours (`--team-name`, `--palette`, `theme.toml` and [section 8](#8-team-name-and-colours)) need Flashpoint 0.2.0 or later. Run `flashpoint --version`. If it says `flashpoint 0.1.0`, run `pipx upgrade flashpoint` first (0.1.0 stops with "unrecognized arguments").
+**Check your version first.** Team names and colours (`--team-name`, `--palette`, `theme.toml` and [section 8](#8-team-name-and-colours)) need Flashpoint 0.2.0 or later. Run `flashpoint --version`. If it says `flashpoint 0.1.0`, run `uv tool upgrade flashpoint` (or `pipx upgrade flashpoint`) first (0.1.0 stops with "unrecognized arguments").
 
 Then create your configuration. Use your own team number and name:
 

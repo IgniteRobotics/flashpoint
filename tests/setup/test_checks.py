@@ -207,6 +207,16 @@ def test_owlet_per_compliancy_in_the_lake(tmp_path: Path) -> None:
     assert owlet.status == "problem" and "checksum" in owlet.message
 
 
+def test_hoot_format_newer_than_this_release_names_uv_then_pipx(tmp_path: Path) -> None:
+    lake = tmp_path / "lake"
+    _lake_with_hoot(lake, 999)  # no owlet in the manifest reads C999
+    check = _by_id(run_checks(_context(_ignite(tmp_path), lake)))["owlet:C999"]
+    command = check.command or ""
+    assert check.status == "problem"
+    assert "uv tool upgrade flashpoint" in command and "pipx upgrade flashpoint" in command
+    assert command.index("uv tool upgrade") < command.index("pipx upgrade")
+
+
 def test_owlet_with_no_hoots_checks_the_newest(tmp_path: Path) -> None:
     newest = hoot.default_registry(tmp_path).compliancies()[-1]
     owlet = _by_id(run_checks(_context(_ignite(tmp_path), tmp_path / "lake")))
@@ -305,11 +315,24 @@ def test_acquire_service_not_applicable_on_macos(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     ("version", "status"),
-    [((3, 11), "ok"), ((3, 13), "ok"), ((3, 10), "problem"), ((3, 14), "problem")],
+    [
+        ((3, 11), "ok"),
+        ((3, 13), "ok"),
+        ((3, 14), "ok"),
+        ((3, 10), "problem"),
+        ((3, 15), "problem"),
+    ],
 )
 def test_python_version(tmp_path: Path, version: tuple[int, int], status: str) -> None:
     ctx = _context(_ignite(tmp_path), tmp_path / "lake", python=version)
     assert _by_id(run_checks(ctx))["python"].status == status
+
+
+def test_unsupported_python_names_the_range_and_the_uv_install(tmp_path: Path) -> None:
+    ctx = _context(_ignite(tmp_path), tmp_path / "lake", python=(3, 10))
+    check = _by_id(run_checks(ctx))["python"]
+    assert check.status == "problem" and "3.11 to 3.14" in check.message
+    assert (check.command or "").startswith("uv tool install --python 3.13 flashpoint")
 
 
 def test_results_are_json_ready(tmp_path: Path) -> None:

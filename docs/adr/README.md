@@ -16,7 +16,7 @@ These record the rewrite's key decisions (D1–D11 in [05-target-architecture.md
 | [0006](0006-per-match-ui-static-site.md) | Per-match UI: static site (amended: Replay static export) | Proposed |
 | [0007](0007-lifetime-ui-marimo.md) | Lifetime UI: marimo | Superseded by 0013 |
 | [0008](0008-deep-dive-link-advantagescope.md) | Deep dive: link to AdvantageScope | Proposed |
-| [0009](0009-deploy-pipx-single-container.md) | Deploy: pipx + per-user services (container deferred) | Proposed |
+| [0009](0009-deploy-pipx-single-container.md) | Deploy: pipx + per-user services (container deferred) | Proposed (amended by 0018) |
 | [0010](0010-anomaly-v1-rules-baselines.md) | Anomaly v1: rules + baselines + residuals | Accepted with amendments (P5) |
 | [0011](0011-device-identity-ctre-serials.md) | Device identity: CTRE serial numbers | **Accepted** |
 | [0012](0012-clock-alignment-shared-payload.md) | Hoot-to-wpilog clock alignment by shared payload | Proposed |
@@ -25,6 +25,7 @@ These record the rewrite's key decisions (D1–D11 in [05-target-architecture.md
 | [0015](0015-anomaly-triage-writes.md) | Anomaly triage writes | Proposed (amended by 0017) |
 | [0016](0016-live-view-robot-connection.md) | Live view: an outbound robot connection from `serve` | Proposed |
 | [0017](0017-config-writes-and-setup-actions.md) | Configuration writes and setup actions | Proposed |
+| [0018](0018-install-uv-primary.md) | Install: `uv tool install` primary, pipx the alternative | Proposed |
 
 ## Template
 
