@@ -37,7 +37,12 @@ Flashpoint runs on Python 3.11 to 3.14 (not 3.15 yet). You don't have to install
    ```sh
    uv tool install --python 3.13 flashpoint
    flashpoint init --team 1234
-   flashpoint doctor
+   ```
+3. Import one match's logs, then look at them:
+
+   ```sh
+   flashpoint ingest path/to/one-match/
+   flashpoint serve
    ```
 
 If `flashpoint` isn't found after the install, run `uv tool update-shell` and open a new terminal.
@@ -48,7 +53,9 @@ If `flashpoint` isn't found after the install, run `uv tool update-shell` and op
 
 `flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, your team name and colours (`theme.toml`), and copies of the default settings. Anything you leave out (`--team`, `--lake`, `--team-name`, `--palette`) it asks for in a terminal; leave the name blank for none. See [`flashpoint init`](cli-reference.md#flashpoint-init) for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
 
-`doctor` then lists the setup checks. Right after `init`, the only problem should be "no robot configured": add your robot from the [Setup view](#setup-checks-and-configuration), and run `doctor` again.
+**Your first import drafts your robot.** When the lake has logs from a season that has no robot file yet, `ingest` drafts one from them (`robots/2026-comp.toml`, from the match with the most CAN devices) and says so. Replay shows that match's data right away. Open **Setup > Robots** and fill in each slot's subsystem and role; keep the drafted slot ids, which already name each device's model and CAN id. Logs with hoots but no wpilog, or an import with `--no-robot-draft`, draft nothing: use **Setup > Draft robot** for those ([Setup](#setup-checks-and-configuration)).
+
+`flashpoint doctor` lists the setup checks. Right after `init`, the robot check is a warning: the lake has no logs from this season yet. Once you import this season's logs it is a problem only while no robot is configured. A drafted robot whose slots have no subsystem yet is a warning, not a problem.
 
 ### Updating
 
@@ -207,7 +214,7 @@ The **Setup** tab shows what `flashpoint doctor` checks, and your whole configur
   - a save is refused if someone changed the file by hand since you opened it: reload and redo the edit;
   - comments and the order of everything you didn't change are kept, and the previous version goes to `.backups/` in the config folder (the last 20 of each file);
   - after a save, the view says what to run: `flashpoint derive` after a robot change, `flashpoint detect` after an anomaly threshold, `flashpoint report` after a report threshold, and a page reload after a team name or colour change. Saving never changes the lake.
-- **Draft robot:** pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Give each slot an id, subsystem and role, then **SAVE ROBOT**. A log with no hoots can't be drafted from.
+- **Draft robot:** your first import usually drafts the robot for you (see [Install](#install)); use this tab for another robot, for hoot-only logs, or after `--no-robot-draft`. Pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Fill in each slot's subsystem and role now or later (slots without a subsystem are marked UNNAMED), then **SAVE ROBOT**. Saving rebuilds the lake in the background; reload Replay when it finishes. A log with no hoots can't be drafted from. On an empty lake the tab shows the import command for this lake.
 
 Fixes and saves only run on the computer running `flashpoint serve`. Opened from another computer, or with `--host 0.0.0.0`, Setup is read-only and shows commands instead of buttons.
 

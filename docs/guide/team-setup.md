@@ -66,7 +66,7 @@ created the configuration in /home/pit/.config/flashpoint:
   seasons/2026.toml
   units/units-seed.csv
   theme.toml
-next: add your robot file to /home/pit/.config/flashpoint/robots, then run `flashpoint doctor`
+next: import a match's logs with `flashpoint ingest <folder>` (it drafts your robot from them), then run `flashpoint serve`
 ```
 
 | File | What it's for |
@@ -76,7 +76,15 @@ next: add your robot file to /home/pit/.config/flashpoint/robots, then run `flas
 | `report.toml`, `anomaly.toml`, `anomaly-causes.toml` | Replay limits, anomaly thresholds, and the "likely causes" text. The defaults are a good start |
 | `seasons/<year>.toml` | Where each season's NetworkTables entries live |
 | `units/units-seed.csv` | Your list of physical motors, empty to start ([section 4](#4-robot-side)) |
-| `robots/` | Empty. Your robot file goes here ([section 4](#4-robot-side)) |
+| `robots/` | Empty. Your first import drafts your robot file here (below) |
+
+**Import one match next.** Copy one match's `.wpilog` and `.hoot` files off the robot's USB stick into a folder, and import it with internet (the first hoot import downloads owlet, the tool that reads hoots):
+
+```sh
+flashpoint ingest path/to/one-match/
+```
+
+Since `robots/` has no file for that season, the import drafts one from the logs and prints `drafted robot 2026-comp from 2026gacmp_qm7 (22 devices) into ...`. Every CAN device on the hoots becomes a slot. You name the slots' subsystem and role in Setup ([section 4](#4-robot-side)); keep the drafted slot ids. Logs with hoots but no wpilog can't be drafted from automatically: use Setup > Draft robot for them, as you would after `ingest --no-robot-draft`. [Section 5](#5-getting-logs-in) covers importing in general.
 
 Now check the setup:
 
@@ -85,7 +93,7 @@ flashpoint doctor
 ```
 
 `doctor` changes nothing. Its `checks` section has one line per check, marked `ok`, `WARN`, `PROBLEM` or `n/a`, with the fix under anything that isn't ok. Right after `init`, expect:
-- `PROBLEM Robot for <year>`: no robot file yet. You add one in section 4.
+- `WARN Robot for <year>`: before your first import, the lake has no logs from this season. Once it has, this is a `PROBLEM` while no robot is configured, and a `WARN` while a drafted robot has unnamed slots ("22 of 22 slots unnamed"). Name them in section 4.
 - `WARN owlet for hoot format ...`: the tool that reads hoots isn't downloaded yet. Your first hoot import downloads it (needs internet).
 - `WARN AdvantageScope`: only if WPILib isn't installed.
 
@@ -104,12 +112,14 @@ Three small additions to robot code make it much more useful. [Robot-side loggin
 
 To watch CAN dropouts live while you wiggle wires, add the publisher from [Live CAN health](live-can-health.md#adding-it-to-robot-code) too. It's optional.
 
-**What Flashpoint needs to know about your robot.** It needs one robot file per robot per season in `robots/` in your config folder, such as `robots/2026-comp.toml`. It lists each motor as a **slot**: its bus, CAN id, model, subsystem and role. The easy way to write it:
-1. Import one log from the robot that includes a `.hoot` file ([section 5](#5-getting-logs-in)). Drafting reads the devices from the hoots, so a log without one can't be drafted from. Do this first hoot import with internet.
-2. Run `flashpoint serve`, open **Setup**, then the **DRAFT ROBOT** tab.
-3. Pick the log and press **DRAFT FROM THIS LOG**. Every CAN device in its hoots becomes a slot.
-4. Give each slot an id, subsystem and role, then **SAVE ROBOT**.
-5. Run `flashpoint derive`. Logs you imported before the robot file existed stay unmapped (no slots, no motor history) until you do. The save message in Setup reminds you.
+**What Flashpoint needs to know about your robot.** It needs one robot file per robot per season in `robots/` in your config folder, such as `robots/2026-comp.toml`. It lists each motor as a **slot**: its bus, CAN id, model, subsystem and role. Your first import (section 3) drafted it from the hoots. To finish it:
+1. Run `flashpoint serve` and open **Setup**, then **Robots**. Slots marked UNNAMED have no subsystem yet.
+2. Fill in each slot's subsystem and role, and save. Keep the drafted slot ids: they already name each device's model and CAN id, and a new id starts a new history.
+
+To draft by hand instead (a second robot, hoot-only logs, or after `--no-robot-draft`):
+1. Import one log from the robot that includes a `.hoot` file ([section 5](#5-getting-logs-in)). Drafting reads the devices from the hoots, so a log without one can't be drafted from.
+2. In **Setup**, open the **DRAFT ROBOT** tab, pick the log and press **DRAFT FROM THIS LOG**. Every CAN device in its hoots becomes a slot.
+3. Fill in each slot's subsystem and role (or leave them for later), then **SAVE ROBOT**. Saving rebuilds the lake in the background, so logs you imported before the robot file existed get their slots and motor history; reload Replay when it finishes.
 
 The [user guide](user-guide.md#describe-a-robot) shows a whole robot file, with the optional parts: a battery proxy, sibling groups (motors that do the same job, compared with each other), swap dates, bus names and NetworkTables signals.
 

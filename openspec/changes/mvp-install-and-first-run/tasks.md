@@ -39,7 +39,7 @@ Dates: every task without `[HUMAN]` is due by M1 (2026-12-05), the smoke job inc
 - [x] 5.6 Write failing tests for "Drafted robot not named yet" and the Setup view's unnamed-slot mark (browser); implement both; verify they pass
 - [x] 5.7 Write failing browser tests for "Save starts a rebuild" and "Rebuild already running"; implement the detached derive on a draft save and the view's message; verify they pass
 - [x] 5.8 Write failing tests for "Match with no robot" and the reworded "Hoot-only session" reason (served and static); implement the reason by cause in `report/build.py` and the Draft robot link in `replay.js`; verify they pass and Q7's data file with a robot is byte-identical
-- [ ] 5.9 Reorder the user guide's Install section and `team-setup.md` §3 so that importing a log comes before the robot, and say the first import drafts it (name the slots' subsystem and role in Setup, keep the drafted ids; Draft robot by hand for hoot-only logs or `--no-robot-draft`); change "the only problem should be no robot configured" (`user-guide.md:43`) and "`PROBLEM Robot for <year>`" (`team-setup.md:89`) to the new warning-or-problem rule; verify `pytest tests/test_docs.py` passes
+- [x] 5.9 Reorder the user guide's Install section and `team-setup.md` §3 so that importing a log comes before the robot, and say the first import drafts it (name the slots' subsystem and role in Setup, keep the drafted ids; Draft robot by hand for hoot-only logs or `--no-robot-draft`); change "the only problem should be no robot configured" (`user-guide.md:43`) and "`PROBLEM Robot for <year>`" (`team-setup.md:89`) to the new warning-or-problem rule; verify `pytest tests/test_docs.py` passes
 
 ## 6. 2027 season (#73)
 
