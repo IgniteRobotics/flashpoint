@@ -59,6 +59,7 @@ class FakeRobot:
         self.drop_after_bytes: int | None = None  # kill the connection mid-file, per open file
         self.wrong_hash = False  # sha256sum prints a hash that matches no file
         self.no_sha256sum = False  # sha256sum exits 127, "not found"
+        self.no_nice = False  # nice exits 127, and `command -v nice` finds nothing
         self.df_free_kb = 10_000_000  # free space reported by df and statvfs
         self.auth_reject = False  # reject every auth method
         self.read_delay_s = 0.0  # sleep before answering each SFTP read (a slow link)
@@ -67,6 +68,7 @@ class FakeRobot:
         self.bytes_served = 0  # SFTP file bytes sent to clients
         self.connection_count = 0
         self.exec_log: list[str] = []
+        self.nice_levels: list[int] = []  # the niceness each `nice -n N <command>` ran at
         self.write_attempts: list[tuple[str, str]] = []  # (operation, remote path)
 
         self._lock = threading.Lock()
@@ -239,6 +241,17 @@ class _Server(paramiko.ServerInterface):
         name, args = argv[0], [a for a in argv[1:] if a != "--"]
         if name == "sha256sum":
             return self._sha256sum(args)
+        if name == "command" and args[:1] == ["-v"]:
+            found = {"nice": not self.robot.no_nice, "sha256sum": not self.robot.no_sha256sum}
+            if found.get(args[1] if len(args) > 1 else "", False):
+                return 0, f"/usr/bin/{args[1]}\n".encode(), b""
+            return 1, b"", b""
+        if name == "nice" and not self.robot.no_nice:
+            if args[:1] == ["-n"] and len(args) > 2:
+                self.robot.nice_levels.append(int(args[1]))
+                args = args[2:]
+            # coreutils nice exits 127 when its command isn't found, as the shell does
+            return self._execute(shlex.join(args)) if args else (0, b"0\n", b"")
         if name == "df":
             return self._df(args)
         return 127, b"", f"sh: {name}: not found\n".encode()

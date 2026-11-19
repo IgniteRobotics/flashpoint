@@ -23,7 +23,7 @@ from flashpoint.acquire.backup import (
     restore,
     run_backup,
 )
-from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
+from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, robot_pull_label
 from flashpoint.acquire.watch import (
     EXIT_LOCKED,
     LOCK_FILE,
@@ -166,10 +166,19 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(serve)
 
+    beta = robot_pull_label()
+    tag = f" ({beta})" if beta else ""
     acquire = sub.add_parser(
-        "acquire", help="pull logs from the robot and USB sticks into the lake, then ingest"
+        "acquire",
+        help="pull logs from the robot and USB sticks into the lake, then ingest",
+        description=f"Pull logs from the robot{tag} and from USB sticks into the lake, then"
+        " ingest them.",
     )
-    acquire.add_argument("--watch", action="store_true", help="repeat every poll_s until stopped")
+    acquire.add_argument(
+        "--watch",
+        action="store_true",
+        help=f"repeat every poll_s until stopped; this is also how it runs as a service{tag}",
+    )
     acquire.add_argument(
         "--host",
         nargs="+",
