@@ -51,4 +51,3 @@ Matches that cannot be fully shown SHALL still appear in the match list with a r
 #### Scenario: Match with no robot
 - **WHEN** corpus `2026-gacmp-q7` is ingested with `--no-robot-draft` and no robot file, and Replay is served
 - **THEN** Q7 is listed with "no aligned samples", its reason names project `Robot-2026` and season 2026 and links to Draft robot, and it does not mention hoots without a wpilog
-
