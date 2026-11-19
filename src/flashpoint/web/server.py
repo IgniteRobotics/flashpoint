@@ -391,7 +391,12 @@ class Handler(BaseHTTPRequestHandler):
         except AcquireConfigError:
             settings = BackupConfig()  # the Setup view's checks name the broken file
         status = backup_status(ctx.lake, ctx.config_root, settings, ctx.now())
-        return {"level": status.level, "message": status.message, "overdue": status.overdue}
+        return {
+            "level": status.level,
+            "message": status.message,
+            "overdue": status.overdue,
+            "optional": status.optional,
+        }
 
     def _fix(self, action: str | None) -> None:
         refused = {"ok": False}

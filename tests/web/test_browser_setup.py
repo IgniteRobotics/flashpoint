@@ -1,5 +1,6 @@
 """The Setup view in Chromium (specs: team-setup, config-editor)."""
 
+import dataclasses
 import shutil
 import threading
 import tomllib
@@ -216,6 +217,9 @@ def _backup_site(tmp_path: Path, log_seen: str) -> Iterator[str]:
         acquire.read_text(encoding="utf-8") + '\n[backup]\nremote = "gdrive:flashpoint"\n',
         encoding="utf-8",
     )
+    # rclone is installed (backup-status: without it a configured backup is a warning).
+    context = server.check_context
+    server.check_context = lambda: dataclasses.replace(context(), which=lambda n: f"/bin/{n}")
     yield f"http://127.0.0.1:{server.server_address[1]}/"
     _stop(server)
 

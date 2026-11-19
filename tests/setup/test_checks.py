@@ -396,13 +396,22 @@ def _status(lake: Path, last_ok_h: float, error: str | None = None) -> None:
     status.write_text(json.dumps({"version": 1, "backup": slot}), encoding="utf-8")
 
 
-def _backup_check(root: Path, lake: Path, calls: list[Sequence[str]] | None = None) -> CheckResult:
+def _with_rclone(name: str) -> str | None:
+    return f"/usr/bin/{name}"
+
+
+def _backup_check(
+    root: Path,
+    lake: Path,
+    calls: list[Sequence[str]] | None = None,
+    which: Callable[[str], str | None] = _with_rclone,
+) -> CheckResult:
     def run(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
         if calls is not None:
             calls.append(args)
         return _ok_run(args)
 
-    ctx = _context(root, lake, now=lambda: BACKUP_NOW, run=run)
+    ctx = _context(root, lake, now=lambda: BACKUP_NOW, run=run, which=which)
     return _by_id(run_checks(ctx))["backup"]
 
 
@@ -428,13 +437,80 @@ def test_backup_failing_but_not_overdue_is_a_warning(tmp_path: Path) -> None:
     assert check.command == "flashpoint backup"
 
 
-def test_backup_not_configured_points_to_the_guide(tmp_path: Path) -> None:
+PUBLISHED = "https://igniterobotics.github.io/flashpoint/"
+RCLONE_INSTALL = "https://rclone.org/install/"
+
+
+def _without_rclone(name: str) -> str | None:
+    return None
+
+
+def test_backup_not_configured_is_ok_and_optional(tmp_path: Path) -> None:
     root, lake = _backup_lake(tmp_path, 1, None)
 
-    check = _backup_check(root, lake)
+    check = _backup_check(root, lake, which=_without_rclone)
 
-    assert check.status == "warning" and "only on this machine" in check.message
-    assert check.command == "see docs/guide/auto-import.md#backup-and-restore"
+    assert check.status == "ok" and check.optional
+    assert "only on this machine" in check.message
+    command = check.command or ""
+    assert command.startswith(f"see {PUBLISHED}") and command.endswith("#backup-and-restore")
+    assert check.to_dict()["optional"] is True
+
+
+def test_backup_configured_without_rclone_is_a_warning(tmp_path: Path) -> None:
+    root, lake = _backup_lake(tmp_path, 3, "gdrive:flashpoint")
+
+    check = _backup_check(root, lake, which=_without_rclone)
+
+    assert check.status == "warning" and "rclone isn't installed" in check.message
+    command = check.command or ""
+    assert RCLONE_INSTALL in command and "flashpoint backup" in command
+    assert command.index(RCLONE_INSTALL) < command.index("flashpoint backup")
+    assert not check.optional
+
+
+def test_backup_overdue_without_rclone_names_installing_it_first(tmp_path: Path) -> None:
+    root, lake = _backup_lake(tmp_path, 48, "gdrive:flashpoint")
+
+    check = _backup_check(root, lake, which=_without_rclone)
+
+    assert check.status == "problem" and "2 days" in check.message
+    command = check.command or ""
+    assert command.index("rclone") < command.index("flashpoint backup")
+
+
+def test_backup_unreadable_records_is_a_warning_and_the_rest_still_run(tmp_path: Path) -> None:
+    root, lake = _backup_lake(tmp_path, 3, "gdrive:flashpoint")
+    LakePaths(lake).ledger.write_bytes(b"this is not a sqlite database" * 100)
+
+    ctx = _context(root, lake, now=lambda: BACKUP_NOW, which=_with_rclone)
+    results = _by_id(run_checks(ctx))
+
+    assert results["backup"].status == "warning"
+    assert "can't read" in results["backup"].message
+    assert {"python", "acquire-service", "advantagescope", "lake"} <= set(results)
+
+
+@pytest.mark.corpus
+def test_backup_not_configured_adds_no_doctor_warning(
+    corpus_lake: LakePaths,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from flashpoint.cli import main
+    from flashpoint.setup.init import init_config
+
+    root = tmp_path / "cfg"
+    init_config(root, team=254, lake=corpus_lake.root)
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(root))
+
+    main(["doctor", "--lake", str(corpus_lake.root)])
+
+    out = capsys.readouterr().out
+    (line,) = [ln for ln in out.splitlines() if " Backup " in ln]
+    assert line.split()[0] == "ok" and "optional" in line
+    assert PUBLISHED in out and "#backup-and-restore" in out
 
 
 def test_backup_with_an_empty_lake_is_ok(tmp_path: Path) -> None:

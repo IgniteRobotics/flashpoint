@@ -684,8 +684,9 @@ def _doctor(lake: LakePaths) -> int:  # noqa: C901 - grandfathered (code-quality
         print(f"defaults   {', '.join(defaults)} (bundled with Flashpoint)")
     print("checks")
     for result in results:
-        print(f"  {CHECK_MARKS[result.status]:<8} {result.title:<28} {result.message}")
-        if result.status in ("warning", "problem") and result.command:
+        optional = " (optional)" if result.optional else ""
+        print(f"  {CHECK_MARKS[result.status]:<8} {result.title:<28} {result.message}{optional}")
+        if (result.status in ("warning", "problem") or result.optional) and result.command:
             print(f"  {'':<8} {'':<28} fix: {result.command}")
     problems = sum(r.status == "problem" for r in results)
     if has_problem(results):

@@ -8,6 +8,7 @@ anything, and the whole run stays under 2 s.
 import datetime as dt
 import platform
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -47,6 +48,7 @@ FIX_LABELS = {
 # Shared settings files, each the team's copy or else the bundled default.
 SETTINGS_FILES = ("report.toml", "anomaly.toml", "anomaly-causes.toml", "theme.toml")
 INIT_COMMAND = "flashpoint init --team <number>"
+RCLONE_INSTALL = "https://rclone.org/install/"
 
 Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 Finder = Callable[[Path], tuple[Any, str | None]]
@@ -62,6 +64,7 @@ class CheckResult:
     command: str | None = None
     source: str | None = None  # the configuration file checked, relative to the root
     default: bool = False  # that file is the bundled default
+    optional: bool = False  # ok because the team hasn't opted in (backup), not because it's set up
 
     @property
     def fix_label(self) -> str | None:
@@ -316,29 +319,39 @@ def _backup(ctx: CheckContext, acquire: AcquireConfig | None) -> CheckResult:
 
     settings = acquire.backup if acquire is not None else BackupConfig()
     status = backup_status(ctx.lake, ctx.config_root, settings, ctx.now())
-    command = None
-    if status.level != "ok":
-        command = (
-            "flashpoint backup"
-            if status.configured
-            else f"see {docs_url('auto-import', 'backup-and-restore')}"
-        )
     level: Status = (
         "problem"
         if status.level == "problem"
         else ("warning" if status.level == "warning" else "ok")
     )
-    return CheckResult("backup", "Backup", level, status.message, command=command)
+    message, command = status.message, None
+    if not status.configured:
+        command = f"see {docs_url('auto-import', 'backup-and-restore')}"
+    elif ctx.which("rclone") is None:
+        # Backups copy with rclone: without it nothing can run, so at least a warning.
+        level = "problem" if level == "problem" else "warning"
+        message = f"rclone isn't installed, so no backup can run; {message}"
+        command = f"install rclone ({RCLONE_INSTALL}), then run `flashpoint backup`"
+    elif level != "ok":
+        command = "flashpoint backup"
+    return CheckResult(
+        "backup", "Backup", level, message, command=command, optional=status.optional
+    )
 
 
 def _lake_compliancies(lake: LakePaths) -> list[int]:
     if not lake.ledger.is_file():
         return []
-    ledger = Ledger(lake.ledger)
+    try:
+        ledger = Ledger(lake.ledger)
+    except sqlite3.Error:
+        return []  # an unreadable ledger is the backup check's warning; check the newest owlet
     try:
         rows = ledger.query(
             "SELECT DISTINCT compliancy FROM hoot_logs WHERE compliancy IS NOT NULL"
         )
+    except sqlite3.Error:
+        return []
     finally:
         ledger.close()
     return sorted(int(r["compliancy"]) for r in rows)

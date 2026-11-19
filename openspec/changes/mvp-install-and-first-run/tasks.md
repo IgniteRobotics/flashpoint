@@ -19,8 +19,8 @@ Dates: every task without `[HUMAN]` is due by M1 (2026-12-05), the smoke job inc
 
 ## 3. Backup is optional (#72, #44)
 
-- [ ] 3.1 Write failing tests with a fake `which` and the corpus lake: "Not configured" (ok, optional, published guide address, no `doctor` warning), "Configured without rclone", "Overdue without rclone", "Unreadable records"; verify they fail and that the other backup-status tests still pass
-- [ ] 3.2 Implement in `backup_status` and `_backup`; verify the 3.1 tests and the overdue-badge browser test pass
+- [x] 3.1 Write failing tests with a fake `which` and the corpus lake: "Not configured" (ok, optional, published guide address, no `doctor` warning), "Configured without rclone", "Overdue without rclone", "Unreadable records"; verify they fail and that the other backup-status tests still pass
+- [x] 3.2 Implement in `backup_status` and `_backup`; verify the 3.1 tests and the overdue-badge browser test pass
 
 ## 4. Empty Replay (#72, #37)
 
