@@ -247,6 +247,13 @@ def test_first_import_of_q7_then_a_later_import(
     assert "2026gacmp_qm7" in line and "22 devices" in line and "Setup > Robots" in line
     assert _index(lake)["2026gacmp_qm7"]["status"] == "ok"
 
+    # Drafted robot not named yet: a warning, and doctor still exits 0.
+    assert main(["doctor", "--lake", str(lake)]) == 0
+    doctor = capfd.readouterr().out
+    (season,) = [ln for ln in doctor.splitlines() if "Robot for " in ln]
+    assert season.split()[0] == "WARN" and "22 of 22 slots" in season
+    assert "Setup > Robots" in doctor
+
     # Later import keeps the draft.
     before = _tree_hash(init_root / "robots")
     e10 = [str(p) for p in corpus_group("2026-gacmp-e10")]

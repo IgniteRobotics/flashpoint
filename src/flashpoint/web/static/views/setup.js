@@ -868,11 +868,17 @@
   }
 
   /* An editable table over `rows` (array of objects); columns: [key, label, kind]. */
+  // A slot with no subsystem is unnamed (config-editor): marked, never refused.
+  const unnamed = (row) => !String(row.subsystem == null ? '' : row.subsystem).trim();
+  const unnamedMark = () =>
+    h('span', { class: 'status status--warn', 'data-unnamed-mark': '' }, 'UNNAMED');
+
   function editTable(id, columns, rows, opts) {
     const removable = ui.writable && opts.removable !== false;
     const cell = (row, [key, label, kind]) => {
+      const mark = opts.markUnnamed && key === 'subsystem' && unnamed(row) ? unnamedMark() : null;
       if (!ui.writable || (opts.readOnly || []).includes(key))
-        return h('td', null, row[key] == null ? '' : String(row[key]));
+        return h('td', null, row[key] == null ? '' : String(row[key]), mark);
       const el = input(
         row[key],
         (v) => {
@@ -885,7 +891,7 @@
           dataset: { field: key },
         },
       );
-      return h('td', null, el);
+      return h('td', null, el, mark);
     };
     const body = h(
       'tbody',
@@ -893,7 +899,12 @@
       rows.map((row, i) =>
         h(
           'tr',
-          { dataset: { row: String(row[opts.key] || i) } },
+          {
+            dataset: {
+              row: String(row[opts.key] || i),
+              ...(opts.markUnnamed && unnamed(row) ? { unnamed: '' } : {}),
+            },
+          },
           columns.map((c) => cell(row, c)),
           removable
             ? h(
@@ -1002,6 +1013,7 @@
       h('h4', { class: 'group__label mt-3' }, 'SLOTS'),
       editTable(id + '-slots', SLOT_COLUMNS, data.slot, {
         key: 'id',
+        markUnnamed: true,
         rerender,
         blank: () => ({ id: '', bus: 'rio', model: 'TalonFX', can_id: 0, subsystem: '', role: '' }),
       }),
@@ -1166,7 +1178,7 @@
       h(
         'p',
         { class: 'meta' },
-        'Start a robot file from an imported log: its CAN devices become slots, with serial numbers when the log has a CAN inventory. Name each slot, then save.',
+        'Start a robot file from an imported log: its CAN devices become slots, with serial numbers when the log has a CAN inventory. Name each slot\u2019s subsystem and role now or later (unnamed slots are marked), then save.',
       ),
       ui.sessions.length
         ? h('div', { class: 'row mt-2' }, select, go)
@@ -1245,16 +1257,12 @@
       { id: 'draft-id', 'aria-label': 'Robot id' },
     );
     const saveDraft = async () => {
-      const missing = robot.slot.filter(
-        (s) => !s.id || !String(s.subsystem).trim() || !String(s.role).trim(),
-      );
+      // Subsystem and role may stay empty (the slot shows as unnamed); an id may not.
+      const missing = robot.slot.filter((s) => !String(s.id).trim());
       if (missing.length) {
         ui.messages.draft = {
           kind: 'error',
-          text:
-            'Name every slot first: ' +
-            missing.length +
-            ' slot(s) still need an id, subsystem and role.',
+          text: 'Give every slot an id first: ' + missing.length + ' slot(s) have none.',
         };
         renderDraft();
         return;
@@ -1319,6 +1327,7 @@
       ),
       editTable('draft-slots', [...SLOT_COLUMNS, ['serial', 'SERIAL', 'text']], rows, {
         key: 'id',
+        markUnnamed: true,
         readOnly: ['bus', 'model', 'can_id', 'serial'],
         removable: true,
         rerender: () => renderDraft(),

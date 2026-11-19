@@ -5,7 +5,7 @@ import platform
 import shutil
 import threading
 import tomllib
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -164,14 +164,9 @@ def test_draft_from_q7_and_save(
         assert page.input_value("#draft-id") == "2026-practice"  # 2026-comp is taken
         page.click("#draft-slots tbody tr:first-child button[aria-label^='Remove']")
         assert page.locator("#draft-slots tbody tr").count() == 21
-        page.click("#draft-save")
-        page.wait_for_selector("#msg-draft[role='alert']")  # slots aren't named yet
-        fill_all: Callable[[str], None] = lambda field: page.eval_on_selector_all(  # noqa: E731 - one-line helper inside the test
-            f"#draft-slots input[data-field='{field}']",
-            "els => els.forEach(e => { e.value = 'x'; e.dispatchEvent(new Event('input')); })",
-        )
-        fill_all("subsystem")
-        fill_all("role")
+        # Subsystem and role may stay empty: such slots are marked unnamed, and the draft saves.
+        assert page.locator("#draft-slots tbody tr[data-unnamed]").count() == 21
+        assert "UNNAMED" in page.inner_text("#draft-slots tbody tr:first-child")
         page.click("#draft-save")
         page.wait_for_selector("#msg-draft[role='status']")
         assert "robots/2026-practice.toml" in page.inner_text("#msg-draft")
@@ -296,3 +291,18 @@ def test_draft_robot_with_only_quarantined_files(page: Any, tmp_path: Path) -> N
         assert watch.clean(), watch
     finally:
         _stop(server)
+
+
+def test_unnamed_slots_are_marked(page: Any, site: dict[str, Any]) -> None:
+    """config-editor: the Setup view marks slots with no subsystem as unnamed."""
+    robot = site["root"] / ROBOT
+    text = robot.read_text(encoding="utf-8")
+    first = text.index('subsystem = "')
+    end = text.index('"', first + len('subsystem = "'))
+    robot.write_text(text[:first] + 'subsystem = ""' + text[end + 1 :], encoding="utf-8")
+    watch = _setup(page, site["url"], "config")
+    unnamed = page.locator("#robot-2026-comp-slots tbody tr[data-unnamed]")
+    assert unnamed.count() == 1 and "UNNAMED" in unnamed.inner_text()
+    named = page.locator("#robot-2026-comp-slots tbody tr:not([data-unnamed])")
+    assert named.count() > 0 and "UNNAMED" not in named.first.inner_text()
+    assert watch.clean(), watch

@@ -149,6 +149,48 @@ def test_robot_for_another_season_only(tmp_path: Path) -> None:
     assert robot.status == "problem" and "2027" in robot.message
 
 
+def _drafted_robot(root: Path, subsystems: list[str], comment: bool = True) -> None:
+    slots = "".join(
+        f'[[slot]]\nid = "talonfx-{i}"\nbus = "rio"\nmodel = "TalonFX"\ncan_id = {i}\n'
+        f'subsystem = "{name}"\nrole = ""\n\n'
+        for i, name in enumerate(subsystems, start=1)
+    )
+    header = (
+        "# Drafted automatically by flashpoint from 2026gacmp_qm7 on 2026-11-19."
+        " Name each slot's subsystem and role in Setup > Robots.\n"
+        if comment
+        else ""
+    )
+    (root / "robots").mkdir(exist_ok=True)
+    (root / "robots" / "2026-comp.toml").write_text(
+        header + 'robot = "2026-comp"\nseason = 2026\nproject = "Robot-2026"\n\n' + slots,
+        encoding="utf-8",
+    )
+
+
+def test_drafted_robot_not_named_yet_is_a_warning(tmp_path: Path) -> None:
+    from flashpoint.setup.init import init_config
+
+    root = tmp_path / "cfg"
+    init_config(root, team=254, lake=tmp_path / "lake")
+    _drafted_robot(root, ["", "drive", ""])
+    check = _by_id(run_checks(_context(root, tmp_path / "lake")))["robot-season"]
+    assert check.status == "warning"
+    assert "2 of 3 slots" in check.message and "unnamed" in check.message
+    assert "Setup > Robots" in (check.command or "")
+
+
+def test_named_drafted_robot_and_hand_written_robot_are_ok(tmp_path: Path) -> None:
+    from flashpoint.setup.init import init_config
+
+    root = tmp_path / "cfg"
+    init_config(root, team=254, lake=tmp_path / "lake")
+    _drafted_robot(root, ["drive", "intake"])
+    assert _by_id(run_checks(_context(root, tmp_path / "lake")))["robot-season"].status == "ok"
+    _drafted_robot(root, ["", ""], comment=False)  # the team's own file: not ours to nag about
+    assert _by_id(run_checks(_context(root, tmp_path / "lake")))["robot-season"].status == "ok"
+
+
 def test_lake_states(tmp_path: Path) -> None:
     root = _ignite(tmp_path)
     missing = _by_id(run_checks(_context(root, tmp_path / "lake")))["lake"]

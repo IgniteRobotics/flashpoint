@@ -258,11 +258,41 @@ def _team(ctx: CheckContext, acquire: AcquireConfig | None) -> CheckResult:
     )
 
 
+DRAFTED_MARK = "# Drafted automatically by flashpoint"
+
+
+def _drafted(ctx: CheckContext, robot_id: str) -> bool:
+    """The robot file was written by the first derive's draft (team-setup) and says so."""
+    path = ctx.config_root / "robots" / f"{robot_id}.toml"
+    try:
+        with path.open(encoding="utf-8") as f:
+            return f.readline().startswith(DRAFTED_MARK)
+    except OSError:
+        return False
+
+
 def _robot_season(ctx: CheckContext, robots: list[Any]) -> CheckResult:
     title = f"Robot for {ctx.season}"
-    current = [r.robot for r in robots if r.season == ctx.season]
+    current = [r for r in robots if r.season == ctx.season]
     if current:
-        return CheckResult("robot-season", title, "ok", f"{', '.join(current)}")
+        unnamed = [
+            (r.robot, sum(1 for s in r.slots if not s.subsystem.strip()), len(r.slots))
+            for r in current
+            if _drafted(ctx, r.robot)
+        ]
+        unnamed = [u for u in unnamed if u[1]]
+        if unnamed:
+            what = "; ".join(
+                f"{robot}: {n} of {total} slots unnamed" for robot, n, total in unnamed
+            )
+            return CheckResult(
+                "robot-season",
+                title,
+                "warning",
+                f"{what} (drafted automatically): History and anomalies name them by CAN id",
+                command="name each slot's subsystem and role in Setup > Robots",
+            )
+        return CheckResult("robot-season", title, "ok", f"{', '.join(r.robot for r in current)}")
     return CheckResult(
         "robot-season",
         title,

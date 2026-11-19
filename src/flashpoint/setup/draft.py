@@ -160,10 +160,16 @@ def _draft(
     canivores = {bus for bus, _, _ in sightings if bus != "rio"}
     serials = _serials(lake, session["wpilog_id"])
     slots, devices = [], []
+    # Slot ids must be unique: a (model, CAN id) seen on more than one bus names its bus.
+    buses_of: dict[tuple[str, int], set[str]] = {}
+    for bus, model, can_id in sightings:
+        buses_of.setdefault((model, can_id), set()).add(bus)
     for bus, model, can_id in sorted(sightings, key=lambda s: (s[0] != "rio", s[0], s[1], s[2])):
         slot_id = f"{model.lower()}-{can_id}"
         if len(canivores) > 1 and bus != "rio":
             slot_id = f"{slot_id}-{bus[:6]}"
+        elif len(buses_of[(model, can_id)]) > 1:
+            slot_id = f"{slot_id}-{_hoot_bus(bus, canivores)}"
         slots.append({"id": slot_id, "bus": _hoot_bus(bus, canivores), "model": model,
                       "can_id": can_id, "subsystem": "", "role": ""})  # fmt: skip
         devices.append({"slot": slot_id, "serial": serials.get((bus == "rio", model, can_id))})
