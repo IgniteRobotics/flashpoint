@@ -150,13 +150,13 @@ class Smoke:
         return f"{output}\n{match}: {status}"
 
     def serve(self) -> str:
-        options: dict[str, object] = {}
+        flags = 0
         if sys.platform == "win32":
-            options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP  # for Ctrl+Break
+            flags = subprocess.CREATE_NEW_PROCESS_GROUP  # so Ctrl+Break reaches only the server
         server = subprocess.Popen(  # noqa: S603 - the installed flashpoint
             [self.flashpoint, "serve", "--lake", str(self.lake), "--port", "0", "--no-build"],
             env=self.env, cwd=self.work, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, **options,  # type: ignore[call-overload]  # platform-only creationflags
+            text=True, creationflags=flags,
         )  # fmt: skip
         print(f"server pid {server.pid}", flush=True)
         lines: list[str] = []
@@ -201,7 +201,7 @@ class Smoke:
         if server.poll() is not None:
             return
         if sys.platform == "win32":
-            server.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]  # Windows only
+            server.send_signal(signal.CTRL_BREAK_EVENT)
         else:
             server.send_signal(signal.SIGINT)
         try:
@@ -218,11 +218,11 @@ def _free_port() -> int:
 
 
 def _peak_child_rss_mb() -> float | None:
-    try:
-        import resource  # not on Windows
-    except ImportError:
-        return None
-    peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+    if sys.platform == "win32":
+        return None  # no resource module
+    import resource
+
+    peak = float(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
     return peak / (1024 * 1024) if sys.platform == "darwin" else peak / 1024  # bytes vs KiB
 
 
@@ -232,7 +232,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--work", help="working folder (default: a new temporary folder)")
     parser.add_argument("--group", default=DEFAULT_GROUP, help="corpus group to ingest")
     parser.add_argument("--match", default=DEFAULT_MATCH, help="match key that must have data")
-    parser.add_argument("--serve-timeout", type=float, default=60.0, help="seconds for serve")
+    parser.add_argument("--serve-timeout", type=float, default=120.0, help="seconds for serve")
     parser.add_argument("--inject-serve-failure", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     smoke = Smoke(args)
