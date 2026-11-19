@@ -472,32 +472,123 @@
     return h('div', { class: 'notice' }, h('h1', { class: 'notice__title' }, title), body);
   }
 
+  /* ---------- Empty Replay: which of three states the lake is in (spec: match-reports,
+     "Empty Replay explains what to do"). Counts come from the index; an older index without
+     them reads as no sessions until the next build rewrites it. ---------- */
+  const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+  const ingestCommand = (lake) => 'flashpoint ingest --lake "' + lake + '" <folder>';
+
+  function emptyState(index) {
+    const sessions = index.sessions || 0;
+    const keyed = index.keyed_sessions || 0;
+    const quarantined = index.quarantined || 0;
+    const served = !FP.mode.static;
+    let state;
+    let body;
+    if (!sessions) {
+      state = 'no-sessions';
+      body = [
+        h(
+          'p',
+          { class: 'prose' },
+          'The lake holds no imported logs yet: ',
+          h('code', { class: 'code' }, index.lake || ''),
+        ),
+        h('p', { class: 'prose' }, "Import one match's .wpilog and .hoot files:"),
+        h(
+          'p',
+          { class: 'prose' },
+          h('code', { class: 'code' }, ingestCommand(index.lake || '<lake>')),
+        ),
+        h(
+          'p',
+          { class: 'meta mt-3' },
+          'See the ',
+          FP.docLink('import-logs', 'User guide, \u201cImport logs by hand\u201d', {
+            id: 'replay-empty-guide',
+          }),
+          '.',
+        ),
+        quarantined
+          ? h(
+              'p',
+              { class: 'meta mt-3', id: 'replay-empty-quarantined' },
+              plural(quarantined, 'file was', 'files were') + ' quarantined. Run ',
+              h('code', { class: 'code' }, 'flashpoint doctor'),
+              ' to see why.',
+            )
+          : null,
+        served ? h('p', { class: 'meta mt-3' }, setupLink()) : null,
+      ];
+    } else if (!keyed) {
+      state = 'no-match-key';
+      body = [
+        h(
+          'p',
+          { class: 'prose' },
+          'Replay lists only competition matches, identified from FMS data in the log or a match-style log file name. The lake\u2019s ' +
+            plural(sessions, 'session is', 'sessions are') +
+            ' practice, pit or other logs that are not a competition match.',
+        ),
+        h(
+          'p',
+          { class: 'prose' },
+          served
+            ? h('a', { href: '#view=history', id: 'replay-empty-history' }, 'History')
+            : 'History',
+          ' counts their motor usage.',
+        ),
+        h(
+          'p',
+          { class: 'meta mt-3' },
+          'See the ',
+          FP.docLink('match-identification', 'User guide, \u201cHow matches are identified\u201d', {
+            id: 'replay-empty-guide',
+          }),
+          '.',
+        ),
+      ];
+    } else {
+      state = 'not-built';
+      body = [
+        h(
+          'p',
+          { class: 'prose' },
+          (keyed === 1 ? '1 match is' : keyed + ' matches are') +
+            ' waiting for Replay data. On the laptop that holds the lake, run:',
+        ),
+        h('p', { class: 'prose' }, h('code', { class: 'code' }, 'flashpoint report')),
+      ];
+    }
+    const box = notice('No Replay data', body);
+    box.id = 'replay-empty';
+    box.dataset.state = state;
+    return box;
+  }
+
+  function setupLink() {
+    const link = h('a', { href: '#view=setup', id: 'replay-empty-setup' }, 'Open Setup');
+    FP.api('setup/checks')
+      .then((body) => {
+        const problems = (body.checks || []).filter((c) => c.status === 'problem').length;
+        link.textContent = problems
+          ? 'Open Setup: ' + plural(problems, 'problem', 'problems') + ' to fix'
+          : 'Open Setup';
+        link.dataset.problems = String(problems);
+      })
+      .catch(() => {});
+    return link;
+  }
+
   async function mount(el, state) {
     ui = { el, state, tracks: [], data: null, overlay: null };
     const index = await FP.loadIndex();
     if (!el.isConnected) return; // the route changed while waiting
     const entries = index ? index.matches : [];
     if (!entries.length && !state.m) {
-      FP.fill(
-        el,
-        notice(
-          'No Replay data',
-          h(
-            'p',
-            { class: 'prose' },
-            'No match has been built yet. On the laptop that holds the lake, run:',
-          ),
-          h('p', { class: 'prose' }, h('code', { class: 'code' }, 'flashpoint report')),
-          index?.sessions_without_match_key
-            ? h(
-                'p',
-                { class: 'meta mt-3' },
-                index.sessions_without_match_key +
-                  ' session(s) without a match key have no Replay entry.',
-              )
-            : null,
-        ),
-      );
+      await FP.docs();
+      if (!el.isConnected) return;
+      FP.fill(el, emptyState(index || {}));
       return;
     }
     ui.entries = entries;

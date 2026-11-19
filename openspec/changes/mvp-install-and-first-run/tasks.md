@@ -24,10 +24,10 @@ Dates: every task without `[HUMAN]` is due by M1 (2026-12-05), the smoke job inc
 
 ## 4. Empty Replay (#72, #37)
 
-- [ ] 4.1 Confirm corpus `2025-nofms` has no match key (else build a synthetic wpilog with no FMS data and a plain filename). Write failing tests: the built index and the server's stand-in index carry `sessions`, `keyed_sessions`, `sessions_without_match_key` and `quarantined`, in < 100 ms on a 500-session synthetic lake; verify they fail
-- [ ] 4.2 Write failing browser tests for "Blank lake", "Practice logs only", "Keyed but not built", "Only a quarantined file" and "Static export of practice logs"; verify they fail
-- [ ] 4.3 Add the counts to `write_index` and the server's stand-in index; verify the 4.1 tests pass and Q7's match data file is byte-identical before and after
-- [ ] 4.4 Implement the three states in `replay.js`, with the Setup link and problem count in served mode only, and titles instead of addresses in static mode; verify the 4.2 browser tests and the static lint pass
+- [x] 4.1 Confirm corpus `2025-nofms` has no match key (else build a synthetic wpilog with no FMS data and a plain filename). Write failing tests: the built index and the server's stand-in index carry `sessions`, `keyed_sessions`, `sessions_without_match_key` and `quarantined`, in < 100 ms on a 500-session synthetic lake; verify they fail
+- [x] 4.2 Write failing browser tests for "Blank lake", "Practice logs only", "Keyed but not built", "Only a quarantined file" and "Static export of practice logs"; verify they fail
+- [x] 4.3 Add the counts to `write_index` and the server's stand-in index; verify the 4.1 tests pass and Q7's match data file is byte-identical before and after
+- [x] 4.4 Implement the three states in `replay.js`, with the Setup link and problem count in served mode only, and titles instead of addresses in static mode; verify the 4.2 browser tests and the static lint pass
 
 ## 5. Next steps and Draft robot (#38)
 

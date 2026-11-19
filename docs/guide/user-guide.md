@@ -134,6 +134,14 @@ At the end, `ingest` prints a summary like this:
 
 Ingest then works out matches, aligns the logs, runs anomaly detection, and updates Replay, all on its own.
 
+### How matches are identified
+
+Replay lists competition matches only. Flashpoint knows a log is from a match when:
+1. the wpilog holds FMS data (`FMSInfo`), which the robot gets from the field at an event; or
+2. the wpilog's file name has the match in it, the way the Driver Station names match logs: `FRC_yyyyMMdd_HHmmss_EVENT_Q7.wpilog` (`P` for practice, `Q` for qualification, `E` for elimination matches).
+
+Logs from the shop, the practice field or the pit have neither, so they get no Replay entry. They still count in History: every motor's usage, temperatures and anomalies include them. When Replay is empty but the lake has logs, it says how many sessions it found that aren't matches.
+
 To have logs pulled from the robot and USB sticks without doing this by hand, set up [automatic import](auto-import.md).
 
 ## Look at the data: `flashpoint serve`

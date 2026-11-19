@@ -20,6 +20,9 @@ def _load(path: Path, call: str = "FP.register") -> Any:
     return json.loads(text[len(call) + 1 : -3])
 
 
+INDEX_COUNTS = ("sessions", "keyed_sessions", "sessions_without_match_key", "quarantined")
+
+
 def _build(lake: MatchLake, **kwargs: Any) -> Any:
     builder = ReportBuilder(lake.write_meta(), config.config_root(), **kwargs)
     try:
@@ -129,6 +132,32 @@ def test_index_and_state(q7: MatchLake) -> None:
     assert entry["file"] == "data/2026gacmp_qm7.js" and entry["status"] == "ok"
     state = json.loads(state_path(q7.lake).read_text())
     assert set(state["matches"]) == {"2026gacmp_qm7"}
+
+
+def test_index_counts_sessions_keys_and_quarantined_files(q7: MatchLake) -> None:
+    """Empty Replay explains what to do: the counts come from the lake's recorded state."""
+    q7.add_match(None, "practice", quiet_rows())
+    q7.tables["files"].append(
+        {"sha256": "e" * 64, "kind": "hoot", "size": 0, "stage": "quarantined"}
+    )
+    _build(q7)
+    index = _load(data_dir(q7.lake) / "matches.js", "FP.index")
+    counts = {k: index[k] for k in INDEX_COUNTS}
+    assert counts == {
+        "sessions": 2,
+        "keyed_sessions": 1,
+        "sessions_without_match_key": 1,
+        "quarantined": 1,
+    }
+
+
+def test_index_counts_with_zero_matches(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match(None, "practice", quiet_rows())
+    _build(lake)
+    index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
+    assert index["matches"] == []
+    assert (index["sessions"], index["keyed_sessions"], index["quarantined"]) == (1, 0, 0)
 
 
 def test_not_logged_and_no_temperature(tmp_path: Path) -> None:

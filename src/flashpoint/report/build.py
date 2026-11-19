@@ -98,6 +98,32 @@ class BuildSummary:
     seconds: float = 0.0
 
 
+def index_counts(sessions: list[dict[str, Any]], files: list[dict[str, Any]]) -> dict[str, int]:
+    """The Replay index's lake counts, so an empty Replay can say which state the lake is in
+    (spec: match-reports, "Empty Replay explains what to do"). From meta only, never logs."""
+    keyed = sum(1 for s in sessions if s.get("match_key"))
+    return {
+        "sessions": len(sessions),
+        "keyed_sessions": keyed,
+        "sessions_without_match_key": len(sessions) - keyed,
+        "quarantined": sum(1 for f in files if f.get("stage") == "quarantined"),
+    }
+
+
+def lake_index_counts(lake: LakePaths) -> dict[str, int]:
+    """`index_counts` read straight from the meta snapshots, for a lake with no Replay build."""
+    found: dict[str, list[dict[str, Any]]] = {}
+    with duckdb.connect() as con:
+        for table, column in (("sessions", "match_key"), ("files", "stage")):
+            path = lake.meta / f"{table}.parquet"
+            if not path.is_file():
+                found[table] = []
+                continue
+            rows = con.execute(f"SELECT {column} FROM read_parquet(?)", [str(path)]).fetchall()  # noqa: S608 - fixed column names
+            found[table] = [{column: r[0]} for r in rows]
+    return index_counts(found["sessions"], found["files"])
+
+
 class LakeMeta:
     """The meta Parquet snapshots a build reads (never the SQLite ledger)."""
 
@@ -326,9 +352,7 @@ class ReportBuilder:
                 {
                     "version": REPORT_VERSION,
                     "lake": str(self.lake.root),
-                    "sessions_without_match_key": sum(
-                        1 for s in self.meta.tables["sessions"] if not s["match_key"]
-                    ),
+                    **index_counts(self.meta.tables["sessions"], self.meta.tables["files"]),
                     "matches": entries,
                 },
             ),

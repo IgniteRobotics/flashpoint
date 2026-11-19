@@ -129,3 +129,34 @@ def test_q7_build_budget(built: Any) -> None:
     print(json.dumps(result))
     assert result["seconds"] < 5.0
     assert result["peak_bytes"] < 500 * 2**20
+
+
+def test_nofms_has_no_match_key(corpus_group: Any, tmp_path: Path) -> None:
+    """Task 4.1: corpus 2025-nofms is the practice-log case (no FMS data, no match filename)."""
+    from flashpoint.ingest import Ingestor
+    from flashpoint.lake.paths import LakePaths
+    from flashpoint.readers import hoot
+    from flashpoint.semantics.derive import Deriver
+
+    lake = LakePaths(tmp_path / "lake")
+    ingestor = Ingestor(lake, hoot.default_registry(config.cache_root()))
+    try:
+        ingestor.ingest(corpus_group("2025-nofms"))
+    finally:
+        ingestor.close()
+    deriver = Deriver(lake, config.config_root())
+    try:
+        deriver.run()
+    finally:
+        deriver.close()
+    sessions = duckdb.sql(
+        f"SELECT match_key FROM read_parquet('{(lake.meta / 'sessions.parquet').as_posix()}')"
+    ).fetchall()
+    assert sessions == [(None,)]
+
+
+def test_built_index_counts(built: Any) -> None:
+    index = _load(data_dir(built) / "matches.js")
+    assert index["sessions_without_match_key"] == 1
+    assert index["keyed_sessions"] == index["sessions"] - 1
+    assert index["quarantined"] >= 1  # 2026-gadal-q11-empty, the zero-byte hoot
