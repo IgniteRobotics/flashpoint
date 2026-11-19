@@ -5,7 +5,7 @@ A first-run smoke job SHALL run on Linux, macOS and Windows for every release ta
 1. build the package and install it into an empty environment;
 2. create a configuration non-interactively for team 9999 with a new lake folder;
 3. ingest one golden-corpus match with its wpilog and hoots, downloading the hoot converter over the network and verifying its checksum;
-4. build Replay data;
+4. build Replay data, and check that the corpus match is listed with aligned data (not "no aligned samples");
 5. start the app, check that its main page and the setup checks API both answer successfully, and stop it.
 
 Each step SHALL report its own failure by name, with that step's output. The job SHALL NOT be part of the required check, so a flaky run doesn't block merges. For a release tag, the smoke SHALL install the package the release built (not a rebuild), and publishing to the package index SHALL wait until the smoke has passed on all three platforms; a failure on any platform SHALL hold the publish (see public-release, "A tag publishes the package and a GitHub Release").
@@ -25,6 +25,10 @@ Each step SHALL report its own failure by name, with that step's output. The job
 #### Scenario: Converter checksum mismatch
 - **WHEN** the smoke run downloads a hoot converter whose checksum doesn't match the manifest
 - **THEN** the hoots end `failed` with reason `owlet-checksum-mismatch` (not quarantined), the ingest step fails with that output, and the job fails
+
+#### Scenario: Empty Replay fails the smoke
+- **WHEN** the smoke's corpus match is built with no aligned data (for example because no robot was drafted)
+- **THEN** the Replay step fails, naming the match and its status
 
 #### Scenario: Server doesn't answer
 - **WHEN** the app doesn't answer on its address within the step's time limit

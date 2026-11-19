@@ -7,6 +7,7 @@ See proposal.md for the motivation and the seven delta specs for behaviour. What
 - **Repo-relative docs paths shown to users:** `checks.py:44` `BACKUP_GUIDE`, `checks.py:480` (service), and `live-can.js:19`. `tests/web/test_static_lint.py` forbids any remote host in the app's shipped files, which is why `live-can.js` names its guide instead of linking.
 - **Backup:** `acquire/backup.py:447-454` returns a warning for every lake with logs and no remote. `_backup` (`checks.py:306-322`) suggests `flashpoint backup` without checking for rclone, although `CheckContext.which` exists.
 - **Replay empty state** (`replay.js:479-500`) always says to run `flashpoint report`. When nothing was built, the server's stand-in index (`server.py:478-488`) carries `sessions_without_match_key: None`, so the view can't tell the three cases apart.
+- **No robot, no Replay data** (M0 smoke on 0.2.0, macOS and Linux, 2026-11-19; `mvp-public-release` design, Results): `derive` builds device samples only for sessions with a known robot (`semantics/derive.py:396`, `robot != 'unknown'`), so a first import with `init`'s configuration lists Q7 in Replay as `no-aligned-samples` with no charts. The reason (`report/build.py:427`) blames "hoots without a wpilog", which is wrong for Q7. With Ignite's robot file the same three files give status `ok`, alignment `high`. Draft robot (`setup/draft.py`) already drafts a valid robot with no input (Q7: 22 slots, 9 rio and 13 CANivore), but needs Setup, a save and a terminal `flashpoint derive`. Its slot ids get a bus suffix only with two or more CANivores, and `RobotConfig` has no slot-id uniqueness rule, so the same model and CAN id on the rio and one CANivore would draft two equal ids that still load. Empty `subsystem` and `role` are valid.
 - **Next steps:** `cli.py:247` says "add your robot file to .../robots"; the robot-season check (`checks.py:253-264`) says the same and is a problem whenever no robot matches the calendar year; Draft robot's empty state (`setup.js:1170`) says only "Run flashpoint ingest first."
 - **Seasons:** `load_config_seasons` (`robot_config.py:260`) merges bundled and root files per year, root winning, and the checks list both. **Verified:** a bundled `seasons/2027.toml` is read on an existing configuration that has no 2027 file of its own. The catch is `init`: `EDITABLE_DEFAULTS` (`setup/init.py:24`) copies named season files, and a copy shadows every later fix to the bundled file.
 - **Rio hash:** `acquire/robot.py:300` runs a bare `sha256sum` with a 300 s timeout. Exit 127 means "no hashing command" (`size-verified`).
@@ -61,11 +62,24 @@ See proposal.md for the motivation and the seven delta specs for behaviour. What
 
 ### D-f. First-run guidance comes from the server
 - `/api/setup/sessions` gains `lake` and `import_command` when it lists no session. The command is quoted with `shlex.quote` on POSIX and double quotes on Windows. Double quotes work in both PowerShell and cmd for paths with spaces.
-- `init`'s last line becomes `next: import a match's logs with flashpoint ingest <folder>, then run flashpoint serve and use Setup > Draft robot`.
+- `init`'s last line becomes `next: import a match's logs with flashpoint ingest <folder> (it drafts your robot from them), then run flashpoint serve`.
+
+### D-j. The first derive drafts the robot; Setup saves rebuild
+- `setup/draft.py` gains `auto_draft(lake, config_root) -> list[Drafted]`. `_derive` in `cli.py` calls it before deriving (so `ingest`, `rebuild` and the acquire cycle get it), unless `--no-robot-draft`. It groups the lake's sessions that have a wpilog and hoots by (season, project), skips any season that has a robot file, and drafts each group from its session with the most `Phoenix6/` devices (newest on a tie). Robot ids come from the existing `_robot_id` (`2026-comp`, then `2026-practice`, then `2026-robot-N`).
+- The draft is saved through `setup.editor` like a Setup save, with a first comment line: `# Drafted automatically by flashpoint from <match key or session> on <date>. Name each slot's subsystem and role in Setup > Robots.` The editor already validates and writes atomically.
+- Sessions that derived with no robot must re-derive once a robot appears. Derive's staleness check gains the robot config's hash per session, so "Existing lake gets its draft" works without `--all`.
+- The draft's slot ids name their bus whenever the same (model, CAN id) is on more than one bus, not only with two CANivores.
+- Saving a draft in Setup starts `flashpoint derive` detached, the way a restart-baseline dismissal starts `flashpoint detect` (P5), and reports `rebuild_pending`. Derive's own report lock refuses a second run (exit 3), which the view shows as "already running".
+- `report/build.py`'s `no-aligned-samples` reason is chosen by cause: `robot == "unknown"` with a wpilog gives the no-robot reason; no wpilog gives the hoot-only reason; anything else the generic one. Q7's data file with a robot stays byte-identical.
+- Robot-season check: a robot whose comment marks it drafted and that has slots with an empty subsystem is a warning ("N of M slots unnamed"), not ok and not a problem.
+- *Why:* the M0 smoke showed an outside team's first import ends at an empty Replay, and the fix (Draft robot, save, derive in a terminal) is three steps a new team won't find. The draft needs no input today, so saving it is the smallest change that makes the first import show data.
+- *Alternative A, a provisional robot derive builds in memory:* nothing written, but `derive` loads robots in five places, three views need a "provisional" label, and it still needs a save path to keep. Rejected for size.
+- *Alternative C alone, manual Draft robot with a rebuild on save:* kept as the fallback (hoot-only imports, `--no-robot-draft`), but on its own the first import still shows nothing.
+- ADR-0017 (all config editable from the UI, through the editor) covers the write; this adds a writer, not a new write path. No ADR change.
 
 ### D-g. Hoot-only: derive warns, a check reports; no alignment change
 - `Deriver.run` already knows each rebuilt session's `wpilog_id`. It returns the rebuilt hoot-only sessions, and `_derive` prints one warning line, so ingest shows it through its derive subprocess.
-- `_derive`'s existing no-robot warning (`cli.py:310-312`, "add one" to the robots folder) is the first thing a new team sees after its first ingest; it names Draft robot too (#38).
+- `_derive`'s existing no-robot warning (`cli.py:310-312`, "add one" to the robots folder) names Draft robot too (#38). With D-j it shows only when no draft was made (hoot-only sessions, `--no-robot-draft`, a read-only configuration).
 - A `hoot-only` check reads the meta sessions table: the latest season with hoot sessions, and whether every one of them lacks a wpilog. Warning only in that case. 6829's lake has 4 hoot-only sessions among many with wpilogs (reboots mid-event) and would otherwise carry a permanent warning. Those still show at ingest time, which is when they can be acted on.
 - *Alternative:* the hoot-clock path (offset 0, method `hoot-clock`). Post-MVP. If it lands later, it needs its own clock-method column rather than a NULL or 0 sentinel (skeptic note on #8).
 
@@ -81,7 +95,7 @@ See proposal.md for the motivation and the seven delta specs for behaviour. What
   - build the wheel (or take the release's), then `uv tool install --python 3.13 <wheel>` into a temp `UV_TOOL_DIR`, so the documented install path itself is tested; uv comes from `astral-sh/setup-uv` pinned by SHA (ci-quality-gates, "CI supply chain");
   - `flashpoint init --team 9999 --lake <tmp>`, run from outside the checkout;
   - `fetch-corpus.py --group 2026-gacmp-e10`, then `flashpoint ingest`, with no owlet cache, so the real download and checksum run;
-  - `flashpoint report`;
+  - `flashpoint report`, then read the built index and fail unless E10 is listed with a status other than `no-aligned-samples`;
   - `flashpoint serve --port 0`: parse the printed address, GET `/` and `/api/setup/checks`, then terminate (Ctrl+Break on Windows) and kill after 10 s. `serve` opens no browser, so it runs headless as is.
 - E10 is the corpus pick: 27 MB, both buses, and its second hoot group is hoot-only, so the smoke also sees the #8 warning on every OS.
 - `fetch-corpus.py` gains `--group`. (Its `--help` already works; #11 is `update-owlet-manifest.py` and isn't in this change.)
@@ -112,12 +126,18 @@ See proposal.md for the motivation and the seven delta specs for behaviour. What
 - [The hoot-only check stays ok for a team that mixes wpilog and hoot-only sessions] → They see the ingest-time warning each time it happens.
 - [The `py` launcher isn't installed with every Windows Python] → uv is primary. The Windows pipx route says to tick "py launcher" in the python.org installer.
 
+- [Flashpoint writes to the team's configuration without being asked] → Only for a season with no robot file at all, once, with a printed line and a comment in the file; `--no-robot-draft` turns it off. A team with any robot file for the season is never touched.
+- [A first import mixing a practice and a competition robot maps both to one robot] → One draft per robot-code project. Two robots sharing one project name still share a draft; Setup shows each session's robot.
+- [The draft comes from a session missing some devices] → The session with the most devices is used. Devices seen later show as unmapped, as today, and Setup lists them.
+- [Renaming a drafted slot's id later starts a new history for it] → The guide says to fill in subsystem and role and to leave the drafted ids, which already name model and CAN id.
+
 ## Migration Plan
 1. No data migration: no `DERIVE_VERSION` or `REPORT_VERSION` bump. The next `report` rewrites the index with its counts.
 2. Existing pipx installs keep working (`pipx upgrade flashpoint`). The guide gives the switch to uv as optional: `pipx uninstall flashpoint`, then the uv command. The configuration and lake are untouched.
 3. Existing configuration roots keep their season copies. 2027 comes from the package.
 4. Teams with no backup remote lose a warning. 6829's configured backup is unchanged.
-5. Rollback: revert the PR. There is nothing to undo in lakes or configuration.
+4a. A lake imported with no robot file (0.2.0) gets its draft on the next derive, and its matches fill in on the next `report`. 6829 has robot files for every season and gets no draft.
+5. Rollback: revert the PR. Drafted robot files stay in the configuration and keep working; delete them to go back to no robot.
 
 ## Open Questions
 - The page-to-path rule (for example `auto-import/#backup-and-restore` or `how-to/robot-pull/`), from `mvp-documentation`'s restructure. It lives only in `docs_links.py`, so it doesn't change the specs or tasks.

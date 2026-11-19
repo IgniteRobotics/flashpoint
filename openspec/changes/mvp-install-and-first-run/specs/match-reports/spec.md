@@ -28,3 +28,27 @@ The counts SHALL come from the lake's recorded state and SHALL be available both
 #### Scenario: Static export of practice logs
 - **WHEN** the practice-only lake above is exported as a static Replay and opened from disk with networking disabled
 - **THEN** it shows the no-match-key state, names the guide section by title, shows no Setup link, and requests no address
+
+## MODIFIED Requirements
+
+### Requirement: Partial and unmatched sessions
+Matches that cannot be fully shown SHALL still appear in the match list with a reason; they SHALL never be silently dropped:
+- a match with low alignment confidence SHALL carry a visible warning;
+- a session with no derived samples SHALL be listed with "no aligned samples" and its raw-log downloads only, with a reason that names the cause:
+  - no robot is configured for the session's robot code: the reason SHALL name the project and season, and SHALL point to Draft robot in the Setup view (a link in served mode, named in a static export);
+  - the session has hoots but no wpilog: the reason SHALL say there is no wpilog to align its hoots to;
+  - otherwise, the reason SHALL say no device data could be aligned to the wpilog;
+- a session with no match key SHALL NOT get a Replay entry, and the build summary SHALL count it.
+
+#### Scenario: Low-confidence match
+- **WHEN** a session aligned by enable edges is shown
+- **THEN** its Replay header shows a low-alignment warning, and its match-list entry is marked
+
+#### Scenario: Hoot-only session
+- **WHEN** the lake holds a match-keyed session with hoots but no wpilog
+- **THEN** the match list shows it with "no aligned samples", its reason says there is no wpilog to align its hoots to, and selecting it offers only the raw downloads
+
+#### Scenario: Match with no robot
+- **WHEN** corpus `2026-gacmp-q7` is ingested with `--no-robot-draft` and no robot file, and Replay is served
+- **THEN** Q7 is listed with "no aligned samples", its reason names project `Robot-2026` and season 2026 and links to Draft robot, and it does not mention hoots without a wpilog
+

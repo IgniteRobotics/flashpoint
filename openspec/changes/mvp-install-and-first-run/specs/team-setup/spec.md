@@ -19,6 +19,47 @@ Every pointer to the documentation that the CLI, `doctor`, the setup checks and 
 - **WHEN** a static export is opened from disk with networking disabled and a view that refers to the guide is shown
 - **THEN** it names the guide page and section by title, and no address is requested
 
+### Requirement: First derive drafts the robot
+When `flashpoint derive` runs, and so after every import (`flashpoint ingest`, `flashpoint rebuild`, an acquire cycle), and the lake holds sessions for a season that has no robot file in the configuration root, Flashpoint SHALL draft a robot for that season from its logs (see config-editor, "Draft a robot from a log") and save it before deriving, so a first import shows data in Replay with no manual step. It SHALL:
+- draft only when the configuration root exists and can be written, and the season has no robot file at all, so a team's own robot files are never changed or added to;
+- draft one robot per robot-code project among that season's sessions that have a wpilog and hoots (a competition and a practice robot get one each), each from the session with the most CAN devices, the newest first on a tie;
+- draft nothing from hoot-only sessions, which have no project to match a robot by;
+- save through "Editing and saving configuration" (validated and written atomically), with a first comment line saying the file was drafted automatically, from which session, and that its slots still need a subsystem and role;
+- print one line per drafted robot before derive's own output, naming the robot id, the match or session it came from, its device count, and Setup > Robots;
+- not draft when `--no-robot-draft` is given, or when the configuration root is read-only, which it SHALL say in one line.
+
+#### Scenario: First import of Q7
+- **WHEN** corpus `2026-gacmp-q7` is ingested with a configuration made by `init` and no robot file
+- **THEN** `robots/2026-comp.toml` exists with 22 slots and project `Robot-2026`, its first line says it was drafted automatically from `2026gacmp_qm7`, ingest prints the drafted-robot line, and Q7's Replay data has status `ok`
+
+#### Scenario: Later import keeps the draft
+- **WHEN** corpus `2026-gacmp-e10` is ingested after the import above
+- **THEN** no robot file is written or changed, nothing about drafting is printed, and E10 is derived with `2026-comp`
+
+#### Scenario: Team's own robot untouched
+- **WHEN** corpus `2026-gacmp-q7` is ingested with a configuration holding Ignite's `robots/2026-comp.toml`
+- **THEN** no robot file is written or changed, and nothing about drafting is printed
+
+#### Scenario: Two robot projects
+- **WHEN** a first import holds synthetic 2026 sessions with wpilogs and hoots from projects `Robot-2026` and `Practice-2026`
+- **THEN** two robots are drafted, `2026-comp` and `2026-practice`, each with its project, and each session is derived with the robot for its project
+
+#### Scenario: Hoot-only first import
+- **WHEN** a configuration made by `init` with no robot file ingests only corpus `2026-gacmp-e10`'s hoot-only group
+- **THEN** no robot file is written, and derive's no-robot warning names Draft robot
+
+#### Scenario: Opted out
+- **WHEN** corpus `2026-gacmp-q7` is ingested with `--no-robot-draft` and no robot file
+- **THEN** no robot file is written, derive's no-robot warning names Draft robot, and Q7 shows "no aligned samples" with the no-robot reason (see match-reports, "Partial and unmatched sessions")
+
+#### Scenario: Existing lake gets its draft
+- **WHEN** a lake that already holds Q7, imported with no robot file by 0.2.0, is derived with `flashpoint derive`
+- **THEN** `robots/2026-comp.toml` is drafted and Q7's Replay data has status `ok` after the next `flashpoint report`
+
+#### Scenario: No configuration
+- **WHEN** corpus `2026-gacmp-q7` is ingested with no configuration root
+- **THEN** no configuration root or robot file is created, and derive's warning names `flashpoint init`
+
 ## MODIFIED Requirements
 
 ### Requirement: Installable public package
@@ -60,11 +101,11 @@ The configuration root SHALL be, in order: a path given on the command line, the
 - **THEN** the 2026 season uses the root's `robot` root
 
 ### Requirement: Initialising a configuration
-`flashpoint init` SHALL create the configuration root and write a starting configuration: the team number, the lake folder, and copies of the editable default files. Of the bundled season files it SHALL copy only those for the current season and earlier ones; a bundled file for a later season SHALL stay a default until the team copies it. It SHALL take the team number and lake folder from options, or ask for them when run in a terminal without them. It SHALL NOT overwrite an existing file: a second run SHALL list the files that already exist and change nothing. A team number SHALL be a whole number from 1 to 99999, and anything else SHALL be refused with a message, writing nothing. After creating a configuration it SHALL name the next step: import a log with `flashpoint ingest`, then draft the robot from it with Draft robot in the Setup view of `flashpoint serve`.
+`flashpoint init` SHALL create the configuration root and write a starting configuration: the team number, the lake folder, and copies of the editable default files. Of the bundled season files it SHALL copy only those for the current season and earlier ones; a bundled file for a later season SHALL stay a default until the team copies it. It SHALL take the team number and lake folder from options, or ask for them when run in a terminal without them. It SHALL NOT overwrite an existing file: a second run SHALL list the files that already exist and change nothing. A team number SHALL be a whole number from 1 to 99999, and anything else SHALL be refused with a message, writing nothing. After creating a configuration it SHALL name the next step: import a match's logs with `flashpoint ingest`, which drafts the robot from them (see "First derive drafts the robot"), then open `flashpoint serve`.
 
 #### Scenario: First run
 - **WHEN** `flashpoint init --team 254 --lake ~/frc-lake` runs with no configuration root
-- **THEN** the configuration root exists with `acquire.toml` naming team 254 and the default files, the output's last line names `flashpoint ingest` and Draft robot, and `doctor` reports no problem, with the robot-season check a warning
+- **THEN** the configuration root exists with `acquire.toml` naming team 254 and the default files, the output's last line names `flashpoint ingest` and `flashpoint serve`, and `doctor` reports no problem, with the robot-season check a warning
 
 #### Scenario: Init before the next season
 - **WHEN** `flashpoint init --team 254` runs on 2026-12-15 with a package that ships season files for 2025, 2026 and 2027
@@ -81,7 +122,7 @@ The configuration root SHALL be, in order: a path given on the command line, the
 ### Requirement: Setup checks
 Flashpoint SHALL run one set of setup checks, shown by `flashpoint doctor` and by the Setup view. Each check SHALL report ok, warning or problem, a message, and how to fix it: a fix action (see "Fix actions") or the exact command. The checks SHALL cover at least: the configuration root exists; each configuration file loads; a team is set; a robot is configured for the current season; the lake folder exists and can be written; the owlet tool for each Phoenix version in the lake is downloaded and its checksum matches; AdvantageScope is found; the acquire service is installed and running (on platforms with a service); sessions with hoots but no wpilog (see session-grouping, "Hoot-only sessions are reported"); and the Python version is supported (3.11 to 3.14). Derive SHALL warn, naming `flashpoint init`, when it maps sessions with no season configuration available (flashpoint-private#54). When a configuration exists but has no robot, derive's warning SHALL name Draft robot in the Setup view as the way to add one.
 
-The robot-season check SHALL be a problem only when the lake holds sessions from the current season and no robot is configured for it. When the lake holds no session from the current season, it SHALL be a warning that says so. In both cases its fix SHALL name Draft robot in the Setup view first and the robot folder as the alternative. An unsupported Python SHALL be a problem whose fix is the documented install command. Where any check's or fix's text tells the user to install, upgrade or reinstall Flashpoint, it SHALL give the documented `uv tool` command first and the pipx command as the alternative.
+The robot-season check SHALL be a problem only when the lake holds sessions from the current season and no robot is configured for it. When the lake holds no session from the current season, it SHALL be a warning that says so. In both cases its fix SHALL name Draft robot in the Setup view first and the robot folder as the alternative. When the season's robot was drafted automatically and any of its slots has no subsystem, the check SHALL be a warning saying how many of its slots are unnamed and pointing to Setup > Robots; it SHALL NOT make `doctor` exit non-zero. An unsupported Python SHALL be a problem whose fix is the documented install command. Where any check's or fix's text tells the user to install, upgrade or reinstall Flashpoint, it SHALL give the documented `uv tool` command first and the pipx command as the alternative.
 
 #### Scenario: Missing configuration
 - **WHEN** `doctor` runs with no configuration root
@@ -102,6 +143,10 @@ The robot-season check SHALL be a problem only when the lake holds sessions from
 #### Scenario: Current-season logs and no robot
 - **WHEN** the checks run with the current season 2026, a lake holding corpus `2026-gacmp-q7`, and no robot file
 - **THEN** the robot-season check is a problem naming Draft robot and the robot folder, and `doctor` exits non-zero
+
+#### Scenario: Drafted robot not named yet
+- **WHEN** the checks run after the first import of Q7 drafted `2026-comp`, and no slot has been given a subsystem
+- **THEN** the robot-season check is a warning saying 22 of 22 slots are unnamed and pointing to Setup > Robots, and `doctor` exits 0
 
 #### Scenario: Only a quarantined log this season
 - **WHEN** the checks run with the current season 2026 and the lake's only file is the quarantined zero-byte corpus hoot `2026-gadal-q11-empty`
