@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: pipx install poetry
@@ -134,8 +134,9 @@ jobs:
       - run: poetry run pytest -m "not corpus and not browser and not perf"
 
   clean-install:
-    # The built wheel in an empty venv, with no configuration: what `pipx install` gives a team.
-    name: clean install (${{ matrix.os }})
+    # The built wheel in an empty venv, with no configuration: what `uv tool install` gives a
+    # team. Lowest supported, documented default and highest Python on each OS.
+    name: clean install (${{ matrix.os }}, py${{ matrix.python }})
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
@@ -144,6 +145,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.13", "3.14"]
     defaults:
       run:
         shell: bash
@@ -152,7 +154,7 @@ jobs:
       - run: pipx install poetry
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
       - run: poetry build -f wheel -o "$RUNNER_TEMP/dist"
       - name: Install into a clean venv
         run: |

@@ -108,7 +108,7 @@ See proposal.md for the scope and cutline, and `specs/public-release/spec.md` fo
 - If CTRE ships nothing in time, 0.3.1 ships the reported fixes, and the known-limits page keeps "2027 hoots: not yet".
 
 ### D-i. Decisions this change relies on
-- **D9** (pipx and per-user services): amended by `mvp-install-and-first-run`'s ADR (uv primary, pipx alternative; its D-a and task 1.5). Publishing stays on PyPI and services are unchanged.
+- **D9** (pipx and per-user services): amended by `mvp-install-and-first-run`'s ADR-0018 (uv primary, pipx alternative; its D-a and task 1.5). Publishing stays on PyPI and services are unchanged.
 - **D4** (owlet fetched by checksum manifest): the smoke downloads owlet on all three OSes, and 0.3.1 updates the manifest.
 - **D5** (Pro temperature): outside teams are often non-Pro; `mvp-outside-team-logs` handles it and amends the record.
 - **D6** (static export): the hosted demo is a static export, no server.

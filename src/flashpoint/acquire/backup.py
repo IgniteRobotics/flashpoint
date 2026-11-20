@@ -361,6 +361,7 @@ class BackupStatus:
     overdue: bool = False
     last_ok: datetime | None = None
     last_error: str | None = None
+    optional: bool = False  # not configured: backup is opt-in, so ok rather than a warning
 
 
 def _parse_time(value: Any) -> datetime | None:
@@ -448,10 +449,11 @@ def backup_status(
         return BackupStatus("ok", "nothing to back up yet", configured)
     if not configured:
         return BackupStatus(
-            "warning",
+            "ok",
             f"backup isn't configured: {total} logs and the configuration exist only on this"
             " machine",
             configured,
+            optional=True,
         )
     if config_changed and config_since and first_log:
         # No backup can run before the lake holds a log, so configuration waits from then.

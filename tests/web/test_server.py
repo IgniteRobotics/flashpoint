@@ -12,6 +12,8 @@ from flashpoint.report.build import ReportBuilder
 from flashpoint.web.server import contained, is_local
 from tests.report.lake import MatchLake, quiet_rows
 
+INDEX_COUNTS = ("sessions", "keyed_sessions", "sessions_without_match_key", "quarantined")
+
 
 @pytest.fixture
 def site(tmp_path: Path) -> tuple[MatchLake, Path]:
@@ -177,3 +179,67 @@ def test_static_dir_ships_with_package() -> None:
     from flashpoint.web.server import STATIC_DIR
 
     assert (STATIC_DIR / "index.html").is_file()
+
+
+# --- the stand-in index carries the lake's counts (match-reports, "Empty Replay") ----------
+
+STAND_IN_BUDGET_S = 0.1
+
+
+def _stand_in(app: Any) -> Any:
+    body = app.get("/data/matches.js").body.decode()
+    return json.loads(body[body.index("(") + 1 : body.rindex(")")])
+
+
+def test_stand_in_index_on_a_blank_lake(serve: Any, tmp_path: Path) -> None:
+    from flashpoint.lake.paths import LakePaths
+
+    index = _stand_in(serve(LakePaths(tmp_path / "blank")))
+    assert index["matches"] == []
+    assert {k: index[k] for k in INDEX_COUNTS} == dict.fromkeys(INDEX_COUNTS, 0)
+
+
+def test_stand_in_index_counts_keyed_sessions_not_built(serve: Any, tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_qm7", "q7", quiet_rows())
+    lake.add_match(None, "practice", quiet_rows())
+    lake.tables["files"].append(
+        {"sha256": "e" * 64, "kind": "hoot", "size": 0, "stage": "quarantined"}
+    )
+    index = _stand_in(serve(lake.write_meta()))  # no Replay data built
+    assert {k: index[k] for k in INDEX_COUNTS} == {
+        "sessions": 2,
+        "keyed_sessions": 1,
+        "sessions_without_match_key": 1,
+        "quarantined": 1,
+    }
+
+
+def test_stand_in_index_is_fast_on_500_sessions(serve: Any, tmp_path: Path) -> None:
+    import polars as pl
+
+    from flashpoint.lake.paths import LakePaths
+
+    lake = LakePaths(tmp_path / "lake")
+    lake.meta.mkdir(parents=True)
+    sessions = [
+        {"session_id": f"s{i}", "match_key": f"2026x_qm{i}" if i % 2 else None, "season": 2026}
+        for i in range(500)
+    ]
+    pl.DataFrame(sessions).write_parquet(lake.meta / "sessions.parquet")
+    files = [
+        {"sha256": f"{i:064x}", "kind": "wpilog", "size": 1, "stage": "success"}
+        for i in range(1500)
+    ]
+    pl.DataFrame(files).write_parquet(lake.meta / "files.parquet")
+    app = serve(lake)
+    _stand_in(app)  # first request: imports and connections
+    best = min(_timed(lambda: _stand_in(app)) for _ in range(3))
+    assert best < STAND_IN_BUDGET_S, f"stand-in index took {best * 1000:.0f} ms"
+    assert _stand_in(app)["keyed_sessions"] == 250
+
+
+def _timed(call: Any) -> float:
+    started = time.perf_counter()
+    call()
+    return time.perf_counter() - started

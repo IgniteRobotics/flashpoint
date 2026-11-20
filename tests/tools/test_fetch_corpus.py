@@ -85,3 +85,46 @@ def test_falls_back_to_plain_download_without_gh(
     fetch_corpus.fetch_entry(_entry("a.wpilog", payload), dest, RELEASE_URL, None)
 
     assert dest.read_bytes() == payload
+
+
+# --- --group (ci-quality-gates, "First-run smoke on every platform") ------------------------
+
+
+def _two_group_manifest(tmp_path: Path) -> tuple[Path, Path]:
+    source = tmp_path / "source"
+    source.mkdir()
+    lines = ['version = "corpus-test"', f'release_url = "{RELEASE_URL}"', ""]
+    for group, name in (("a", "a1.wpilog"), ("a", "a2.hoot"), ("b", "b1.wpilog")):
+        payload = name.encode()
+        (source / name).write_bytes(payload)
+        entry = _entry(name, payload)
+        lines += [
+            "[[file]]",
+            f'group = "{group}"',
+            f'name = "{name}"',
+            f'sha256 = "{entry["sha256"]}"',
+            f"size = {entry['size']}",
+            "",
+        ]
+    manifest = tmp_path / "manifest.toml"
+    manifest.write_text("\n".join(lines), encoding="utf-8")
+    return manifest, source
+
+
+def test_group_fetches_only_that_group(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest, source = _two_group_manifest(tmp_path)
+    monkeypatch.setattr(fetch_corpus, "MANIFEST_PATH", manifest)
+    monkeypatch.setenv("FLASHPOINT_CORPUS_DIR", str(tmp_path / "corpus"))
+    assert fetch_corpus.main(["--from", str(source), "--group", "a"]) == 0
+    fetched = sorted(p.name for p in (tmp_path / "corpus" / "corpus-test").iterdir())
+    assert fetched == ["a1.wpilog", "a2.hoot"]
+
+
+def test_unknown_group_exits_non_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    manifest, source = _two_group_manifest(tmp_path)
+    monkeypatch.setattr(fetch_corpus, "MANIFEST_PATH", manifest)
+    monkeypatch.setenv("FLASHPOINT_CORPUS_DIR", str(tmp_path / "corpus"))
+    assert fetch_corpus.main(["--from", str(source), "--group", "nope"]) != 0
+    assert "nope" in capsys.readouterr().err

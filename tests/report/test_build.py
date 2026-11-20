@@ -20,6 +20,9 @@ def _load(path: Path, call: str = "FP.register") -> Any:
     return json.loads(text[len(call) + 1 : -3])
 
 
+INDEX_COUNTS = ("sessions", "keyed_sessions", "sessions_without_match_key", "quarantined")
+
+
 def _build(lake: MatchLake, **kwargs: Any) -> Any:
     builder = ReportBuilder(lake.write_meta(), config.config_root(), **kwargs)
     try:
@@ -129,6 +132,32 @@ def test_index_and_state(q7: MatchLake) -> None:
     assert entry["file"] == "data/2026gacmp_qm7.js" and entry["status"] == "ok"
     state = json.loads(state_path(q7.lake).read_text())
     assert set(state["matches"]) == {"2026gacmp_qm7"}
+
+
+def test_index_counts_sessions_keys_and_quarantined_files(q7: MatchLake) -> None:
+    """Empty Replay explains what to do: the counts come from the lake's recorded state."""
+    q7.add_match(None, "practice", quiet_rows())
+    q7.tables["files"].append(
+        {"sha256": "e" * 64, "kind": "hoot", "size": 0, "stage": "quarantined"}
+    )
+    _build(q7)
+    index = _load(data_dir(q7.lake) / "matches.js", "FP.index")
+    counts = {k: index[k] for k in INDEX_COUNTS}
+    assert counts == {
+        "sessions": 2,
+        "keyed_sessions": 1,
+        "sessions_without_match_key": 1,
+        "quarantined": 1,
+    }
+
+
+def test_index_counts_with_zero_matches(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match(None, "practice", quiet_rows())
+    _build(lake)
+    index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
+    assert index["matches"] == []
+    assert (index["sessions"], index["keyed_sessions"], index["quarantined"]) == (1, 0, 0)
 
 
 def test_not_logged_and_no_temperature(tmp_path: Path) -> None:
@@ -255,6 +284,37 @@ def test_select_event_and_keys(tmp_path: Path) -> None:
     assert [m["key"] for m in index["matches"]] == [
         "2026gacmp_qm7", "2026gadal_qm1", "2026gadal_qm2",
     ]  # fmt: skip
+
+
+def test_hoot_only_reason_says_there_is_no_wpilog(tmp_path: Path) -> None:
+    """match-reports "Hoot-only session": the reason names the cause."""
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_e10", "hoot-2026-04-11_19-29-15-c027", None, with_wpilog=False,
+                   phases=[("pre", None, None)])  # fmt: skip
+    _build(lake)
+    reason = _load(data_dir(lake.lake) / "matches.js", "FP.index")["matches"][0]["reason"]
+    assert "no wpilog to align its hoots to" in reason
+    assert _load(data_dir(lake.lake) / "2026gacmp_e10.js")["reason_cause"] == "hoot-only"
+
+
+def test_match_with_no_robot_names_project_season_and_draft_robot(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_qm7", "q7", None, robot="unknown")
+    lake.tables["logs"][-3]["project"] = "Robot-2026"  # the wpilog's row (then two hoots)
+    _build(lake)
+    data = _load(data_dir(lake.lake) / "2026gacmp_qm7.js")
+    assert data["status"] == "no-aligned-samples" and data["reason_cause"] == "no-robot"
+    assert "Robot-2026" in data["reason"] and "2026" in data["reason"]
+    assert "Draft robot" in data["reason"] and "hoot" not in data["reason"].lower()
+
+
+def test_other_unaligned_match_blames_the_alignment(tmp_path: Path) -> None:
+    lake = MatchLake(tmp_path / "lake")
+    lake.add_match("2026gacmp_qm7", "q7", None)  # a robot and a wpilog, but nothing aligned
+    _build(lake)
+    data = _load(data_dir(lake.lake) / "2026gacmp_qm7.js")
+    assert data["reason_cause"] == "not-aligned"
+    assert "no device data could be aligned to the wpilog" in data["reason"]
 
 
 def test_hoot_only_session_listed_with_reason(tmp_path: Path) -> None:

@@ -2,7 +2,8 @@
 
 Routes: `/` and `/static/*` from the package (`/static/mode.js` carries the team), `/theme.css`
 (the team's colour tokens, team-branding D-d), `/data/*` from `<lake>/report/data/`,
-`/raw/<sha256>/<name>` for ledger hashes only, and `/api/*`. Everything else is 404.
+`/raw/<sha256>/<name>` for ledger hashes only, and `/api/*` (`/api/docs` gives the views their
+docs addresses, team-setup "Documentation links"). Everything else is 404.
 The non-GET routes are the guarded `POST /api/launch` (ADR-0014),
 `POST /api/anomalies/<id>/triage` (ADR-0015), and the setup writes of ADR-0017:
 `POST /api/setup/fix/<action>` and `PUT /api/config/<section>`. Logs and derived layers stay
@@ -18,6 +19,7 @@ robot while a live view is open. They write nothing.
 import contextlib
 import ipaddress
 import json
+import platform
 import re
 import select
 import shutil
@@ -35,6 +37,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from flashpoint.acquire.backup import backup_status
 from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, BackupConfig
 from flashpoint.config import config_root
+from flashpoint.docs_links import app_links
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
 from flashpoint.live.service import LiveCanService
@@ -65,6 +68,7 @@ BACKUP_STATUS_PATH = "/api/backup/status"
 CONFIG_PATH = "/api/config"
 SESSIONS_PATH = "/api/setup/sessions"
 DRAFT_PATH = "/api/setup/draft"
+DOCS_PATH = "/api/docs"
 CONFIG_PREFIX = "/api/config/"
 FIX_PREFIX = "/api/setup/fix/"
 FIX_PATH = re.compile(r"^/api/setup/fix/([a-z-]+)$")
@@ -115,7 +119,7 @@ class FlashpointServer(ThreadingHTTPServer):
         static_dir: Path = STATIC_DIR,
         launcher: Launcher | None = None,
         anomalies: AnomalyQueries | None = None,
-        spawner: Callable[[list[str]], None] = spawn,
+        spawner: Callable[[list[str]], Any] = spawn,
         live: LiveCanService | None = None,
         robot_hosts: list[str] | None = None,
     ) -> None:
@@ -130,6 +134,7 @@ class FlashpointServer(ThreadingHTTPServer):
         self.static_dir = static_dir
         self.launcher = launcher or Launcher(None)
         self.spawner = spawner  # starts `flashpoint detect` after a baseline restart
+        self.rebuild: Any = None  # the `derive --report` a draft save started, while it runs
         self.config_dir = config_root()
         self.check_context: Callable[[], CheckContext] = lambda: CheckContext.default(
             self.config_dir, self.lake
@@ -238,9 +243,11 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == BACKUP_STATUS_PATH:
                 self._send_json(HTTPStatus.OK, self._backup_status())
             elif url.path == SESSIONS_PATH:
-                self._send_json(HTTPStatus.OK, {"sessions": draft.list_sessions(self.server.lake)})
+                self._send_json(HTTPStatus.OK, self._sessions())
             elif url.path == DRAFT_PATH:
                 self._draft(parse_qs(url.query))
+            elif url.path == DOCS_PATH:
+                self._send_json(HTTPStatus.OK, app_links())
             elif url.path == CONFIG_PATH:
                 sections = config_api.config_view(self.server.config_dir)
                 payload = {
@@ -314,6 +321,18 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, ValueError):
             return True
 
+    def _sessions(self) -> dict[str, Any]:
+        """Sessions to draft from; on an empty lake, how to import one (config-editor)."""
+        lake = self.server.lake
+        payload: dict[str, Any] = {"sessions": draft.list_sessions(lake)}
+        if not payload["sessions"]:
+            payload |= {
+                "lake": str(lake.root),
+                "import_command": draft.import_command(str(lake.root), platform.system()),
+                "quarantined": draft.quarantined_count(lake),
+            }
+        return payload
+
     def _draft(self, params: dict[str, list[str]]) -> None:
         session = params.get("session", [])
         if len(session) != 1 or set(params) != {"session"}:
@@ -345,7 +364,35 @@ class Handler(BaseHTTPRequestHandler):
             section = unquote(path.removeprefix(CONFIG_PREFIX))
             with self.server.setup_lock:
                 status, payload = config_api.save_section(self.server.config_dir, section, body)
+                new_robot = (
+                    section.startswith("robots/") and isinstance(body, dict) and body.get("new")
+                )
+                if payload.get("saved") and new_robot:
+                    payload |= self._start_rebuild()
             self._send_json(status, payload)
+
+    def _start_rebuild(self) -> dict[str, Any]:
+        """A new robot file (a saved draft) re-derives the lake and rebuilds Replay, detached
+        (config-editor). Nothing starts while this server's rebuild or a Replay build runs."""
+        from flashpoint.acquire.watch import AcquireLock, LockHeldError
+        from flashpoint.cli import REPORT_LOCK
+
+        server = self.server
+        running = server.rebuild is not None and server.rebuild.poll() is None
+        if not running:
+            try:
+                with AcquireLock(server.lake.meta / REPORT_LOCK):
+                    pass
+            except LockHeldError:
+                running = True
+        if running:
+            return {"rebuild_running": True}
+        argv = [sys.executable, "-m", "flashpoint", "derive", "--lake", str(server.lake.root)]
+        try:
+            server.rebuild = server.spawner([*argv, "--report"])
+        except OSError as exc:
+            return {"rebuild_error": f"could not start the rebuild: {exc}"}
+        return {"rebuild_pending": True}
 
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
@@ -386,7 +433,12 @@ class Handler(BaseHTTPRequestHandler):
         except AcquireConfigError:
             settings = BackupConfig()  # the Setup view's checks name the broken file
         status = backup_status(ctx.lake, ctx.config_root, settings, ctx.now())
-        return {"level": status.level, "message": status.message, "overdue": status.overdue}
+        return {
+            "level": status.level,
+            "message": status.message,
+            "overdue": status.overdue,
+            "optional": status.optional,
+        }
 
     def _fix(self, action: str | None) -> None:
         refused = {"ok": False}
@@ -476,12 +528,14 @@ class Handler(BaseHTTPRequestHandler):
     def _data(self, name: str) -> None:
         found = contained(data_dir(self.server.lake), name) if _DATA_NAME.match(name) else None
         if found is None and name == "matches.js":
+            from flashpoint.report.build import lake_index_counts  # DuckDB: only when asked
+
             # Nothing built yet: an empty index, so the app says so instead of failing to load.
             empty = {
                 "version": 1,
                 "lake": str(self.server.lake.root),
                 "matches": [],
-                "sessions_without_match_key": None,
+                **lake_index_counts(self.server.lake),
             }
             body = ("FP.index(" + json.dumps(empty).replace("</", "<\\/") + ");\n").encode()
             self._send_bytes(

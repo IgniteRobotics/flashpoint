@@ -273,7 +273,7 @@ flashpoint/
 | D6 | Per-match UI | **Replay view with a static export** generated from gold/silver (canvas UX, ~1000-bucket envelopes, payload ≤ 2 MB; ADR-0006 amended) | Streamlit (server, cache pitfalls) |
 | D7 | Lifetime UI | **History view in one local app** (`flashpoint serve`, DuckDB API; ADR-0013 supersedes the marimo plan) | marimo (can't render the canvas shell); Grafana + DuckDB plugin (glibc server, unsigned plugin); Streamlit |
 | D8 | Deep dive | **Link to AdvantageScope**: a guarded one-click launch on the machine running `serve` (ADR-0014), otherwise download the raw logs | Rebuild graphs (don't) |
-| D9 | Deploy | **`pipx install` + per-user services** (systemd user unit, Windows scheduled task; container deferred) | Three-service compose (today) |
+| D9 | Deploy | **`uv tool install` (pipx alternative) + per-user services** (systemd user unit, Windows scheduled task; container deferred; amended by ADR-0018) | Three-service compose (today) |
 | D10 | Anomaly v1 (**decided**, P5) | **Rules (SPEC) + robust z-score vs per-unit history (DRIFT, STEP) + sibling comparison, residual as a baseline metric; optional isolation forest off by default** (ADR-0010, accepted with amendments; triage writes ADR-0015) | Jump to ML (not enough data in season 1) |
 | D11 | Device identity (**decided**) | **Serial-number units from the robot-logged CAN inventory, plus config-declared legacy epochs** | CAN-ID only (swaps corrupt baselines); manual maintenance log only |
 

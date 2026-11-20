@@ -868,11 +868,17 @@
   }
 
   /* An editable table over `rows` (array of objects); columns: [key, label, kind]. */
+  // A slot with no subsystem is unnamed (config-editor): marked, never refused.
+  const unnamed = (row) => !String(row.subsystem == null ? '' : row.subsystem).trim();
+  const unnamedMark = () =>
+    h('span', { class: 'status status--warn', 'data-unnamed-mark': '' }, 'UNNAMED');
+
   function editTable(id, columns, rows, opts) {
     const removable = ui.writable && opts.removable !== false;
     const cell = (row, [key, label, kind]) => {
+      const mark = opts.markUnnamed && key === 'subsystem' && unnamed(row) ? unnamedMark() : null;
       if (!ui.writable || (opts.readOnly || []).includes(key))
-        return h('td', null, row[key] == null ? '' : String(row[key]));
+        return h('td', null, row[key] == null ? '' : String(row[key]), mark);
       const el = input(
         row[key],
         (v) => {
@@ -885,7 +891,7 @@
           dataset: { field: key },
         },
       );
-      return h('td', null, el);
+      return h('td', null, el, mark);
     };
     const body = h(
       'tbody',
@@ -893,7 +899,12 @@
       rows.map((row, i) =>
         h(
           'tr',
-          { dataset: { row: String(row[opts.key] || i) } },
+          {
+            dataset: {
+              row: String(row[opts.key] || i),
+              ...(opts.markUnnamed && unnamed(row) ? { unnamed: '' } : {}),
+            },
+          },
           columns.map((c) => cell(row, c)),
           removable
             ? h(
@@ -1002,6 +1013,7 @@
       h('h4', { class: 'group__label mt-3' }, 'SLOTS'),
       editTable(id + '-slots', SLOT_COLUMNS, data.slot, {
         key: 'id',
+        markUnnamed: true,
         rerender,
         blank: () => ({ id: '', bus: 'rio', model: 'TalonFX', can_id: 0, subsystem: '', role: '' }),
       }),
@@ -1132,7 +1144,10 @@
       FP.fill(body, h('p', { class: 'meta' }, 'Loading sessions…'));
       const mine = ui;
       try {
-        ui.sessions = (await FP.api('setup/sessions')).sessions;
+        const listed = await FP.api('setup/sessions');
+        ui.sessions = listed.sessions;
+        ui.emptyLake = listed;
+        await FP.docs();
       } catch (err) {
         ui.sessions = [];
         ui.messages.draft = { kind: 'error', text: 'Could not list sessions: ' + err.message };
@@ -1163,17 +1178,55 @@
       h(
         'p',
         { class: 'meta' },
-        'Start a robot file from an imported log: its CAN devices become slots, with serial numbers when the log has a CAN inventory. Name each slot, then save.',
+        'Start a robot file from an imported log: its CAN devices become slots, with serial numbers when the log has a CAN inventory. Name each slot\u2019s subsystem and role now or later (unnamed slots are marked), then save.',
       ),
       ui.sessions.length
         ? h('div', { class: 'row mt-2' }, select, go)
-        : h(
-            'p',
-            { class: 'meta', id: 'draft-none' },
-            'No imported logs yet. Run flashpoint ingest first.',
-          ),
+        : emptyLake(ui.emptyLake || {}),
       message('draft'),
       ui.draft ? draftForm() : null,
+    );
+  }
+
+  // No session to draft from: how to import one (config-editor, "Draft a robot from a log").
+  function emptyLake(listed) {
+    const quarantined = listed.quarantined || 0;
+    return h(
+      'div',
+      { class: 'callout', id: 'draft-none' },
+      h('p', { class: 'prose' }, 'No imported logs yet. Import one match first:'),
+      h(
+        'p',
+        { class: 'prose' },
+        h(
+          'code',
+          { class: 'code', id: 'draft-import' },
+          listed.import_command || 'flashpoint ingest <folder>',
+        ),
+      ),
+      h(
+        'p',
+        { class: 'meta' },
+        "The folder holds one match's .wpilog and .hoot files: from the robot's USB stick, from flashpoint acquire, or downloaded. Reload this page when the import finishes, and this tab is ready.",
+      ),
+      quarantined
+        ? h(
+            'p',
+            { class: 'meta' },
+            (quarantined === 1 ? '1 file was' : quarantined + ' files were') + ' quarantined. Run ',
+            h('code', { class: 'code' }, 'flashpoint doctor'),
+            ' to see why.',
+          )
+        : null,
+      h(
+        'p',
+        { class: 'meta' },
+        'See the ',
+        FP.docLink('import-logs', 'User guide, \u201cImport logs by hand\u201d', {
+          id: 'draft-guide',
+        }),
+        '.',
+      ),
     );
   }
 
@@ -1204,16 +1257,12 @@
       { id: 'draft-id', 'aria-label': 'Robot id' },
     );
     const saveDraft = async () => {
-      const missing = robot.slot.filter(
-        (s) => !s.id || !String(s.subsystem).trim() || !String(s.role).trim(),
-      );
+      // Subsystem and role may stay empty (the slot shows as unnamed); an id may not.
+      const missing = robot.slot.filter((s) => !String(s.id).trim());
       if (missing.length) {
         ui.messages.draft = {
           kind: 'error',
-          text:
-            'Name every slot first: ' +
-            missing.length +
-            ' slot(s) still need an id, subsystem and role.',
+          text: 'Give every slot an id first: ' + missing.length + ' slot(s) have none.',
         };
         renderDraft();
         return;
@@ -1226,10 +1275,14 @@
       });
       if (ui !== mine) return;
       if (reply.saved) {
-        ui.messages.draft = {
-          kind: 'ok',
-          text: 'Saved ' + reply.path + '. Next: ' + reply.affects + '.',
-        };
+        const next = reply.rebuild_pending
+          ? 'Rebuilding the lake in the background; reload Replay when it finishes (a minute or two).'
+          : reply.rebuild_running
+            ? 'A rebuild is already running on this lake; reload Replay when it finishes.'
+            : reply.rebuild_error
+              ? reply.rebuild_error + '. Next: ' + reply.affects + '.'
+              : 'Next: ' + reply.affects + '.';
+        ui.messages.draft = { kind: 'ok', text: 'Saved ' + reply.path + '. ' + next };
         ui.draft = null;
         ui.config = null;
         await loadChecks();
@@ -1278,6 +1331,7 @@
       ),
       editTable('draft-slots', [...SLOT_COLUMNS, ['serial', 'SERIAL', 'text']], rows, {
         key: 'id',
+        markUnnamed: true,
         readOnly: ['bus', 'model', 'can_id', 'serial'],
         removable: true,
         rerender: () => renderDraft(),

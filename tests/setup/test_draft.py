@@ -120,6 +120,41 @@ def test_session_list(tmp_path: Path) -> None:
     assert list_sessions(LakePaths(tmp_path / "empty")) == []
 
 
+def test_same_can_id_on_two_buses(tmp_path: Path) -> None:
+    """config-editor "Same CAN id on two buses": each slot id names its bus; the draft loads."""
+    lake = LakePaths(tmp_path / "lake")
+    ledger = _ledger(lake)
+    _insert(ledger, "logs", [
+        {"log_id": "w1", "kind": "wpilog", "season": "2026", "filename": "FRC_Q1.wpilog",
+         "project": "Robot-2026"},
+    ])  # fmt: skip
+    _insert(ledger, "sessions", [
+        {"session_id": "s1", "wpilog_id": "w1", "season": "2026", "match_key": None},
+    ])  # fmt: skip
+    _insert(ledger, "session_hoots", [
+        {"log_id": "h1", "session_id": "s1", "hoot_group": "g", "bus": "rio"},
+        {"log_id": "h2", "session_id": "s1", "hoot_group": "g", "bus": CANIVORE},
+    ])  # fmt: skip
+    _insert(ledger, "entries", [
+        {"log_id": "h1", "idx": 0, "entry_id": 0, "name": "Phoenix6/TalonFX-1/Timestamp",
+         "type": "double"},
+        {"log_id": "h2", "idx": 0, "entry_id": 0, "name": "Phoenix6/TalonFX-1/Timestamp",
+         "type": "double"},
+        {"log_id": "h2", "idx": 1, "entry_id": 1, "name": "Phoenix6/TalonFX-2/Timestamp",
+         "type": "double"},
+    ])  # fmt: skip
+    ledger.close()
+
+    robot = draft_robot(lake, tmp_path / "cfg", "s1")["robot"]
+
+    by_bus = {s["bus"]: s["id"] for s in robot["slot"] if s["can_id"] == 1}
+    assert set(by_bus) == {"rio", "canivore"}
+    assert by_bus["rio"] != by_bus["canivore"]
+    assert "rio" in by_bus["rio"] and "canivore" in by_bus["canivore"]
+    assert {s["id"] for s in robot["slot"] if s["can_id"] == 2} == {"talonfx-2"}  # no clash
+    RobotConfig.model_validate(robot)
+
+
 # --- corpus -------------------------------------------------------------------------------
 
 
@@ -169,3 +204,38 @@ def test_draft_saved_as_an_existing_robot_id(
     with pytest.raises(editor.SaveError, match="2026-comp"):
         editor.save_robot(root, "2026-comp", robot, None, new=True)
     assert (root / "robots" / "2026-comp.toml").read_bytes() == before
+
+
+# --- empty lake: the import command (config-editor "Lake path with a space") -------------
+
+
+@pytest.mark.parametrize(
+    ("lake", "system", "expected"),
+    [
+        (
+            "C:\\Users\\Team 254\\flashpoint-lake",
+            "Windows",
+            'flashpoint ingest --lake "C:\\Users\\Team 254\\flashpoint-lake" <folder>',
+        ),
+        (
+            "/Users/team 254/flashpoint-lake",
+            "Darwin",
+            "flashpoint ingest --lake '/Users/team 254/flashpoint-lake' <folder>",
+        ),
+        ("/home/frc/lake", "Linux", "flashpoint ingest --lake /home/frc/lake <folder>"),
+    ],
+)
+def test_import_command_quotes_the_lake(lake: str, system: str, expected: str) -> None:
+    from flashpoint.setup.draft import import_command
+
+    assert import_command(lake, system) == expected
+
+
+def test_posix_import_command_passes_the_lake_as_one_argument() -> None:
+    import shlex
+
+    from flashpoint.setup.draft import import_command
+
+    args = shlex.split(import_command("/Users/team 254/it's-lake", "Darwin"))
+    assert args[:3] == ["flashpoint", "ingest", "--lake"]
+    assert args[3] == "/Users/team 254/it's-lake"

@@ -24,35 +24,52 @@ Everything runs on one laptop with no internet.
 
 ## Install
 
-You need a computer running macOS, Linux, or Windows, with:
-- Python 3.11, 3.12, or 3.13. Not 3.14: Flashpoint doesn't support it yet. Check with `python3 --version`.
-- [pipx](https://pipx.pypa.io/), which installs command-line tools in their own space (`brew install pipx` on macOS, `python3 -m pip install --user pipx` elsewhere).
+You need a computer running one of:
+- macOS 13 or later;
+- Linux with glibc 2.35 or later (Ubuntu 22.04 or later);
+- Windows on an x86-64 PC (not Windows on ARM).
 
-Then, once:
+Flashpoint runs on Python 3.11 to 3.14 (not 3.15 yet). You don't have to install that Python yourself: [uv](https://docs.astral.sh/uv/) downloads one for Flashpoint if your computer doesn't have a suitable one.
 
-```sh
-pipx install --python python3.12 flashpoint
-flashpoint init --team 1234
-flashpoint doctor
-```
+1. Install uv, once. On macOS, `brew install uv`. On Windows, `winget install --id=astral-sh.uv -e`. On Linux (or any of them), use [uv's installer](https://docs.astral.sh/uv/getting-started/installation/). Open a new terminal afterwards.
+2. Install Flashpoint and create your configuration:
 
-`--python` picks which Python pipx uses. Name any 3.11–3.13 you have installed. On Windows, use `py -3.12` to find it, or give the full path.
+   ```sh
+   uv tool install --python 3.13 flashpoint
+   flashpoint init --team 1234
+   ```
+3. Import one match's logs, then look at them:
+
+   ```sh
+   flashpoint ingest path/to/one-match/
+   flashpoint serve
+   ```
+
+If `flashpoint` isn't found after the install, run `uv tool update-shell` and open a new terminal.
+
+**With pipx instead.** If you already use [pipx](https://pipx.pypa.io/), it works too, but it needs a Python 3.11 to 3.14 already installed:
+- macOS and Linux: `pipx install --python python3.13 flashpoint` (any of `python3.11` to `python3.14` that you have).
+- Windows: in the python.org installer, tick "py launcher". Then `py -3.13 -m pip install --user pipx`, and `py -3.13 -m pipx install flashpoint`.
 
 `flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, your team name and colours (`theme.toml`), and copies of the default settings. Anything you leave out (`--team`, `--lake`, `--team-name`, `--palette`) it asks for in a terminal; leave the name blank for none. See [`flashpoint init`](cli-reference.md#flashpoint-init) for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
 
-`doctor` then lists the setup checks. Right after `init`, the only problem should be "no robot configured": add your robot from the [Setup view](#setup-checks-and-configuration), and run `doctor` again.
+**Your first import drafts your robot.** When the lake has logs from a season that has no robot file yet, `ingest` drafts one from them (`robots/2026-comp.toml`, from the match with the most CAN devices) and says so. Replay shows that match's data right away. Open **Setup > Robots** and fill in each slot's subsystem and role; keep the drafted slot ids, which already name each device's model and CAN id. Logs with hoots but no wpilog, or an import with `--no-robot-draft`, draft nothing: use **Setup > Draft robot** for those ([Setup](#setup-checks-and-configuration)).
+
+`flashpoint doctor` lists the setup checks. Right after `init`, the robot check is a warning: the lake has no logs from this season yet. Once you import this season's logs it is a problem only while no robot is configured. A drafted robot whose slots have no subsystem yet is a warning, not a problem.
 
 ### Updating
 
 ```sh
-pipx upgrade flashpoint
+uv tool upgrade flashpoint
 ```
 
-Your config folder and lake are kept.
+If you installed with pipx, run `pipx upgrade flashpoint` instead. Your config folder and lake are kept either way.
+
+**Switching from pipx to uv** is optional. Run `pipx uninstall flashpoint`, then `uv tool install --python 3.13 flashpoint`. Your config folder and lake aren't touched.
 
 ### Installing without internet
 
-On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `pipx install --python python3.12 /Volumes/USB/flashpoint-<version>-py3-none-any.whl` (use the file name you downloaded, or `E:\...` on Windows). pipx still needs Flashpoint's dependencies, so do this on a laptop that has installed it once before, or bring their wheels too.
+On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `uv tool install --python 3.13 /Volumes/USB/flashpoint-<version>-py3-none-any.whl` (use the file name you downloaded, or `E:\...` on Windows). The install still needs Flashpoint's dependencies and a Python, so do this on a laptop that has installed it once before, or bring their wheels too.
 
 ### Installing from a checkout
 
@@ -61,7 +78,7 @@ For Ignite's own laptops, or to try changes that aren't released yet, install fr
 ```sh
 git clone https://github.com/IgniteRobotics/flashpoint.git
 cd flashpoint
-pipx install --python python3.12 .
+uv tool install --python 3.13 .
 ```
 
 Ignite's configuration (robots, units, failure labels) is the checkout's `config/` folder. Point Flashpoint at it in your shell profile (`~/.zshrc` or `~/.bashrc`), or copy it to `~/.config/flashpoint`:
@@ -70,7 +87,7 @@ Ignite's configuration (robots, units, failure labels) is the checkout's `config
 export FLASHPOINT_CONFIG="$HOME/flashpoint/config"
 ```
 
-On Windows, set it once with `setx FLASHPOINT_CONFIG "%USERPROFILE%\flashpoint\config"`, then open a new terminal. To update a checkout install: `git pull`, then `pipx install --force --python python3.12 .`.
+On Windows, set it once with `setx FLASHPOINT_CONFIG "%USERPROFILE%\flashpoint\config"`, then open a new terminal. To update a checkout install: `git pull`, then `uv tool install --force --python 3.13 .`.
 
 ## Before an event: get ready offline
 
@@ -121,8 +138,17 @@ At the end, `ingest` prints a summary like this:
 - **FAILED** means the laptop failed, not the file. Usually there was no internet to download owlet, the tool that reads `.hoot` files. Run `flashpoint ingest` again once you're online, or let automatic import retry it. If owlet crashes on the same file 3 times, the file is quarantined.
 - To retry quarantined files, for example after updating Flashpoint, run `flashpoint rebuild --quarantined`. It works from the lake's own copies, so you don't need the original logs.
 - **"declared signal(s) not written"** lines mean the robot config expects a NetworkTables entry that the log doesn't have, which is normal for older code. It only matters if you were looking for that signal.
+- **"session(s) with hoots but no wpilog"** means some hoots had no `.wpilog` from the same time to align to. Their motors get no history: no Replay charts, usage or match features. Motor history needs both files, the hoots from Phoenix 6 and a wpilog from WPILib data logging (`DataLogManager.start()` in `robotInit()`). One such session among many is usually the hoot logger restarting mid-event, and is safe to ignore. When every session of a season is like this, `doctor`'s "Hoots without a wpilog" check warns too: the robot code isn't writing wpilogs.
 
 Ingest then works out matches, aligns the logs, runs anomaly detection, and updates Replay, all on its own.
+
+### How matches are identified
+
+Replay lists competition matches only. Flashpoint knows a log is from a match when:
+1. the wpilog holds FMS data (`FMSInfo`), which the robot gets from the field at an event; or
+2. the wpilog's file name has the match in it, the way the Driver Station names match logs: `FRC_yyyyMMdd_HHmmss_EVENT_Q7.wpilog` (`P` for practice, `Q` for qualification, `E` for elimination matches).
+
+Logs from the shop, the practice field or the pit have neither, so they get no Replay entry. They still count in History: every motor's usage, temperatures and anomalies include them. When Replay is empty but the lake has logs, it says how many sessions it found that aren't matches.
 
 To have logs pulled from the robot and USB sticks without doing this by hand, set up [automatic import](auto-import.md).
 
@@ -189,7 +215,7 @@ The **Setup** tab shows what `flashpoint doctor` checks, and your whole configur
   - a save is refused if someone changed the file by hand since you opened it: reload and redo the edit;
   - comments and the order of everything you didn't change are kept, and the previous version goes to `.backups/` in the config folder (the last 20 of each file);
   - after a save, the view says what to run: `flashpoint derive` after a robot change, `flashpoint detect` after an anomaly threshold, `flashpoint report` after a report threshold, and a page reload after a team name or colour change. Saving never changes the lake.
-- **Draft robot:** pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Give each slot an id, subsystem and role, then **SAVE ROBOT**. A log with no hoots can't be drafted from.
+- **Draft robot:** your first import usually drafts the robot for you (see [Install](#install)); use this tab for another robot, for hoot-only logs, or after `--no-robot-draft`. Pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Fill in each slot's subsystem and role now or later (slots without a subsystem are marked UNNAMED), then **SAVE ROBOT**. Saving rebuilds the lake in the background; reload Replay when it finishes. A log with no hoots can't be drafted from. On an empty lake the tab shows the import command for this lake.
 
 Fixes and saves only run on the computer running `flashpoint serve`. Opened from another computer, or with `--host 0.0.0.0`, Setup is read-only and shows commands instead of buttons.
 
@@ -338,11 +364,11 @@ You probably won't need to change these, but they're all team-editable (in the S
 
 Flashpoint doesn't need to be reinstalled each year, but a new season needs a few things before its first event. Do them after kickoff, when the new robot code first runs:
 
-1. **Update Flashpoint** (`pipx upgrade flashpoint`). A new season's CTRE hoot format needs a Flashpoint that knows its owlet; an older one says the lake "has C*N* hoots, which this Flashpoint can't read".
-2. **Add the season file.** Copy `seasons/<last year>.toml` in your config folder to `seasons/<this year>.toml`, change `season =` to this year, and check each root against the new robot code, especially `robot`. Flashpoint ships season files only for the years it knows, and `flashpoint init` copies only those, so a new year's file is yours to add. Without it, a robot file that declares signals doesn't load; `doctor` names the file to create.
-3. **Add the robot file.** Ingest a log from the new robot (with internet, so owlet downloads), then use **Draft robot** in the Setup view. It names the robot `<year>-comp` (then `<year>-practice` for a second one), with this season's year and project name, and saves it as `robots/<robot>.toml`. Last season's robot file stays, so its logs keep their mapping.
+1. **Update Flashpoint** (`uv tool upgrade flashpoint`, or `pipx upgrade flashpoint` if you installed with pipx). A new season's CTRE hoot format needs a Flashpoint that knows its owlet; an older one says the lake "has C*N* hoots, which this Flashpoint can't read".
+2. **Check the season file.** Flashpoint ships a season file for each year it knows: this version ships 2025, 2026 and 2027. `flashpoint init` copies only the current season and earlier ones into your config folder, so a later year (2027, for a configuration made in 2026) is read from Flashpoint itself, and a fix to it in a Flashpoint update reaches you. To change a root (for example to add your robot code's `robot` root), copy that year's file into `seasons/` in your config folder; your copy then wins, and later fixes to the bundled file no longer reach it. For a year Flashpoint doesn't ship yet, copy `seasons/<last year>.toml` to `seasons/<this year>.toml` and change `season =`. Without a season file, a robot file that declares signals doesn't load; `doctor` names the file to create.
+3. **Add the robot file.** Ingest a log from the new robot (with internet, so owlet downloads). Since the new season has no robot file yet, the import drafts one, `robots/<year>-comp.toml` (then `<year>-practice` for a second robot-code project), with this season's year and project name. Name its slots in **Setup > Robots**, or use **Draft robot** in the Setup view for hoot-only logs. Last season's robot file stays, so its logs keep their mapping.
 4. **Check the robot code still writes** the [CAN inventory, bus status and build info](robot-side.md) entries. A new robot project is easy to start without them.
-5. **Run `flashpoint doctor`.** From January 1 it checks for a robot for the new year; "Robot for *year*" should say ok, and the owlet check should name the format your new hoots use.
+5. **Run `flashpoint doctor`.** From January 1 it checks for a robot for the new year. Until the lake has logs from the new year, "Robot for *year*" is a warning that says so, not a problem; once it has, it's a problem until a robot is configured. After your first import it should say ok, or warn about unnamed slots, and the owlet check should name the format your new hoots use.
 
 The motor list (`units/units-seed.csv`) carries over. Add the new season's motors, and don't remove or relabel old ones: a motor reused on the new robot keeps its history by serial number.
 

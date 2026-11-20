@@ -9,16 +9,16 @@ Files for running `flashpoint acquire --watch` as a per-user background service.
 
 macOS has no service file yet; see [Automatic import: macOS](../docs/guide/auto-import.md#macos).
 
-Both files expect the pipx install location. Install Flashpoint with pipx, then clone the repository to get the service files (the commands below use paths inside it):
+Both files expect the `uv tool install` (or pipx) location, `~/.local/bin`. Install Flashpoint, then clone the repository to get the service files (the commands below use paths inside it):
 
 ```sh
-pipx install --python python3.12 flashpoint
+uv tool install --python 3.13 flashpoint
 git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint
 ```
 
-To run unreleased changes instead, install from the checkout: `pipx install --python python3.12 .`
+To run unreleased changes instead, install from the checkout: `uv tool install --python 3.13 .`
 
-If `pipx environment --value PIPX_BIN_DIR` isn't `~/.local/bin`, edit the path in the file before installing it.
+If `uv tool dir --bin` (or `pipx environment --value PIPX_BIN_DIR`) isn't `~/.local/bin`, edit the path in the file before installing it.
 
 ## Linux
 

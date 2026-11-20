@@ -1,5 +1,7 @@
 # Automatic import
 
+**Beta: beta, tested on one robot.** Pulling logs from the robot, and running the watch as a service, have been checked on one team's roboRIO so far. Importing from USB sticks isn't affected. If a pull misbehaves on your robot, please [open an issue](https://github.com/IgniteRobotics/flashpoint/issues).
+
 `flashpoint acquire --watch` pulls new logs into Flashpoint without anyone copying files. Leave it running on the pit laptop, or on a team computer the robot connects to:
 - When the robot is powered and on the same network, it pulls the new logs.
 - When someone plugs a USB stick into the laptop, it copies the logs off that too.
@@ -93,11 +95,13 @@ dry run: 2 file(s), 41127424 bytes would be copied; nothing changed
 
 ## Run it in the background
 
+**Beta: beta, tested on one robot.** Running acquire as a service has been checked on one team's setup so far.
+
 The easiest way is the Setup view: its acquire service check has an **Install** button on Linux and Windows. To do it by hand, clone the repository to get the service files (`git clone https://github.com/IgniteRobotics/flashpoint.git && cd flashpoint`), then run these commands from that folder.
 
 ### Linux (systemd user service)
 
-Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../../src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where pipx puts it. Install it:
+Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../../src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where `uv tool install` and pipx put it. Install it:
 
 ```sh
 mkdir -p ~/.config/systemd/user

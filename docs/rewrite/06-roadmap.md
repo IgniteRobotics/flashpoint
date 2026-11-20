@@ -210,7 +210,7 @@ Each team sees its own name and colours instead of Ignite's:
 Announce Flashpoint to other FRC teams on Chief Delphi before the 2027 kickoff. A team that isn't 6829 installs from PyPI and gets useful, honest results from stock `.wpilog` and `.hoot` logs, unaided. macOS, Linux and Windows are all required; Windows ships last and may be rough, but must work end to end.
 - **Milestones:**
   - **M0** stop the bleeding, 2026-11-21: 0.2.0 on PyPI, 0.1.0 yanked, tracker cleaned up, outreach for outside logs started.
-  - **M1** installs anywhere, first run makes sense, 12-05: one install command that brings its own Python, a cross-OS smoke, first-run copy, the 2027 season (`mvp-install-and-first-run`).
+  - **M1** installs anywhere, first run makes sense, 12-05: one install command that brings its own Python (`uv tool install`, ADR-0018), a cross-OS smoke that gates releases, first-run copy, a robot drafted from the first import so Replay shows data at once, the 2027 season (`mvp-install-and-first-run`).
   - **M2** honest results on other teams' logs, 12-12: non-Pro hoots, AdvantageKit identity, anomalies first impression, outside logs by 11-28 (`mvp-outside-team-logs`).
   - **M3** Windows, beta, release candidate, 12-19: Windows walkthrough, an outside-mentor beta by 12-14, support files, 0.3.0 on PyPI.
   - **M4** announce, 2027-01-04 (kickoff 01-09), then a kickoff-week 0.3.1 for 2027 owlet and pyntcore.

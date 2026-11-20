@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Import: schtasks /Create /XML src\flashpoint\deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire
-  The Command path is where pipx installs flashpoint.exe on Windows
-  (%USERPROFILE%\.local\bin). Edit it if your pipx bin directory differs (run: pipx environment).
+  The Command path is where `uv tool install` (or pipx) puts flashpoint.exe on Windows
+  (%USERPROFILE%\.local\bin). Edit it if yours differs: `uv tool` uses another folder only when
+  UV_TOOL_BIN_DIR is set, and pipx shows its own with: pipx environment.
 -->
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>

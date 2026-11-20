@@ -28,3 +28,6 @@ The three-service compose stack never built cleanly on main. Builds took about 1
 - One Python range per release: 3.11 to 3.13. A `clean install` CI job installs the built wheel into an empty venv on macOS, Windows and Linux.
 - The wheel carries the shared default configuration and the two service files (moved into the package), never a team's robots, units or logs. Configuration lives in a per-user folder created by `flashpoint init`.
 - The Setup view can install and start the service on Linux and Windows (ADR-0017).
+
+## Implementation note (mvp-install-and-first-run, 2026-11-19)
+- Amended by [ADR-0018](0018-install-uv-primary.md): the documented install is now `uv tool install --python 3.13 flashpoint`, with pipx as the alternative. The supported range is Python 3.11 to 3.14, and the services are unchanged.

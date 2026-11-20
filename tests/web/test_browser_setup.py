@@ -1,5 +1,7 @@
 """The Setup view in Chromium (specs: team-setup, config-editor)."""
 
+import dataclasses
+import platform
 import shutil
 import threading
 import tomllib
@@ -162,14 +164,9 @@ def test_draft_from_q7_and_save(
         assert page.input_value("#draft-id") == "2026-practice"  # 2026-comp is taken
         page.click("#draft-slots tbody tr:first-child button[aria-label^='Remove']")
         assert page.locator("#draft-slots tbody tr").count() == 21
-        page.click("#draft-save")
-        page.wait_for_selector("#msg-draft[role='alert']")  # slots aren't named yet
-        fill_all: Callable[[str], None] = lambda field: page.eval_on_selector_all(  # noqa: E731 - one-line helper inside the test
-            f"#draft-slots input[data-field='{field}']",
-            "els => els.forEach(e => { e.value = 'x'; e.dispatchEvent(new Event('input')); })",
-        )
-        fill_all("subsystem")
-        fill_all("role")
+        # Subsystem and role may stay empty: such slots are marked unnamed, and the draft saves.
+        assert page.locator("#draft-slots tbody tr[data-unnamed]").count() == 21
+        assert "UNNAMED" in page.inner_text("#draft-slots tbody tr:first-child")
         page.click("#draft-save")
         page.wait_for_selector("#msg-draft[role='status']")
         assert "robots/2026-practice.toml" in page.inner_text("#msg-draft")
@@ -216,6 +213,9 @@ def _backup_site(tmp_path: Path, log_seen: str) -> Iterator[str]:
         acquire.read_text(encoding="utf-8") + '\n[backup]\nremote = "gdrive:flashpoint"\n',
         encoding="utf-8",
     )
+    # rclone is installed (backup-status: without it a configured backup is a warning).
+    context = server.check_context
+    server.check_context = lambda: dataclasses.replace(context(), which=lambda n: f"/bin/{n}")
     yield f"http://127.0.0.1:{server.server_address[1]}/"
     _stop(server)
 
@@ -249,3 +249,150 @@ def test_no_badge_when_nothing_is_overdue(page: Any, fresh_site: str) -> None:
     assert page.locator("[data-badge='setup']").is_hidden()
     assert page.locator("[data-check='backup']").get_attribute("data-status") == "ok"
     assert watch.clean(), watch
+
+
+# --- Draft robot on an empty lake (config-editor "Empty lake", "Only quarantined files") ----
+
+
+def test_draft_robot_on_an_empty_lake(page: Any, site: dict[str, Any]) -> None:
+    from flashpoint.setup.draft import import_command
+
+    watch = _setup(page, site["url"], "draft")
+    page.wait_for_selector("#draft-none")
+    text = page.inner_text("#draft-none")
+    lake = str(Path(site["root"]).parent / "lake")
+    assert page.inner_text("#draft-import") == import_command(lake, platform.system())
+    assert ".wpilog" in text and ".hoot" in text and "reload" in text.lower()
+    href = page.locator("#draft-guide").get_attribute("href") or ""
+    assert href.startswith("https://igniterobotics.github.io/flashpoint/")
+    assert href.endswith("#import-logs-by-hand")
+    assert "quarantined" not in text
+    assert watch.clean(), watch
+
+
+def test_draft_robot_with_only_quarantined_files(page: Any, tmp_path: Path) -> None:
+    from flashpoint.lake.ledger import Ledger
+
+    lake = LakePaths(tmp_path / "lake")
+    lake.ensure()
+    ledger = Ledger(lake.ledger)
+    try:
+        ledger.register("e" * 64, "hoot", 0, lake.raw / "e")
+        ledger.quarantine("e" * 64, "empty-file", config.PIPELINE_VERSION)
+    finally:
+        ledger.close()
+    server, _ = _site(tmp_path, lake)
+    try:
+        watch = _setup(page, f"http://127.0.0.1:{server.server_address[1]}/", "draft")
+        page.wait_for_selector("#draft-none")
+        text = page.inner_text("#draft-none")
+        assert "1 file was quarantined" in text and "flashpoint doctor" in text
+        assert page.locator("#draft-import").count() == 1
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
+
+
+def test_unnamed_slots_are_marked(page: Any, site: dict[str, Any]) -> None:
+    """config-editor: the Setup view marks slots with no subsystem as unnamed."""
+    robot = site["root"] / ROBOT
+    text = robot.read_text(encoding="utf-8")
+    first = text.index('subsystem = "')
+    end = text.index('"', first + len('subsystem = "'))
+    robot.write_text(text[:first] + 'subsystem = ""' + text[end + 1 :], encoding="utf-8")
+    watch = _setup(page, site["url"], "config")
+    unnamed = page.locator("#robot-2026-comp-slots tbody tr[data-unnamed]")
+    assert unnamed.count() == 1 and "UNNAMED" in unnamed.inner_text()
+    named = page.locator("#robot-2026-comp-slots tbody tr:not([data-unnamed])")
+    assert named.count() > 0 and "UNNAMED" not in named.first.inner_text()
+    assert watch.clean(), watch
+
+
+# --- a draft save rebuilds the lake (config-editor "Save starts a rebuild") -----------------
+
+
+def _draft_and_save(page: Any, url: str) -> str:
+    _setup(page, url, "draft")
+    page.click("#draft-go")
+    page.wait_for_selector("#draft-slots tbody tr")
+    page.click("#draft-save")
+    page.wait_for_selector("#msg-draft[role='status']")
+    return str(page.inner_text("#msg-draft"))
+
+
+def _synthetic_site(tmp_path: Path) -> tuple[FlashpointServer, Path, list[list[str]]]:
+    from tests.setup.test_draft import _synthetic
+
+    lake = _synthetic(tmp_path)
+    server, root = _site(tmp_path, lake)
+    spawned: list[list[str]] = []
+    server.spawner = spawned.append
+    return server, root, spawned
+
+
+def test_draft_save_starts_a_rebuild(page: Any, tmp_path: Path) -> None:
+    server, _root, spawned = _synthetic_site(tmp_path)
+    try:
+        text = _draft_and_save(page, f"http://127.0.0.1:{server.server_address[1]}/")
+    finally:
+        _stop(server)
+    assert "rebuilding" in text.lower() and "reload Replay" in text
+    (argv,) = spawned
+    assert argv[1:] == ["-m", "flashpoint", "derive", "--lake", str(tmp_path / "lake"), "--report"]
+
+
+def test_draft_save_while_a_rebuild_is_running(page: Any, tmp_path: Path) -> None:
+    from flashpoint.acquire.watch import AcquireLock
+
+    server, root, spawned = _synthetic_site(tmp_path)
+    try:
+        with AcquireLock(tmp_path / "lake" / "meta" / "report.lock"):  # `flashpoint report`
+            text = _draft_and_save(page, f"http://127.0.0.1:{server.server_address[1]}/")
+    finally:
+        _stop(server)
+    assert "already running" in text
+    assert spawned == []
+    assert list((root / "robots").glob("2026-practice.toml"))  # the robot file is saved
+
+
+@pytest.mark.corpus
+def test_draft_save_rebuilds_q7(
+    page: Any,
+    tmp_path: Path,
+    corpus_group: Callable[[str], list[Path]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End to end: Q7 imported with no robot shows no aligned samples; saving the draft in
+    Setup rebuilds in the background, after which Q7's Replay data is ok."""
+    import json
+    import time
+
+    from flashpoint.cli import main
+    from flashpoint.report.paths import data_dir
+    from flashpoint.setup.init import init_config
+
+    root = tmp_path / "cfg"
+    lake = LakePaths(tmp_path / "lake")
+    init_config(root, team=254, lake=lake.root)
+    monkeypatch.setenv("FLASHPOINT_CONFIG", str(root))
+    q7 = [str(p) for p in corpus_group("2026-gacmp-q7")]
+    assert main(["ingest", "--no-robot-draft", "--lake", str(lake.root), *q7]) == 0
+
+    def status() -> str:
+        text = (data_dir(lake) / "matches.js").read_text("utf-8")
+        index = json.loads(text[text.index("(") + 1 : text.rindex(")")])
+        return str({m["key"]: m for m in index["matches"]}["2026gacmp_qm7"]["status"])
+
+    assert status() == "no-aligned-samples"
+    server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake))
+    server.config_dir = root
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        text = _draft_and_save(page, f"http://127.0.0.1:{server.server_address[1]}/")
+        assert "rebuilding" in text.lower()
+        deadline = time.monotonic() + 300
+        while status() != "ok" and time.monotonic() < deadline:
+            time.sleep(2)
+    finally:
+        _stop(server)
+    assert status() == "ok"

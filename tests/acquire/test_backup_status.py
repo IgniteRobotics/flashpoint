@@ -175,12 +175,13 @@ def test_long_error_is_shortened_to_its_last_line(lake: LakePaths, root: Path) -
     assert "the real cause" in message and "line one" not in message
 
 
-def test_not_configured_with_logs_is_a_warning(lake: LakePaths, root: Path) -> None:
+def test_not_configured_with_logs_is_ok_and_optional(lake: LakePaths, root: Path) -> None:
     _logs(lake, timedelta(days=40))
 
     status = backup_status(lake, root, BackupConfig(), NOW)
 
-    assert status.level == "warning" and not status.configured and not status.overdue
+    assert status.level == "ok" and status.optional
+    assert not status.configured and not status.overdue
     assert "only on this machine" in status.message
 
 

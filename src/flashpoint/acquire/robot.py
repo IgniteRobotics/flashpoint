@@ -178,7 +178,8 @@ class RemoteReader:
 
 
 class RobotClient:
-    """A connected robot. Only reads: listing, stat, `sha256sum`, `df`, `statvfs`."""
+    """A connected robot. Only reads: listing, stat, `sha256sum` (under `nice`), `df`,
+    `statvfs`."""
 
     def __init__(
         self,
@@ -191,6 +192,7 @@ class RobotClient:
         self._transport = transport
         self._sftp = sftp
         self._config = config
+        self._nice: bool | None = None  # whether the robot has `nice`, probed once
 
     @classmethod
     def connect(
@@ -295,9 +297,27 @@ class RobotClient:
         """Open a file read-only for a pipelined, bounded read of its first `size` bytes."""
         return RemoteReader(self._sftp.open(remote_path, "rb"), size)
 
+    def _hash_priority(self) -> str:
+        """`nice -n 19 ` when the robot has `nice` (so robot code keeps the CPU), else "".
+
+        Probed once per connection, so exit 127 from the hash still means "no sha256sum"
+        (log-acquisition, "Low-priority hashing on the robot").
+        """
+        if self._nice is None:
+            try:
+                code, _, _ = self._exec("command -v nice")
+            except (OSError, paramiko.SSHException):
+                code = 1
+            self._nice = code == 0
+            if not self._nice:
+                log.info("robot %s has no nice; hashing at normal priority", self.host)
+        return "nice -n 19 " if self._nice else ""
+
     def remote_sha256(self, remote_path: str) -> str | None:
-        """The robot's SHA-256 of a file; None when the robot has no `sha256sum`."""
-        code, out, err = self._exec(f"sha256sum -- {shlex.quote(remote_path)}")
+        """The robot's SHA-256 of a file, at the lowest CPU priority it offers; None when the
+        robot has no `sha256sum`."""
+        command = f"{self._hash_priority()}sha256sum -- {shlex.quote(remote_path)}"
+        code, out, err = self._exec(command)
         if code == COMMAND_NOT_FOUND:
             return None
         digest = out.split()[0].lower() if out.split() else ""

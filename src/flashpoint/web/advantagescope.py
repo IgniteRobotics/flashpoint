@@ -253,7 +253,7 @@ def cleanup(root: Path, now: float | None = None, max_age_s: float = MAX_AGE_S) 
 
 # --- the guarded launch ----------------------------------------------------------------
 
-Spawn = Callable[[list[str]], None]
+Spawn = Callable[[list[str]], object]
 Response = tuple[int, dict[str, Any]]
 
 
@@ -303,8 +303,8 @@ def command(install: Path, file: Path, platform: str = sys.platform) -> list[str
     return [str(install), str(file)]
 
 
-def spawn(argv: list[str]) -> None:
-    """Start detached and never wait: no shell, no inherited I/O."""
+def spawn(argv: list[str]) -> "subprocess.Popen[bytes]":
+    """Start detached and never wait: no shell, no inherited I/O. The caller may poll it."""
     options: dict[str, Any] = {
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.DEVNULL,
@@ -315,7 +315,7 @@ def spawn(argv: list[str]) -> None:
         options["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     else:
         options["start_new_session"] = True
-    subprocess.Popen(argv, **options)  # noqa: S603 - argv list: located install + staged file
+    return subprocess.Popen(argv, **options)  # noqa: S603 - argv list: located install + staged file
 
 
 class Launcher:

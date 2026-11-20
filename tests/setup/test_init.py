@@ -221,3 +221,16 @@ def test_no_theme_prompt_without_a_terminal(
     monkeypatch.setattr("builtins.input", no_input)
     assert main(["init", "--team", "254", "--lake", str(tmp_path / "lake")]) == 0
     assert _theme(root) == {"palette": "amber"}
+
+
+def test_init_before_the_next_season_copies_past_and_current_seasons_only(
+    root: Path, tmp_path: Path
+) -> None:
+    """team-setup "Init before the next season" (2026-12-15: the current season is 2026)."""
+    from flashpoint.semantics.robot_config import load_config_seasons
+
+    init_config(root, team=254, lake=tmp_path / "lake", season=2026)
+    assert (root / "seasons" / "2025.toml").is_file()
+    assert (root / "seasons" / "2026.toml").is_file()
+    assert not (root / "seasons" / "2027.toml").exists()
+    assert 2027 in load_config_seasons(root)  # still loads, from the bundled file

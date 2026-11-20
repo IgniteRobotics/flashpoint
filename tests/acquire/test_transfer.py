@@ -206,6 +206,63 @@ def test_no_sha256sum_is_size_verified_with_one_warning_per_cycle(
     assert statuses == {PullStatus.SIZE_VERIFIED}
 
 
+# --- low-priority hashing (log-acquisition, "Low-priority hashing on the robot") ----------
+
+ROBOT_LOGGER = "flashpoint.acquire.robot"
+
+
+def test_hash_at_low_priority(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+) -> None:
+    _two_logs(fake_robot)
+    results = _cycle(connect_robot, pull_ledger, inbox)
+    assert [r.status for r in results] == [TransferStatus.VERIFIED]
+    hashes = [c for c in fake_robot.exec_log if "sha256sum" in c and "command -v" not in c]
+    assert hashes and all(c.startswith("nice -n 19 sha256sum") for c in hashes)
+    assert fake_robot.nice_levels == [19]
+
+
+def test_no_way_to_lower_priority(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    _put(fake_robot, f"{ROOT}/FRC_1.wpilog", b"one", 1000)
+    _put(fake_robot, f"{ROOT}/FRC_2.wpilog", b"two", 1500)
+    _put(fake_robot, f"{ROOT}/FRC_3.wpilog", b"current", 2000)
+    fake_robot.no_nice = True
+    caplog.set_level(logging.INFO, logger=ROBOT_LOGGER)
+    results = _cycle(connect_robot, pull_ledger, inbox)
+    assert [r.status for r in results] == [TransferStatus.VERIFIED] * 2
+    hashes = [c for c in fake_robot.exec_log if "sha256sum" in c and "command -v" not in c]
+    assert len(hashes) == 2 and all(c.startswith("sha256sum") for c in hashes)
+    notes = [r for r in caplog.records if r.name == ROBOT_LOGGER and "priority" in r.getMessage()]
+    assert len(notes) == 1
+    assert f"{fake_robot.host}:{fake_robot.port}" in notes[0].getMessage()
+
+
+@pytest.mark.parametrize("nice", [False, True], ids=["neither-command", "nice-only"])
+def test_no_checksum_command_is_size_verified_not_failed(
+    fake_robot: FakeRobot,
+    connect_robot: Callable[[], RobotClient],
+    pull_ledger: PullLedger,
+    inbox: Path,
+    nice: bool,
+) -> None:
+    _two_logs(fake_robot)
+    fake_robot.no_sha256sum = True
+    fake_robot.no_nice = not nice
+    results = _cycle(connect_robot, pull_ledger, inbox)
+    assert [r.status for r in results] == [TransferStatus.SIZE_VERIFIED]
+    rows = pull_ledger.query("SELECT status FROM pulls")
+    assert {r["status"] for r in rows} == {PullStatus.SIZE_VERIFIED}
+
+
 def test_second_cycle_transfers_zero_bytes(
     fake_robot: FakeRobot,
     connect_robot: Callable[[], RobotClient],

@@ -1,4 +1,5 @@
 import json
+import platform
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -248,3 +249,15 @@ def test_backup_status_endpoint(
     assert body["message"]
     if error:
         assert error in body["message"]
+
+
+def test_sessions_on_an_empty_lake_give_the_import_command(serve: Any, tmp_path: Path) -> None:
+    from flashpoint.setup.draft import import_command
+
+    lake = LakePaths(tmp_path / "team 254" / "lake")
+    app = serve(lake)
+    status, body = app.json("/api/setup/sessions")
+    assert status == 200 and body["sessions"] == []
+    assert body["lake"] == str(lake.root)
+    assert body["import_command"] == import_command(str(lake.root), platform.system())
+    assert body["quarantined"] == 0

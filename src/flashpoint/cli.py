@@ -23,7 +23,7 @@ from flashpoint.acquire.backup import (
     restore,
     run_backup,
 )
-from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
+from flashpoint.acquire.config import AcquireConfig, AcquireConfigError, robot_pull_label
 from flashpoint.acquire.watch import (
     EXIT_LOCKED,
     LOCK_FILE,
@@ -88,6 +88,8 @@ def _parser() -> argparse.ArgumentParser:
     )
     no_report_help = "skip the incremental Replay build after derive"
     ingest.add_argument("--no-report", action="store_true", help=no_report_help)
+    no_draft_help = "don't draft a robot file for a season that has none (see Setup > Draft robot)"
+    ingest.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
 
     rebuild = sub.add_parser(
         "rebuild", help="reprocess files from an older pipeline version, and failed files"
@@ -99,6 +101,7 @@ def _parser() -> argparse.ArgumentParser:
         help="reprocess only quarantined files, from their raw copies",
     )
     rebuild.add_argument("--no-report", action="store_true", help=no_report_help)
+    rebuild.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
     lake_arg(rebuild)
 
     derive = sub.add_parser(
@@ -106,6 +109,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     derive.add_argument(
         "--all", action="store_true", help="rebuild every session, not only changed ones"
+    )
+    derive.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
+    derive.add_argument(
+        "--report",
+        action="store_true",
+        help="then build Replay data for the matches that changed, as ingest does",
     )
     lake_arg(derive)
 
@@ -157,10 +166,19 @@ def _parser() -> argparse.ArgumentParser:
     )
     lake_arg(serve)
 
+    beta = robot_pull_label()
+    tag = f" ({beta})" if beta else ""
     acquire = sub.add_parser(
-        "acquire", help="pull logs from the robot and USB sticks into the lake, then ingest"
+        "acquire",
+        help="pull logs from the robot and USB sticks into the lake, then ingest",
+        description=f"Pull logs from the robot{tag} and from USB sticks into the lake, then"
+        " ingest them.",
     )
-    acquire.add_argument("--watch", action="store_true", help="repeat every poll_s until stopped")
+    acquire.add_argument(
+        "--watch",
+        action="store_true",
+        help=f"repeat every poll_s until stopped; this is also how it runs as a service{tag}",
+    )
     acquire.add_argument(
         "--host",
         nargs="+",
@@ -243,7 +261,10 @@ def _init(
         print(f"  {path.relative_to(root).as_posix()}")
     for path in result.existing:
         print(f"  {path.relative_to(root).as_posix()} (already there, kept)")
-    print(f"next: add your robot file to {root / 'robots'}, then run `flashpoint doctor`")
+    print(
+        "next: import a match's logs with `flashpoint ingest <folder>` (it drafts your robot"
+        " from them), then run `flashpoint serve`"
+    )
     return 0
 
 
@@ -272,7 +293,9 @@ def _summarize(report: "IngestReport") -> None:
 REPORT_TAIL_LINES = 15
 
 
-def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) -> None:
+def _derive_and_report(
+    lake: LakePaths, derive_all: bool, build_report: bool, robot_draft: bool = True
+) -> None:
     """Derive, then build Replay data, each in a fresh process.
 
     Separate processes keep peak memory at max(ingest, derive, report) rather than their sum,
@@ -281,9 +304,15 @@ def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) ->
     """
     base = [sys.executable, "-m", "flashpoint"]
     derive = [*base, "derive", "--lake", str(lake.root), *(["--all"] if derive_all else [])]
+    derive += [] if robot_draft else ["--no-robot-draft"]
     if subprocess.run(derive, check=False).returncode != 0 or not build_report:  # noqa: S603 - argv is our own interpreter and module
         return
-    report = [*base, "report", "--lake", str(lake.root)]
+    _report_after(lake)
+
+
+def _report_after(lake: LakePaths) -> None:
+    """The incremental Replay build after a derive, in its own process (see above)."""
+    report = [sys.executable, "-m", "flashpoint", "report", "--lake", str(lake.root)]
     done = subprocess.run(report, check=False, capture_output=True, text=True)  # noqa: S603 - argv is our own interpreter and module
     if done.returncode == 0:
         print(done.stdout, end="")
@@ -299,17 +328,49 @@ def _derive_and_report(lake: LakePaths, derive_all: bool, build_report: bool) ->
         print("\n".join(tail), file=sys.stderr)
 
 
-def _derive(lake: LakePaths, force: bool) -> int:
+def _draft_robots(lake: LakePaths, root: Path) -> None:
+    """The first derive drafts the robot for a season with no robot file (team-setup)."""
+    from flashpoint.setup.draft import DraftError, auto_draft
+
+    try:
+        drafted = auto_draft(lake, root)
+    except DraftError as exc:  # read-only, or the editor refused the draft
+        print(f"warning: {exc}", file=sys.stderr)
+        return
+    for d in drafted:
+        print(
+            f"drafted robot {d.robot} from {d.source} ({d.devices} devices) into"
+            f" {root / d.path}: name each slot's subsystem and role in Setup > Robots"
+        )
+
+
+def _warn_hoot_only(labels: list[str]) -> None:
+    """Sessions with hoots but no wpilog get no motor history (session-grouping)."""
+    if not labels:
+        return
+    shown = ", ".join(labels[:3]) + (f" and {len(labels) - 3} more" if len(labels) > 3 else "")
+    print(
+        f"warning: {len(labels)} session(s) with hoots but no wpilog ({shown}): their motors get"
+        " no history (no aligned samples, usage or match features). Motor history needs the"
+        " robot to write a wpilog too: turn on WPILib data logging (DataLogManager.start()).",
+        file=sys.stderr,
+    )
+
+
+def _derive(lake: LakePaths, force: bool, robot_draft: bool = True) -> int:
     from flashpoint.semantics.derive import Deriver
     from flashpoint.semantics.robot_config import ConfigError
 
     root = config.config_root()
+    if robot_draft:
+        _draft_robots(lake, root)
     if not (root / "acquire.toml").is_file():
         print(f"warning: no configuration in {root}: run `flashpoint init`. Until then no robot,"
               " slot or signal is mapped.", file=sys.stderr)  # fmt: skip
     elif not any((root / "robots").glob("*.toml")):
         print(f"warning: no robot configured in {root / 'robots'}: slots and signals stay"
-              " unmapped until you add one", file=sys.stderr)  # fmt: skip
+              " unmapped. Draft one from a log in the Setup view (`flashpoint serve`, then"
+              " Setup > Draft robot), or add a robot file there.", file=sys.stderr)  # fmt: skip
     try:
         deriver = Deriver(lake, root)
     except ConfigError as exc:
@@ -320,6 +381,7 @@ def _derive(lake: LakePaths, force: bool) -> int:
     finally:
         deriver.close()
     print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
+    _warn_hoot_only(deriver.hoot_only)
     # Detection is part of every derive; it skips itself when gold and config are unchanged.
     # Its own failure (configuration, lock) is reported but does not fail the derive.
     _detect(lake, force=False)
@@ -684,8 +746,9 @@ def _doctor(lake: LakePaths) -> int:  # noqa: C901 - grandfathered (code-quality
         print(f"defaults   {', '.join(defaults)} (bundled with Flashpoint)")
     print("checks")
     for result in results:
-        print(f"  {CHECK_MARKS[result.status]:<8} {result.title:<28} {result.message}")
-        if result.status in ("warning", "problem") and result.command:
+        optional = " (optional)" if result.optional else ""
+        print(f"  {CHECK_MARKS[result.status]:<8} {result.title:<28} {result.message}{optional}")
+        if (result.status in ("warning", "problem") or result.optional) and result.command:
             print(f"  {'':<8} {'':<28} fix: {result.command}")
     problems = sum(r.status == "problem" for r in results)
     if has_problem(results):
@@ -705,7 +768,10 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 - grandfathere
     if args.command == "doctor":
         return _doctor(lake)
     if args.command == "derive":
-        return _derive(lake, force=args.all)
+        code = _derive(lake, force=args.all, robot_draft=not args.no_robot_draft)
+        if code == 0 and args.report:
+            _report_after(lake)
+        return code
     if args.command == "detect":
         return _detect(lake, force=args.all)
     if args.command == "backtest":
@@ -743,5 +809,10 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 - grandfathere
     _summarize(report)
     rebuild = args.command == "rebuild"
     if (rebuild or not args.no_derive) and report.count("success"):
-        _derive_and_report(lake, derive_all=rebuild, build_report=not args.no_report)
+        _derive_and_report(
+            lake,
+            derive_all=rebuild,
+            build_report=not args.no_report,
+            robot_draft=not args.no_robot_draft,
+        )
     return report.exit_code

@@ -8,6 +8,7 @@ anything, and the whole run stays under 2 s.
 import datetime as dt
 import platform
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -22,12 +23,18 @@ from pydantic import ValidationError
 from flashpoint import config
 from flashpoint.acquire.config import CONFIG_FILE as ACQUIRE_FILE
 from flashpoint.acquire.config import AcquireConfig, AcquireConfigError
+from flashpoint.docs_links import docs_url
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.readers import hoot
 
 Status = Literal["ok", "warning", "problem", "n/a"]
-PYTHON_RANGE = ((3, 11), (3, 13))
+PYTHON_RANGE = ((3, 11), (3, 14))
+# The documented install (ADR-0018): uv brings its own Python; pipx is the alternative.
+INSTALL_COMMAND = "uv tool install --python 3.13 flashpoint"
+UPGRADE_COMMAND = (
+    "uv tool upgrade flashpoint (or, if you installed with pipx: pipx upgrade flashpoint)"
+)
 SERVICE_NAME = "flashpoint-acquire"
 SERVICE_TIMEOUT_S = 5
 # Fix actions the app can run, with the button label (see flashpoint.setup.fixes).
@@ -41,7 +48,7 @@ FIX_LABELS = {
 # Shared settings files, each the team's copy or else the bundled default.
 SETTINGS_FILES = ("report.toml", "anomaly.toml", "anomaly-causes.toml", "theme.toml")
 INIT_COMMAND = "flashpoint init --team <number>"
-BACKUP_GUIDE = "see docs/guide/auto-import.md#backup-and-restore"
+RCLONE_INSTALL = "https://rclone.org/install/"
 
 Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 Finder = Callable[[Path], tuple[Any, str | None]]
@@ -57,6 +64,7 @@ class CheckResult:
     command: str | None = None
     source: str | None = None  # the configuration file checked, relative to the root
     default: bool = False  # that file is the bundled default
+    optional: bool = False  # ok because the team hasn't opted in (backup), not because it's set up
 
     @property
     def fix_label(self) -> str | None:
@@ -97,10 +105,33 @@ class CheckContext:
     home: Path = field(default_factory=Path.home)
     now: Callable[[], dt.datetime] = lambda: dt.datetime.now(dt.UTC)
     which: Callable[[str], str | None] = shutil.which
+    _sessions: list[dict[str, Any]] | None = field(default=None, init=False, repr=False)
 
     @classmethod
     def default(cls, config_root: Path, lake: LakePaths) -> "CheckContext":
         return cls(config_root, lake, config.cache_root())
+
+    def lake_sessions(self) -> list[dict[str, Any]]:
+        """The lake's sessions (season, wpilog_id, hoot count), read once for every check that
+        needs them. A quarantined file forms no session."""
+        if self._sessions is None:
+            self._sessions = []
+            if self.lake.ledger.is_file():
+                try:
+                    ledger = Ledger(self.lake.ledger)
+                    try:
+                        self._sessions = ledger.query(
+                            "SELECT s.season, s.wpilog_id, (SELECT count(*) FROM session_hoots h"
+                            " WHERE h.session_id = s.session_id) AS hoots FROM sessions s"
+                        )
+                    finally:
+                        ledger.close()
+                except sqlite3.Error:
+                    pass  # the backup check reports an unreadable ledger
+        return self._sessions
+
+    def lake_seasons(self) -> set[int]:
+        return {int(r["season"]) for r in self.lake_sessions() if str(r["season"]).isdigit()}
 
 
 # --- configuration ------------------------------------------------------------------------
@@ -250,17 +281,61 @@ def _team(ctx: CheckContext, acquire: AcquireConfig | None) -> CheckResult:
     )
 
 
+DRAFTED_MARK = "# Drafted automatically by flashpoint"
+
+
+def _drafted(ctx: CheckContext, robot_id: str) -> bool:
+    """The robot file was written by the first derive's draft (team-setup) and says so."""
+    path = ctx.config_root / "robots" / f"{robot_id}.toml"
+    try:
+        with path.open(encoding="utf-8") as f:
+            return f.readline().startswith(DRAFTED_MARK)
+    except OSError:
+        return False
+
+
 def _robot_season(ctx: CheckContext, robots: list[Any]) -> CheckResult:
     title = f"Robot for {ctx.season}"
-    current = [r.robot for r in robots if r.season == ctx.season]
+    current = [r for r in robots if r.season == ctx.season]
     if current:
-        return CheckResult("robot-season", title, "ok", f"{', '.join(current)}")
+        unnamed = [
+            (r.robot, sum(1 for s in r.slots if not s.subsystem.strip()), len(r.slots))
+            for r in current
+            if _drafted(ctx, r.robot)
+        ]
+        unnamed = [u for u in unnamed if u[1]]
+        if unnamed:
+            what = "; ".join(
+                f"{robot}: {n} of {total} slots unnamed" for robot, n, total in unnamed
+            )
+            return CheckResult(
+                "robot-season",
+                title,
+                "warning",
+                f"{what} (drafted automatically): History and anomalies name them by CAN id",
+                command="name each slot's subsystem and role in Setup > Robots",
+            )
+        return CheckResult("robot-season", title, "ok", f"{', '.join(r.robot for r in current)}")
+    command = (
+        "draft one in Setup > Draft robot (`flashpoint serve`), or add a robot file to"
+        f" {ctx.config_root / 'robots'}"
+    )
+    if ctx.season in ctx.lake_seasons():
+        return CheckResult(
+            "robot-season",
+            title,
+            "problem",
+            f"no robot configured for season {ctx.season}, and the lake has {ctx.season} logs:"
+            " their motors aren't matched to slots",
+            command=command,
+        )
     return CheckResult(
         "robot-season",
         title,
-        "problem",
-        f"no robot configured for season {ctx.season}: motors aren't matched to slots",
-        command=f"add a robot file to {ctx.config_root / 'robots'}",
+        "warning",
+        f"no robot configured for season {ctx.season}; the lake has no {ctx.season} logs yet"
+        " (the first import of this season's logs drafts one)",
+        command=command,
     )
 
 
@@ -311,25 +386,39 @@ def _backup(ctx: CheckContext, acquire: AcquireConfig | None) -> CheckResult:
 
     settings = acquire.backup if acquire is not None else BackupConfig()
     status = backup_status(ctx.lake, ctx.config_root, settings, ctx.now())
-    command = None
-    if status.level != "ok":
-        command = "flashpoint backup" if status.configured else BACKUP_GUIDE
     level: Status = (
         "problem"
         if status.level == "problem"
         else ("warning" if status.level == "warning" else "ok")
     )
-    return CheckResult("backup", "Backup", level, status.message, command=command)
+    message, command = status.message, None
+    if not status.configured:
+        command = f"see {docs_url('auto-import', 'backup-and-restore')}"
+    elif ctx.which("rclone") is None:
+        # Backups copy with rclone: without it nothing can run, so at least a warning.
+        level = "problem" if level == "problem" else "warning"
+        message = f"rclone isn't installed, so no backup can run; {message}"
+        command = f"install rclone ({RCLONE_INSTALL}), then run `flashpoint backup`"
+    elif level != "ok":
+        command = "flashpoint backup"
+    return CheckResult(
+        "backup", "Backup", level, message, command=command, optional=status.optional
+    )
 
 
 def _lake_compliancies(lake: LakePaths) -> list[int]:
     if not lake.ledger.is_file():
         return []
-    ledger = Ledger(lake.ledger)
+    try:
+        ledger = Ledger(lake.ledger)
+    except sqlite3.Error:
+        return []  # an unreadable ledger is the backup check's warning; check the newest owlet
     try:
         rows = ledger.query(
             "SELECT DISTINCT compliancy FROM hoot_logs WHERE compliancy IS NOT NULL"
         )
+    except sqlite3.Error:
+        return []
     finally:
         ledger.close()
     return sorted(int(r["compliancy"]) for r in rows)
@@ -356,7 +445,7 @@ def _owlet(ctx: CheckContext) -> list[CheckResult]:
                     title,
                     "problem",
                     f"the lake has C{compliancy} hoots, which this Flashpoint can't read",
-                    command="pipx upgrade flashpoint",
+                    command=UPGRADE_COMMAND,
                 )
             )
             continue
@@ -389,6 +478,38 @@ def _owlet(ctx: CheckContext) -> list[CheckResult]:
             continue
         results.append(CheckResult(check_id, title, "ok", f"owlet {version} downloaded, verified"))
     return results
+
+
+def _hoot_only(ctx: CheckContext) -> CheckResult:
+    """Sessions with hoots but no wpilog get no motor history (session-grouping). A warning
+    only when the latest season with hoots has no wpilog at all: a few hoot-only sessions
+    among many (a logger restart) are reported at ingest, when they can be acted on."""
+    check_id, title = "hoot-only", "Hoots without a wpilog"
+    with_hoots = [r for r in ctx.lake_sessions() if r["hoots"] and str(r["season"]).isdigit()]
+    if not with_hoots:
+        return CheckResult(check_id, title, "ok", "no sessions with hoots yet")
+    latest = max(int(r["season"]) for r in with_hoots)
+    in_season = [r for r in with_hoots if int(r["season"]) == latest]
+    only = sum(1 for r in in_season if not r["wpilog_id"])
+    if only and only == len(in_season):
+        return CheckResult(
+            check_id,
+            title,
+            "warning",
+            f"none of the {only} {latest} session(s) with hoots has a wpilog, so their motors get"
+            " no history (no aligned samples, usage or match features)",
+            command="make the robot write a wpilog too: turn on WPILib data logging"
+            " (DataLogManager.start() in robotInit)",
+        )
+    if only:
+        return CheckResult(
+            check_id,
+            title,
+            "ok",
+            f"{only} of {len(in_season)} {latest} session(s) with hoots have no wpilog"
+            " (their motors get no history; the others do)",
+        )
+    return CheckResult(check_id, title, "ok", "every session with hoots has a wpilog")
 
 
 def _advantagescope(ctx: CheckContext) -> CheckResult:
@@ -477,7 +598,7 @@ def _service(ctx: CheckContext) -> CheckResult:
         "warning",
         "not installed: logs are imported only when you run `flashpoint acquire`",
         fix_action="service-install",
-        command="see docs/guide/auto-import.md",
+        command=f"see {docs_url('auto-import', 'run-it-in-the-background')}",
     )
 
 
@@ -496,8 +617,8 @@ def _python(ctx: CheckContext) -> CheckResult:
         "python",
         "Python",
         "problem",
-        f"Python {shown} isn't supported (3.11 to 3.13)",
-        command="pipx reinstall --python python3.12 flashpoint",
+        f"Python {shown} isn't supported (3.11 to 3.14)",
+        command=f"{INSTALL_COMMAND} (uv downloads a supported Python)",
     )
 
 
@@ -511,6 +632,7 @@ def run_checks(ctx: CheckContext) -> list[CheckResult]:
         _lake(ctx),
         _backup(ctx, acquire),
         *_owlet(ctx),
+        _hoot_only(ctx),
         _advantagescope(ctx),
         _service(ctx),
         _python(ctx),

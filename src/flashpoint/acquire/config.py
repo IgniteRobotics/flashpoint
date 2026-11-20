@@ -7,6 +7,17 @@ from typing import Any, Self
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 CONFIG_FILE = "acquire.toml"
+# Robot pull and service mode are beta until the live-robot checks (P3 11.1, 11.3) pass
+# (log-acquisition). Set ROBOT_PULL_MATURITY to None to remove the label everywhere.
+ROBOT_PULL_MATURITY: str | None = "beta"
+ROBOT_PULL_LABEL = "beta, tested on one robot"
+
+
+def robot_pull_label() -> str | None:
+    """The maturity label for robot pull and service mode, or None once they are checked."""
+    return ROBOT_PULL_LABEL if ROBOT_PULL_MATURITY == "beta" else None
+
+
 USB_HOST = "172.22.11.2"
 
 

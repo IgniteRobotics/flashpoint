@@ -1,7 +1,8 @@
 name: release
 
-# A `v*` tag builds the sdist and wheel with the version taken from the tag and publishes them
-# to PyPI by trusted publishing (OIDC, no stored token), then creates the GitHub Release with
+# A `v*` tag builds the sdist and wheel with the version taken from the tag, runs the first-run
+# smoke on that wheel on Linux, macOS and Windows, publishes to PyPI by trusted publishing
+# (OIDC, no stored token) once the smoke passes everywhere, then creates the GitHub Release with
 # that version's CHANGELOG.md section as its notes (spec public-release). A manual run publishes
 # a dry run to TestPyPI instead, under the version given, and creates no GitHub Release.
 on:
@@ -73,9 +74,20 @@ jobs:
           name: release-notes
           path: release-notes/
 
-  pypi:
+  # The first-run smoke on all three platforms, on the wheel this run built (spec
+  # ci-quality-gates); a failure anywhere holds the PyPI publish. A dry run doesn't wait for it.
+  smoke:
     if: github.event_name == 'push'
     needs: build
+    uses: ./.github/workflows/first-run-smoke.yml
+    with:
+      wheel-artifact: dist
+    permissions:
+      contents: read
+
+  pypi:
+    if: github.event_name == 'push'
+    needs: [build, smoke]
     runs-on: ubuntu-latest
     environment:
       name: pypi

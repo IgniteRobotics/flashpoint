@@ -4,7 +4,7 @@ This page takes a new FRC team from nothing to a working Flashpoint, in order. E
 
 **What you need:**
 - a pit laptop running macOS, Linux or Windows, with internet for the first setup;
-- Python 3.11, 3.12 or 3.13 on it (not 3.14);
+- macOS 13 or later, Linux with glibc 2.35 or later (Ubuntu 22.04 or later), or Windows on an x86-64 PC;
 - robot code that uses CTRE Phoenix 6 motors and writes `.wpilog` files (most WPILib robots already do);
 - a few recent logs from your robot (`.wpilog` and `.hoot` files), copied off the roboRIO or its USB stick;
 - about an hour, plus time in the shop to read motor serial numbers with Tuner X.
@@ -18,13 +18,12 @@ Flashpoint reads WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.h
 ## 2. Prerequisites
 
 - **Operating system:** macOS, Linux or Windows. All three can import, serve and back up. Running automatic import as a background service is set up for Linux and Windows; on macOS you leave it running in a terminal ([details](auto-import.md#macos)).
-- **Python:** 3.11, 3.12 or 3.13. Check with `python3 --version` (`py --list` on Windows).
-- **pipx**, which installs command-line tools in their own space:
-  - macOS: `brew install pipx`
-  - Debian or Ubuntu: `sudo apt install pipx` (`pip install --user pipx` fails there with "externally-managed-environment")
-  - Windows and other systems: `python -m pip install --user pipx`
+- **uv**, which installs command-line tools in their own space and brings its own Python (Flashpoint runs on 3.11 to 3.14, not 3.15 yet):
+  - macOS: `brew install uv`
+  - Windows: `winget install --id=astral-sh.uv -e`
+  - Linux and other systems: [uv's installer](https://docs.astral.sh/uv/getting-started/installation/)
 
-  Then run `pipx ensurepath` once and open a new terminal. Without that, the `flashpoint` command often isn't found after you install it.
+  Then open a new terminal. pipx works too if you already use it; see [Install](user-guide.md#install).
 - **rclone**, only if you want off-laptop backups ([section 7](#7-backups-and-moving-to-another-laptop)).
 - **AdvantageScope** (comes with WPILib), only if you want the "Open in AdvantageScope" button in Replay.
 
@@ -33,12 +32,12 @@ Flashpoint reads WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.h
 The package on PyPI is called `flashpoint`:
 
 ```sh
-pipx install --python python3.12 flashpoint
+uv tool install --python 3.13 flashpoint
 ```
 
-`--python` picks which Python pipx uses; name any 3.11 to 3.13 you have. On Windows, `python3.12` usually isn't found: run `py -3.12 -c "import sys; print(sys.executable)"` and give that full path instead. If the laptop has no internet at the pit, see [Installing without internet](user-guide.md#installing-without-internet).
+uv downloads Python 3.13 for Flashpoint if the laptop doesn't have it. If `flashpoint` isn't found afterwards, run `uv tool update-shell` and open a new terminal. To use pipx instead, see [Install](user-guide.md#install). If the laptop has no internet at the pit, see [Installing without internet](user-guide.md#installing-without-internet).
 
-**Check your version first.** Team names and colours (`--team-name`, `--palette`, `theme.toml` and [section 8](#8-team-name-and-colours)) need Flashpoint 0.2.0 or later. Run `flashpoint --version`. If it says `flashpoint 0.1.0`, run `pipx upgrade flashpoint` first (0.1.0 stops with "unrecognized arguments").
+**Check your version first.** Team names and colours (`--team-name`, `--palette`, `theme.toml` and [section 8](#8-team-name-and-colours)) need Flashpoint 0.2.0 or later. Run `flashpoint --version`. If it says `flashpoint 0.1.0`, run `uv tool upgrade flashpoint` (or `pipx upgrade flashpoint`) first (0.1.0 stops with "unrecognized arguments").
 
 Then create your configuration. Use your own team number and name:
 
@@ -67,7 +66,7 @@ created the configuration in /home/pit/.config/flashpoint:
   seasons/2026.toml
   units/units-seed.csv
   theme.toml
-next: add your robot file to /home/pit/.config/flashpoint/robots, then run `flashpoint doctor`
+next: import a match's logs with `flashpoint ingest <folder>` (it drafts your robot from them), then run `flashpoint serve`
 ```
 
 | File | What it's for |
@@ -77,7 +76,15 @@ next: add your robot file to /home/pit/.config/flashpoint/robots, then run `flas
 | `report.toml`, `anomaly.toml`, `anomaly-causes.toml` | Replay limits, anomaly thresholds, and the "likely causes" text. The defaults are a good start |
 | `seasons/<year>.toml` | Where each season's NetworkTables entries live |
 | `units/units-seed.csv` | Your list of physical motors, empty to start ([section 4](#4-robot-side)) |
-| `robots/` | Empty. Your robot file goes here ([section 4](#4-robot-side)) |
+| `robots/` | Empty. Your first import drafts your robot file here (below) |
+
+**Import one match next.** Copy one match's `.wpilog` and `.hoot` files off the robot's USB stick into a folder, and import it with internet (the first hoot import downloads owlet, the tool that reads hoots):
+
+```sh
+flashpoint ingest path/to/one-match/
+```
+
+Since `robots/` has no file for that season, the import drafts one from the logs and prints `drafted robot 2026-comp from 2026gacmp_qm7 (22 devices) into ...`. Every CAN device on the hoots becomes a slot. You name the slots' subsystem and role in Setup ([section 4](#4-robot-side)); keep the drafted slot ids. Logs with hoots but no wpilog can't be drafted from automatically: use Setup > Draft robot for them, as you would after `ingest --no-robot-draft`. [Section 5](#5-getting-logs-in) covers importing in general.
 
 Now check the setup:
 
@@ -86,7 +93,7 @@ flashpoint doctor
 ```
 
 `doctor` changes nothing. Its `checks` section has one line per check, marked `ok`, `WARN`, `PROBLEM` or `n/a`, with the fix under anything that isn't ok. Right after `init`, expect:
-- `PROBLEM Robot for <year>`: no robot file yet. You add one in section 4.
+- `WARN Robot for <year>`: before your first import, the lake has no logs from this season. Once it has, this is a `PROBLEM` while no robot is configured, and a `WARN` while a drafted robot has unnamed slots ("22 of 22 slots unnamed"). Name them in section 4.
 - `WARN owlet for hoot format ...`: the tool that reads hoots isn't downloaded yet. Your first hoot import downloads it (needs internet).
 - `WARN AdvantageScope`: only if WPILib isn't installed.
 
@@ -105,18 +112,20 @@ Three small additions to robot code make it much more useful. [Robot-side loggin
 
 To watch CAN dropouts live while you wiggle wires, add the publisher from [Live CAN health](live-can-health.md#adding-it-to-robot-code) too. It's optional.
 
-**What Flashpoint needs to know about your robot.** It needs one robot file per robot per season in `robots/` in your config folder, such as `robots/2026-comp.toml`. It lists each motor as a **slot**: its bus, CAN id, model, subsystem and role. The easy way to write it:
-1. Import one log from the robot that includes a `.hoot` file ([section 5](#5-getting-logs-in)). Drafting reads the devices from the hoots, so a log without one can't be drafted from. Do this first hoot import with internet.
-2. Run `flashpoint serve`, open **Setup**, then the **DRAFT ROBOT** tab.
-3. Pick the log and press **DRAFT FROM THIS LOG**. Every CAN device in its hoots becomes a slot.
-4. Give each slot an id, subsystem and role, then **SAVE ROBOT**.
-5. Run `flashpoint derive`. Logs you imported before the robot file existed stay unmapped (no slots, no motor history) until you do. The save message in Setup reminds you.
+**What Flashpoint needs to know about your robot.** It needs one robot file per robot per season in `robots/` in your config folder, such as `robots/2026-comp.toml`. It lists each motor as a **slot**: its bus, CAN id, model, subsystem and role. Your first import (section 3) drafted it from the hoots. To finish it:
+1. Run `flashpoint serve` and open **Setup**, then **Robots**. Slots marked UNNAMED have no subsystem yet.
+2. Fill in each slot's subsystem and role, and save. Keep the drafted slot ids: they already name each device's model and CAN id, and a new id starts a new history.
+
+To draft by hand instead (a second robot, hoot-only logs, or after `--no-robot-draft`):
+1. Import one log from the robot that includes a `.hoot` file ([section 5](#5-getting-logs-in)). Drafting reads the devices from the hoots, so a log without one can't be drafted from.
+2. In **Setup**, open the **DRAFT ROBOT** tab, pick the log and press **DRAFT FROM THIS LOG**. Every CAN device in its hoots becomes a slot.
+3. Fill in each slot's subsystem and role (or leave them for later), then **SAVE ROBOT**. Saving rebuilds the lake in the background, so logs you imported before the robot file existed get their slots and motor history; reload Replay when it finishes.
 
 The [user guide](user-guide.md#describe-a-robot) shows a whole robot file, with the optional parts: a battery proxy, sibling groups (motors that do the same job, compared with each other), swap dates, bus names and NetworkTables signals.
 
 **Your motor list.** `units/units-seed.csv` lists every motor the team owns, including spares on the shelf, by serial number, with a label you write on the motor. Fill it in with Tuner X: [how to fill it in](../../config/units/README.md). Once the CAN inventory logger runs on the robot, Flashpoint keeps track of motors in the robot on its own; the list still covers spares and labels.
 
-**New seasons.** `init` copies the season files Flashpoint knows (2025 and 2026 for this version). For a later year, copy last year's file to `seasons/<year>.toml` and change `season =`; see [Starting a new season](user-guide.md#starting-a-new-season).
+**New seasons.** Flashpoint ships season files for 2025, 2026 and 2027 in this version. `init` copies the current season's and earlier ones; later years are read from Flashpoint itself until you copy one to change it. See [Starting a new season](user-guide.md#starting-a-new-season).
 
 ## 5. Getting logs in
 

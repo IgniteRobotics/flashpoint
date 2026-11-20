@@ -177,12 +177,13 @@ It downloads with `gh release download` if the GitHub CLI is installed (run `gh 
 | Job | Runs | Blocks merge |
 |---|---|---|
 | `docs` | Docs-only changes: `tests/test_docs.py` (links, CLI reference) | Through `ci-ok` |
-| `lint-test (py3.11)`, `lint-test (py3.12)` | pre-commit (ruff, Biome, hygiene hooks), mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra and runs the unit tests with coverage and the floors | Through `ci-ok` |
+| `lint-test (py3.11)` to `lint-test (py3.14)` | Every Python the package declares: pre-commit (ruff, Biome, hygiene hooks), mypy, unit tests, `systemd-analyze verify` on the service unit. py3.12 adds the `ml` extra and runs the unit tests with coverage and the floors | Through `ci-ok` |
 | `windows (py3.12)` | pre-commit, mypy, unit tests on Windows | No, but fix it |
-| `clean install (ubuntu, macos, windows)` | The built wheel in an empty venv: `--version`, and `doctor` with no configuration | Through `ci-ok` |
+| `clean install (<os>, <python>)` | The built wheel in an empty venv on each OS, with Python 3.11, 3.13 (the documented default) and 3.14: `--version`, and `doctor` with no configuration | Through `ci-ok` |
 | `corpus` | The corpus tests, including the rclone restore drill | Through `ci-ok` |
 | `browser (Chromium)` | The web app in Chromium, served and from `file://` | Through `ci-ok` |
 | `perf (budgets, non-blocking)` | Time and memory budgets, on pushes to `main` and `development`. Allowed to fail; read it when it does | No |
+| `first-run-smoke` (separate workflow) | A team's first hour on Linux, macOS and Windows, run by `tools/first-run-smoke.py`: `uv tool install --python 3.13` of the wheel, `init --team 9999`, one corpus match ingested with a real owlet download, Replay must have aligned data, and `serve` must answer. Nightly, and on PRs that change `src/`, packaging or the smoke itself; docs-only PRs skip it. Each step names itself when it fails. Run it locally with `python tools/first-run-smoke.py` (needs uv) | No: it gates releases, not merges. A tag's `release` run calls it on the wheel it built, and PyPI publishing waits for it on all three platforms |
 | `codeql` (separate workflow) | Code scanning for Python and JavaScript, on PRs, pushes, and weekly. A high or critical alert blocks the merge through the ruleset | Yes, through the ruleset |
 | `ci-ok` | Passes when `changes` passed, `docs` or `lint-test` ran, and none of `docs`, `lint-test`, `corpus`, `browser`, or `clean install` failed. The required check | Yes |
 
@@ -216,7 +217,7 @@ Tasks marked `[HUMAN]` need a person: a pit check, a field test. They stay open 
 
 ## Releasing
 
-A `v*` tag on `main` does the publishing: `.github/workflows/release.yml` takes the version's section from `CHANGELOG.md` (and stops, naming the version, if there isn't one), checks the package page for moving or wrong-version documentation links (`tools/check-release-links.py`), builds, publishes to PyPI once the `pypi` environment is approved, and then creates the GitHub Release with that section as its notes. A final version (`X.Y.Z`) is marked latest; a pre-release (`X.Y.Zrc1`) is marked as a pre-release and leaves latest alone. A manual run of the workflow publishes to TestPyPI only and creates no GitHub Release.
+A `v*` tag on `main` does the publishing: `.github/workflows/release.yml` takes the version's section from `CHANGELOG.md` (and stops, naming the version, if there isn't one), checks the package page for moving or wrong-version documentation links (`tools/check-release-links.py`), builds, runs the first-run smoke on the built wheel on Linux, macOS and Windows, publishes to PyPI once the smoke has passed everywhere and the `pypi` environment is approved, and then creates the GitHub Release with that section as its notes. A final version (`X.Y.Z`) is marked latest; a pre-release (`X.Y.Zrc1`) is marked as a pre-release and leaves latest alone. A manual run of the workflow publishes to TestPyPI only and creates no GitHub Release.
 
 Follow these steps for every release, in order:
 

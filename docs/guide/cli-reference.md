@@ -18,7 +18,9 @@ Exit codes: `0` success, `1` failed (for `ingest` and `rebuild`: a file failed o
 
 ## `flashpoint init`
 
-Create your config folder: `acquire.toml` with your team number and lake folder, `theme.toml` with the name and colours the app shows, plus copies of the default settings files to edit. Without `--team`, `--lake`, `--team-name` or `--palette` it asks for them (in a terminal only; leave the name blank for none). It never overwrites a file: run it again and it lists what already exists and changes nothing. The robot addresses acquire tries come from the team number.
+Create your config folder: `acquire.toml` with your team number and lake folder, `theme.toml` with the name and colours the app shows, plus copies of the default settings files to edit. Without `--team`, `--lake`, `--team-name` or `--palette` it asks for them (in a terminal only; leave the name blank for none). It never overwrites a file: run it again and it lists what already exists and changes nothing. The robot addresses acquire tries come from the team number. Of the season files Flashpoint ships, it copies the current season's and earlier ones; a later season is read from Flashpoint itself until you copy it.
+
+It prints each file it created, then the next step: `next: import a match's logs with flashpoint ingest <folder> (it drafts your robot from them), then run flashpoint serve`.
 
 | Option | What it does |
 |---|---|
@@ -41,6 +43,7 @@ Copy `.wpilog` and `.hoot` files into the lake and read them. You can pass files
 | `--jobs N` | Hoot files converted in parallel. Default: half your CPU cores |
 | `--no-derive` | Skip the automatic `derive`, and so the Replay build too |
 | `--no-report` | Skip the automatic Replay build after `derive` |
+| `--no-robot-draft` | Don't draft a robot file for a season that has none (see [`flashpoint derive`](#flashpoint-derive)) |
 
 ```sh
 flashpoint ingest ~/Downloads/GACMP/
@@ -68,6 +71,7 @@ Reprocess, from its raw copy, every file that an older version of Flashpoint pro
 | `--profile all` | Export every hoot signal instead of the health set, as with `ingest`. Default `health` |
 | `--quarantined` | Reprocess only quarantined files, with a fresh count of 3 tries. Use it after a fix (a new owlet, a Flashpoint update), or for a file that crashed owlet 3 times. A file that is truly bad is quarantined again |
 | `--no-report` | Skip the automatic Replay build after `derive` |
+| `--no-robot-draft` | Don't draft a robot file for a season that has none (see [`flashpoint derive`](#flashpoint-derive)) |
 
 A file whose raw copy is missing is listed as `MISSING RAW` and left as it is.
 
@@ -80,9 +84,13 @@ flashpoint rebuild --quarantined
 
 Build the match-level data from what `ingest` read. That means grouping each wpilog with its hoots, aligning their clocks, mapping devices to robot slots and physical units, framing auto and teleop, and computing per-motor match features. Only sessions whose inputs changed are rebuilt. Detection runs at the end.
 
+**The first derive drafts your robot.** When the lake holds logs from a season that has no robot file in your config folder, `derive` first drafts one per robot-code project, from the match with the most CAN devices, and saves it as `robots/<season>-comp.toml` (a second project gets `-practice`). It prints `drafted robot 2026-comp from 2026gacmp_qm7 (22 devices) into ...`, and the file's first line says it was drafted. Name each slot's subsystem and role in Setup > Robots, and keep the drafted slot ids. A season that already has any robot file is never touched. Hoot-only logs have no robot-code project, so they draft nothing: use Setup > Draft robot for them. With no configuration (`flashpoint init`) nothing is drafted, and a read-only config folder is named in a warning. Since `ingest`, `rebuild` and the acquire cycle run `derive`, they draft too.
+
 | Option | What it does |
 |---|---|
 | `--all` | Rebuild every session. Use it after editing a robot file in `robots/` in your config folder |
+| `--no-robot-draft` | Don't draft a robot file for a season that has none |
+| `--report` | Then build Replay data for the matches that changed, as `ingest` does. Saving a draft in Setup > Draft robot runs `derive --report` in the background |
 
 ```sh
 flashpoint derive --all
@@ -146,7 +154,9 @@ Stop it with Ctrl-C.
 
 ## `flashpoint acquire`
 
-Pull new logs from the roboRIO (over SFTP) and from USB drives plugged into this machine, verify each copy, then ingest and derive them. It never deletes or changes anything on the robot or the drive. Settings come from `acquire.toml`; see [Automatic import](auto-import.md).
+Pull new logs from the roboRIO (over SFTP) and from USB drives plugged into this machine, verify each copy, then ingest and derive them. It never deletes or changes anything on the robot or the drive. On the robot, each file's checksum runs at the lowest CPU priority (`nice -n 19`) so robot code keeps the processor. Settings come from `acquire.toml`; see [Automatic import](auto-import.md).
+
+Pulling from the robot and running acquire as a service (`--watch`) are **beta, tested on one robot**; `--help` says so. Importing from USB drives isn't labelled.
 
 | Option | What it does |
 |---|---|
