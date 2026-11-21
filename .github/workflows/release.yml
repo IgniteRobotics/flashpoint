@@ -45,19 +45,27 @@ jobs:
         env:
           VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
         run: poetry version "${VERSION#v}"
+      # The README is the PyPI page: pin its docs images to /X.Y/ and its repository links to
+      # the tag before it's built in, so the page never changes after release (mvp-documentation
+      # design D-g). The link check below still refuses anything left moving.
+      - name: Pin the README to this version
+        env:
+          VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+        run: python3 tools/pin-readme-media.py "${VERSION#v}"
       - run: poetry build
-      # mvp-documentation's README pin step (its task 13.3) goes before this check once it lands.
       - name: Check the package page has no moving or wrong-version documentation links
         env:
           VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
         run: python3 tools/check-release-links.py --version "${VERSION#v}" dist/*.whl
-      - name: Check the wheel holds no team data and stays under 5 MB
+      - name: Check the wheel holds no team data or media and stays under 5 MB
         run: |
           python - <<'EOF'
           import pathlib, zipfile
           (wheel,) = pathlib.Path("dist").glob("*.whl")
           names = zipfile.ZipFile(wheel).namelist()
           bad = [n for n in names if "/robots/" in n or n.endswith((".wpilog", ".hoot"))]
+          media = [n for n in names if n.endswith((".png", ".gif", ".webm", ".mp4"))]
+          assert not media, media  # docs media lives on the docs site only
           assert not bad, bad
           assert "flashpoint/defaults/report.toml" in names
           assert "flashpoint/web/static/index.html" in names  # the frontend ships as-is
