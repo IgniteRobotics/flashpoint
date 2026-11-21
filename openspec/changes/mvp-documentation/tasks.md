@@ -66,7 +66,8 @@
 
 ## 3. Versioned deploy (M1; live before `0.3.0rc1`, ~2026-12-07)
 
-- [ ] 3.1 Test first: `tools/docs-version.py` maps a tag and the published versions to (version, move `latest`?, banner). Cases: `v0.3.0` with nothing published gives `0.3`, moves `latest`, no banner; `v0.3.0rc1` gives `0.3`, leaves `latest`, "pre-release" banner; `v0.2.5` with `0.3` published gives `0.2` and leaves `latest`; `v0.3.1` after `v0.3.0` gives `0.3` and moves `latest`; a malformed tag such as `v0.3` fails, naming it. Then write the tool. Verify: the tests pass.
+- [x] 3.1 Test first: `tools/docs-version.py` maps a tag and the published versions to (version, move `latest`?, banner). Cases: `v0.3.0` with nothing published gives `0.3`, moves `latest`, no banner; `v0.3.0rc1` gives `0.3`, leaves `latest`, "pre-release" banner; `v0.2.5` with `0.3` published gives `0.2` and leaves `latest`; `v0.3.1` after `v0.3.0` gives `0.3` and moves `latest`; a malformed tag such as `v0.3` fails, naming it. Then write the tool. Verify: the tests pass.
+  Done 2026-11-20. A pre-release deploy is titled "X.Y (pre-release)" in mike's `versions.json`, so a later final tag counts only final versions when deciding `latest` (a 0.2 patch still moves `latest` while 0.3 is only an rc). Output is `version=`, `latest=`, `banner=`, `title=` lines for `$GITHUB_OUTPUT`; a bad tag exits 2.
 - [ ] 3.2 Write `.github/workflows/docs.yml` (design D-c), using 3.1's tool:
   - `dev` nightly when `development` moved, and on `workflow_dispatch`;
   - `X.Y` on `v*` tags, with `latest` moved only for the highest final release, and the pre-release banner on pre-release tags;
