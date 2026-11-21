@@ -71,7 +71,7 @@ next: import a match's logs with `flashpoint ingest <folder>` (it drafts your ro
 
 | File | What it's for |
 |---|---|
-| `acquire.toml` | Your team number and lake folder; later, robot addresses and backup ([every key](../how-to/auto-import.md#configure-it-acquiretoml)) |
+| `acquire.toml` | Your team number and lake folder; later, robot addresses and backup ([every key](../reference/config/acquire.md)) |
 | `theme.toml` | Your team name and colours ([section 8](#8-team-name-and-colours)) |
 | `report.toml`, `anomaly.toml`, `anomaly-causes.toml` | Replay limits, anomaly thresholds, and the "likely causes" text. The defaults are a good start |
 | `seasons/<year>.toml` | Where each season's NetworkTables entries live |
@@ -121,7 +121,7 @@ To draft by hand instead (a second robot, hoot-only logs, or after `--no-robot-d
 2. In **Setup**, open the **DRAFT ROBOT** tab, pick the log and press **DRAFT FROM THIS LOG**. Every CAN device in its hoots becomes a slot.
 3. Fill in each slot's subsystem and role (or leave them for later), then **SAVE ROBOT**. Saving rebuilds the lake in the background, so logs you imported before the robot file existed get their slots and motor history; reload Replay when it finishes.
 
-The [user guide](../user-guide.md#describe-a-robot) shows a whole robot file, with the optional parts: a battery proxy, sibling groups (motors that do the same job, compared with each other), swap dates, bus names and NetworkTables signals.
+The [robot file reference](../reference/config/robots.md) shows a whole robot file, with the optional parts: a battery proxy, sibling groups (motors that do the same job, compared with each other), swap dates, bus names and NetworkTables signals.
 
 **Your motor list.** `units/units-seed.csv` lists every motor the team owns, including spares on the shelf, by serial number, with a label you write on the motor. Fill it in with Tuner X: [how to fill it in](https://github.com/IgniteRobotics/flashpoint/blob/main/config/units/README.md). Once the CAN inventory logger runs on the robot, Flashpoint keeps track of motors in the robot on its own; the list still covers spares and labels.
 

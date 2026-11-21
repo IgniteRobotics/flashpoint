@@ -32,41 +32,7 @@ Importing from cloud folders (Google Drive, Dropbox, network shares) isn't suppo
 
 ## Configure it: `acquire.toml`
 
-`flashpoint init` writes `acquire.toml` in the config folder (`~/.config/flashpoint/`, `%APPDATA%\flashpoint` on Windows, or the `FLASHPOINT_CONFIG` folder) with your team number and lake. The robot addresses come from the team number. Without a team number or `hosts`, acquire refuses to start and names `flashpoint init`. Unknown keys are an error, so typos are caught. Every key:
-
-```toml
-team = 6829
-lake = "/home/pit/flashpoint-lake"
-hosts = []
-user = "lvuser"
-password = ""
-roots = ["/home/lvuser/logs", "/u/logs"]
-poll_s = 30
-settle_s = 5
-low_space_mb = 100
-removable_media = true
-
-[backup]
-remote = "gdrive:flashpoint"
-interval_min = 15
-overdue_h = 24
-```
-
-| Key | Default | What it does |
-|---|---|---|
-| `team` | none | Your team number. Acquire tries `10.TE.AM.2` (team 6829: `10.68.29.2`, team 254: `10.2.54.2`), then `roborio-TEAM-frc.local`, then the USB tether `172.22.11.2` |
-| `lake` | `~/flashpoint-lake` | The lake folder for every command. `--lake` and `FLASHPOINT_LAKE` override it |
-| `hosts` | `[]` (use the team's addresses) | Robot addresses to try instead, in order |
-| `user` | `lvuser` | SSH user on the roboRIO |
-| `password` | `""` (none) | SSH password, if the rio has one |
-| `roots` | `/home/lvuser/logs`, `/u/logs` | Log folders on the robot: internal storage, and the robot's USB stick |
-| `poll_s` | `30` | Seconds between cycles in `--watch` |
-| `settle_s` | `5` | Seconds to wait and re-check a file's size before copying it, so half-written files are skipped |
-| `low_space_mb` | `100` | Warn when a robot log folder has less than this much free space |
-| `removable_media` | `true` | Scan USB drives plugged into this computer. `--no-usb` turns it off for one run |
-| `backup.remote` | none (no backup) | rclone remote and path to back up to, e.g. `gdrive:flashpoint` |
-| `backup.interval_min` | `15` | Minutes between backups in `--watch` |
-| `backup.overdue_h` | `24` | Hours logs or configuration may wait for a backup before the backup check reports a problem (at least 1) |
+`flashpoint init` writes `acquire.toml` in the config folder (`~/.config/flashpoint/`, `%APPDATA%\flashpoint` on Windows, or the `FLASHPOINT_CONFIG` folder) with your team number and lake. The robot addresses come from the team number. Without a team number or `hosts`, acquire refuses to start and names `flashpoint init`. Unknown keys are an error, so typos are caught. Every key, its default and what it does is in the [`acquire.toml` reference](../reference/config/acquire.md).
 
 To try another robot address for one run, use `--host ADDR`; it replaces `hosts`.
 

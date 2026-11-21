@@ -241,124 +241,13 @@ This writes a folder that opens by double-clicking `index.html`, on any computer
 
 ## Team name and colours
 
-The app header shows your team name and number, such as "Robo Rams · 1234", and the app uses your team's colours. Both live in `theme.toml` in your config folder ([default](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/theme.toml)). With no name, the header reads "telemetry".
-
-```toml
-team_name = "Robo Rams"    # optional, at most 40 characters
-# team_number = 1234       # optional, display only; defaults to `team` in acquire.toml
-palette = "custom"         # amber, green, blue, red, white, or "custom"
-
-[custom]                   # only with palette = "custom"
-primary = "#00A3E0"        # #RRGGBB
-# background = "#0A0806"   # optional
-# warning = "#FF5A1F"      # optional; picked for you when left out
-```
-
-- The **palette** is a preset (`amber`, the default, `green`, `blue`, `red` or `white`, all on a dark background) or `custom`. With `custom` you give a primary colour, and optionally a background and a warning colour. Flashpoint works out every other shade from them.
-- `flashpoint init --team-name "Robo Rams" --palette blue` sets the name and a preset when you first set up. For custom colours, use the Setup view or edit the file.
-
-**In the Setup view:** open **Setup**, then **Appearance** under the configuration. Type the name, pick a preset under **COLOURS**, or **custom colours** to enter your own. The preview shows a header, a small chart and a warning in the new colours; the rest of the app keeps the saved colours until you save. Press **SAVE**, then reload the page.
-
-**Readable by rule.** Flashpoint refuses a palette that's hard to read:
-- every text shade needs at least 4.5:1 contrast on every background shade;
-- boundary lines need at least 3:1 on the background;
-- the warning colour needs 4.5:1 too, and must stand apart from the primary: at least 35° apart in hue, or 25% apart in lightness.
-
-When a palette fails, the preview lists each failing colour and its contrast, and suggests the nearest primary (or warning) that passes. With custom colours, a **USE** button puts the suggestion in for you. A refused palette can't be saved, and `theme.toml` stays as it was.
-
-If you edit `theme.toml` by hand and it has a mistake, the app still starts, with the default amber and no name, and `flashpoint doctor` shows a `PROBLEM` on `theme.toml` with the reason. [Setting up Flashpoint for your team](tutorials/team-setup.md#8-team-name-and-colours) walks through this for a new team.
+The app header shows your team name and number, and the app uses your team's colours. Both live in `theme.toml`: see [Set the team name and colours](how-to/team-name-and-colours.md) and the [`theme.toml` reference](reference/config/theme.md).
 
 ## Describe a robot
 
-Flashpoint needs to know which motor is which. Each robot has a file in the `robots/` folder of your config folder, such as Ignite's [`2026-comp.toml`](https://github.com/IgniteRobotics/flashpoint/blob/main/config/robots/2026-comp.toml). The quickest start is **Draft robot** in the [Setup view](#setup-checks-and-configuration); you can also edit the file by hand. Each motor is a slot:
+Flashpoint needs to know which motor is which. Each robot has a file in the `robots/` folder of your config folder. The quickest start is **Draft robot** in the [Setup view](#setup-checks-and-configuration). Every key, NetworkTables signals, sibling groups, the battery proxy, swap dates and which robot file a log uses are in the [robot file reference](reference/config/robots.md).
 
-```toml
-[[slot]]
-id = "drive-fl"
-bus = "canivore"          # "rio" or "canivore"
-model = "TalonFX"
-can_id = 11
-subsystem = "drivetrain"
-role = "front-left drive"
-gear_ratio = 6.746031746031747
-```
-
-A whole robot file, with most slots left out (the sibling group names three drive slots that aren't shown):
-
-```toml
-robot = "2026-comp"        # keep it the same as the file name: robots/2026-comp.toml
-season = 2026
-project = "Robot-2026"     # the robot code's project name (see below)
-battery_proxy = "gyro"     # optional: a slot id
-
-[[slot]]
-id = "drive-fl"
-bus = "canivore"
-model = "TalonFX"
-can_id = 11
-subsystem = "drivetrain"
-role = "front-left drive"
-swaps = [2026-03-02]       # optional: dates this motor was replaced, for logs with no CAN inventory
-
-[[slot]]
-id = "gyro"
-bus = "canivore"
-model = "Pigeon2"
-can_id = 1
-subsystem = "drivetrain"
-role = "gyro"
-
-[[bus]]                    # optional: the robot code's name for a bus, tied to its hoot bus
-name = "DriveTrain"
-hoot = "canivore"
-
-[[siblings]]               # optional: slots that do the same job, compared with each other
-name = "drive"
-slots = ["drive-fl", "drive-fr", "drive-bl", "drive-br"]
-```
-
-- `bus` is `rio`, `canivore` (any CANivore), or a CANivore's 32-character hex id when the robot has more than one.
-- The **battery proxy** is a low-current device on the main power bus, like the gyro, whose voltage stands in for the battery. A motor is a bad choice: its own wiring drop under load reads as a brownout.
-- A **sibling group** needs at least two slots, and a slot can be in only one group.
-- **Swap dates** split a slot's history for logs that have no [CAN inventory](robot-side/can-inventory.md). With an inventory, Flashpoint follows serial numbers and doesn't need them.
-
-**Which robot file a log uses.** A log's season is the calendar year it was recorded in. Flashpoint takes the robot files for that season. If there's only one, that's the one. If there are several (a practice bot and a comp bot), it picks the one whose `project` matches the project name the robot code wrote into the log ([build info](robot-side/build-info.md)). With no match, the log's matches show robot "unknown" and their motors stay unmapped. Logs from December testing of next season's robot count as this season, so give that robot a file for this season too, or wait until January.
-
-### NetworkTables signals
-
-To bring a NetworkTables value (subsystem state, PhotonVision) into Flashpoint, add a `[[signal]]` table to the robot file. `root` names an entry in the season file, `seasons/2026.toml` in your config folder, and `entry` is the rest of the name. The season file that ships with Flashpoint has the roots every WPILib robot shares; add your robot code's own root as `robot` (Ignite's is in [`config/seasons/2026.toml`](https://github.com/IgniteRobotics/flashpoint/blob/main/config/seasons/2026.toml)):
-
-```toml
-[[signal]]
-id = "intake-at-extension-setpoint"
-root = "robot"                      # NT:Robot/m_robotContainer/
-entry = "Intake/At Extension Setpoint"
-subsystem = "intake"
-metric = "at_setpoint"
-```
-
-Numbers are stored as numbers, and true/false as 1/0. A declared entry that a log doesn't have, or that isn't a number, is listed as a warning when `derive` runs; `flashpoint doctor` shows how many signals each robot declares.
-
-After editing a robot file, run:
-
-```sh
-flashpoint derive --all
-```
-
-You don't need to re-ingest.
-
-### Thresholds and the motor list
-
-You probably won't need to change these, but they're all team-editable (in the Setup view or by hand, in your config folder) and checked when Flashpoint loads them. A file missing from your config folder uses the default that ships with Flashpoint:
-
-| File | Controls |
-|---|---|
-| `report.toml` ([default](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/report.toml)) | Replay marker and History limits: temperatures, brownout and sag voltages, CAN gap lengths. Also an optional AdvantageScope path |
-| `anomaly.toml` ([default](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/anomaly.toml)) | Anomaly thresholds. After editing, run `flashpoint detect` |
-| `anomaly-causes.toml` ([default](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/anomaly-causes.toml)) | The "likely causes" text on each anomaly |
-| `theme.toml` ([default](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/theme.toml)) | Team name and colours in the app header and charts. See [Team name and colours](#team-name-and-colours) |
-| `failure-labels.toml` (Ignite's: [config/](https://github.com/IgniteRobotics/flashpoint/blob/main/config/failure-labels.toml)) | Real failures, used by `flashpoint backtest` to check detection. No default |
-| `units/units-seed.csv` ([how to fill it in](https://github.com/IgniteRobotics/flashpoint/blob/main/config/units/README.md)) | The list of every physical motor the team owns, by serial number, with its label |
+The other settings files (`report.toml`, `anomaly.toml`, `anomaly-causes.toml`, `failure-labels.toml`, `seasons/`, `units/units-seed.csv`) each have a page under [Reference: config files](reference/config/robots.md). A file missing from your config folder uses the default that ships with Flashpoint.
 
 ## Starting a new season
 
