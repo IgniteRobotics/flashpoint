@@ -60,6 +60,33 @@ jobs:
       - run: poetry install --no-interaction
       - run: poetry run pytest tests/test_docs.py
 
+  docs-site:
+    # The docs site builds strictly on every change, whatever paths changed (ADR-0019). Media
+    # are placeholders here; the deploy captures the real ones. The strict build doesn't check
+    # images, so check-site does.
+    name: docs-site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: pipx install poetry
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction --only docs --no-root
+      - name: Placeholder media
+        run: poetry run python tools/docs-media.py placeholders
+      - name: Strict build
+        run: poetry run zensical build --strict --clean
+      - name: Every image and video a page shows is in the site
+        run: poetry run python tools/docs-media.py check-site site
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-site
+          path: site/
+          retention-days: 7
+
   lint-test:
     name: lint-test (py${{ matrix.python }})
     needs: changes
@@ -278,7 +305,7 @@ jobs:
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [changes, docs, lint-test, corpus, browser, clean-install]
+    needs: [changes, docs, docs-site, lint-test, corpus, browser, clean-install]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

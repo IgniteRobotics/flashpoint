@@ -316,3 +316,26 @@ def test_release_checklist_names_the_next_patch_release() -> None:
 
 def test_corpus_releases_are_never_latest() -> None:
     assert "--latest=false" in _guide_section("### The golden corpus")
+
+
+# --- the docs-site CI job (spec project-documentation, "Documentation drift checks") --------
+
+
+def test_docs_site_job_builds_strictly_on_every_change() -> None:
+    jobs = yaml.safe_load((REPO / ".github" / "workflows" / "ci.yml").read_text("utf-8"))["jobs"]
+    job = jobs["docs-site"]
+    assert "if" not in job and "needs" not in job, "it runs whatever paths changed"
+    assert "docs-site" in jobs["ci-ok"]["needs"]
+    runs = [step.get("run", "") for step in job["steps"]]
+    order = [
+        next(i for i, run in enumerate(runs) if needle in run)
+        for needle in (
+            "poetry install --no-interaction --only docs",
+            "tools/docs-media.py placeholders",
+            "zensical build --strict",
+            "tools/docs-media.py check-site site",
+        )
+    ]
+    assert order == sorted(order), "install, placeholders, strict build, media check"
+    uploads = [s for s in job["steps"] if s.get("uses", "").startswith("actions/upload-artifact@")]
+    assert uploads and uploads[0]["with"]["path"] == "site/"
