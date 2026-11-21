@@ -267,8 +267,8 @@
 
   Verify: the corpus test and the message check pass.
   Done 2026-11-21 (12.4 and 12.5). `tests/test_docs_troubleshooting.py`: the message check joins adjacent string literals (Python and JS) before searching, so messages split over lines still count. Runtime-composed parts (a quarantine reason, a warning name) are `<placeholders>`, with the values in a table. The corpus tests ingest the empty hoot and E10 plus its truncated copy, and match the printed lines against the quoted messages. Found: the truncated copy is flagged `short-coverage` only next to its session's other hoots (alone it's `unchecked`), so the test ingests it with E10.
-- [ ] 12.6 Write `faq.md`: REV, AdvantageKit, non-Pro hoots, Systemcore/2027, Windows, cost, where data lives, whether it sends data, one lake on several laptops, getting help and build-season support expectations (linking Discussions and issue forms from #79). `mvp-public-release` 10.2 writes the announcement FAQ from this page. Verify: the link check passes.
-- [ ] 12.7 Test first (corpus marker): with owlet cached, patch socket connections so any non-loopback connect raises. Then ingest, derive, report and serve one corpus match, and check that every step succeeds with no outbound attempt. Then write `privacy.md`:
+- [x] 12.6 Write `faq.md`: REV, AdvantageKit, non-Pro hoots, Systemcore/2027, Windows, cost, where data lives, whether it sends data, one lake on several laptops, getting help and build-season support expectations (linking Discussions and issue forms from #79). `mvp-public-release` 10.2 writes the announcement FAQ from this page. Verify: the link check passes.
+- [x] 12.7 Test first (corpus marker): with owlet cached, patch socket connections so any non-loopback connect raises. Then ingest, derive, report and serve one corpus match, and check that every step succeeds with no outbound attempt. Then write `privacy.md`:
   - no telemetry;
   - each outbound connection and when: owlet download, robot SSH and SFTP, rclone backup, Live CAN NetworkTables to the robot (only while the view is open), and docs links (only when clicked);
   - what a log and a lake contain;
@@ -276,6 +276,7 @@
   - the `serve --host` caveat.
 
   Verify: the test passes, and the link check passes.
+  Done 2026-11-21. `tests/test_privacy_offline.py` patches socket connects and DNS lookups: a non-loopback attempt is recorded and refused. A self-test shows the guard catching one. The corpus test then ingests Q7 (derive, detect and Replay data run inside ingest), runs `report`, and fetches the app, the Replay data and two APIs from an in-process server, with no attempt recorded. owlet runs as a subprocess, outside the patch; it converts a local file. The privacy page's connection list comes from a search of the source: owlet's download host, SSH/SFTP, rclone and NetworkTables. There's no Blue Alliance lookup or PyPI check in the code.
 - [ ] 12.8 After #78's outside-team logs are checked (logs due 2026-11-28; fallback "not tested on real logs"), update `support-matrix.toml` with the `outside:<yyyy-mm>` evidence and issue links, and the AdvantageKit and non-Pro rows (text from `mvp-outside-team-logs` 7.3), and the Windows platform row from `mvp-public-release` 8.2 ("supported" or "rough"). Verify: the 12.1 tests pass, and `advantagekit.md` and `pro-and-temperature.md` agree with the matrix.
 
 ## 13. README, Why Flashpoint, home page and metadata (M2 draft, M3 final; 13.3 and 13.6, with 13.1's pin-tool case, by 2026-12-05, before `0.3.0rc1`, because `mvp-public-release` 4.4's link check fails the rc build without them)
