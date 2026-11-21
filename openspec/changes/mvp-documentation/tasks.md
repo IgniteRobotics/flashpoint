@@ -175,7 +175,7 @@
 ## 8. Generated screenshots and animations (M2; final capture in M3)
 
 - [ ] 8.1 [HUMAN] Josh decides design open question 2: publish more 2026 matches as `samples-v1` assets, or capture from corpus-v1 only. If more, add them to the bundle tool's sample-lake list and to `samples-v1` (6.2). Verify: the decision is recorded here.
-- [ ] 8.2 Test first:
+- [x] 8.2 Test first:
   - every view in `web/static/views/*.js` must have a screenshot entry;
   - every entry must have non-empty `alt`, a known `kind` and a `steps` name that the script defines;
   - every image a page references must be a manifest file.
@@ -187,13 +187,14 @@
   - animations: ingest to Replay, History motor pick, anomaly triage, Live CAN dropouts.
 
   Verify: the tests pass.
-- [ ] 8.3 Test first: `docs-media.py capture` with an empty corpus dir exits 2, names the first missing file and `python tools/fetch-corpus.py`, and writes nothing. Then write the corpus check, and the sample-lake build: a temp `FLASHPOINT_CONFIG` copied from `config/` plus a theme, then `ingest` of the sample groups (never the empty hoot or the truncated E10 copy; a unit test asserts the file list), `derive`, `detect` and `report`. Verify: the unit test passes, and a local run builds the lake within the design budget (4 min or less).
-- [ ] 8.4 Test first (browser marker): capture one screenshot entry against a small synthetic lake (`tests/web` builders), with the design D-f fixed context. Check that:
+- [x] 8.3 Test first: `docs-media.py capture` with an empty corpus dir exits 2, names the first missing file and `python tools/fetch-corpus.py`, and writes nothing. Then write the corpus check, and the sample-lake build: a temp `FLASHPOINT_CONFIG` copied from `config/` plus a theme, then `ingest` of the sample groups (never the empty hoot or the truncated E10 copy; a unit test asserts the file list), `derive`, `detect` and `report`. Verify: the unit test passes, and a local run builds the lake within the design budget (4 min or less).
+- [x] 8.4 Test first (browser marker): capture one screenshot entry against a small synthetic lake (`tests/web` builders), with the design D-f fixed context. Check that:
   - the file is written within budget;
   - a console error in the page fails the shot, naming it;
   - a non-loopback request is blocked.
 
   Then write the screenshot capture, with masks, PNG optimisation and the quantise-if-over-budget rule. Verify: `pytest -m browser tests/tools/test_docs_media.py` passes.
+  Done 2026-11-21 (8.2 to 8.4). The manifest has 15 entries: 5 views, 5 tutorial steps, a quarantine shot (its own lake, holding only the empty hoot) and 4 animations. `STEPS` names the flows, and `manifest_problems` refuses an entry whose steps, kind, alt, route or expect is missing. The sample lake builds in 25 s locally. A real capture on corpus-v1 shot all 10 screenshots. First runs found two things: the header's lake path (a local folder name) is now masked on every shot, and the INCOMPLETE badge appears only in the AdvantageScope launch panel, so that troubleshooting entry was corrected and its planned shot dropped. Browser tests: within budget at 2880×1800, a console error fails the shot by name, and an off-loopback request is blocked (the app's CSP blocks it first; the test bypasses CSP to prove the route filter). Pillow and imageio-ffmpeg added to the `docs` group. Locally, Playwright needs `NODE_OPTIONS` cleared.
 - [ ] 8.5 Add the animations: Playwright video to WebM, then the bundled ffmpeg converts it to a GIF (12 fps, 960 px, two-pass palette), with the 20 s and 3 MB checks. Add `reel`, which joins the flows into one video of 60 s or less for #81. Write a browser-marked test that one short flow on the synthetic lake gives a WebM and a GIF within budget. Verify: the test passes.
 - [ ] 8.6 Add the Live CAN entries: start `flashpoint.live.fake_robot --scenario shake` on loopback, and serve with `--robot-host 127.0.0.1`. Verify: a local capture shows dropouts in the Live CAN screenshot and animation.
 - [ ] 8.7 Wire the capture into `docs.yml`, before the build, and add the non-blocking `docs-media` PR job that uploads `build/docs-media/` as an artifact. It runs on PRs touching `src/flashpoint/web/`, the manifest, or `tools/docs-media.py`. Verify: a dispatch `dev` deploy shows real images, every image is within budget, and the whole run takes 20 min or less.
@@ -218,9 +219,10 @@
 
 - [ ] 11.1 Test first: every `how-to/*.md` must have "Before you start", a numbered list, "Check it worked" and a link into `troubleshooting.md`. The how-to set must include the spec's list. Verify: a fixture how-to missing "Check it worked" fails by name. The real-tree test fails until 11.7 (expected).
 - [ ] 11.2 Write `tutorials/first-event.md` with the sample bundle: USB folder, ingest, hottest motor in Replay, History, triage one anomaly, static export. Each step uses its manifest screenshot. Verify: following it on a clean macOS install succeeds as written (record it here), and the link and commands-parse checks pass.
-- [ ] 11.3 Rework `tutorials/team-setup.md` for the new IA. Link the how-tos and references instead of repeating them, and use the #70 install and the #72 init and Draft robot order. Verify: the link and commands-parse checks pass.
-- [ ] 11.4 Write `how-to/set-up-a-robot-file.md` and `how-to/import-from-usb.md`, and rework `how-to/auto-import.md` to the how-to shape: the robot-pull "beta" label (#74), backup linked to 11.5, and the install command from the Install page. Verify: the 11.1 test passes for these three.
-- [ ] 11.5 Write `how-to/back-up-the-lake.md` (with the restore drill), `move-to-another-laptop.md` and `start-a-new-season.md` (with the 2027 steps, from #73). Verify: the 11.1 test passes for these three.
+- [x] 11.3 Rework `tutorials/team-setup.md` for the new IA. Link the how-tos and references instead of repeating them, and use the #70 install and the #72 init and Draft robot order. Verify: the link and commands-parse checks pass.
+- [x] 11.4 Write `how-to/set-up-a-robot-file.md` and `how-to/import-from-usb.md`, and rework `how-to/auto-import.md` to the how-to shape: the robot-pull "beta" label (#74), backup linked to 11.5, and the install command from the Install page. Verify: the 11.1 test passes for these three.
+- [x] 11.5 Write `how-to/back-up-the-lake.md` (with the restore drill), `move-to-another-laptop.md` and `start-a-new-season.md` (with the 2027 steps, from #73). Verify: the 11.1 test passes for these three.
+  Done 2026-11-21 (11.4 and 11.5). The backup, overdue and restore-drill detail moved from `auto-import.md` to `back-up-the-lake.md`. `auto-import.md` keeps the `## Run it in the background` and `## Backup and restore` anchors the app links, and the robot-pull label. Writing them turned up errors on other pages, fixed here: quarantined `unsupported-compliancy` hoots need `flashpoint rebuild --quarantined`, not plain `rebuild` (troubleshooting); `doctor` does show low space, in its acquire status (disk-space page); and with no backup configured the check reads ok, marked optional, not a warning (CLI reference).
 - [ ] 11.6 Write `how-to/replay-on-a-usb-stick.md`, `share-on-the-pit-network.md` and `open-in-advantagescope.md`, and rework `live-can-health.md` (experimental label, examples path from 7.2). Verify: the 11.1 test and the live CAN contract test pass.
 - [ ] 11.7 Write `how-to/triage-an-anomaly.md` (beta), `team-name-and-colours.md`, `share-logs-privately.md` and `update-flashpoint.md`. Verify: the 11.1 test passes for these four.
 - [ ] 11.8 Write `how-to/install-offline.md`. For each OS, collect into one folder Flashpoint and its dependency wheels for the target Python and platform (`uv` or `pip download --only-binary=:all:`), the owlet versions (`doctor` names them), and the offline docs zip. Then install from that folder. Verify: the link and commands-parse checks pass, and 11.9 runs it.

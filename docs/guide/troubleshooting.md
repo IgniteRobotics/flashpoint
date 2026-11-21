@@ -114,7 +114,7 @@ or a line naming the file and its first bad key, such as `robots/2026-comp.toml:
 
 **Why:** a newer Phoenix version writes a hoot format (its "compliancy") this Flashpoint has no owlet for. This happens after a new season's Phoenix release.
 
-**Fix:** update Flashpoint ([Update Flashpoint](how-to/update-flashpoint.md)), then run `flashpoint rebuild`.
+**Fix:** update Flashpoint ([Update Flashpoint](how-to/update-flashpoint.md)), then run `flashpoint rebuild --quarantined` to read the hoots that were set aside.
 
 ### owlet isn't downloaded, or its checksum doesn't match
 
@@ -245,11 +245,11 @@ with the reason:
 
 A file whose conversion keeps failing (`owlet-failed`, `owlet-timeout`) is quarantined after its third try. Quarantined files are listed by `flashpoint doctor`; they're never shown in the app.
 
-**Fix:** usually none: an empty or damaged file has nothing to read. For `unsupported-compliancy`, update Flashpoint and run `flashpoint rebuild`. A later `ingest` skips the file, saying it was quarantined earlier.
+**Fix:** usually none: an empty or damaged file has nothing to read. For `unsupported-compliancy`, update Flashpoint and run `flashpoint rebuild --quarantined`, which tries every quarantined file again. A later `ingest` skips the file, saying it was quarantined earlier.
 
 ### A file was imported as incomplete
 
-**What you see:** ingest imports the file with a warning, `short-coverage` or `incomplete-read`, and Replay marks the match **INCOMPLETE**:
+**What you see:** ingest imports the file with a warning, `short-coverage` or `incomplete-read`; when you open the match in AdvantageScope from Replay, the hoot is listed with an **INCOMPLETE** badge:
 
 **Message:** `WARNING     <file>: <warning>`
 

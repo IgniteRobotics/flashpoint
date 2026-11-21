@@ -14,7 +14,7 @@ The roboRIO's internal storage is small, so use a USB stick: [`SignalLoggerSetup
 ## What Flashpoint does
 
 - It **never deletes logs on the robot**. Clearing space is yours to do, after Flashpoint has copied the files.
-- [Robot pull](../how-to/auto-import.md) reads the free space of each log folder it copies from. When one is below `low_space_mb` (100 MB by default, in [`acquire.toml`](../reference/config/acquire.md)), the automatic import's log says so: `robot <address>: low space on /u/logs: 62 MB free`. It's only in that log for now, so on an event day check the space yourself too.
+- [Robot pull](../how-to/auto-import.md) reads the free space of each log folder it copies from. When one is below `low_space_mb` (100 MB by default, in [`acquire.toml`](../reference/config/acquire.md)), the automatic import's log says so (`robot <address>: low space on /u/logs: 62 MB free`), and `flashpoint doctor` lists it in its acquire status as `low-space <address> /u/logs: <bytes> bytes free`. The app doesn't show it, so on an event day run `doctor` or check the space yourself.
 
 ## Clearing space safely
 

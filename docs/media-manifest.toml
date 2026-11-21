@@ -47,3 +47,100 @@ route = "#view=live"
 steps = "none"
 expect = "nav.tabs a[data-view='live'][aria-current='page']"
 alt = "Live CAN view: CAN devices with dropouts, reboots and faults during a shake test"
+
+# --- the first-event tutorial (task 8.2). Selectors are proven by `capture` (task 8.4). -------
+
+[[shot]]
+id = "tutorial-replay-match"
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "replay-first-match"
+expect = ".match-btn[aria-current='page']"
+alt = "Replay with a match open: its tracks, markers and the match list on the left"
+
+[[shot]]
+id = "tutorial-replay-hottest"
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "replay-hottest-motor"
+expect = "#readout tr"
+alt = "Replay's readout listing each motor's maximum temperature for the match, hottest first"
+
+[[shot]]
+id = "tutorial-history-motor"
+kind = "screenshot"
+view = "history"
+route = "#view=history"
+steps = "history-pick-motor"
+expect = "#unit-matches"
+alt = "History with one motor selected: its line highlighted, and its matches listed"
+
+[[shot]]
+id = "tutorial-anomaly"
+kind = "screenshot"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "anomaly-open-first"
+expect = "#causes"
+alt = "An anomaly opened in the Anomalies view: its evidence, severity and likely causes"
+
+[[shot]]
+id = "tutorial-triage"
+kind = "screenshot"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "anomaly-triage"
+expect = "#causes"
+alt = "The same anomaly after INVESTIGATE: its triage state and the next actions"
+
+# --- troubleshooting -------------------------------------------------------------------------
+
+[[shot]]
+id = "replay-quarantined"
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "none"
+lake = "quarantine"  # a lake holding only the corpus's empty hoot
+expect = "#replay-empty-quarantined"
+alt = "Replay's empty state on a lake whose only file was quarantined, pointing at flashpoint doctor"
+
+# --- animations (WebM for the site, GIF for the README; at most 20 s and 3 MB each) ----------
+
+[[shot]]
+id = "flow-ingest-to-replay"
+kind = "animation"
+view = "replay"
+route = "#view=replay"
+steps = "replay-first-match"
+expect = ".match-btn[aria-current='page']"
+alt = "From the match list to one match in Replay: tracks, markers and the readout"
+
+[[shot]]
+id = "flow-history-motor"
+kind = "animation"
+view = "history"
+route = "#view=history"
+steps = "history-pick-motor"
+expect = "#unit-matches"
+alt = "Picking a motor in History and following it across matches"
+
+[[shot]]
+id = "flow-anomaly-triage"
+kind = "animation"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "anomaly-triage"
+expect = "#causes"
+alt = "Opening an anomaly, reading its evidence, and marking it INVESTIGATE"
+
+[[shot]]
+id = "flow-live-can"
+kind = "animation"
+view = "live"
+route = "#view=live"
+steps = "live-can-shake"
+expect = ".mech"
+alt = "Live CAN during a shake test: devices dropping out as their harness is wiggled"
