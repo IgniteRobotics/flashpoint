@@ -1,0 +1,7 @@
+# Gradle and IDE output (the full WPILib template .gitignore is longer; this is what the build makes)
+.gradle/
+build/
+bin/
+.vscode/
+.idea/
+*.iml

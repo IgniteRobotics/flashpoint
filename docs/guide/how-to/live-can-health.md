@@ -76,7 +76,7 @@ A topic with the wrong type, or a negative count, is ignored and noted on its de
 
 ## Adding it to robot code
 
-[`examples/robot-java/CanHealthPublisher.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/CanHealthPublisher.java) is a suggestion, not a library: copy it into your robot project and adapt it. It's written for Phoenix 6 2026 and WPILib 2026, and CI doesn't compile it, so check it against your Phoenix 6 version.
+[`CanHealthPublisher.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/flashpoint/CanHealthPublisher.java) is a suggestion, not a library: copy it into your robot project and adapt it. It's tested with WPILib 2026.2.1 and Phoenix 6 26.3.0 (the line at the top of the file), so check it against your versions. The sample project's [`Robot.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/Robot.java) wires it up next to the other samples.
 
 ```java
 private final CanHealthPublisher canHealth = new CanHealthPublisher("Robot-2026");
@@ -99,7 +99,7 @@ public void robotPeriodic() {
 - For each device, pass the signal to watch. Pick one updated at **50 Hz or faster** (position or velocity on a motor, position on a CANcoder, yaw on a Pigeon 2): a dropout counts when that signal is older than 2.5 of its own update periods, so a slow signal only catches long dropouts.
 - The sample has `add` for TalonFX, CANcoder and Pigeon 2 only. For another CTRE device (a CANdle, CANrange or TalonFXS), add an `add` overload in your copy, or its slot in your robot file shows MISSING.
 - `periodic()` refreshes every watched signal once per loop with one `BaseStatusSignal.refreshAll` call per bus, keeps the totals, and publishes every 5 loops (100 ms, NetworkTables' own rate). Bus status is read every half second.
-- Use the project name your wpilog metadata uses ([build info](../robot-side/index.md#build-info)), so the view finds your robot file.
+- Use the project name your wpilog metadata uses ([build info](../robot-side/build-info.md)), so the view finds your robot file.
 
 **Check the loop time before a competition.** The sample should cost well under 1 ms per loop for 30 devices, but measure it: watch the loop-time overrun warnings in the Driver Station, or log `Timer.getFPGATimestamp()` around `canHealth.periodic()`. If it costs too much, watch fewer signals or publish less often.
 

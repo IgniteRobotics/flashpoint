@@ -58,7 +58,7 @@ Ubuntu sets up a few traps for a fresh install:
 | `src/flashpoint/meta/`, `src/flashpoint/deploy/` | The meta Parquet snapshots; the systemd and Windows service files |
 | `config/` | Ignite's own configuration: `acquire.toml`, robots, seasons, units, failure labels. A file that isn't here (thresholds in `anomaly.toml`, `report.toml`, `theme.toml`) comes from the bundled defaults in `src/flashpoint/defaults/` |
 | `tools/` | `fetch-corpus.py`, `update-owlet-manifest.py`, `migrate-legacy-config.py` |
-| `examples/robot-java/` | Suggested robot-code samples (not built or compiled in CI) |
+| `examples/robot-java/` | The robot-side samples, as a minimal GradleRIO project (`./gradlew compileJava` with JDK 17; not built in CI) |
 | `tests/` | The test suite, mirroring `src/flashpoint/` |
 
 The code conventions are the [coding standards](#coding-standards) below.

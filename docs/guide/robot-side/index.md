@@ -1,213 +1,66 @@
-# Robot-side logging
+# Robot side: what to log
 
-Flashpoint reads the logs your robot already writes. Two small additions to robot code make it much more useful:
+Flashpoint reads the logs your robot already writes. Most of what it can tell you depends on what robot code logs. The list below is ranked: start at the top, and stop wherever your team runs out of time. The first two rows are what most WPILib and Phoenix 6 robots already do.
 
-| Logger | What Flashpoint gets | Without it |
-|---|---|---|
-| **CAN inventory** | Each motor's factory serial number, so its history follows the physical motor through swaps and rebuilds | History is kept per slot (CAN id), split at the swap dates you declare in the robot file |
-| **CAN bus status** | Bus utilisation and error counts per bus, per match phase, in CAN health | Those columns read "not logged" |
-| **Build info** | The robot code's project name, which picks the robot file when a season has more than one robot (a practice bot and a comp bot) | Works with one robot per season. With two, matches go to robot "unknown" |
+The samples are **Java only** (WPILib and Phoenix 6). C++ and Python teams can log the same entries; the entry names and formats on each page are what Flashpoint reads.
 
-The first two write to the WPILib DataLog (`.wpilog`) under `/Flashpoint/`, the season root named `flashpoint`; build info uses a `MetaData` entry ([below](#build-info)). The samples below are suggestions, not a library: copy them into your robot project and adapt them. Check them against your Phoenix 6 version before an event.
-
-These samples assume `DataLogManager.start()` runs in `robotInit()`, as most WPILib robots already do.
+| # | Add | What Flashpoint gains | Without it | Sample |
+|---|---|---|---|---|
+| 1 | [Phoenix 6 signal logging](signal-logging.md) (hoots), and a check for a hoot after each match | Per-motor current, voltage, velocity and CAN dropouts: Replay's motor tracks, History, and most anomaly findings | No CTRE motor data at all | [`SignalLoggerSetup.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/flashpoint/SignalLoggerSetup.java) |
+| 2 | [The WPILib DataLog](datalog.md), with Driver Station data | Match identity (event and match number), match phases, and the clock that lines hoots up with the match. Hoots need it: a session with hoots but no wpilog gets no motor history | Hoot-only sessions; ingest warns, and motors get no history | [`SignalLoggerSetup.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/flashpoint/SignalLoggerSetup.java) |
+| 3 | [Status-signal rates](signal-rates.md) of 50 Hz for current, voltage, velocity and temperature, set before `optimizeBusUtilization()` | Current spikes and stalls are visible, and timed to 20 ms | After the optimisation, signals you didn't set drop to 4 Hz; Replay notes which slots log current slower than 20 Hz | [`SignalRates.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/flashpoint/SignalRates.java) |
+| 4 | [Phoenix Pro](pro-and-temperature.md) on the motors | Motor temperature in the hoot: thermal tracks, temperature limits and thermal findings | No temperature; everything else still works | (a license, not code) |
+| 5 | [Build info](build-info.md) | The robot code's project name, which picks the robot file when a season has two robots (practice and competition) | With two robots in a season, matches go to robot "unknown" | [`BuildInfo.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/flashpoint/BuildInfo.java) |
+| 6 | [The CAN inventory](can-inventory.md) | Each motor's serial number, so its history follows the physical motor through swaps | History is kept per slot (CAN id), split at the swap dates in your robot file | [`CanInventoryLogger.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/flashpoint/CanInventoryLogger.java) |
+| 7 | [CAN bus status](bus-status.md) | Bus utilisation and error counts per bus, per match phase, in CAN health | Those columns read "not logged" | [`CanBusStatusLogger.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/flashpoint/CanBusStatusLogger.java) |
+| 8 | [Battery voltage and the PDH](battery-and-pdh.md) | Today, nothing: Flashpoint uses a battery proxy. Entry names on that page are planned, not read yet | Nothing lost today; declare a proxy device in your robot file | none yet |
+| 9 | [Free disk space](disk-space.md) on the roboRIO and its USB stick | Logs keep being written all event | A full disk stops hoots, and WPILib deletes old wpilogs to make room | (a pit check, not code) |
 
 To watch CAN dropouts live during shake and drive tests, robot code also publishes running totals over NetworkTables: see [Live CAN health](../how-to/live-can-health.md).
 
-## CAN inventory
+## The sample project
 
-The Phoenix diagnostics server runs inside your deployed robot program (port 1250) and lists every CTRE device with its serial number, the same list Tuner X shows. The logger asks it once, a few seconds after boot, and writes one JSON string to `/Flashpoint/CANInventory`:
+[`examples/robot-java/`](https://github.com/IgniteRobotics/flashpoint/tree/main/examples/robot-java) is a minimal WPILib robot project with every sample in `src/main/java/frc/robot/flashpoint/`. The samples are suggestions, not a library: copy the files you want into your robot project (same package, or change the `package` line) and adapt them. Each file says which WPILib and Phoenix 6 versions it was tested with, on a line at the top. Check them against your versions before an event.
 
-```json
-{"schema": 1, "devices": [
-  {"model": "Talon FX", "bus": "rio", "id": 5, "serial": "6E9415C3394C4853"},
-  {"model": "Talon FX", "bus": "DriveTrain", "id": 11, "serial": "..."}
-]}
-```
-
-- `model`, `bus`, `id` and `serial` are required for each device. Extra fields are kept but unused.
-- If it can't read the list, write `{"schema": 1, "error": "<why>"}` instead; Flashpoint records the error and uses swap dates for that log.
-- Log it again after a hot swap (for example from a dashboard button), and Flashpoint splits the motor's history at that moment.
+[`Robot.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/src/main/java/frc/robot/Robot.java) wires all of them in one place:
 
 ```java
-package frc.robot.flashpoint;
+  @Override
+  public void robotInit() {
+    SignalLoggerSetup.start();
+    BuildInfo.log();
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import edu.wpi.first.util.datalog.StringLogEntry;
-import edu.wpi.first.wpilibj.DataLogManager;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
+    SignalRates.apply(frontLeftDrive, intakeRoller);
 
-/** Logs every CTRE device's serial number to /Flashpoint/CANInventory (Flashpoint schema 1). */
-public final class CanInventoryLogger {
-  private static final URI DEVICES = URI.create("http://localhost:1250/?action=getdevices");
-  private static final ObjectMapper JSON = new ObjectMapper();
-  private static final StringLogEntry ENTRY =
-      new StringLogEntry(DataLogManager.getLog(), "/Flashpoint/CANInventory");
+    CanInventoryLogger.start();
+    canBusStatus = new CanBusStatusLogger("rio", "DriveTrain");
 
-  private CanInventoryLogger() {}
-
-  /** Call once from robotInit(). Runs in the background; never blocks the robot loop. */
-  public static void start() {
-    Thread thread = new Thread(CanInventoryLogger::run, "CanInventoryLogger");
-    thread.setDaemon(true);
-    thread.start();
+    canHealth.add("DriveTrain", frontLeftDrive, frontLeftDrive.getPosition());
+    canHealth.add("DriveTrain", frontLeftEncoder, frontLeftEncoder.getPosition());
+    canHealth.add("DriveTrain", pigeon, pigeon.getYaw());
+    canHealth.add("rio", intakeRoller, intakeRoller.getVelocity());
+    canHealth.addBus("rio");
+    canHealth.addBus("DriveTrain");
   }
-
-  private static void run() {
-    HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
-    String lastError = "no attempt";
-    // Devices take a few seconds to enumerate after boot: retry for about a minute.
-    for (int attempt = 0; attempt < 12; attempt++) {
-      try {
-        Thread.sleep(5000);
-        HttpRequest request = HttpRequest.newBuilder(DEVICES).timeout(Duration.ofSeconds(5)).build();
-        String body = client.send(request, HttpResponse.BodyHandlers.ofString()).body();
-        ArrayNode devices = toInventory(JSON.readTree(body));
-        if (devices.size() > 0) {
-          ObjectNode inventory = JSON.createObjectNode().put("schema", 1);
-          inventory.set("devices", devices);
-          ENTRY.append(JSON.writeValueAsString(inventory));
-          return;
-        }
-        lastError = "the diagnostics server listed no devices";
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return;
-      } catch (Exception e) {
-        lastError = e.toString();
-      }
-    }
-    ENTRY.append(JSON.createObjectNode().put("schema", 1).put("error", lastError).toString());
-  }
-
-  /** The diagnostics server's DeviceArray, as Flashpoint's device list. */
-  private static ArrayNode toInventory(JsonNode response) {
-    ArrayNode out = JSON.createArrayNode();
-    for (JsonNode device : response.path("DeviceArray")) {
-      String serial = device.path("SerialNo").asText("");
-      if (serial.isEmpty()) {
-        continue; // not a device that reports a serial
-      }
-      out.addObject()
-          .put("model", device.path("Model").asText())
-          .put("bus", device.path("CANbus").asText("rio"))
-          .put("id", device.path("ID").asInt())
-          .put("serial", serial)
-          .put("firmware", device.path("CurrentVers").asText(""));
-    }
-    return out;
-  }
-}
 ```
 
-Call `CanInventoryLogger.start();` at the end of `robotInit()`.
+Order matters in two places: `SignalLoggerSetup.start()` goes first, because everything after it writes to the log it starts; and `SignalRates.apply(...)` goes after you configure your motors.
 
-Before you rely on it, open `http://<roboRIO address>:1250/?action=getdevices` in a browser while the robot program runs. Check that the field names match (`DeviceArray`, `Model`, `CANbus`, `ID`, `SerialNo`). The diagnostics server isn't a documented API, and the names can change between Phoenix versions. When the inventory is read, History follows each motor by its serial number (its unit is `ctre:<serial>`) instead of by slot. Without it, motors get legacy units ([how units work](../under-the-hood/how-it-works.md)).
+To check that the project compiles (JDK 17; the first run needs network access, or the WPILib installer's `~/wpilib/2026/maven`):
 
-## CAN bus status
-
-Phoenix 6 reports each bus's health. The logger writes five values per bus, every half second, under `/Flashpoint/CANBus/<name>/`, where `<name>` is the bus name your robot code uses (`rio`, or the CANivore's name such as `DriveTrain`):
-
-| Entry | Type | Meaning |
-|---|---|---|
-| `Utilization` | double | Fraction of the bus in use, 0 to 1 |
-| `BusOffCount` | integer | Times the bus went off (a running count) |
-| `TxFullCount` | integer | Times the transmit buffer was full (a running count) |
-| `ReceiveErrorCount` | integer | Receive error counter |
-| `TransmitErrorCount` | integer | Transmit error counter |
-
-```java
-package frc.robot.flashpoint;
-
-import com.ctre.phoenix6.CANBus;
-import com.ctre.phoenix6.CANBus.CANBusStatus;
-import edu.wpi.first.util.datalog.DataLog;
-import edu.wpi.first.util.datalog.DoubleLogEntry;
-import edu.wpi.first.util.datalog.IntegerLogEntry;
-import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.Notifier;
-import java.util.List;
-
-/** Logs CAN bus status to /Flashpoint/CANBus/<name>/ every half second. */
-public final class CanBusStatusLogger {
-  private record Bus(
-      CANBus bus,
-      DoubleLogEntry utilization,
-      IntegerLogEntry busOff,
-      IntegerLogEntry txFull,
-      IntegerLogEntry rec,
-      IntegerLogEntry tec) {}
-
-  private final List<Bus> buses;
-  private final Notifier notifier = new Notifier(this::log);
-
-  /** names: the buses as your robot code names them, e.g. "rio" and "DriveTrain". */
-  public CanBusStatusLogger(String... names) {
-    DataLog log = DataLogManager.getLog();
-    buses = java.util.Arrays.stream(names)
-        .map(name -> {
-          String prefix = "/Flashpoint/CANBus/" + name + "/";
-          return new Bus(
-              new CANBus(name),
-              new DoubleLogEntry(log, prefix + "Utilization"),
-              new IntegerLogEntry(log, prefix + "BusOffCount"),
-              new IntegerLogEntry(log, prefix + "TxFullCount"),
-              new IntegerLogEntry(log, prefix + "ReceiveErrorCount"),
-              new IntegerLogEntry(log, prefix + "TransmitErrorCount"));
-        })
-        .toList();
-    notifier.setName("CanBusStatusLogger");
-    notifier.startPeriodic(0.5);
-  }
-
-  private void log() {
-    for (Bus b : buses) {
-      CANBusStatus status = b.bus().getStatus();
-      if (!status.Status.isOK()) {
-        continue; // skip a failed read rather than logging zeros
-      }
-      b.utilization().append(status.BusUtilization);
-      b.busOff().append(status.BusOffCount);
-      b.txFull().append(status.TxFullCount);
-      b.rec().append(status.REC);
-      b.tec().append(status.TEC);
-    }
-  }
-}
+```sh
+cd examples/robot-java
+./gradlew compileJava
 ```
 
-Create it once in `robotInit()`, for example `new CanBusStatusLogger("rio", "DriveTrain");`, and keep a reference so the `Notifier` isn't garbage collected.
+## What Flashpoint doesn't read yet
 
-Then tell Flashpoint about the bus names in your robot file. In the Setup view, the robot's **BUSES** table ties each name to its hoot bus (`rio`, or `canivore`). Then add five `[[signal]]` tables per bus (see [NetworkTables signals](../user-guide.md#networktables-signals)). **Draft robot** doesn't add them for you. Each one uses `root = "flashpoint"`, `entry = "CANBus/<name>/<Entry>"`, `subsystem = "can"`, `component = "<name>"` (the same name as in BUSES), and one `metric` from `utilization`, `bus_off_count`, `tx_full_count`, `receive_error_count` and `transmit_error_count`. CAN health finds them only by those `subsystem`, `component` and `metric` values. Ignite's [`config/robots/2026-comp.toml`](https://github.com/IgniteRobotics/flashpoint/blob/main/config/robots/2026-comp.toml) has a full set for `rio` and `DriveTrain`:
+Some fields the samples log are kept but not used yet:
 
-```toml
-[[signal]]
-id = "can-rio-utilization"
-root = "flashpoint"
-entry = "CANBus/rio/Utilization"
-subsystem = "can"
-component = "rio"
-metric = "utilization"
-```
+- the `firmware` field in the CAN inventory ([#87](https://github.com/IgniteRobotics/flashpoint/issues/87));
+- fault signals in the hoots ([#86](https://github.com/IgniteRobotics/flashpoint/issues/86));
+- battery voltage and total current, whatever their entry names ([#6](https://github.com/IgniteRobotics/flashpoint/issues/6)).
 
-A bus whose status isn't logged reads "not logged" in CAN health, never zero.
+## AdvantageKit
 
-## Build info
-
-Flashpoint reads a string entry named `MetaData` in the wpilog. Each value is one `Key: value` line. It uses `Project Name` to pick the robot file, and also keeps `Git Branch` and `GitDirty`. Ignite writes these from the [gversion](https://github.com/lessthanoptimal/gversion) Gradle plugin's `BuildConstants`, which many WPILib teams already use:
-
-```java
-StringLogEntry meta = new StringLogEntry(DataLogManager.getLog(), "MetaData");
-meta.append("Project Name: " + BuildConstants.MAVEN_NAME);
-meta.append("Git Branch: " + BuildConstants.GIT_BRANCH);
-meta.append("GitDirty: " + (BuildConstants.DIRTY == 1 ? "Uncommitted changes" : "All changes committed"));
-```
-
-Log it once in `robotInit()`, after `DataLogManager.start()`. The project name must equal `project` in the robot file. **Draft robot** in the Setup view fills `project` in from the log.
+AdvantageKit logs are **not tested on real logs** yet. See [AdvantageKit](advantagekit.md) and the [support matrix](../support-matrix.md) for what works today.

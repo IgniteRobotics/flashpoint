@@ -50,7 +50,7 @@ poetry run flashpoint doctor
 - [User guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md): install, import logs, and use Replay, History, Anomalies, and Live CAN.
 - [Team setup](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/tutorials/team-setup.md): set Flashpoint up for a new team, start to finish.
 - [Automatic import](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-to/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
-- [Robot-side logging](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/robot-side/index.md): Java samples for the CAN inventory and bus-status loggers.
+- [Robot-side logging](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/robot-side/index.md): what to log in robot code, with Java samples.
 - [CLI reference](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/reference/cli.md): every `flashpoint` command.
 - [How it works](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
 - [Developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/developer-guide.md): build, test, CI, and how changes are made.

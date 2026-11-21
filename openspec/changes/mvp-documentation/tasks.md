@@ -141,30 +141,34 @@
 
 ## 7. Robot side: "What to log" and samples (M2)
 
-- [ ] 7.1 Test first, with fixtures:
+- [x] 7.1 Test first, with fixtures:
   - every fenced `java` block under `docs/guide/robot-side/` must be a contiguous run of lines in some `examples/robot-java/**/*.java` (trailing whitespace ignored);
   - every `.java` file must carry `Tested with WPILib <v>, Phoenix 6 <v>`.
 
   Verify: the fixture tests pass. The real-tree test fails until 7.3 (expected, because the blocks are still inline).
-- [ ] 7.2 Turn `examples/robot-java/` into a minimal GradleRIO project:
+- [x] 7.2 Turn `examples/robot-java/` into a minimal GradleRIO project:
   - `build.gradle` and `settings.gradle`;
   - the wrapper;
   - `vendordeps/Phoenix6-*.json`;
   - `Main.java` and `Robot.java`.
 
   Move `CanHealthPublisher.java` to `src/main/java/frc/robot/flashpoint/`, and update `how-to/live-can-health.md`, the guide index and any test that names the old path. Verify: `pytest tests/test_docs.py` passes (links).
-- [ ] 7.3 Move `CanInventoryLogger`, `CanBusStatusLogger` and the build-info `MetaData` code out of the old robot-side page into files. Wire all of them in `Robot.robotInit()` as the one-file usage example. Note in the inventory page that the `firmware` field isn't read yet (#9). Verify: the 7.1 tests pass.
-- [ ] 7.4 On a machine with JDK 17 and network access, run `./gradlew compileJava` in `examples/robot-java/` against the versions on the tested-with lines. Verify: it compiles with no errors, and the versions and date are recorded here.
-- [ ] 7.5 Write `SignalLoggerSetup.java` and `SignalRates.java`:
+- [x] 7.3 Move `CanInventoryLogger`, `CanBusStatusLogger` and the build-info `MetaData` code out of the old robot-side page into files. Wire all of them in `Robot.robotInit()` as the one-file usage example. Note in the inventory page that the `firmware` field isn't read yet (#9). Verify: the 7.1 tests pass.
+- [x] 7.4 On a machine with JDK 17 and network access, run `./gradlew compileJava` in `examples/robot-java/` against the versions on the tested-with lines. Verify: it compiles with no errors, and the versions and date are recorded here.
+  Done 2026-11-21 on macOS (Temurin JDK 17.0.18): `./gradlew compileJava` in `examples/robot-java/` builds with no errors or deprecation warnings (`-Xlint:deprecation` is on) against GradleRIO **2026.2.1** and Phoenix 6 **26.3.0**, the latest 2026 releases that day (Gradle plugin portal; CTRE's `Phoenix6-frc2026-latest.json`), and the versions Robot-2026 uses. gversion 1.10.3 writes `BuildConstants` under `build/`, so it's never committed.
+- [x] 7.5 Write `SignalLoggerSetup.java` and `SignalRates.java`:
   - hoot logging on, with where hoots land;
   - `DataLogManager.start()` and `DriverStation.startDataLog(...)`;
   - `BaseStatusSignal.setUpdateFrequencyForAll(50, …)` for current, voltage, velocity and temperature, called before `optimizeBusUtilization()`.
 
   Check each behaviour against the current CTRE and WPILib docs, and put the date checked in a comment. Wire them into `Robot.java`. Verify: 7.4's compile passes again, and the 7.1 tests pass.
-- [ ] 7.6 Write `robot-side/index.md`: the ranked "What to log" table, in the spec's row order. Each row has what to add, what Flashpoint gains, what you lose without it, and the sample file. State "Java only". Verify: the link, Java-block and commands-parse checks pass.
-- [ ] 7.7 Write `robot-side/signal-logging.md`, `datalog.md` and `signal-rates.md`. The signal-rates page covers the optimisation caveat, the rio-bus budget, and Replay's "slower than 20 Hz" note (#7). Verify: the link and Java-block checks pass.
-- [ ] 7.8 Write `robot-side/pro-and-temperature.md` (using #75's wording), `battery-and-pdh.md` (the proxy today, with suggested entry names marked "planned, not read yet", for #6), `disk-space.md` (rio and USB stick space, and checking for a hoot after each match), and `build-info.md`, `can-inventory.md` and `bus-status.md` from the old page. Verify: the link and Java-block checks pass.
-- [ ] 7.9 Test first: a synthetic wpilog (`tests/wpilog_builder.py`) whose `/Flashpoint/CANInventory` holds `{"schema": 1, "error": "…"}`. Ingest and derive it, and check that the error is recorded and that history uses swap dates, as `can-inventory.md` says. Verify: the test passes. If behaviour differs from the page, fix the page.
+  Checked 2026-11-21 against CTRE's signal logging and status signals pages and WPILib's DataLog page (dates in the file comments). Two findings that differ from the design's wording: Phoenix's auto-start keys on the Driver Station connecting or the robot enabling, not on FMS; and CTRE's page names no default hoot folder, so `SignalLoggerSetup` sets it to `DataLogManager.getLogDir()` (the USB stick, else `/home/lvuser/logs`, both of acquire's default `roots`).
+- [x] 7.6 Write `robot-side/index.md`: the ranked "What to log" table, in the spec's row order. Each row has what to add, what Flashpoint gains, what you lose without it, and the sample file. State "Java only". Verify: the link, Java-block and commands-parse checks pass.
+- [x] 7.7 Write `robot-side/signal-logging.md`, `datalog.md` and `signal-rates.md`. The signal-rates page covers the optimisation caveat, the rio-bus budget, and Replay's "slower than 20 Hz" note (#7). Verify: the link and Java-block checks pass.
+- [x] 7.8 Write `robot-side/pro-and-temperature.md` (using #75's wording), `battery-and-pdh.md` (the proxy today, with suggested entry names marked "planned, not read yet", for #6), `disk-space.md` (rio and USB stick space, and checking for a hoot after each match), and `build-info.md`, `can-inventory.md` and `bus-status.md` from the old page. Verify: the link and Java-block checks pass.
+  Done 2026-11-21, ahead of #75: the Pro page states today's behaviour (Replay's "Temperature not logged. The hoots are not Pro-licensed…" note; History reads NO DATA) and names #75's "not logged (needs Phoenix Pro)" as the coming change. Re-check it at 12.8. The firmware note links #87, the issue #9 was split into.
+- [x] 7.9 Test first: a synthetic wpilog (`tests/wpilog_builder.py`) whose `/Flashpoint/CANInventory` holds `{"schema": 1, "error": "…"}`. Ingest and derive it, and check that the error is recorded and that history uses swap dates, as `can-inventory.md` says. Verify: the test passes. If behaviour differs from the page, fix the page.
+  `tests/semantics/test_inventory_error_flow.py`: ingest and derive through the CLI with a fake-converted rio hoot in the same session. The error lands in the ledger's `inventory.error`, and the slot gets `legacy:bot:hood:1` (one swap date before the log). The page needed no change. A valid inventory in the same test fails it (checked by mutation).
 - [ ] 7.10 After #76 merges, write `robot-side/advantagekit.md`: what AdvantageKit logs get (identity per #76), what they don't (full alignment and framing), and "not tested on real logs" until 12.8 says otherwise. Verify: the link check passes, and the page matches the support matrix row.
 - [ ] 7.11 [HUMAN] By 2026-12-12 (the `mvp-public-release` M2 gate), a mentor other than the author reviews the Robot side section and its samples against a real robot project. Verify: the review is recorded on #83, and each finding is fixed or filed.
 

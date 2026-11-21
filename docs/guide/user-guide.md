@@ -320,9 +320,9 @@ slots = ["drive-fl", "drive-fr", "drive-bl", "drive-br"]
 - `bus` is `rio`, `canivore` (any CANivore), or a CANivore's 32-character hex id when the robot has more than one.
 - The **battery proxy** is a low-current device on the main power bus, like the gyro, whose voltage stands in for the battery. A motor is a bad choice: its own wiring drop under load reads as a brownout.
 - A **sibling group** needs at least two slots, and a slot can be in only one group.
-- **Swap dates** split a slot's history for logs that have no [CAN inventory](robot-side/index.md#can-inventory). With an inventory, Flashpoint follows serial numbers and doesn't need them.
+- **Swap dates** split a slot's history for logs that have no [CAN inventory](robot-side/can-inventory.md). With an inventory, Flashpoint follows serial numbers and doesn't need them.
 
-**Which robot file a log uses.** A log's season is the calendar year it was recorded in. Flashpoint takes the robot files for that season. If there's only one, that's the one. If there are several (a practice bot and a comp bot), it picks the one whose `project` matches the project name the robot code wrote into the log ([build info](robot-side/index.md#build-info)). With no match, the log's matches show robot "unknown" and their motors stay unmapped. Logs from December testing of next season's robot count as this season, so give that robot a file for this season too, or wait until January.
+**Which robot file a log uses.** A log's season is the calendar year it was recorded in. Flashpoint takes the robot files for that season. If there's only one, that's the one. If there are several (a practice bot and a comp bot), it picks the one whose `project` matches the project name the robot code wrote into the log ([build info](robot-side/build-info.md)). With no match, the log's matches show robot "unknown" and their motors stay unmapped. Logs from December testing of next season's robot count as this season, so give that robot a file for this season too, or wait until January.
 
 ### NetworkTables signals
 
