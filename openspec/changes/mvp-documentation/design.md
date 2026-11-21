@@ -88,7 +88,7 @@ The repo's `config/` holds Ignite's robot files for these logs.
 
 ## Decisions
 
-### D-a. Generator: Zensical, with pinned MkDocs 1.6.1 + Material 9.7.x as the fallback
+### D-a. Generator: Zensical, with pinned MkDocs 1.6.1 + Material 9.8.x as the fallback
 **Facts checked 2026-11-14 (web; re-check at task 1.1):**
 - Material for MkDocs is in maintenance mode ("no longer receives new features"). Its changelog notice says critical bug fixes and security updates continue through **2027-05-05**; 9.8.0 (2026-10-24, a security release) moved the CLI end-of-life notice to that date, and 9.8.1 shipped 2026-11-07. (An earlier announced date was 2026-11-05.) `ignition-labs` is on 9.7.7.
 - MkDocs 2.0 is incompatible with Material: TOML config, and the plugin and template system replaced.

@@ -77,6 +77,17 @@ The rule for the rewrite: **only build what is Flashpoint-specific**, meaning li
 | **Grafana + DuckDB plugin** | "lets Grafana query local DuckDB files". The plugin is unsigned and needs glibc Linux (MotherDuck, n.d.) | ✅ Lifetime dashboards and alerting, if a server is available |
 | **Static site** (power-tracking) | Already built. Offline Plotly | ✅ Per-match reports at events. Shrink the payload (see [05](05-target-architecture.md)) |
 
+### Docs site
+
+The published, versioned docs site (`mvp-documentation`, [ADR-0019](../adr/0019-docs-site-toolchain.md)) is built from `docs/guide/`. Facts checked 2026-11-20.
+
+| Option | Evidence | Fit |
+|---|---|---|
+| **Zensical** | Material's team's successor. It reads `mkdocs.yml`, and `zensical build --strict` fails on missing pages and anchors. 0.1.3, still beta, no plugin API yet (Zensical, 2026a) | ✅ **Chosen**, pinned exactly in the optional `docs` Poetry group |
+| **mike, Zensical fork** | Every mike command, building with Zensical. Compatibility fixes only, until Zensical has its own versioning. Not on PyPI (Zensical, 2026b) | ✅ Deploys `X.Y`, `latest` and `dev` to `gh-pages`. Pinned to a commit |
+| MkDocs 1.6.1 + Material for MkDocs 9.8 | Material "reaches end of life on May 5, 2027", with critical fixes until then (Donath, 2026). MkDocs 2.0 drops Material's plugin and template system | ⚠️ The fallback, same `mkdocs.yml` (the ADR's feature-subset rule) |
+| Sphinx + Furo + MyST | Every page converted to MyST and toctrees; versioning tools stale | ❌ Second toolchain next to ignition-labs |
+
 ## 4. Anomaly detection and predictive maintenance
 
 | Library | What it gives you | Use for |

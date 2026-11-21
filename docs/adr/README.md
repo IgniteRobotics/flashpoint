@@ -26,6 +26,7 @@ These record the rewrite's key decisions (D1–D11 in [05-target-architecture.md
 | [0016](0016-live-view-robot-connection.md) | Live view: an outbound robot connection from `serve` | Proposed |
 | [0017](0017-config-writes-and-setup-actions.md) | Configuration writes and setup actions | Proposed |
 | [0018](0018-install-uv-primary.md) | Install: `uv tool install` primary, pipx the alternative | Proposed |
+| [0019](0019-docs-site-toolchain.md) | Docs site: Zensical, versioned with the Zensical mike fork | Proposed |
 
 ## Template
 

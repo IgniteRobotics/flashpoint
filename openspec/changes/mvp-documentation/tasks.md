@@ -1,14 +1,26 @@
 ## 1. Toolchain decision (M1; decide by 2026-11-21)
 
-- [ ] 1.1 Cut `feature/82-mvp-documentation` from `development`. Spike the docs toolchain (design D-a), time-boxed to 2 h:
+- [x] 1.1 Cut `feature/82-mvp-documentation` from `development`. Spike the docs toolchain (design D-a), time-boxed to 2 h:
   - Add an optional Poetry group `docs` with Zensical pinned exactly, and its mike fork (a git dependency, not on PyPI) pinned to a commit SHA. Write a minimal `mkdocs.yml` that uses only the D-a feature subset over the current `docs/guide/`.
   - Add one scratch page with a broken link and one with a broken anchor. Check that `zensical build --strict` fails on both and names them, that OS content tabs render, and that search works when served under `/flashpoint/dev/`.
   - Check that the mike fork deploys `0.2`, `0.3`, `latest` and `dev` to a local bare `gh-pages` repo, and that `INHERIT` overlays work for the `dev` banner.
   - Re-check the facts against the live pages: Material's fixes end 2027-05-05 and its latest patch (9.8.1 on 2026-11-14), the Zensical version (0.1.1 on 2026-11-14), and the mike fork's install source.
   - Record each result, with versions and dates, here. Pick Zensical or the pinned MkDocs 1.6.1 + Material 9.8.x fallback by the D-a trigger.
   - Verify: the results are recorded, and the scratch pages are removed.
-- [ ] 1.2 Write `docs/adr/00NN-docs-site-toolchain.md` (the next free number) with the decision, the facts and their dates, the feature-subset rule, the fallback trigger and the rejected options. Add it to `docs/adr/README.md`. Verify: `pytest tests/test_docs.py` passes.
-- [ ] 1.3 Update `docs/rewrite/`:
+
+  **Results (2026-11-20, macOS, Python 3.11, Chromium via Playwright). Decision: Zensical; no fallback trigger fired.**
+  - Facts: Zensical **0.1.3** (PyPI 2026-11-20; 0.1.2 was 2026-11-17; still "Development Status :: 4 - Beta"). Material **9.8.2** (2026-11-19, a security fix in the privacy plugin, which we don't use); its README states end of life **2027-05-05**. The mike fork is `github.com/squidfunk/mike` (a fork, default branch `master`), head `2d4ad799442f4592db8ad53b179bfb33db8c69ac` (2026-04-17), which reports itself as `2.2.0+zensical-0.1.0`. PyPI `mike` is 2.2.0 (upstream, MkDocs only).
+  - `docs` group: `zensical = "0.1.3"` and `mike` as a git dependency at that SHA, `optional = true`; `poetry install --with docs` installs both. The minimal `mkdocs.yml` (repo root, `docs_dir: docs/guide`) uses only the D-a subset and builds with no warnings about unknown keys.
+  - Strict build: a scratch page with a link to a missing page and one with a missing anchor (next to a valid anchor) fail `zensical build --strict` with exit 1, "page does not exist" / "anchor does not exist" and `file:line:col` for each; the valid anchor isn't flagged. The output ends with a Python traceback (`RuntimeError: Aborted because --strict flag is set`), which is noisy but harmless in CI.
+  - Today's guide fails strict with 24 issues, all `../` links to files outside `docs_dir` (`docs/rewrite/`, `docs/adr/`, `notebooks/`, `deploy/`, `config/units/`). Group 2 turns these into `blob/main` URLs (D-b) before the build is a CI gate.
+  - OS tabs (`pymdownx.tabbed`, alternate style): three labelled tabs render; clicking each shows only its own block.
+  - Search under `/flashpoint/dev/` (served with `http.server` from a parent dir): the index (`search.json`) loads, a query finds the page, and the result opens `/flashpoint/dev/#real-heading`.
+  - mike fork against a local bare repo: `deploy --push 0.2`, `0.3`, `--update-aliases 0.3 latest`, `set-default --push latest`, `deploy -F mkdocs.dev.yml dev` all succeed. `gh-pages` holds `0.2/ 0.3/ dev/ latest`(a git symlink, mike's default alias type) `versions.json` and a root redirect. In the browser the root lands on `/flashpoint/latest/`, every version shows the selector listing `dev, 0.3, 0.2`, `latest` shows `0.3`, and canonical URLs are `/flashpoint/<version>/` (mike appends the version, so `site_url` must stay `/flashpoint/`).
+  - mike's deploy runs `zensical build --clean` without `--strict`, so `docs.yml` runs the strict build as its own first step (D-c's order already does).
+  - `INHERIT` overlay: `mkdocs.dev.yml` with `INHERIT: mkdocs.yml` and `extra.dev_banner` merges `extra` (the mike provider survives) and, with a `theme.custom_dir` override of the `announce` block, shows the banner on `dev` only. A template override is not a plugin; it's added to the feature subset in the ADR.
+  - Scratch pages, the scratch site and the overlay test lived outside the repo and are removed; `docs/guide/` is unchanged.
+- [x] 1.2 Write `docs/adr/00NN-docs-site-toolchain.md` (the next free number) with the decision, the facts and their dates, the feature-subset rule, the fallback trigger and the rejected options. Add it to `docs/adr/README.md`. Verify: `pytest tests/test_docs.py` passes.
+- [x] 1.3 Update `docs/rewrite/`:
   - add the docs site and toolchain to `04-ecosystem-and-tools.md`;
   - add the docs tooling (`tools/docs-media.py`, `tools/gen-cli-reference.py`, `tools/gen-support-matrix.py`) to `05-target-architecture.md` §5;
   - the MVP section of `06-roadmap.md` already has a docs line (`mvp-public-release`); change it only if the toolchain decision changes what it says.
