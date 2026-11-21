@@ -176,6 +176,45 @@ def test_relative_links_resolve() -> None:
     assert problems == [], "\n".join(problems)
 
 
+def page_map_problems(pages: dict[str, str], config: Path) -> list[str]:
+    """App docs links (design D-e): each page id's path must be a page in the site nav. A path
+    is its source without `.md`, or a folder with an `index.md`; a moved stub never builds."""
+    settings = yaml.safe_load(config.read_text(encoding="utf-8"))
+    site = config.parent / settings.get("docs_dir", "docs")
+    listed = set(nav_entries(settings.get("nav", [])))
+    problems = []
+    for page_id, path in pages.items():
+        candidates = (f"{path}.md", f"{path}/index.md")
+        source = next(
+            (
+                c
+                for c in candidates
+                if c in listed and (site / c).is_file() and not is_stub(site / c)
+            ),
+            None,
+        )
+        if source is None:
+            stub = (site / f"{path}.md").is_file() and is_stub(site / f"{path}.md")
+            why = "a moved stub" if stub else "not a page in the nav"
+            problems.append(f"{page_id}: {path} is {why}")
+    return problems
+
+
+def test_fixture_page_map_names_stubs_and_missing_pages() -> None:
+    pages = {"other": "how-to/other", "old": "old", "gone": "how-to/gone", "home": "index"}
+    assert page_map_problems(pages, FIXTURES / "site" / "mkdocs.yml") == [
+        "old: old is a moved stub",
+        "gone: how-to/gone is not a page in the nav",
+    ]
+
+
+def test_every_app_docs_link_is_a_page_in_the_nav() -> None:
+    from flashpoint.docs_links import PAGES
+
+    problems = page_map_problems({k: page.path for k, page in PAGES.items()}, MKDOCS)
+    assert problems == [], "\n".join(problems)
+
+
 def test_every_site_page_is_in_the_nav() -> None:
     problems = nav_problems(MKDOCS)
     assert problems == [], "\n".join(problems)

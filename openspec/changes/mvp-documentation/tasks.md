@@ -111,8 +111,10 @@
 
 ## 5. Docs links from the app (M1, with #72)
 
-- [ ] 5.1 Test first (design D-e "App docs links"): until #72 lands, the repo-relative docs paths in `setup/checks.py` and `live-can.js` must name files that exist under `docs/guide/` (stubs count). Once `flashpoint/docs_links.py` exists, every path in its page map must be a page listed in the site navigation (#72's own test checks pages and anchors against the source tree). Use a fixture page map with a stub path. Verify: the fixture fails, naming the page id and path, and the real tree passes.
-- [ ] 5.2 Post the D-d page paths and the version rule (design D-b) on #72, so `mvp-install-and-first-run`'s `docs_links.py` uses them. Verify: the comment is linked here, and after #72 merges, 5.1's second case runs against the real map.
+- [x] 5.1 Test first (design D-e "App docs links"): until #72 lands, the repo-relative docs paths in `setup/checks.py` and `live-can.js` must name files that exist under `docs/guide/` (stubs count). Once `flashpoint/docs_links.py` exists, every path in its page map must be a page listed in the site navigation (#72's own test checks pages and anchors against the source tree). Use a fixture page map with a stub path. Verify: the fixture fails, naming the page id and path, and the real tree passes.
+  Done 2026-11-21. #72 had landed, so only the second case applies: `page_map_problems` checks each `docs_links.PAGES` path is a nav-listed, existing, non-stub page (`<path>.md` or `<path>/index.md`). The fixture names a stub path and a nav entry with no page; the real map passes, and pointing an id at an old path (`auto-import`) is caught as a moved stub.
+- [x] 5.2 Post the D-d page paths and the version rule (design D-b) on #72, so `mvp-install-and-first-run`'s `docs_links.py` uses them. Verify: the comment is linked here, and after #72 merges, 5.1's second case runs against the real map.
+  Moot 2026-11-21: #72's `docs_links.py` merged (#103) before the tree moved, so 2.3 updated its `PAGES` paths in the move commit, and 5.1's check runs against the real map. No comment on #72 was needed.
 
 ## 6. Install, Quickstart and sample logs (M1)
 
