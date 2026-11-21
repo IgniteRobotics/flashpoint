@@ -54,13 +54,15 @@
 - [x] 2.4 Write a minimal `docs/media-manifest.toml`: one screenshot entry for each view, with alt text. Add `tools/docs-media.py placeholders`, which writes a tiny valid PNG, GIF or WebM for each entry into `docs/guide/assets/media/` (gitignored). Write a unit test that the placeholders match the manifest's file names. Verify: the test passes, and the strict build with placeholders passes.
 
   Done 2026-11-20. Placeholders need only the standard library (a 1x1 PNG and GIF, and a 475-byte one-frame VP8 WebM made once with ffmpeg; a frameless WebM doesn't load in Chromium). All three decode in Chromium. The strict build doesn't catch a missing image, so `docs-media.py check-site <site>` does (fails without placeholders, passes with them), and the unit link check requires `assets/media/` links to name manifest files. The five view reference pages show their screenshot with the manifest's alt text.
-- [ ] 2.5 Add the `docs-site` CI job:
+- [x] 2.5 Add the `docs-site` CI job:
   - `poetry install --only docs`;
   - placeholders;
   - strict build;
   - upload the built site as an artifact.
 
   It runs on every PR and push, whatever paths changed, and is added to `ci-ok`'s `needs`. Verify: the job is green on the PR, under 8 min, and a pushed commit with a broken anchor turns it red (then revert).
+
+  Done 2026-11-20 on #106. It also runs `docs-media.py check-site site` after the strict build (2.4). Green in 23 s on 71cc6f0; the broken-anchor commit 574c70e failed it at "Strict build" (run 44859966879), and 3e32ca4 reverts it. Install uses `--only docs --no-root`: the build doesn't need the package.
 
 ## 3. Versioned deploy (M1; live before `0.3.0rc1`, ~2026-12-07)
 
