@@ -394,7 +394,7 @@ DURATION = re.compile(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)")
 
 def ffmpeg() -> str:
     """The ffmpeg that imageio-ffmpeg bundles (docs group), so no system install is needed."""
-    import imageio_ffmpeg  # type: ignore[import-untyped]  # no type hints shipped
+    import imageio_ffmpeg
 
     return str(imageio_ffmpeg.get_ffmpeg_exe())
 

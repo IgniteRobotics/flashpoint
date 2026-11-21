@@ -142,6 +142,11 @@ enable_error_code = ["ignore-without-code"]
 module = ["pyarrow", "pyarrow.*", "numba", "numba.*", "wpiutil", "wpiutil.*", "sklearn", "sklearn.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# The docs group (tools/docs-media.py), optional: not installed where mypy runs in CI.
+module = ["PIL", "PIL.*", "imageio_ffmpeg"]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 # Measured on the unit run with NUMBA_DISABLE_JIT=1 (the reader kernels are invisible when
 # compiled). The CI py3.12 leg sets it; set it yourself to reproduce CI's numbers.
