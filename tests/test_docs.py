@@ -1,6 +1,7 @@
 """Documentation drift checks: relative links resolve, and every CLI subcommand is documented."""
 
 import argparse
+import importlib.util
 import re
 from pathlib import Path
 
@@ -12,9 +13,21 @@ REPO = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "docs"
 GUIDE = REPO / "docs" / "guide"
 MKDOCS = REPO / "mkdocs.yml"
-CLI_REFERENCE = GUIDE / "cli-reference.md"
+CLI_REFERENCE = GUIDE / "reference" / "cli.md"
 # A page that moved keeps a stub at its old path (for 0.2.0's links); its first line is fixed.
 STUB_FIRST_LINE = "# This page moved"
+
+
+def _media_names() -> set[str]:
+    """The files `tools/docs-media.py` writes into `assets/media/` (they're gitignored)."""
+    spec = importlib.util.spec_from_file_location("docs_media", REPO / "tools" / "docs-media.py")
+    assert spec is not None and spec.loader is not None
+    tool = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tool)
+    return set(tool.file_names(tool.load_manifest()))
+
+
+MEDIA_NAMES = _media_names()
 
 LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]*)[^)]*\)")
 UNCLOSED_LINK = re.compile(r"\[[^\]]*\]\([^)]*$")
@@ -38,9 +51,11 @@ def link_problems(path: Path, root: Path, site: Path | None = None) -> list[str]
     """Every broken or malformed link in one Markdown file, as `file:line: message`.
 
     A relative link must name a file that exists; on a page of the docs site (`site`, the
-    source folder) it must also stay inside the site. A link to this repository on GitHub
-    (`blob/main`, `tree/main`) must name a path that exists in the repository.
+    source folder) it must also stay inside the site. Media under the site's `assets/media/` is
+    generated, so a link there must name a file the media manifest produces. A link to this
+    repository on GitHub (`blob/main`, `tree/main`) must name a path that exists in it.
     """
+    media = (site / "assets" / "media").resolve() if site is not None else None
     on_site = site is not None and path.is_relative_to(site) and not is_stub(path)
     problems: list[str] = []
     in_fence = False
@@ -59,7 +74,10 @@ def link_problems(path: Path, root: Path, site: Path | None = None) -> list[str]
             if not target or target.startswith("#") or SCHEME.match(target):
                 continue
             resolved = (path.parent / target.split("#", 1)[0]).resolve()
-            if not resolved.exists():
+            if media is not None and resolved.parent == media:
+                if resolved.name not in MEDIA_NAMES:
+                    problems.append(f"{where}: {target} isn't in docs/media-manifest.toml")
+            elif not resolved.exists():
                 problems.append(f"{where}: broken link {target}")
             elif on_site and site is not None and not resolved.is_relative_to(site.resolve()):
                 problems.append(
@@ -130,6 +148,7 @@ def test_fixture_nested_page_links() -> None:
         "nope.md names a path that doesn't exist",
         "site/how-to/nested.md:6: ../../readme.md leaves the docs site"
         " (link it as https://github.com/IgniteRobotics/flashpoint/blob/main/...)",
+        "site/how-to/nested.md:7: ../assets/media/nope.png isn't in docs/media-manifest.toml",
     ]
 
 
@@ -210,7 +229,7 @@ def test_every_subcommand_is_in_the_cli_reference() -> None:
 
 # --- live-can-health: "Guide matches the contract" ----------------------------------------
 
-LIVE_GUIDE = GUIDE / "live-can-health.md"
+LIVE_GUIDE = GUIDE / "how-to" / "live-can-health.md"
 GUIDE_TYPES = {"integer": "int", "double": "double", "boolean": "boolean", "string": "string"}
 CONTRACT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(\w+)\s*\|")
 
@@ -251,7 +270,7 @@ def test_guide_matches_the_contract() -> None:
 
 # --- release checklist (spec public-release) ------------------------------------------------
 
-DEVELOPER_GUIDE = GUIDE / "developer-guide.md"
+DEVELOPER_GUIDE = GUIDE / "under-the-hood" / "developer-guide.md"
 CHECKLIST_STEPS = (
     ("promote", re.compile(r"`development`.*`main`|promot", re.IGNORECASE)),
     ("TestPyPI dry run", re.compile(r"TestPyPI.*dry run|dry run.*TestPyPI", re.IGNORECASE)),

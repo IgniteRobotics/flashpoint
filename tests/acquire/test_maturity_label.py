@@ -13,7 +13,7 @@ from flashpoint.acquire.config import ROBOT_PULL_LABEL, robot_pull_label
 from flashpoint.cli import _parser
 
 REPO = Path(__file__).resolve().parents[2]
-AUTO_IMPORT = REPO / "docs" / "guide" / "auto-import.md"
+AUTO_IMPORT = REPO / "docs" / "guide" / "how-to" / "auto-import.md"
 
 
 def _acquire() -> argparse.ArgumentParser:

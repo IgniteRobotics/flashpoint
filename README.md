@@ -18,7 +18,7 @@ You see the results in a local web app:
 - **Replay**: one match, with markers for heat, brownouts, stalls, and CAN faults;
 - **History**: every motor across matches, events, and seasons;
 - **Anomalies**: what Flashpoint flagged, with evidence and triage;
-- **[Live CAN](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/live-can-health.md)**: which device dropped out, rebooted, or faulted while you shake-test or drive-test the robot.
+- **[Live CAN](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-to/live-can-health.md)**: which device dropped out, rebooted, or faulted while you shake-test or drive-test the robot.
 
 For a deep dive into a single log, it opens AdvantageScope.
 
@@ -35,7 +35,7 @@ flashpoint serve                   # open http://127.0.0.1:8000/
 
 Then open **Setup** in the app: it checks the install, and drafts your robot's configuration from a log. The [user guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md#install) has the details, including installing without internet.
 
-**From source** (needs [Poetry](https://python-poetry.org/) 2; see the [developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/developer-guide.md)):
+**From source** (needs [Poetry](https://python-poetry.org/) 2; see the [developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/developer-guide.md)):
 
 ```sh
 git clone https://github.com/IgniteRobotics/flashpoint.git
@@ -48,12 +48,12 @@ poetry run flashpoint doctor
 ## Documentation
 
 - [User guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md): install, import logs, and use Replay, History, Anomalies, and Live CAN.
-- [Team setup](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/team-setup.md): set Flashpoint up for a new team, start to finish.
-- [Automatic import](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
-- [Robot-side logging](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/robot-side.md): Java samples for the CAN inventory and bus-status loggers.
-- [CLI reference](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/cli-reference.md): every `flashpoint` command.
-- [How it works](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
-- [Developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/developer-guide.md): build, test, CI, and how changes are made.
+- [Team setup](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/tutorials/team-setup.md): set Flashpoint up for a new team, start to finish.
+- [Automatic import](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-to/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
+- [Robot-side logging](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/robot-side/index.md): Java samples for the CAN inventory and bus-status loggers.
+- [CLI reference](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/reference/cli.md): every `flashpoint` command.
+- [How it works](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
+- [Developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/developer-guide.md): build, test, CI, and how changes are made.
 
 **Getting help:** ask questions in [Q&A discussions](https://github.com/IgniteRobotics/flashpoint/discussions/categories/q-a), and report bugs with the [issue forms](https://github.com/IgniteRobotics/flashpoint/issues/new/choose). Don't attach match logs to a public issue.
 

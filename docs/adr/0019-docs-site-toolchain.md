@@ -38,6 +38,7 @@ The 2026-11-20 spike checked all four on Zensical 0.1.3 and the fork at the comm
 - The docs group is optional: `poetry install` without `--with docs` doesn't fetch it, so the app's CI and users are unaffected.
 - Today's guide doesn't pass the strict build: 24 links point to files outside `docs_dir` (`docs/rewrite/`, `docs/adr/`, `notebooks/`, `deploy/`, `config/`). They become `https://github.com/IgniteRobotics/flashpoint/blob/main/...` links before the strict build becomes a CI gate (`mvp-documentation` D-b, group 2).
 - Zensical's strict failure ends with a Python traceback after the issue list. It's noise, not a second failure.
+- Zensical's strict build doesn't check images or video: a missing `assets/media/` file builds clean (found 2026-11-20, after the spike). `tools/docs-media.py check-site` runs after the strict build and fails on any image or video a built page shows whose file isn't in the site, and the unit link check requires every `assets/media/` link to name a file the media manifest produces.
 
 ## Alternatives considered
 - **MkDocs 1.6.1 + Material 9.8 + PyPI mike now:** stable and known, but fixes end 2027-05-05, four months after the announce. It's the fallback, not the plan.

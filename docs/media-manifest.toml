@@ -1,0 +1,49 @@
+# Docs screenshots and animations (mvp-documentation design D-f). `tools/docs-media.py capture`
+# makes them from the corpus; `placeholders` writes tiny stand-ins so the site builds without it.
+# A screenshot is <id>.png; an animation is <id>.webm (site) and <id>.gif (README).
+# Output goes to docs/guide/assets/media/ (gitignored); pages link assets/media/<file>.
+
+[[shot]]
+id = "replay"
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "none"
+expect = "nav.tabs a[data-view='replay'][aria-current='page']"
+alt = "Replay view: one match's motor currents, temperatures and battery voltage on a shared timeline"
+
+[[shot]]
+id = "history"
+kind = "screenshot"
+view = "history"
+route = "#view=history"
+steps = "none"
+expect = "nav.tabs a[data-view='history'][aria-current='page']"
+alt = "History view: one motor's temperature and current across every match of the season"
+
+[[shot]]
+id = "anomalies"
+kind = "screenshot"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "none"
+expect = "nav.tabs a[data-view='anomalies'][aria-current='page']"
+alt = "Anomalies view: flagged motors with their evidence and triage state"
+
+[[shot]]
+id = "setup"
+kind = "screenshot"
+view = "setup"
+route = "#view=setup"
+steps = "none"
+expect = "nav.tabs a[data-view='setup'][aria-current='page']"
+alt = "Setup view: install checks and the robot drafted from a log"
+
+[[shot]]
+id = "live-can"
+kind = "screenshot"
+view = "live"
+route = "#view=live"
+steps = "none"
+expect = "nav.tabs a[data-view='live'][aria-current='page']"
+alt = "Live CAN view: CAN devices with dropouts, reboots and faults during a shake test"

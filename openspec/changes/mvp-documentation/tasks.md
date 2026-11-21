@@ -19,6 +19,7 @@
   - mike's deploy runs `zensical build --clean` without `--strict`, so `docs.yml` runs the strict build as its own first step (D-c's order already does).
   - `INHERIT` overlay: `mkdocs.dev.yml` with `INHERIT: mkdocs.yml` and `extra.dev_banner` merges `extra` (the mike provider survives) and, with a `theme.custom_dir` override of the `announce` block, shows the banner on `dev` only. A template override is not a plugin; it's added to the feature subset in the ADR.
   - Scratch pages, the scratch site and the overlay test lived outside the repo and are removed; `docs/guide/` is unchanged.
+  - Missed by the spike, found in 2.4: the strict build does **not** fail on a missing image or video (it builds clean). Not a D-a fallback trigger, but the spec requires it, so `tools/docs-media.py check-site` checks the built site after the strict build (ADR-0019 updated).
 - [x] 1.2 Write `docs/adr/00NN-docs-site-toolchain.md` (the next free number) with the decision, the facts and their dates, the feature-subset rule, the fallback trigger and the rejected options. Add it to `docs/adr/README.md`. Verify: `pytest tests/test_docs.py` passes.
 - [x] 1.3 Update `docs/rewrite/`:
   - add the docs site and toolchain to `04-ecosystem-and-tools.md`;
@@ -33,7 +34,7 @@
   Done 2026-11-20. The stub first line is `# This page moved`. The check also reports a relative link on a site page that leaves `docs/guide/` (D-b: such links break on the site; Zensical's strict build misses non-`.md` targets). The 45 such links in today's guide became `blob/main` (`tree/main` for folders) URLs here, so the real-tree run passes.
 - [x] 2.2 Test first: the navigation check. Parse the `mkdocs.yml` `nav`. Every non-stub page under `docs/guide/` must be listed, and every entry must exist. Use a fixture `mkdocs.yml` with one unlisted page and one missing entry. Verify: the fixture test reports both by name. The real-tree test fails until 2.3 (expected).
   Done 2026-11-20. The check also reports a stub listed in the nav and a stub missing from `exclude_docs` (stubs must not build: `robot-side.md` would collide with `robot-side/index.md`).
-- [ ] 2.3 Create the D-d tree:
+- [x] 2.3 Create the D-d tree:
   - move `team-setup.md` to `tutorials/`, `auto-import.md` and `live-can-health.md` to `how-to/`, `cli-reference.md` to `reference/cli.md`, and `how-it-works.md` and `developer-guide.md` to `under-the-hood/`;
   - leave a "moved" stub at every old path;
   - create empty titled pages for every other D-d page, each with a one-line purpose;
@@ -42,7 +43,17 @@
   - if #72's `flashpoint/docs_links.py` has already merged, update its page-path map in the same commit (design D-b); otherwise post the final paths on #72 (5.2).
 
   Rebase over any guide edits the sibling changes have merged (#70's install text, the Live CAN status paragraph from `mvp-public-release` 5.2). After this lands, nobody else moves guide files. Verify: `pytest tests/test_docs.py` passes, including 2.2, and the strict build passes locally.
-- [ ] 2.4 Write a minimal `docs/media-manifest.toml`: one screenshot entry for each view, with alt text. Add `tools/docs-media.py placeholders`, which writes a tiny valid PNG, GIF or WebM for each entry into `docs/guide/assets/media/` (gitignored). Write a unit test that the placeholders match the manifest's file names. Verify: the test passes, and the strict build with placeholders passes.
+
+  Done 2026-11-20 (branched from `development` after #70 and 5.2 merged). Decisions:
+  - `robot-side.md` moved to `robot-side/index.md` (not in the move list, but D-d's `robot-side/index.md` would build to the same `/robot-side/` URL); its stub stays.
+  - `user-guide.md` stays where it is and is listed under Quickstart until groups 6, 10 and 11 split it; `docs_links.py` still links two of its anchors.
+  - The old `README.md` became `index.md` (the home until 13.5); `README.md` is now the stub index. The nav starts with `Home: index.md`, then the spec's 11 sections in order.
+  - `docs_links.py` had merged (#103), so its `PAGES` paths changed in this commit; 5.2's comment on #72 isn't needed.
+  - Tests changed for the move: the guide path constants in `tests/test_docs.py` and `AUTO_IMPORT` in `tests/acquire/test_maturity_label.py`.
+  - Repo links: `README.md` and `CONTRIBUTING.md` `blob/main` links and `deploy/README.md` relative links point at the new paths.
+- [x] 2.4 Write a minimal `docs/media-manifest.toml`: one screenshot entry for each view, with alt text. Add `tools/docs-media.py placeholders`, which writes a tiny valid PNG, GIF or WebM for each entry into `docs/guide/assets/media/` (gitignored). Write a unit test that the placeholders match the manifest's file names. Verify: the test passes, and the strict build with placeholders passes.
+
+  Done 2026-11-20. Placeholders need only the standard library (a 1x1 PNG and GIF, and a 475-byte one-frame VP8 WebM made once with ffmpeg; a frameless WebM doesn't load in Chromium). All three decode in Chromium. The strict build doesn't catch a missing image, so `docs-media.py check-site <site>` does (fails without placeholders, passes with them), and the unit link check requires `assets/media/` links to name manifest files. The five view reference pages show their screenshot with the manifest's alt text.
 - [ ] 2.5 Add the `docs-site` CI job:
   - `poetry install --only docs`;
   - placeholders;

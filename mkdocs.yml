@@ -4,6 +4,89 @@ repo_url: https://github.com/IgniteRobotics/flashpoint
 docs_dir: docs/guide
 site_dir: site
 
+# The stubs keep 0.2.0's links (PyPI page, `doctor` hints) working on GitHub; they never build.
+exclude_docs: |
+  /README.md
+  /team-setup.md
+  /auto-import.md
+  /live-can-health.md
+  /cli-reference.md
+  /how-it-works.md
+  /developer-guide.md
+  /robot-side.md
+
+# Top-level order: spec project-documentation, "Documentation structure".
+nav:
+  - Home: index.md
+  - Why Flashpoint: why.md
+  - Quickstart:
+      - quickstart.md
+      - demo.md
+      - User guide: user-guide.md
+  - Install:
+      - install/index.md
+      - install/macos.md
+      - install/linux.md
+      - install/windows.md
+  - Tutorials:
+      - tutorials/first-event.md
+      - tutorials/team-setup.md
+  - How-to guides:
+      - how-to/set-up-a-robot-file.md
+      - how-to/import-from-usb.md
+      - how-to/auto-import.md
+      - how-to/back-up-the-lake.md
+      - how-to/move-to-another-laptop.md
+      - how-to/start-a-new-season.md
+      - how-to/replay-on-a-usb-stick.md
+      - how-to/share-on-the-pit-network.md
+      - how-to/live-can-health.md
+      - how-to/triage-an-anomaly.md
+      - how-to/open-in-advantagescope.md
+      - how-to/share-logs-privately.md
+      - how-to/update-flashpoint.md
+      - how-to/install-offline.md
+      - how-to/team-name-and-colours.md
+  - Robot side:
+      - robot-side/index.md
+      - robot-side/signal-logging.md
+      - robot-side/datalog.md
+      - robot-side/signal-rates.md
+      - robot-side/pro-and-temperature.md
+      - robot-side/build-info.md
+      - robot-side/can-inventory.md
+      - robot-side/bus-status.md
+      - robot-side/battery-and-pdh.md
+      - robot-side/disk-space.md
+      - robot-side/advantagekit.md
+  - Reference:
+      - reference/cli.md
+      - Config files:
+          - reference/config/acquire.md
+          - reference/config/theme.md
+          - reference/config/report.md
+          - reference/config/anomaly.md
+          - reference/config/anomaly-causes.md
+          - reference/config/failure-labels.md
+          - reference/config/seasons.md
+          - reference/config/robots.md
+          - reference/config/units.md
+      - Views:
+          - reference/views/replay.md
+          - reference/views/history.md
+          - reference/views/anomalies.md
+          - reference/views/setup.md
+          - reference/views/live-can.md
+      - privacy.md
+  - Support matrix: support-matrix.md
+  - Troubleshooting and FAQ:
+      - troubleshooting.md
+      - faq.md
+  - Under the hood:
+      - under-the-hood/how-it-works.md
+      - under-the-hood/developer-guide.md
+  - Contributing: contributing.md
+
 theme:
   name: material
   features:

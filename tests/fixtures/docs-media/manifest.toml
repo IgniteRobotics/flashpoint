@@ -1,0 +1,17 @@
+[[shot]]
+id = "one"
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "none"
+expect = "#view"
+alt = "A screenshot"
+
+[[shot]]
+id = "flow"
+kind = "animation"
+view = "history"
+route = "#view=history"
+steps = "none"
+expect = "#view"
+alt = "An animation"
