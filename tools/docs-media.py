@@ -219,6 +219,10 @@ SCALE = 2
 CLOCK = "2026-04-12T12:00:00Z"
 SCREENSHOT_BUDGET_KB = 500
 WAIT_MS = 15_000
+LIVE_WAIT_MS = 60_000  # the shake scenario takes a few updates to drop a device
+DROPOUT = ".live-event[data-event='dropout']"
+LIVE_SEED = 6829  # the same dropouts every capture
+LIVE_PERIOD_S = 0.5
 # Always masked: the header's lake path names a folder on the capturing machine.
 ALWAYS_MASK = ("#lake-path",)
 MASK_COLOR = "#0A0806"  # the default amber palette's background, so a mask reads as blank
@@ -276,7 +280,7 @@ STEP_FUNCTIONS: dict[str, Any] = {
     "history-pick-motor": _pick_motor,
     "anomaly-open-first": _open_first_anomaly,
     "anomaly-triage": _triage,
-    "live-can-shake": lambda page: page.wait_for_selector(".mech", timeout=WAIT_MS),
+    "live-can-shake": lambda page: page.wait_for_selector(DROPOUT, timeout=LIVE_WAIT_MS),
 }
 
 
@@ -363,6 +367,7 @@ GIF_BUDGET_KB = 3 * 1024
 WEBM_BUDGET_KB = 2 * 1024
 GIF_FPS = 12
 GIF_WIDTH = 960
+GIF_SMALLER = (10, 800)  # fps and width for a GIF that's over budget at the defaults
 REEL_MAX_S = 60.0
 HOLD_MS = 1500  # keep the end state on screen this long before the recording stops
 DURATION = re.compile(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)")
@@ -389,10 +394,10 @@ def duration_s(video: Path) -> float:
     return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
 
 
-def to_gif(webm: Path, gif: Path) -> Path:
+def to_gif(webm: Path, gif: Path, fps: int = GIF_FPS, width: int = GIF_WIDTH) -> Path:
     """WebM to GIF: two-pass palette, 12 fps, 960 px wide (the README and Chief Delphi copy)."""
     palette = gif.with_suffix(".palette.png")
-    scale = f"fps={GIF_FPS},scale={GIF_WIDTH}:-1:flags=lanczos"
+    scale = f"fps={fps},scale={width}:-1:flags=lanczos"
     steps = (
         ("-i", str(webm), "-vf", f"{scale},palettegen=stats_mode=diff", str(palette)),
         (
@@ -439,7 +444,7 @@ def record(
     try:
         page.goto(f"{base_url}/{shot['route']}")
         STEP_FUNCTIONS[shot["steps"]](page)
-        page.wait_for_selector(shot["expect"], state="visible", timeout=WAIT_MS)
+        page.wait_for_selector(shot["expect"], state="visible", timeout=LIVE_WAIT_MS)
         page.wait_for_timeout(HOLD_MS)
     except Exception as exc:  # Playwright raises its own error types; each names the shot
         page.context.close()
@@ -453,6 +458,8 @@ def record(
     webm = out / f"{name}.webm"
     shutil.move(video.path(), webm)
     gif = to_gif(webm, out / f"{name}.gif")
+    if gif.stat().st_size > GIF_BUDGET_KB * 1024:  # a busy screen: one smaller try, as PNGs get
+        gif = to_gif(webm, gif, *GIF_SMALLER)
     check_animation(name, webm, gif)
     return [webm, gif]
 
@@ -478,6 +485,54 @@ def reel(videos: list[Path], target: Path) -> Path:
     if done.returncode != 0:
         raise ShotError(f"{target.name}: ffmpeg failed: {done.stderr.strip().splitlines()[-1:]}")
     return target
+
+
+def take_live(shots: list[dict[str, Any]], config: Path, out: Path, scratch: Path) -> list[str]:
+    """Live CAN entries: the fake robot's shake scenario on loopback, read by an in-process
+    server, as `serve --robot-host 127.0.0.1` would (design D-f)."""
+    import socket
+    import threading
+
+    from playwright.sync_api import sync_playwright
+
+    from flashpoint.lake.paths import LakePaths
+    from flashpoint.live.fake_robot import run_scenario
+    from flashpoint.live.service import LiveCanService
+    from flashpoint.live.slots import load_resolver
+    from flashpoint.views.queries import HistoryQueries
+    from flashpoint.web.server import FlashpointServer
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    stop = threading.Event()
+    robot = threading.Thread(
+        target=run_scenario, args=("shake", port, LIVE_PERIOD_S, stop, LIVE_SEED), daemon=True
+    )
+    robot.start()
+    live = LiveCanService(["127.0.0.1"], port=port, resolver=load_resolver(config))
+    lake = LakePaths(scratch / "live-lake")
+    server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake), live=live)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    failed: list[str] = []
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            for shot in shots:
+                try:
+                    made = _take(browser, base, shot, out, scratch)
+                    print("made " + ", ".join(p.name for p in made), flush=True)
+                except ShotError as exc:
+                    failed.append(str(exc))
+            browser.close()
+    finally:
+        stop.set()
+        server.shutdown()
+        server.server_close()
+        server.queries.close()
+        robot.join(timeout=5)
+    return failed
 
 
 def _take(browser: Any, base: str, shot: dict[str, Any], out: Path, scratch: Path) -> list[Path]:
@@ -512,8 +567,11 @@ def capture(out: Path, corpus: Path | None, work: Path) -> int:
     shutil.rmtree(triage.parent, ignore_errors=True)
     shutil.copytree(lake, triage)
     lakes = {"sample": lake, "quarantine": quarantine, "triage": triage}
-    shots = [s for s in load_manifest() if s["view"] != "live"]
-    failed = take_media(lakes, shots, out, work / "video")
+    shots = load_manifest()
+    failed = take_media(lakes, [s for s in shots if s["view"] != "live"], out, work / "video")
+    failed += take_live(
+        [s for s in shots if s["view"] == "live"], work / "sample" / "config", out, work / "video"
+    )
     for problem in failed:
         print(problem, file=sys.stderr)
     print(f"{len(shots) - len(failed)} of {len(shots)} entries in {out}")
