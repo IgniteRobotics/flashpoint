@@ -11,19 +11,19 @@ This page takes a new FRC team from nothing to a working Flashpoint, in order. E
 
 ## 1. What Flashpoint is
 
-Flashpoint keeps every log your robot records and tracks the health of each motor over the robot's whole life: temperature, current, stalls, brownouts, and CAN dropouts and reboots. It follows each physical motor by its serial number, so a motor's history goes with it when you move it to another slot or robot, and it flags motors that are drifting away from normal before they cost you a match. You look at the results in a local web app (Replay, History, Anomalies, Setup and Live CAN). Everything runs on one laptop with no internet. The [user guide](user-guide.md#what-flashpoint-is-for) says more about what it is and isn't.
+Flashpoint keeps every log your robot records and tracks the health of each motor over the robot's whole life: temperature, current, stalls, brownouts, and CAN dropouts and reboots. It follows each physical motor by its serial number, so a motor's history goes with it when you move it to another slot or robot, and it flags motors that are drifting away from normal before they cost you a match. You look at the results in a local web app (Replay, History, Anomalies, Setup and Live CAN). Everything runs on one laptop with no internet. The [user guide](../user-guide.md#what-flashpoint-is-for) says more about what it is and isn't.
 
 Flashpoint reads WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.hoot`). Motor health comes from the hoots, so a robot without Phoenix 6 devices gets much less out of it.
 
 ## 2. Prerequisites
 
-- **Operating system:** macOS, Linux or Windows. All three can import, serve and back up. Running automatic import as a background service is set up for Linux and Windows; on macOS you leave it running in a terminal ([details](auto-import.md#macos)).
+- **Operating system:** macOS, Linux or Windows. All three can import, serve and back up. Running automatic import as a background service is set up for Linux and Windows; on macOS you leave it running in a terminal ([details](../how-to/auto-import.md#macos)).
 - **uv**, which installs command-line tools in their own space and brings its own Python (Flashpoint runs on 3.11 to 3.14, not 3.15 yet):
   - macOS: `brew install uv`
   - Windows: `winget install --id=astral-sh.uv -e`
   - Linux and other systems: [uv's installer](https://docs.astral.sh/uv/getting-started/installation/)
 
-  Then open a new terminal. pipx works too if you already use it; see [Install](user-guide.md#install).
+  Then open a new terminal. pipx works too if you already use it; see [Install](../user-guide.md#install).
 - **rclone**, only if you want off-laptop backups ([section 7](#7-backups-and-moving-to-another-laptop)).
 - **AdvantageScope** (comes with WPILib), only if you want the "Open in AdvantageScope" button in Replay.
 
@@ -35,7 +35,7 @@ The package on PyPI is called `flashpoint`:
 uv tool install --python 3.13 flashpoint
 ```
 
-uv downloads Python 3.13 for Flashpoint if the laptop doesn't have it. If `flashpoint` isn't found afterwards, run `uv tool update-shell` and open a new terminal. To use pipx instead, see [Install](user-guide.md#install). If the laptop has no internet at the pit, see [Installing without internet](user-guide.md#installing-without-internet).
+uv downloads Python 3.13 for Flashpoint if the laptop doesn't have it. If `flashpoint` isn't found afterwards, run `uv tool update-shell` and open a new terminal. To use pipx instead, see [Install](../user-guide.md#install). If the laptop has no internet at the pit, see [Installing without internet](../user-guide.md#installing-without-internet).
 
 **Check your version first.** Team names and colours (`--team-name`, `--palette`, `theme.toml` and [section 8](#8-team-name-and-colours)) need Flashpoint 0.2.0 or later. Run `flashpoint --version`. If it says `flashpoint 0.1.0`, run `uv tool upgrade flashpoint` (or `pipx upgrade flashpoint`) first (0.1.0 stops with "unrecognized arguments").
 
@@ -71,7 +71,7 @@ next: import a match's logs with `flashpoint ingest <folder>` (it drafts your ro
 
 | File | What it's for |
 |---|---|
-| `acquire.toml` | Your team number and lake folder; later, robot addresses and backup ([every key](auto-import.md#configure-it-acquiretoml)) |
+| `acquire.toml` | Your team number and lake folder; later, robot addresses and backup ([every key](../how-to/auto-import.md#configure-it-acquiretoml)) |
 | `theme.toml` | Your team name and colours ([section 8](#8-team-name-and-colours)) |
 | `report.toml`, `anomaly.toml`, `anomaly-causes.toml` | Replay limits, anomaly thresholds, and the "likely causes" text. The defaults are a good start |
 | `seasons/<year>.toml` | Where each season's NetworkTables entries live |
@@ -97,7 +97,7 @@ flashpoint doctor
 - `WARN owlet for hoot format ...`: the tool that reads hoots isn't downloaded yet. Your first hoot import downloads it (needs internet).
 - `WARN AdvantageScope`: only if WPILib isn't installed.
 
-`doctor` exits with code 1 while any `PROBLEM` remains. The [user guide](user-guide.md#check-the-setup-flashpoint-doctor) explains each section, and the [CLI reference](cli-reference.md#flashpoint-doctor) lists every check.
+`doctor` exits with code 1 while any `PROBLEM` remains. The [user guide](../user-guide.md#check-the-setup-flashpoint-doctor) explains each section, and the [CLI reference](../reference/cli.md#flashpoint-doctor) lists every check.
 
 ## 4. Robot side
 
@@ -105,12 +105,12 @@ flashpoint doctor
 - `.wpilog` files from WPILib's `DataLogManager` (call `DataLogManager.start()` in `robotInit()`);
 - `.hoot` files from Phoenix 6's signal logger, one per CAN bus.
 
-Three small additions to robot code make it much more useful. [Robot-side logging](robot-side.md) has Java samples for each:
+Three small additions to robot code make it much more useful. [Robot-side logging](../robot-side/index.md) has Java samples for each:
 - **CAN inventory:** every motor's serial number, so history follows the physical motor through swaps;
 - **CAN bus status:** bus use and error counts per bus;
 - **Build info:** the project name, which tells a practice bot's logs from a comp bot's.
 
-To watch CAN dropouts live while you wiggle wires, add the publisher from [Live CAN health](live-can-health.md#adding-it-to-robot-code) too. It's optional.
+To watch CAN dropouts live while you wiggle wires, add the publisher from [Live CAN health](../how-to/live-can-health.md#adding-it-to-robot-code) too. It's optional.
 
 **What Flashpoint needs to know about your robot.** It needs one robot file per robot per season in `robots/` in your config folder, such as `robots/2026-comp.toml`. It lists each motor as a **slot**: its bus, CAN id, model, subsystem and role. Your first import (section 3) drafted it from the hoots. To finish it:
 1. Run `flashpoint serve` and open **Setup**, then **Robots**. Slots marked UNNAMED have no subsystem yet.
@@ -121,11 +121,11 @@ To draft by hand instead (a second robot, hoot-only logs, or after `--no-robot-d
 2. In **Setup**, open the **DRAFT ROBOT** tab, pick the log and press **DRAFT FROM THIS LOG**. Every CAN device in its hoots becomes a slot.
 3. Fill in each slot's subsystem and role (or leave them for later), then **SAVE ROBOT**. Saving rebuilds the lake in the background, so logs you imported before the robot file existed get their slots and motor history; reload Replay when it finishes.
 
-The [user guide](user-guide.md#describe-a-robot) shows a whole robot file, with the optional parts: a battery proxy, sibling groups (motors that do the same job, compared with each other), swap dates, bus names and NetworkTables signals.
+The [user guide](../user-guide.md#describe-a-robot) shows a whole robot file, with the optional parts: a battery proxy, sibling groups (motors that do the same job, compared with each other), swap dates, bus names and NetworkTables signals.
 
 **Your motor list.** `units/units-seed.csv` lists every motor the team owns, including spares on the shelf, by serial number, with a label you write on the motor. Fill it in with Tuner X: [how to fill it in](https://github.com/IgniteRobotics/flashpoint/blob/main/config/units/README.md). Once the CAN inventory logger runs on the robot, Flashpoint keeps track of motors in the robot on its own; the list still covers spares and labels.
 
-**New seasons.** Flashpoint ships season files for 2025, 2026 and 2027 in this version. `init` copies the current season's and earlier ones; later years are read from Flashpoint itself until you copy one to change it. See [Starting a new season](user-guide.md#starting-a-new-season).
+**New seasons.** Flashpoint ships season files for 2025, 2026 and 2027 in this version. `init` copies the current season's and earlier ones; later years are read from Flashpoint itself until you copy one to change it. See [Starting a new season](../user-guide.md#starting-a-new-season).
 
 ## 5. Getting logs in
 
@@ -135,7 +135,7 @@ The [user guide](user-guide.md#describe-a-robot) shows a whole robot file, with 
 flashpoint ingest path/to/logs/
 ```
 
-It takes files or folders, skips files already in the lake, and then works out matches, runs anomaly detection and updates Replay on its own. Do your **first hoot import with internet**, so Flashpoint can download owlet, the CTRE tool that reads hoots. After that it works offline. The [user guide](user-guide.md#import-logs-by-hand) explains the summary it prints (`WARNING`, `QUARANTINED`, `FAILED`).
+It takes files or folders, skips files already in the lake, and then works out matches, runs anomaly detection and updates Replay on its own. Do your **first hoot import with internet**, so Flashpoint can download owlet, the CTRE tool that reads hoots. After that it works offline. The [user guide](../user-guide.md#import-logs-by-hand) explains the summary it prints (`WARNING`, `QUARANTINED`, `FAILED`).
 
 **Automatically.** `flashpoint acquire` pulls new logs from the robot over the network, and from USB sticks plugged into the laptop, then ingests them. It never deletes or changes anything on the robot or the stick. Try it once with the robot on:
 
@@ -149,7 +149,7 @@ That lists what it would copy and changes nothing. When it works, leave the watc
 flashpoint acquire --watch
 ```
 
-[Automatic import](auto-import.md) covers the settings, running it as a service on Linux or Windows ([service files](https://github.com/IgniteRobotics/flashpoint/blob/main/deploy/README.md)), and troubleshooting. The Setup view can install and start the service for you on Linux and Windows.
+[Automatic import](../how-to/auto-import.md) covers the settings, running it as a service on Linux or Windows ([service files](https://github.com/IgniteRobotics/flashpoint/blob/main/deploy/README.md)), and troubleshooting. The Setup view can install and start the service for you on Linux and Windows.
 
 ## 6. Looking at the data
 
@@ -162,9 +162,9 @@ Open <http://127.0.0.1:8000/> in a browser. Stop the server with Ctrl-C. The vie
 - **History:** every motor across matches, events and seasons.
 - **Anomalies:** what Flashpoint flagged, with evidence, severity, likely causes, and triage buttons.
 - **Setup:** the same checks as `doctor`, with buttons to fix known problems, and your whole configuration (team, appearance, robots, thresholds, motors) to edit without opening files.
-- **Live CAN:** CAN dropouts as they happen, while you shake-test or drive-test ([Live CAN health](live-can-health.md)).
+- **Live CAN:** CAN dropouts as they happen, while you shake-test or drive-test ([Live CAN health](../how-to/live-can-health.md)).
 
-Saves and fixes in Setup only work when `serve` runs the normal way, and only from a browser on the same laptop. If you start it with `flashpoint serve --host 0.0.0.0` so others on the network can look, Setup is read-only for everyone, including on the laptop itself. Stop it and run plain `flashpoint serve` to change settings. The [user guide](user-guide.md#look-at-the-data-flashpoint-serve) explains each view, and [How it works](how-it-works.md) explains what's behind them.
+Saves and fixes in Setup only work when `serve` runs the normal way, and only from a browser on the same laptop. If you start it with `flashpoint serve --host 0.0.0.0` so others on the network can look, Setup is read-only for everyone, including on the laptop itself. Stop it and run plain `flashpoint serve` to change settings. The [user guide](../user-guide.md#look-at-the-data-flashpoint-serve) explains each view, and [How it works](../under-the-hood/how-it-works.md) explains what's behind them.
 
 To take Replay to a computer without Flashpoint, export it to a folder:
 
@@ -193,9 +193,9 @@ Import at least one log first ([section 5](#5-getting-logs-in)). On an empty lak
    flashpoint backup
    ```
 
-After that, `flashpoint acquire --watch` backs up every 15 minutes (`interval_min`). A backup holds the raw logs, the lake's metadata (including triage) and your config folder's settings files, robots and motor list. Everything else is rebuilt from the raw logs. Details: [Backup and restore](auto-import.md#backup-and-restore).
+After that, `flashpoint acquire --watch` backs up every 15 minutes (`interval_min`). A backup holds the raw logs, the lake's metadata (including triage) and your config folder's settings files, robots and motor list. Everything else is rebuilt from the raw logs. Details: [Backup and restore](../how-to/auto-import.md#backup-and-restore).
 
-**The overdue check.** The **Backup** check in `doctor` and Setup turns into a problem when a log or a configuration change has waited more than 24 hours (`backup.overdue_h`) for a backup. The **Setup** tab in the header then shows a red **!**, whichever view you have open, until a backup succeeds. It's a warning when no `backup.remote` is set and the lake holds logs. See [When a backup is overdue](auto-import.md#when-a-backup-is-overdue).
+**The overdue check.** The **Backup** check in `doctor` and Setup turns into a problem when a log or a configuration change has waited more than 24 hours (`backup.overdue_h`) for a backup. The **Setup** tab in the header then shows a red **!**, whichever view you have open, until a backup succeeds. It's a warning when no `backup.remote` is set and the lake holds logs. See [When a backup is overdue](../how-to/auto-import.md#when-a-backup-is-overdue).
 
 **Moving to a new laptop.** Restore from the backup instead of copying folders by hand. On the new laptop:
 1. Install Flashpoint ([section 3](#3-install-and-create-your-configuration)), but **don't run `init` yet**: `restore` only brings your configuration back into an empty config folder.
@@ -210,7 +210,7 @@ After that, `flashpoint acquire --watch` backs up every 15 minutes (`interval_mi
 4. Open `acquire.toml` in the config folder and check `lake`: it still names the old laptop's folder. Change it to the new one.
 5. Run `flashpoint doctor`.
 
-Practise this once before you need it, using a scratch folder: the [restore drill](auto-import.md#restore-drill) shows how without touching your real setup.
+Practise this once before you need it, using a scratch folder: the [restore drill](../how-to/auto-import.md#restore-drill) shows how without touching your real setup.
 
 ## 8. Team name and colours
 
@@ -246,15 +246,15 @@ primary = "#00A3E0"
 - [ ] With internet, ingest a few recent logs, including at least one `.hoot`.
 - [ ] Draft your robot file in Setup, fill in each slot, and save. Run `flashpoint derive`, then `flashpoint doctor` again: "Robot for *year*" should be ok.
 - [ ] Walk the robot and the spares shelf with Tuner X, label each motor, and fill in `units/units-seed.csv`.
-- [ ] Add the CAN inventory, bus status and build info loggers to robot code ([robot-side logging](robot-side.md)), deploy, and ingest a new log.
+- [ ] Add the CAN inventory, bus status and build info loggers to robot code ([robot-side logging](../robot-side/index.md)), deploy, and ingest a new log.
 - [ ] Try `flashpoint acquire --dry-run` with the robot on, then leave `flashpoint acquire --watch` running.
-- [ ] Set up `backup.remote`, run `flashpoint backup`, and do the [restore drill](auto-import.md#restore-drill) once.
+- [ ] Set up `backup.remote`, run `flashpoint backup`, and do the [restore drill](../how-to/auto-import.md#restore-drill) once.
 - [ ] Open Replay, History and Anomalies with the students who'll use them at events.
-- [ ] Before your first event, go through the [event-day checklist](user-guide.md#event-day-checklist).
+- [ ] Before your first event, go through the [event-day checklist](../user-guide.md#event-day-checklist).
 
 ## Getting help
 
 - Run `flashpoint doctor` first. Most problems show up there with a fix.
-- Every command has `--help`, and the [CLI reference](cli-reference.md) covers each one.
+- Every command has `--help`, and the [CLI reference](../reference/cli.md) covers each one.
 - Questions, bugs and ideas: open an issue at <https://github.com/IgniteRobotics/flashpoint/issues>. Include the output of `flashpoint doctor` and the Flashpoint version (`flashpoint --version`).
-- To change Flashpoint itself, start with the [developer guide](developer-guide.md).
+- To change Flashpoint itself, start with the [developer guide](../under-the-hood/developer-guide.md).

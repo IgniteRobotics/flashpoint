@@ -1,6 +1,6 @@
 # Developer guide
 
-For people who change Flashpoint's code. Read [How it works](how-it-works.md) first for the pipeline, the lake, and the identity model. To run Flashpoint without changing it, see the [user guide](user-guide.md).
+For people who change Flashpoint's code. Read [How it works](how-it-works.md) first for the pipeline, the lake, and the identity model. To run Flashpoint without changing it, see the [user guide](../user-guide.md).
 
 ## Build and run from source
 
@@ -158,7 +158,7 @@ The default run excludes three markers. Each needs something extra:
 
 `--strict-markers` is on, so a typo in a marker name is an error. Every test has a 300 s timeout. A hang dumps every thread's stack.
 
-The unit suite includes `tests/test_docs.py`. It fails when a relative link in `deploy/README.md` or `docs/guide/` points at a missing file, when the README has any relative link (the README is also the PyPI page, so every link there must be a full `https://github.com/IgniteRobotics/flashpoint/blob/main/...` URL to a file that exists), when a `flashpoint` subcommand has no section in the [CLI reference](cli-reference.md), or when the contract table in [Live CAN health](live-can-health.md) doesn't match the code. If you add a subcommand, document it there.
+The unit suite includes `tests/test_docs.py`. It fails when a relative link in `deploy/README.md` or `docs/guide/` points at a missing file, when the README has any relative link (the README is also the PyPI page, so every link there must be a full `https://github.com/IgniteRobotics/flashpoint/blob/main/...` URL to a file that exists), when a `flashpoint` subcommand has no section in the [CLI reference](../reference/cli.md), or when the contract table in [Live CAN health](../how-to/live-can-health.md) doesn't match the code. If you add a subcommand, document it there.
 
 ### The golden corpus
 

@@ -143,7 +143,7 @@ Run the Flashpoint app in your browser: Replay, History, Anomalies, Setup and Li
 | `--host 0.0.0.0` | Share on the pit network. No password, so only on a network you trust. Nothing can be changed from the app while it runs this way, not even on this laptop: no triage, no Setup saves or fixes, no Appearance changes, no AdvantageScope launch. Default `127.0.0.1` (this machine only) |
 | `--port N` | Default `8000` |
 | `--no-build` | Start without building Replay data first |
-| `--robot-host ADDR` | The robot address for the Live CAN view. Repeat it to try several. Default: the addresses `acquire` uses. The view connects only while it's open ([Live CAN health](live-can-health.md)) |
+| `--robot-host ADDR` | The robot address for the Live CAN view. Repeat it to try several. Default: the addresses `acquire` uses. The view connects only while it's open ([Live CAN health](../how-to/live-can-health.md)) |
 
 ```sh
 flashpoint serve
@@ -154,7 +154,7 @@ Stop it with Ctrl-C.
 
 ## `flashpoint acquire`
 
-Pull new logs from the roboRIO (over SFTP) and from USB drives plugged into this machine, verify each copy, then ingest and derive them. It never deletes or changes anything on the robot or the drive. On the robot, each file's checksum runs at the lowest CPU priority (`nice -n 19`) so robot code keeps the processor. Settings come from `acquire.toml`; see [Automatic import](auto-import.md).
+Pull new logs from the roboRIO (over SFTP) and from USB drives plugged into this machine, verify each copy, then ingest and derive them. It never deletes or changes anything on the robot or the drive. On the robot, each file's checksum runs at the lowest CPU priority (`nice -n 19`) so robot code keeps the processor. Settings come from `acquire.toml`; see [Automatic import](../how-to/auto-import.md).
 
 Pulling from the robot and running acquire as a service (`--watch`) are **beta, tested on one robot**; `--help` says so. Importing from USB drives isn't labelled.
 
@@ -173,7 +173,7 @@ flashpoint acquire --watch
 
 ## `flashpoint backup`
 
-Back up the raw logs, the metadata and your configuration files to the rclone remote set as `backup.remote` in `acquire.toml`, right now. A running `acquire --watch` already does this on its own schedule, and this command exits with code `3` while one is running. See [Automatic import](auto-import.md#backup-and-restore).
+Back up the raw logs, the metadata and your configuration files to the rclone remote set as `backup.remote` in `acquire.toml`, right now. A running `acquire --watch` already does this on its own schedule, and this command exits with code `3` while one is running. See [Automatic import](../how-to/auto-import.md#backup-and-restore).
 
 ```sh
 flashpoint backup
@@ -181,7 +181,7 @@ flashpoint backup
 
 ## `flashpoint restore`
 
-Copy a backup into a new, empty lake. Then run `rebuild` on that lake to regenerate everything else. The backed-up configuration goes into the config folder only if it has no configuration files; otherwise it goes to `restored-config/` in the lake, and the config folder is left as it is. See [Restore drill](auto-import.md#restore-drill).
+Copy a backup into a new, empty lake. Then run `rebuild` on that lake to regenerate everything else. The backed-up configuration goes into the config folder only if it has no configuration files; otherwise it goes to `restored-config/` in the lake, and the config folder is left as it is. See [Restore drill](../how-to/auto-import.md#restore-drill).
 
 | Option | What it does |
 |---|---|
@@ -213,7 +213,7 @@ Then it runs the setup checks, one line each, marked `ok`, `WARN`, `PROBLEM` or 
 | Team | there's no team number and no `hosts` in `acquire.toml`, so acquire can't find the robot |
 | Robot for this season | no robot file is for the current season |
 | Lake | the lake folder can't be written (not created yet is only a warning) |
-| Backup | logs or configuration have waited longer than `backup.overdue_h` (default 24 hours) for a backup (a failed last attempt, or no backup configured, is a warning). See [When a backup is overdue](auto-import.md#when-a-backup-is-overdue) |
+| Backup | logs or configuration have waited longer than `backup.overdue_h` (default 24 hours) for a backup (a failed last attempt, or no backup configured, is a warning). See [When a backup is overdue](../how-to/auto-import.md#when-a-backup-is-overdue) |
 | owlet, per hoot format in the lake | the matching owlet isn't downloaded, or its checksum doesn't match |
 | AdvantageScope | the configured path is wrong (not found at all is a warning) |
 | Acquire service | never a problem: a warning when it isn't installed or running (Linux and Windows), `n/a` on macOS |

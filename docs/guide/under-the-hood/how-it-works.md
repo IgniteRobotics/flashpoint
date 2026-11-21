@@ -19,7 +19,7 @@ flowchart LR
 
 | Step | Command | What it does |
 |---|---|---|
-| Acquire | `flashpoint acquire` | Copies new logs from the robot and USB drives into `inbox/`, checking each copy by size and SHA-256. See [Automatic import](auto-import.md) |
+| Acquire | `flashpoint acquire` | Copies new logs from the robot and USB drives into `inbox/`, checking each copy by size and SHA-256. See [Automatic import](../how-to/auto-import.md) |
 | Ingest | `flashpoint ingest` | Stores each file once in `raw/`, named by its hash. Converts hoots with CTRE's owlet, and reads every record into `bronze/` |
 | Derive | `flashpoint derive` (runs after ingest) | Groups logs into sessions, aligns clocks, identifies the match and the devices, frames the phases, and writes `silver/` and `gold/` |
 | Detect | `flashpoint detect` (runs after derive) | Compares each match against limits, each unit's history, and its siblings, and writes `gold/anomalies/` |
@@ -81,7 +81,7 @@ Every match feature carries the weakest alignment confidence in its session.
 
 ## Slots and units
 
-- A **slot** is a role on a robot: "front-left drive, CAN ID 11, on the rio bus". Slots are declared in the robot's file in the `robots/` folder of your config folder (see the [user guide](user-guide.md)).
+- A **slot** is a role on a robot: "front-left drive, CAN ID 11, on the rio bus". Slots are declared in the robot's file in the `robots/` folder of your config folder (see the [user guide](../user-guide.md)).
 - A **unit** is a physical motor or device, identified by its CTRE serial number (`ctre:<serial>`).
 
 The robot code logs a CAN inventory (`/Flashpoint/CANInventory`) at boot, which tells Flashpoint which unit sits in which slot ([ADR-0011](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0011-device-identity-ctre-serials.md)). So when a motor moves from one slot or robot to another, its history goes with it.

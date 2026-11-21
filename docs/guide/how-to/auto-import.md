@@ -8,7 +8,7 @@
 
 Each new log is ingested, derived, checked for anomalies, and built into Replay within a cycle or two.
 
-This page assumes Flashpoint is installed and `flashpoint doctor` works ([User guide: Install](user-guide.md#install)).
+This page assumes Flashpoint is installed and `flashpoint doctor` works ([User guide: Install](../user-guide.md#install)).
 
 ## What it does
 

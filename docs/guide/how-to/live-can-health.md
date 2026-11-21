@@ -99,13 +99,13 @@ public void robotPeriodic() {
 - For each device, pass the signal to watch. Pick one updated at **50 Hz or faster** (position or velocity on a motor, position on a CANcoder, yaw on a Pigeon 2): a dropout counts when that signal is older than 2.5 of its own update periods, so a slow signal only catches long dropouts.
 - The sample has `add` for TalonFX, CANcoder and Pigeon 2 only. For another CTRE device (a CANdle, CANrange or TalonFXS), add an `add` overload in your copy, or its slot in your robot file shows MISSING.
 - `periodic()` refreshes every watched signal once per loop with one `BaseStatusSignal.refreshAll` call per bus, keeps the totals, and publishes every 5 loops (100 ms, NetworkTables' own rate). Bus status is read every half second.
-- Use the project name your wpilog metadata uses ([build info](robot-side.md#build-info)), so the view finds your robot file.
+- Use the project name your wpilog metadata uses ([build info](../robot-side/index.md#build-info)), so the view finds your robot file.
 
 **Check the loop time before a competition.** The sample should cost well under 1 ms per loop for 30 devices, but measure it: watch the loop-time overrun warnings in the Driver Station, or log `Timer.getFPGATimestamp()` around `canHealth.periodic()`. If it costs too much, watch fewer signals or publish less often.
 
 ## Without a robot: the fake robot
 
-Flashpoint has a fake robot that publishes the contract for Ignite's 2026 robot, for trying the view or working on it. Run it from a Flashpoint checkout ([developer guide](developer-guide.md)); a pipx install can't run it with plain `python`:
+Flashpoint has a fake robot that publishes the contract for Ignite's 2026 robot, for trying the view or working on it. Run it from a Flashpoint checkout ([developer guide](../under-the-hood/developer-guide.md)); a pipx install can't run it with plain `python`:
 
 ```sh
 poetry run python -m flashpoint.live.fake_robot --scenario shake
