@@ -38,11 +38,12 @@ def test_triggers_tags_nightly_and_manual_with_dry_run() -> None:
     assert ".github/workflows/docs.yml" in on["pull_request"]["paths"]  # a dry run on PRs
 
 
-def test_only_the_push_job_can_write() -> None:
+def test_only_the_push_jobs_can_write() -> None:
     assert _workflow()["permissions"] == {"contents": "read"}
     writers = [name for name, job in _jobs().items() if "permissions" in job]
-    assert writers == ["deploy"]
-    assert _jobs()["deploy"]["permissions"] == {"contents": "write"}
+    assert writers == ["deploy", "attach-archive"]
+    for name in writers:
+        assert _jobs()[name]["permissions"] == {"contents": "write"}
 
 
 def test_one_deploy_at_a_time_never_cancelled() -> None:
@@ -83,3 +84,15 @@ def test_plan_uses_the_version_tool_and_forces_a_dry_run_off_development() -> No
     assert "tools/docs-version.py" in runs
     assert "versions.json" in runs
     assert "refs/heads/development" in runs
+
+
+def test_a_tag_attaches_the_offline_archive_to_its_release() -> None:
+    """Spec "Offline copy of the docs": the archive built here (with the real media) goes on the
+    tag's GitHub Release, which release.yml creates after the smoke and PyPI, so it waits."""
+    job = _jobs()["attach-archive"]
+    assert set(job["needs"]) == {"plan", "build", "deploy"}
+    assert "github.event_name == 'push'" in job["if"] and "dry_run" in job["if"]
+    script = "\n".join(str(step.get("run", "")) for step in job["steps"])
+    assert "gh release view" in script
+    assert "gh release upload" in script and "--clobber" in script
+    assert "flashpoint-docs-$VERSION.zip" in script
