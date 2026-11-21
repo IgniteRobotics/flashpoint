@@ -1,0 +1,7 @@
+# A pre-release tag's docs (vX.Y.ZrcN): the base config plus the "pre-release" banner.
+INHERIT: mkdocs.yml
+extra:
+  banner:
+    label: Pre-release
+    text: these pages describe a release candidate, which may change before the final release.
+    link: https://igniterobotics.github.io/flashpoint/latest/

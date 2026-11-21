@@ -1,0 +1,9 @@
+# The offline archive (flashpoint-docs-X.Y.zip): page links end in index.html, so the unpacked
+# folder opens from disk with no server. Search may not work from file://.
+INHERIT: mkdocs.yml
+use_directory_urls: false
+site_dir: offline-site
+theme:
+  font: false  # system fonts: no request to Google Fonts from a pit with no internet
+extra:
+  version: null  # no version selector: there's no versions.json next to an unpacked archive

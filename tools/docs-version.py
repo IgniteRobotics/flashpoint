@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Which docs version a release tag deploys, and whether it moves `latest` (design D-c).
 
-    python tools/docs-version.py TAG [--versions versions.json]
+    python tools/docs-version.py TAG|dev [--versions versions.json]
 
 Prints `version=`, `latest=`, `banner=` and `title=` lines for `$GITHUB_OUTPUT`. A final tag
 `vX.Y.Z` deploys `X.Y` and moves `latest` when `X.Y` is the highest final version published.
 A pre-release tag (`vX.Y.ZaN`, `bN`, `rcN`) deploys `X.Y` with the pre-release banner, titled
-"X.Y (pre-release)" so a later run knows it isn't final, and never moves `latest`.
+"X.Y (pre-release)" so a later run knows it isn't final, and never moves `latest`. `dev`
+(built from `development`) carries the unreleased banner, and holds `latest` until the first
+final release is published (design D-b).
 `--versions` is mike's `versions.json` from `gh-pages` (missing means nothing is published).
 """
 
@@ -20,6 +22,7 @@ from pathlib import Path
 TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)((?:a|b|rc)\d+)?$")
 MINOR = re.compile(r"^(\d+)\.(\d+)$")
 PRE_RELEASE = "pre-release"
+UNRELEASED = "unreleased"
 
 
 @dataclass(frozen=True)
@@ -35,19 +38,26 @@ def _key(version: str) -> tuple[int, int]:
     return int(major), int(minor)
 
 
+def _finals(published: list[dict[str, object]]) -> list[str]:
+    """The published versions that came from a final release tag."""
+    return [
+        str(entry["version"])
+        for entry in published
+        if MINOR.match(str(entry.get("version", "")))
+        and PRE_RELEASE not in str(entry.get("title", ""))
+    ]
+
+
 def for_tag(tag: str, published: list[dict[str, object]]) -> Deploy:
+    finals = _finals(published)
+    if tag == "dev":
+        return Deploy("dev", not finals, UNRELEASED, "dev")
     match = TAG.match(tag)
     if match is None:
         raise ValueError(f"'{tag}' is not a release tag (vX.Y.Z, or vX.Y.Z with aN, bN or rcN)")
     version = f"{match[1]}.{match[2]}"
     if match[4]:
         return Deploy(version, False, PRE_RELEASE, f"{version} ({PRE_RELEASE})")
-    finals = [
-        str(entry["version"])
-        for entry in published
-        if MINOR.match(str(entry.get("version", "")))
-        and PRE_RELEASE not in str(entry.get("title", ""))
-    ]
     highest = max(finals, key=_key, default=None)
     return Deploy(version, highest is None or _key(version) >= _key(highest), "", version)
 

@@ -86,3 +86,14 @@ def test_main_with_no_versions_file_and_a_bad_tag(
     assert "latest=false" in capsys.readouterr().out
     assert tool.main(["v0.4"]) == 2
     assert "'v0.4'" in capsys.readouterr().err
+
+
+def test_dev_holds_latest_until_the_first_final_release() -> None:
+    """Design D-b: until 0.3.0, the site root's `latest` is an alias of `dev`."""
+    tool = _tool()
+    first = tool.for_tag("dev", [])
+    assert (first.version, first.latest, first.banner) == ("dev", True, "unreleased")
+    assert first.title == "dev"
+    only_rc = _published(("dev", "dev"), ("0.3", "0.3 (pre-release)"))
+    assert tool.for_tag("dev", only_rc).latest
+    assert not tool.for_tag("dev", _published(("dev", "dev"), ("0.3", "0.3"))).latest
