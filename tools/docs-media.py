@@ -239,8 +239,17 @@ def _open_first_anomaly(page: Any) -> None:
 
 
 def _triage(page: Any) -> None:
-    _open_first_anomaly(page)
-    page.get_by_role("button", name="INVESTIGATE").click()
+    """INVESTIGATE the first anomaly still new: an earlier entry may have triaged the first."""
+    page.wait_for_selector("#queue button.anom", timeout=WAIT_MS)
+    investigate = page.get_by_role("button", name="INVESTIGATE")
+    for item in page.locator("#queue button.anom").all():
+        item.click()
+        page.wait_for_selector("#causes", timeout=WAIT_MS)
+        if investigate.count():
+            break
+    else:
+        raise ShotError("no anomaly in the queue is still new, so none can be triaged")
+    investigate.click()
     save = page.locator("#triage-save")
     if save.count():
         save.click()
@@ -286,9 +295,8 @@ class Watch:
 
 def open_page(browser: Any, **context: Any) -> tuple[Any, Watch]:
     """A page with the docs' fixed context (design D-f), and its watch."""
-    ctx = browser.new_context(
-        viewport=VIEWPORT, device_scale_factor=SCALE, color_scheme="dark", **context
-    )
+    fixed = {"viewport": VIEWPORT, "device_scale_factor": SCALE, "color_scheme": "dark"}
+    ctx = browser.new_context(**{**fixed, **context})
     page = ctx.new_page()
     page.clock.set_fixed_time(CLOCK)
     watch = Watch()
@@ -347,6 +355,141 @@ def shoot(page: Any, watch: Watch, base_url: str, shot: dict[str, Any], out: Pat
     return target
 
 
+# --- capture: animations and the reel (task 8.5) --------------------------------------------
+
+VIDEO_SIZE = {"width": 1280, "height": 800}
+ANIMATION_MAX_S = 20.0
+GIF_BUDGET_KB = 3 * 1024
+WEBM_BUDGET_KB = 2 * 1024
+GIF_FPS = 12
+GIF_WIDTH = 960
+REEL_MAX_S = 60.0
+HOLD_MS = 1500  # keep the end state on screen this long before the recording stops
+DURATION = re.compile(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)")
+
+
+def ffmpeg() -> str:
+    """The ffmpeg that imageio-ffmpeg bundles (docs group), so no system install is needed."""
+    import imageio_ffmpeg  # type: ignore[import-untyped]  # no type hints shipped
+
+    return str(imageio_ffmpeg.get_ffmpeg_exe())
+
+
+def _ffmpeg(*args: str) -> subprocess.CompletedProcess[str]:
+    command = [ffmpeg(), "-hide_banner", "-y", *args]
+    return subprocess.run(command, check=False, capture_output=True, text=True)  # noqa: S603 - the bundled ffmpeg
+
+
+def duration_s(video: Path) -> float:
+    """A video's length, from ffmpeg's own report of the file."""
+    found = DURATION.search(_ffmpeg("-i", str(video)).stderr)
+    if found is None:
+        raise ShotError(f"{video.name}: ffmpeg reports no duration")
+    hours, minutes, seconds = found.groups()
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+def to_gif(webm: Path, gif: Path) -> Path:
+    """WebM to GIF: two-pass palette, 12 fps, 960 px wide (the README and Chief Delphi copy)."""
+    palette = gif.with_suffix(".palette.png")
+    scale = f"fps={GIF_FPS},scale={GIF_WIDTH}:-1:flags=lanczos"
+    steps = (
+        ("-i", str(webm), "-vf", f"{scale},palettegen=stats_mode=diff", str(palette)),
+        (
+            "-i",
+            str(webm),
+            "-i",
+            str(palette),
+            "-lavfi",
+            f"{scale}[x];[x][1:v]paletteuse=dither=bayer",
+            str(gif),
+        ),
+    )
+    try:
+        for step in steps:
+            done = _ffmpeg(*step)
+            if done.returncode != 0:
+                raise ShotError(
+                    f"{gif.name}: ffmpeg failed: {done.stderr.strip().splitlines()[-1:]}"
+                )
+    finally:
+        palette.unlink(missing_ok=True)
+    return gif
+
+
+def check_animation(name: str, webm: Path, gif: Path) -> None:
+    length = duration_s(webm)
+    if length > ANIMATION_MAX_S:
+        raise ShotError(f"{name}: {length:.1f} s, over {ANIMATION_MAX_S:.0f} s")
+    for path, budget in ((webm, WEBM_BUDGET_KB), (gif, GIF_BUDGET_KB)):
+        size_kb = path.stat().st_size // 1024
+        if size_kb > budget:
+            raise ShotError(f"{name}: {path.name} is {size_kb} KB, over {budget} KB")
+
+
+def record(
+    browser: Any, base_url: str, shot: dict[str, Any], out: Path, scratch: Path
+) -> list[Path]:
+    """Record one animation entry: WebM from Playwright, then a GIF from it."""
+    name = shot["id"]
+    videos = scratch / name
+    page, watch = open_page(
+        browser, record_video_dir=str(videos), record_video_size=VIDEO_SIZE, viewport=VIDEO_SIZE
+    )
+    try:
+        page.goto(f"{base_url}/{shot['route']}")
+        STEP_FUNCTIONS[shot["steps"]](page)
+        page.wait_for_selector(shot["expect"], state="visible", timeout=WAIT_MS)
+        page.wait_for_timeout(HOLD_MS)
+    except Exception as exc:  # Playwright raises its own error types; each names the shot
+        page.context.close()
+        raise ShotError(f"{name}: {shot['expect']!r} never showed ({exc})") from exc
+    video = page.video
+    page.context.close()  # finishes the video file
+    problems = watch.problems(name)
+    if problems:
+        raise ShotError("; ".join(problems))
+    out.mkdir(parents=True, exist_ok=True)
+    webm = out / f"{name}.webm"
+    shutil.move(video.path(), webm)
+    gif = to_gif(webm, out / f"{name}.gif")
+    check_animation(name, webm, gif)
+    return [webm, gif]
+
+
+def reel(videos: list[Path], target: Path) -> Path:
+    """Join the flow recordings into one video for the announcement (#81), 60 s at most."""
+    total = sum(duration_s(v) for v in videos)
+    if total > REEL_MAX_S:
+        raise ShotError(
+            f"{target.name}: the flows add up to {total:.1f} s, over {REEL_MAX_S:.0f} s"
+        )
+    listing = target.with_suffix(".txt")
+    listing.write_text(
+        "".join(f"file '{v.resolve().as_posix()}'\n" for v in videos), encoding="utf-8"
+    )
+    try:
+        done = _ffmpeg(
+            "-f", "concat", "-safe", "0", "-i", str(listing), "-c:v", "libx264",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(target),
+        )  # fmt: skip
+    finally:
+        listing.unlink(missing_ok=True)
+    if done.returncode != 0:
+        raise ShotError(f"{target.name}: ffmpeg failed: {done.stderr.strip().splitlines()[-1:]}")
+    return target
+
+
+def _take(browser: Any, base: str, shot: dict[str, Any], out: Path, scratch: Path) -> list[Path]:
+    if shot["kind"] == "animation":
+        return record(browser, base, shot, out, scratch)
+    page, watch = open_page(browser)
+    try:
+        return [shoot(page, watch, base, shot, out)]
+    finally:
+        page.context.close()
+
+
 def capture(out: Path, corpus: Path | None, work: Path) -> int:
     manifest = corpus_manifest()
     corpus = corpus or default_corpus_dir(manifest)
@@ -364,17 +507,23 @@ def capture(out: Path, corpus: Path | None, work: Path) -> int:
     quarantine = build_sample_lake(
         work / "quarantine", corpus, empty, DOCS_THEME, ok=(0, 1)
     )  # 1: quarantined
-    lakes = {"sample": lake, "quarantine": quarantine}
-    shots = [s for s in load_manifest() if s["kind"] == "screenshot" and s["view"] != "live"]
-    failed = take_screenshots(lakes, shots, out)
+    # Triage is permanent (the ledger only appends), so a second triage entry gets its own copy.
+    triage = work / "triage" / "lake"
+    shutil.rmtree(triage.parent, ignore_errors=True)
+    shutil.copytree(lake, triage)
+    lakes = {"sample": lake, "quarantine": quarantine, "triage": triage}
+    shots = [s for s in load_manifest() if s["view"] != "live"]
+    failed = take_media(lakes, shots, out, work / "video")
     for problem in failed:
         print(problem, file=sys.stderr)
-    print(f"{len(shots) - len(failed)} of {len(shots)} screenshots in {out}")
+    print(f"{len(shots) - len(failed)} of {len(shots)} entries in {out}")
     return 1 if failed else 0
 
 
-def take_screenshots(lakes: dict[str, Path], shots: list[dict[str, Any]], out: Path) -> list[str]:
-    """Serve each lake on loopback and shoot its entries; returns the failures, by entry."""
+def take_media(
+    lakes: dict[str, Path], shots: list[dict[str, Any]], out: Path, scratch: Path
+) -> list[str]:
+    """Serve each lake on loopback and shoot or record its entries; returns the failures."""
     import threading
 
     from playwright.sync_api import sync_playwright
@@ -393,13 +542,11 @@ def take_screenshots(lakes: dict[str, Path], shots: list[dict[str, Any]], out: P
             base = f"http://127.0.0.1:{server.server_address[1]}"
             try:
                 for shot in (s for s in shots if s.get("lake", "sample") == lake_name):
-                    page, watch = open_page(browser)
                     try:
-                        print(f"shot {shoot(page, watch, base, shot, out).name}", flush=True)
+                        made = _take(browser, base, shot, out, scratch)
+                        print("made " + ", ".join(p.name for p in made), flush=True)
                     except ShotError as exc:
                         failed.append(str(exc))
-                    finally:
-                        page.context.close()
             finally:
                 server.shutdown()
                 server.server_close()
@@ -435,7 +582,17 @@ def main(argv: list[str] | None = None) -> int:
     shoot.add_argument("--corpus-dir", type=Path, help="default: the fetch script's corpus folder")
     shoot.add_argument("--work", type=Path, default=REPO / "build" / "docs-media-lake",
                        help="where the sample lake is built")  # fmt: skip
+    joined = commands.add_parser("reel", help="join the captured flows into one video (#81)")
+    joined.add_argument("--out", type=Path, default=OUT, help=f"the capture folder; default: {OUT}")
     args = parser.parse_args(argv)
+    if args.command == "reel":
+        flows = [args.out / f"{s['id']}.webm" for s in load_manifest() if s["kind"] == "animation"]
+        missing = [f.name for f in flows if not f.is_file()]
+        if missing:
+            print(f"not captured yet: {', '.join(missing)}", file=sys.stderr)
+            return 1
+        print(reel(flows, args.out / "reel.mp4"))
+        return 0
     if args.command == "capture":
         return capture(args.out, args.corpus_dir, args.work)
     if args.command == "check-site":

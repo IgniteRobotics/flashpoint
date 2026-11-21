@@ -64,7 +64,7 @@ This version ships a 2027 season file, so `doctor` stays green after January 1. 
 
 ### The first hoot needs internet
 
-Flashpoint converts hoots with CTRE's `owlet`, which it downloads the first time it meets a hoot version and then keeps. A pit laptop that has never read a hoot can't read one offline. Ingest one hoot at home before the event, or [install offline](how-to/install-offline.md) with owlet included. `flashpoint doctor` lists the owlet versions it has.
+Flashpoint converts hoots with CTRE's `owlet`, which it downloads the first time it meets a hoot version and then keeps. A pit laptop that has never read a hoot can't read one offline. Ingest one hoot at home before the event, or [install offline](how-to/install-offline.md) with owlet included. `flashpoint doctor` checks that the owlet for each hoot format in your lake is cached.
 
 ### Hoots without a wpilog
 

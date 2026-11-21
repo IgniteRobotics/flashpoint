@@ -207,7 +207,7 @@ flashpoint acquire --watch
 
 ## `flashpoint backup`
 
-Back up the raw logs, the metadata and your configuration files to the rclone remote set as `backup.remote` in `acquire.toml`, right now. A running `acquire --watch` already does this on its own schedule, and this command exits with code `3` while one is running. See [Automatic import](../how-to/auto-import.md#backup-and-restore).
+Back up the raw logs, the metadata and your configuration files to the rclone remote set as `backup.remote` in `acquire.toml`, right now. A running `acquire --watch` already does this on its own schedule, and this command exits with code `3` while one is running. See [Automatic import](../how-to/back-up-the-lake.md).
 
 <!-- generated:cli:backup -->
 | Option | What it does | Default |

@@ -133,6 +133,7 @@ kind = "animation"
 view = "anomalies"
 route = "#view=anomalies"
 steps = "anomaly-triage"
+lake = "triage"  # a copy of the sample lake: tutorial-triage already triaged its anomaly
 expect = "#causes"
 alt = "Opening an anomaly, reading its evidence, and marking it INVESTIGATE"
 

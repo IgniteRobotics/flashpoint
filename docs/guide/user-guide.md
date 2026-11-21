@@ -59,17 +59,11 @@ If `flashpoint` isn't found after the install, run `uv tool update-shell` and op
 
 ### Updating
 
-```sh
-uv tool upgrade flashpoint
-```
-
-If you installed with pipx, run `pipx upgrade flashpoint` instead. Your config folder and lake are kept either way.
-
-**Switching from pipx to uv** is optional. Run `pipx uninstall flashpoint`, then `uv tool install --python 3.13 flashpoint`. Your config folder and lake aren't touched.
+See [Update Flashpoint](how-to/update-flashpoint.md).
 
 ### Installing without internet
 
-On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `uv tool install --python 3.13 /Volumes/USB/flashpoint-<version>-py3-none-any.whl` (use the file name you downloaded, or `E:\...` on Windows). The install still needs Flashpoint's dependencies and a Python, so do this on a laptop that has installed it once before, or bring their wheels too.
+See [Install without internet](how-to/install-offline.md).
 
 ### Installing from a checkout
 
@@ -172,19 +166,11 @@ Each view has its own reference page, with every control, marker and badge:
 
 ### Showing other people on the pit network
 
-```sh
-flashpoint serve --host 0.0.0.0
-```
-
-Other devices on the same network can then open `http://<this laptop's IP>:8000/`. There's no password, so only do this on a network you trust. Over the network, the app is read-only.
+See [Show the app on the pit network](how-to/share-on-the-pit-network.md). There's no password, and the app is read-only over the network.
 
 ## Take Replay on a USB stick
 
-```sh
-flashpoint report --static /Volumes/USB/flashpoint
-```
-
-This writes a folder that opens by double-clicking `index.html`, on any computer with no install and no network. Only Replay is included; History and Anomalies need `serve`. Add `--no-raw` to leave the raw logs out if the stick is small. It uses your team name and colours as they are when you write it. After changing them, run the command again to update the stick.
+See [Take Replay on a USB stick](how-to/replay-on-a-usb-stick.md).
 
 ## Team name and colours
 
@@ -198,15 +184,7 @@ The other settings files (`report.toml`, `anomaly.toml`, `anomaly-causes.toml`, 
 
 ## Starting a new season
 
-Flashpoint doesn't need to be reinstalled each year, but a new season needs a few things before its first event. Do them after kickoff, when the new robot code first runs:
-
-1. **Update Flashpoint** (`uv tool upgrade flashpoint`, or `pipx upgrade flashpoint` if you installed with pipx). A new season's CTRE hoot format needs a Flashpoint that knows its owlet; an older one says the lake "has C*N* hoots, which this Flashpoint can't read".
-2. **Check the season file.** Flashpoint ships a season file for each year it knows: this version ships 2025, 2026 and 2027. `flashpoint init` copies only the current season and earlier ones into your config folder, so a later year (2027, for a configuration made in 2026) is read from Flashpoint itself, and a fix to it in a Flashpoint update reaches you. To change a root (for example to add your robot code's `robot` root), copy that year's file into `seasons/` in your config folder; your copy then wins, and later fixes to the bundled file no longer reach it. For a year Flashpoint doesn't ship yet, copy `seasons/<last year>.toml` to `seasons/<this year>.toml` and change `season =`. Without a season file, a robot file that declares signals doesn't load; `doctor` names the file to create.
-3. **Add the robot file.** Ingest a log from the new robot (with internet, so owlet downloads). Since the new season has no robot file yet, the import drafts one, `robots/<year>-comp.toml` (then `<year>-practice` for a second robot-code project), with this season's year and project name. Name its slots in **Setup > Robots**, or use **Draft robot** in the Setup view for hoot-only logs. Last season's robot file stays, so its logs keep their mapping.
-4. **Check the robot code still writes** the [CAN inventory, bus status and build info](robot-side/index.md) entries. A new robot project is easy to start without them.
-5. **Run `flashpoint doctor`.** From January 1 it checks for a robot for the new year. Until the lake has logs from the new year, "Robot for *year*" is a warning that says so, not a problem; once it has, it's a problem until a robot is configured. After your first import it should say ok, or warn about unnamed slots, and the owlet check should name the format your new hoots use.
-
-The motor list (`units/units-seed.csv`) carries over. Add the new season's motors, and don't remove or relabel old ones: a motor reused on the new robot keeps its history by serial number.
+See [Start a new season](how-to/start-a-new-season.md).
 
 ## Check the setup: `flashpoint doctor`
 
@@ -238,5 +216,5 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 - [ ] Triage what you looked at, so the queue stays meaningful.
 
 **After the event:**
-- [ ] Back up the lake ([backup](how-to/auto-import.md#backup-and-restore)).
+- [ ] Back up the lake ([backup](how-to/back-up-the-lake.md)).
 - [ ] Add any real failures to `failure-labels.toml` in your config folder.

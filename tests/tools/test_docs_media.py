@@ -224,3 +224,26 @@ def test_capture_blocks_a_request_to_another_host(
     finally:
         page.context.close()
     assert watch.remote == ["https://example.com/beacon"]
+
+
+# --- animations: one short flow gives a WebM and a GIF within budget (task 8.5) -------------
+
+
+@pytest.mark.browser
+def test_one_flow_gives_a_webm_and_a_gif_within_budget(
+    browser: Any, synthetic_site: str, tmp_path: Path
+) -> None:
+    tool = _tool()
+    flow = {**REPLAY_SHOT, "id": "flow", "kind": "animation"}
+    webm, gif = tool.record(browser, synthetic_site, flow, tmp_path / "out", tmp_path / "video")
+    assert (webm.name, gif.name) == ("flow.webm", "flow.gif")
+    assert webm.read_bytes().startswith(bytes.fromhex("1a45dfa3"))
+    assert gif.read_bytes().startswith(b"GIF89a")
+    assert struct.unpack("<H", gif.read_bytes()[6:8])[0] == tool.GIF_WIDTH
+    assert 0 < tool.duration_s(webm) <= tool.ANIMATION_MAX_S
+    assert webm.stat().st_size <= tool.WEBM_BUDGET_KB * 1024
+    assert gif.stat().st_size <= tool.GIF_BUDGET_KB * 1024
+
+    joined = tool.reel([webm, webm], tmp_path / "reel.mp4")
+    assert joined.stat().st_size > 0
+    assert tool.duration_s(joined) == pytest.approx(2 * tool.duration_s(webm), abs=1.0)
