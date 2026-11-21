@@ -50,6 +50,18 @@ def is_stub(path: Path) -> bool:
         return text.readline().rstrip("\n") == STUB_FIRST_LINE
 
 
+def _generated_problem(
+    resolved: Path, target: str, media: Path | None, demo: Path | None
+) -> str | None:
+    """For a link into a generated folder: "" when fine, else the problem. None otherwise."""
+    if media is not None and resolved.parent == media:
+        ok = resolved.name in MEDIA_NAMES
+        return "" if ok else f"{target} isn't in docs/media-manifest.toml"
+    if demo is not None and resolved.is_relative_to(demo):
+        return ""  # the hosted demo is exported on deploy
+    return None
+
+
 def link_problems(path: Path, root: Path, site: Path | None = None) -> list[str]:
     """Every broken or malformed link in one Markdown file, as `file:line: message`.
 
@@ -59,6 +71,7 @@ def link_problems(path: Path, root: Path, site: Path | None = None) -> list[str]
     repository on GitHub (`blob/main`, `tree/main`) must name a path that exists in it.
     """
     media = (site / "assets" / "media").resolve() if site is not None else None
+    demo = (site / "demo" / "replay").resolve() if site is not None else None  # built on deploy
     on_site = site is not None and path.is_relative_to(site) and not is_stub(path)
     problems: list[str] = []
     in_fence = False
@@ -77,9 +90,9 @@ def link_problems(path: Path, root: Path, site: Path | None = None) -> list[str]
             if not target or target.startswith("#") or SCHEME.match(target):
                 continue
             resolved = (path.parent / target.split("#", 1)[0]).resolve()
-            if media is not None and resolved.parent == media:
-                if resolved.name not in MEDIA_NAMES:
-                    problems.append(f"{where}: {target} isn't in docs/media-manifest.toml")
+            generated = _generated_problem(resolved, target, media, demo)
+            if generated is not None:
+                problems += [f"{where}: {generated}"] if generated else []
             elif not resolved.exists():
                 problems.append(f"{where}: broken link {target}")
             elif on_site and site is not None and not resolved.is_relative_to(site.resolve()):

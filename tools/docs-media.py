@@ -32,6 +32,13 @@ from urllib.parse import unquote, urlsplit
 REPO = Path(__file__).resolve().parents[1]
 MANIFEST = REPO / "docs" / "media-manifest.toml"
 MEDIA = REPO / "docs" / "guide" / "assets" / "media"
+# The hosted demo is published under the demo page's own folder: demo.md is /<version>/demo/, the
+# app is /<version>/demo/replay/ (gitignored; written by `demo`, or a stand-in by `placeholders`).
+DEMO_SITE = REPO / "docs" / "guide" / "demo" / "replay"
+DEMO_STAND_IN = (
+    "<!doctype html><meta charset=utf-8><title>Flashpoint demo</title>"
+    "<p>The hosted Replay demo is built when the docs are deployed.</p>\n"
+)
 SUFFIXES = {"screenshot": (".png",), "animation": (".webm", ".gif")}
 OUT = REPO / "build" / "docs-media"
 CORPUS_MANIFEST = REPO / "tests" / "corpus" / "manifest.toml"
@@ -48,6 +55,18 @@ SAMPLE_GROUPS = (
     "2025-gadal-q30",
 )
 DOCS_THEME = 'team_name = "Ignite Robotics"\nteam_number = 6829\n'
+# The hosted demo's header reads "Sample data · 6829" (design D-h).
+DEMO_THEME = 'team_name = "Sample data"\nteam_number = 6829\n'
+DEMO_NAME = "Sample data · 6829"
+# Every sample group's match; a demo missing one isn't published (spec "Hosted Replay demo").
+DEMO_MATCHES = (
+    "2025gacmp_qm19",
+    "2025gadal_qm30",
+    "2026gacmp_e10",
+    "2026gacmp_pm2",
+    "2026gacmp_qm7",
+)
+DEMO_BUDGET_MB = 15
 EXIT_NO_CORPUS = 2
 
 # A 1x1 transparent GIF89a.
@@ -545,6 +564,90 @@ def _take(browser: Any, base: str, shot: dict[str, Any], out: Path, scratch: Pat
         page.context.close()
 
 
+# --- the hosted Replay demo (group 9) -------------------------------------------------------
+
+
+def demo_problems(site: Path, expected: tuple[str, ...] = DEMO_MATCHES) -> list[str]:
+    """What's wrong with an exported demo folder: missing matches, or over budget."""
+    problems = [
+        f"demo: match {key} wasn't exported"
+        for key in expected
+        if not (site / "data" / f"{key}.js").is_file()
+    ]
+    if not (site / "index.html").is_file():
+        problems.append("demo: no index.html")
+    size = sum(f.stat().st_size for f in site.rglob("*") if f.is_file())
+    if size > DEMO_BUDGET_MB * 1024 * 1024:
+        problems.append(f"demo: {size / 1048576:.1f} MB, over {DEMO_BUDGET_MB} MB")
+    return problems
+
+
+def export_demo(lake: Path, config: Path, site: Path) -> None:
+    """`flashpoint report --static --no-raw` of the lake, with the demo theme in `config`."""
+    shutil.rmtree(site, ignore_errors=True)
+    (config / "theme.toml").write_text(DEMO_THEME, encoding="utf-8")
+    env = {**os.environ, "FLASHPOINT_CONFIG": str(config)}
+    args = ["report", "--lake", str(lake), "--static", str(site), "--no-raw"]
+    command = [sys.executable, "-m", "flashpoint", *args]
+    done = subprocess.run(command, env=env, check=False, capture_output=True, text=True)  # noqa: S603 - our own CLI
+    print(done.stdout.strip(), flush=True)
+    if done.returncode != 0:
+        sys.stderr.write(done.stderr)
+        raise SystemExit(f"demo: `flashpoint report --static` exited {done.returncode}")
+
+
+def check_demo_in_browser(
+    site: Path, expected: tuple[str, ...] = DEMO_MATCHES, browser: Any = None
+) -> list[str]:
+    """Open the demo from disk with every other host blocked: the matches are listed, the
+    header names it as sample data, and the console stays clean."""
+    if browser is None:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as playwright:
+            launched = playwright.chromium.launch()
+            try:
+                return check_demo_in_browser(site, expected, launched)
+            finally:
+                launched.close()
+    page, watch = open_page(browser)
+    try:
+        page.goto((site / "index.html").resolve().as_uri() + "#view=replay&season=all")
+        page.wait_for_selector(".match-btn", timeout=WAIT_MS)
+        listed = page.eval_on_selector_all(".match-btn", "els => els.length")
+        team = page.locator(".brand__team").text_content(timeout=WAIT_MS)
+        page.wait_for_load_state("networkidle")
+    finally:
+        page.context.close()
+    problems = watch.problems("demo")
+    if listed < len(expected):
+        problems.append(f"demo: Replay lists {listed} matches, not {len(expected)}")
+    if team != DEMO_NAME:
+        problems.append(f"demo: the header reads {team!r}, not {DEMO_NAME!r}")
+    return problems
+
+
+def demo(site: Path, corpus: Path | None, work: Path) -> int:
+    """Build (or reuse) the sample lake, export the demo, and check it; nonzero on any problem."""
+    lake = work / "sample" / "lake"
+    if not (lake / "report" / "data").is_dir():
+        manifest = corpus_manifest()
+        corpus = corpus or default_corpus_dir(manifest)
+        entries = sample_entries(manifest)
+        missing = first_missing(corpus, entries)
+        if missing is not None:
+            print(f"corpus file missing or damaged: {corpus / missing}", file=sys.stderr)
+            print("fetch the corpus first: python tools/fetch-corpus.py", file=sys.stderr)
+            return EXIT_NO_CORPUS
+        build_sample_lake(work / "sample", corpus, entries, DOCS_THEME)
+    export_demo(lake, work / "sample" / "config", site)
+    problems = demo_problems(site) or check_demo_in_browser(site)
+    for problem in problems:
+        print(problem, file=sys.stderr)
+    print(f"demo: {'failed' if problems else 'ok'} in {site}")
+    return 1 if problems else 0
+
+
 def capture(out: Path, corpus: Path | None, work: Path) -> int:
     manifest = corpus_manifest()
     corpus = corpus or default_corpus_dir(manifest)
@@ -558,6 +661,9 @@ def capture(out: Path, corpus: Path | None, work: Path) -> int:
         )
         return EXIT_NO_CORPUS
     lake = build_sample_lake(work / "sample", corpus, entries, DOCS_THEME)
+    os.environ["FLASHPOINT_CONFIG"] = str(
+        work / "sample" / "config"
+    )  # the in-process servers' theme
     empty = [e for e in manifest["file"] if e["group"] == "2026-gadal-q11-empty"]
     quarantine = build_sample_lake(
         work / "quarantine", corpus, empty, DOCS_THEME, ok=(0, 1)
@@ -640,9 +746,16 @@ def main(argv: list[str] | None = None) -> int:
     shoot.add_argument("--corpus-dir", type=Path, help="default: the fetch script's corpus folder")
     shoot.add_argument("--work", type=Path, default=REPO / "build" / "docs-media-lake",
                        help="where the sample lake is built")  # fmt: skip
+    hosted = commands.add_parser("demo", help="export and check the hosted Replay demo (D-h)")
+    hosted.add_argument("site", type=Path, help="where the demo goes, e.g. site/demo")
+    hosted.add_argument("--corpus-dir", type=Path, help="default: the fetch script's corpus folder")
+    hosted.add_argument("--work", type=Path, default=REPO / "build" / "docs-media-lake",
+                        help="the sample lake (reused when capture built it)")  # fmt: skip
     joined = commands.add_parser("reel", help="join the captured flows into one video (#81)")
     joined.add_argument("--out", type=Path, default=OUT, help=f"the capture folder; default: {OUT}")
     args = parser.parse_args(argv)
+    if args.command == "demo":
+        return demo(args.site, args.corpus_dir, args.work)
     if args.command == "reel":
         flows = [args.out / f"{s['id']}.webm" for s in load_manifest() if s["kind"] == "animation"]
         missing = [f.name for f in flows if not f.is_file()]
@@ -660,7 +773,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(problems)} missing media files in {args.site}")
         return 1 if problems else 0
     written = placeholders(args.out)
-    print(f"{len(written)} placeholders in {args.out}")
+    if not (DEMO_SITE / "index.html").is_file():
+        DEMO_SITE.mkdir(parents=True, exist_ok=True)
+        (DEMO_SITE / "index.html").write_text(DEMO_STAND_IN, encoding="utf-8")
+    print(f"{len(written)} placeholders in {args.out}, and the demo's stand-in in {DEMO_SITE}")
     return 0
 
 

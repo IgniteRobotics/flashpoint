@@ -247,3 +247,35 @@ def test_one_flow_gives_a_webm_and_a_gif_within_budget(
     joined = tool.reel([webm, webm], tmp_path / "reel.mp4")
     assert joined.stat().st_size > 0
     assert tool.duration_s(joined) == pytest.approx(2 * tool.duration_s(webm), abs=1.0)
+
+
+# --- the hosted Replay demo (group 9) -------------------------------------------------------
+
+
+def test_demo_with_a_match_missing_fails_by_name(tmp_path: Path) -> None:
+    tool = _tool()
+    site = tmp_path / "demo"
+    (site / "data").mkdir(parents=True)
+    (site / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    (site / "data" / "2026gacmp_qm7.js").write_text("FP.register({});", encoding="utf-8")
+    assert tool.demo_problems(site, ("2026gacmp_qm7", "2026gacmp_e10")) == [
+        "demo: match 2026gacmp_e10 wasn't exported"
+    ]
+
+
+@pytest.mark.browser
+def test_demo_export_opens_from_disk_named_as_sample_data(browser: Any, tmp_path: Path) -> None:
+    from flashpoint.setup.init import init_config
+    from tests.web.anomaly_lake import build_filter_lake
+
+    tool = _tool()
+    lake, _ = build_filter_lake(tmp_path / "lake", replay=True)
+    config = tmp_path / "config"
+    init_config(config, team=6829, lake=lake.root)
+    site = tmp_path / "site" / "demo"
+    tool.export_demo(lake.root, config, site)
+    built = tuple(sorted(p.stem for p in (lake.root / "report" / "data").glob("*.js")))
+    expected = tuple(key for key in built if key != "matches")
+    assert tool.demo_problems(site, expected) == []
+    assert not list(site.rglob("*.wpilog")) and not list(site.rglob("*.hoot"))  # --no-raw
+    assert tool.check_demo_in_browser(site, expected, browser) == []

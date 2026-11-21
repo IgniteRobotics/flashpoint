@@ -146,7 +146,9 @@ jobs:
           mkdir -p docs/guide/assets/media
           cp build/docs-media/* docs/guide/assets/media/
       - name: Hosted Replay demo
-        run: echo "The hosted demo is added by mvp-documentation group 9 (D-h); nothing to build yet."
+        # The sample matches as a static Replay export, under the demo page (D-h). A match that
+        # doesn't export, a demo over 15 MB, or a failed browser check stops the run here.
+        run: poetry run python tools/docs-media.py demo docs/guide/demo/replay
       - name: Every image and video a page shows is in the site
         run: |
           poetry run zensical build --clean --config-file "$CONFIG"
@@ -164,6 +166,7 @@ jobs:
           name: docs-inputs
           path: |
             docs/guide/assets/media/
+            docs/guide/demo/replay/
             docs/guide/flashpoint-docs-*.zip
           if-no-files-found: error
           retention-days: 7
