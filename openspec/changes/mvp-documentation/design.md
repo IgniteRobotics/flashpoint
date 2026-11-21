@@ -303,6 +303,7 @@ The `docs.yml` deploy runs `flashpoint report --static <site>/demo --no-raw --ma
 ### D-i. Sample bundle for "Try it with sample logs"
 `tools/build-sample-bundle.py` writes `flashpoint-sample-1.zip` from corpus-v1 E10, the smaller full match (its wpilog and four hoots, without the truncated copy), together with:
 - `config/robots/2026-comp.toml`;
+- `config/seasons/2026.toml` (Ignite's: the robot file's signals use its `robot` root, which the bundled default season leaves unset) and a one-line `config/acquire.toml` (`team = 6829`; without an `acquire.toml` the folder doesn't count as a configuration and nothing is mapped). Both found by running the bundle, 2026-11-21;
 - a `README.txt`;
 - `SHA256SUMS`.
 

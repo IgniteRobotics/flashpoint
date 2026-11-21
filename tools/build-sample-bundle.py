@@ -4,7 +4,9 @@
     python tools/build-sample-bundle.py [--out flashpoint-sample-1.zip]
 
 It holds corpus-v1's E10 match (its wpilog and four hoots, never the truncated copy) under
-`logs/`, the robot file for that robot under `config/robots/`, a `README.txt` and `SHA256SUMS`.
+`logs/`; a `config/` with what that robot needs (an `acquire.toml` naming team 6829, so the folder
+counts as a configuration; Ignite's `seasons/2026.toml`, whose `robot` root the robot file uses;
+and `robots/2026-comp.toml`); a `README.txt`; and `SHA256SUMS`.
 The corpus comes from `$FLASHPOINT_CORPUS_DIR/corpus-v1` (run `python tools/fetch-corpus.py`
 first); each file is checked against the corpus manifest. Entries carry a fixed timestamp, so
 the same inputs give the same zip, byte for byte, and the SHA-256 in the Quickstart stays true.
@@ -22,6 +24,7 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 MANIFEST = REPO / "tests" / "corpus" / "manifest.toml"
 ROBOT = REPO / "config" / "robots" / "2026-comp.toml"
+SEASON = REPO / "config" / "seasons" / "2026.toml"
 GROUP = "2026-gacmp-e10"
 STAMP = (2026, 4, 11, 0, 0, 0)  # the match's day: a fixed time keeps the zip reproducible
 README = """\
@@ -32,7 +35,8 @@ Georgia district championship (GACMP), 2026-04-11. It's here so you can try Flas
 you have logs of your own.
 
   logs/                     the match's WPILib data log (.wpilog) and its CTRE hoot logs
-  config/robots/            the robot file that names that robot's motors
+  config/                   that robot's settings: its robot file (which motor is which) and
+                            the 2026 season file its robot code needs
   SHA256SUMS                checksums of every file in this bundle
 
 Two of the hoot files (the 19-29-15 ones) were cut short when the robot was powered off at the
@@ -54,12 +58,21 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def build(logs: list[Path], robot: Path, out: Path) -> str:
+ACQUIRE = """\
+# The sample's configuration: team 6829 (Ignite Robotics), whose robot these logs are from.
+# The Quickstart passes --lake, so nothing here points at your own lake.
+team = 6829
+"""
+
+
+def build(logs: list[Path], robot: Path, out: Path, season: Path = SEASON) -> str:
     """Write the bundle and return its SHA-256. ValueError for a truncated log."""
     cut = [path.name for path in logs if "truncated" in path.name]
     if cut:
         raise ValueError(f"a truncated corpus file never goes in the sample: {', '.join(cut)}")
     members = [(f"logs/{path.name}", path.read_bytes()) for path in sorted(logs)]
+    members.append(("config/acquire.toml", ACQUIRE.encode()))
+    members.append((f"config/seasons/{season.name}", season.read_bytes()))
     members.append((f"config/robots/{robot.name}", robot.read_bytes()))
     members.append(("README.txt", README.encode()))
     sums = "".join(f"{_sha256(data)}  {name}\n" for name, data in sorted(members))

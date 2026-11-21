@@ -43,7 +43,9 @@ def test_bundle_layout_and_sums(tmp_path: Path) -> None:
         assert names == [
             "README.txt",
             "SHA256SUMS",
+            "config/acquire.toml",
             "config/robots/2026-comp.toml",
+            "config/seasons/2026.toml",
             "logs/FRC_20260411_192626_GACMP_E10.wpilog",
             "logs/GACMP_E10_rio_2026-04-11_19-26-19.hoot",
             "logs/GACMP_E10_rio_2026-04-11_19-29-15.hoot",
