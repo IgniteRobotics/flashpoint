@@ -1,6 +1,6 @@
 # How Flashpoint works
 
-This page explains what happens to a log between the robot and the screen. It's written for developers, but nothing here needs code. For the design reasoning and the trade-offs, see the [target architecture](../rewrite/05-target-architecture.md) and the [decision records](../adr/README.md).
+This page explains what happens to a log between the robot and the screen. It's written for developers, but nothing here needs code. For the design reasoning and the trade-offs, see the [target architecture](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/05-target-architecture.md) and the [decision records](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md).
 
 ## The pipeline
 
@@ -52,7 +52,7 @@ The lake is one folder (default `~/flashpoint-lake`). Everything except `raw/` a
 | `meta/` | The ledger, plus snapshots of logs, sessions, inventory, units, and triage | The ledger and triage are not rebuildable; back them up |
 | `report/` | Replay data and backtest reports | Yes (`report --all`) |
 
-Data is stored as Parquet and queried with DuckDB ([ADR-0001](../adr/0001-storage-parquet-lake-duckdb.md)). Transforms use Polars ([ADR-0002](../adr/0002-transforms-polars.md)).
+Data is stored as Parquet and queried with DuckDB ([ADR-0001](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0001-storage-parquet-lake-duckdb.md)). Transforms use Polars ([ADR-0002](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0002-transforms-polars.md)).
 
 ## Sessions and matches
 
@@ -69,7 +69,7 @@ If the filename and the FMS data disagree, FMS wins and the log carries a `match
 
 ## Clock alignment
 
-Hoot and wpilog timestamps run on different clocks; the offset was 19.56 s on one real match. Flashpoint aligns each hoot to its wpilog, in this order ([ADR-0012](../adr/0012-clock-alignment-shared-payload.md)):
+Hoot and wpilog timestamps run on different clocks; the offset was 19.56 s on one real match. Flashpoint aligns each hoot to its wpilog, in this order ([ADR-0012](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0012-clock-alignment-shared-payload.md)):
 
 | Method | How | Confidence |
 |---|---|---|
@@ -84,7 +84,7 @@ Every match feature carries the weakest alignment confidence in its session.
 - A **slot** is a role on a robot: "front-left drive, CAN ID 11, on the rio bus". Slots are declared in the robot's file in the `robots/` folder of your config folder (see the [user guide](user-guide.md)).
 - A **unit** is a physical motor or device, identified by its CTRE serial number (`ctre:<serial>`).
 
-The robot code logs a CAN inventory (`/Flashpoint/CANInventory`) at boot, which tells Flashpoint which unit sits in which slot ([ADR-0011](../adr/0011-device-identity-ctre-serials.md)). So when a motor moves from one slot or robot to another, its history goes with it.
+The robot code logs a CAN inventory (`/Flashpoint/CANInventory`) at boot, which tells Flashpoint which unit sits in which slot ([ADR-0011](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0011-device-identity-ctre-serials.md)). So when a motor moves from one slot or robot to another, its history goes with it.
 
 Logs from before the inventory existed use **legacy** units (`legacy:<robot>:<slot>:<epoch>`, such as `legacy:2026-comp:drive-bl:0`), whose epochs change at swap dates declared in the robot config.
 
@@ -92,7 +92,7 @@ Baselines are per unit. Sibling comparisons are per slot group: the four drive m
 
 ## Detection
 
-`detect` reads gold only, and every anomaly comes with its evidence and likely causes ([ADR-0010](../adr/0010-anomaly-v1-rules-baselines.md)).
+`detect` reads gold only, and every anomaly comes with its evidence and likely causes ([ADR-0010](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0010-anomaly-v1-rules-baselines.md)).
 
 | Kind | Fires when |
 |---|---|
@@ -106,11 +106,11 @@ Brownouts are judged on the **battery proxy**: the supply voltage of the robot's
 
 A unit's baseline is the median of its previous matches, up to 20 by default. A unit with fewer than 5 matches is still "building baseline" and gets no DRIFT or STEP. Severity (HIGH, MED, or LOW) comes from how far outside the baseline the value is. The sensitivity setting in the app (relaxed, normal, or strict) changes what is *shown*, never what is computed.
 
-Thresholds live in `anomaly.toml` and likely causes in `anomaly-causes.toml` in your config folder; the defaults that ship with Flashpoint are [`anomaly.toml`](../../src/flashpoint/defaults/anomaly.toml) and [`anomaly-causes.toml`](../../src/flashpoint/defaults/anomaly-causes.toml). `flashpoint backtest` scores detection against the known failures in `failure-labels.toml` (Ignite's is [`config/failure-labels.toml`](../../config/failure-labels.toml)).
+Thresholds live in `anomaly.toml` and likely causes in `anomaly-causes.toml` in your config folder; the defaults that ship with Flashpoint are [`anomaly.toml`](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/anomaly.toml) and [`anomaly-causes.toml`](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/anomaly-causes.toml). `flashpoint backtest` scores detection against the known failures in `failure-labels.toml` (Ignite's is [`config/failure-labels.toml`](https://github.com/IgniteRobotics/flashpoint/blob/main/config/failure-labels.toml)).
 
 ## The app
 
-`flashpoint serve` is one local web app with five views ([ADR-0013](../adr/0013-views-one-local-app.md)):
+`flashpoint serve` is one local web app with five views ([ADR-0013](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0013-views-one-local-app.md)):
 - **Replay**: one match.
 - **History**: every unit and slot across matches, events, seasons, and robots.
 - **Anomalies**: the anomaly queue, with triage.
@@ -119,7 +119,7 @@ Thresholds live in `anomaly.toml` and likely causes in `anomaly-causes.toml` in 
 
 The app never changes logs or the lake's derived data. Its only writes are triage rows in the ledger and the config files you edit in Setup.
 
-Replay can also be exported as a static folder that opens with no server. For a single log in depth, Flashpoint hands off to AdvantageScope instead of rebuilding it ([ADR-0008](../adr/0008-deep-dive-link-advantagescope.md), [ADR-0014](../adr/0014-guarded-advantagescope-launch.md)).
+Replay can also be exported as a static folder that opens with no server. For a single log in depth, Flashpoint hands off to AdvantageScope instead of rebuilding it ([ADR-0008](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0008-deep-dive-link-advantagescope.md), [ADR-0014](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/0014-guarded-advantagescope-launch.md)).
 
 The app's colours come from `theme.toml` in your config folder: a preset palette (amber, green, blue, red, or white) or custom colours. The server turns it into `/theme.css`, a set of colour tokens loaded after the built-in `tokens.css`, and shows the team name in the header. If the theme can't be used, the built-in colours apply and the Setup checks say why. A static export copies the theme and team name in force when you export it.
 
@@ -160,4 +160,4 @@ duckdb.sql(f"""
 """).show()
 ```
 
-For lifetime questions the app doesn't answer yet, see the marimo notebooks in [`notebooks/`](../../notebooks/README.md).
+For lifetime questions the app doesn't answer yet, see the marimo notebooks in [`notebooks/`](https://github.com/IgniteRobotics/flashpoint/blob/main/notebooks/README.md).

@@ -76,7 +76,7 @@ A topic with the wrong type, or a negative count, is ignored and noted on its de
 
 ## Adding it to robot code
 
-[`examples/robot-java/CanHealthPublisher.java`](../../examples/robot-java/CanHealthPublisher.java) is a suggestion, not a library: copy it into your robot project and adapt it. It's written for Phoenix 6 2026 and WPILib 2026, and CI doesn't compile it, so check it against your Phoenix 6 version.
+[`examples/robot-java/CanHealthPublisher.java`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/CanHealthPublisher.java) is a suggestion, not a library: copy it into your robot project and adapt it. It's written for Phoenix 6 2026 and WPILib 2026, and CI doesn't compile it, so check it against your Phoenix 6 version.
 
 ```java
 private final CanHealthPublisher canHealth = new CanHealthPublisher("Robot-2026");

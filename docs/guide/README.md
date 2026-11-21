@@ -12,8 +12,8 @@
 | [Developer guide](developer-guide.md) | Build from source, run the tests, and make a change |
 
 Elsewhere in the repository:
-- [`deploy/`](../../deploy/README.md): how to install the automatic-import service by hand (the Setup view can do it for you).
-- [`notebooks/`](../../notebooks/README.md): marimo notebooks for questions the app doesn't answer yet.
-- [`examples/robot-java/`](../../examples/robot-java/CanHealthPublisher.java): the suggested live CAN health publisher for robot code.
-- [`docs/adr/`](../adr/README.md): architecture decisions.
-- [`docs/rewrite/`](../rewrite/README.md): the research and roadmap behind the rewrite.
+- [`deploy/`](https://github.com/IgniteRobotics/flashpoint/blob/main/deploy/README.md): how to install the automatic-import service by hand (the Setup view can do it for you).
+- [`notebooks/`](https://github.com/IgniteRobotics/flashpoint/blob/main/notebooks/README.md): marimo notebooks for questions the app doesn't answer yet.
+- [`examples/robot-java/`](https://github.com/IgniteRobotics/flashpoint/blob/main/examples/robot-java/CanHealthPublisher.java): the suggested live CAN health publisher for robot code.
+- [`docs/adr/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md): architecture decisions.
+- [`docs/rewrite/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/README.md): the research and roadmap behind the rewrite.

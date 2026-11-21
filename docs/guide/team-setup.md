@@ -123,7 +123,7 @@ To draft by hand instead (a second robot, hoot-only logs, or after `--no-robot-d
 
 The [user guide](user-guide.md#describe-a-robot) shows a whole robot file, with the optional parts: a battery proxy, sibling groups (motors that do the same job, compared with each other), swap dates, bus names and NetworkTables signals.
 
-**Your motor list.** `units/units-seed.csv` lists every motor the team owns, including spares on the shelf, by serial number, with a label you write on the motor. Fill it in with Tuner X: [how to fill it in](../../config/units/README.md). Once the CAN inventory logger runs on the robot, Flashpoint keeps track of motors in the robot on its own; the list still covers spares and labels.
+**Your motor list.** `units/units-seed.csv` lists every motor the team owns, including spares on the shelf, by serial number, with a label you write on the motor. Fill it in with Tuner X: [how to fill it in](https://github.com/IgniteRobotics/flashpoint/blob/main/config/units/README.md). Once the CAN inventory logger runs on the robot, Flashpoint keeps track of motors in the robot on its own; the list still covers spares and labels.
 
 **New seasons.** Flashpoint ships season files for 2025, 2026 and 2027 in this version. `init` copies the current season's and earlier ones; later years are read from Flashpoint itself until you copy one to change it. See [Starting a new season](user-guide.md#starting-a-new-season).
 
@@ -149,7 +149,7 @@ That lists what it would copy and changes nothing. When it works, leave the watc
 flashpoint acquire --watch
 ```
 
-[Automatic import](auto-import.md) covers the settings, running it as a service on Linux or Windows ([service files](../../deploy/README.md)), and troubleshooting. The Setup view can install and start the service for you on Linux and Windows.
+[Automatic import](auto-import.md) covers the settings, running it as a service on Linux or Windows ([service files](https://github.com/IgniteRobotics/flashpoint/blob/main/deploy/README.md)), and troubleshooting. The Setup view can install and start the service for you on Linux and Windows.
 
 ## 6. Looking at the data
 

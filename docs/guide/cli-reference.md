@@ -98,7 +98,7 @@ flashpoint derive --all
 
 ## `flashpoint detect`
 
-Recompute anomalies. `derive` already does this, so you only need it after editing `anomaly.toml` in your config folder ([the default](../../src/flashpoint/defaults/anomaly.toml)); no re-derive is needed. It skips the work when nothing changed.
+Recompute anomalies. `derive` already does this, so you only need it after editing `anomaly.toml` in your config folder ([the default](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/anomaly.toml)); no re-derive is needed. It skips the work when nothing changed.
 
 | Option | What it does |
 |---|---|
@@ -110,7 +110,7 @@ flashpoint detect
 
 ## `flashpoint backtest`
 
-Score anomaly detection against the known failures in `failure-labels.toml` in your config folder (Ignite's is [config/failure-labels.toml](../../config/failure-labels.toml)): which ones were caught, how many matches early, and the false-positive rate. Writes a Markdown report and its data to `<lake>/report/backtest/`.
+Score anomaly detection against the known failures in `failure-labels.toml` in your config folder (Ignite's is [config/failure-labels.toml](https://github.com/IgniteRobotics/flashpoint/blob/main/config/failure-labels.toml)): which ones were caught, how many matches early, and the false-positive rate. Writes a Markdown report and its data to `<lake>/report/backtest/`.
 
 ```sh
 flashpoint backtest

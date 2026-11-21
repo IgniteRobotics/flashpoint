@@ -1,0 +1,10 @@
+site_name: Fixture
+docs_dir: .
+exclude_docs: |
+  /old.md
+nav:
+  - Home: index.md
+  - How-to guides:
+      - how-to/nested.md
+      - Other: how-to/other.md
+      - Gone: how-to/gone.md

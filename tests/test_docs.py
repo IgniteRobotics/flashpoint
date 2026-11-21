@@ -4,11 +4,17 @@ import argparse
 import re
 from pathlib import Path
 
+import yaml
+
 from flashpoint.cli import _parser
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "docs"
-CLI_REFERENCE = REPO / "docs" / "guide" / "cli-reference.md"
+GUIDE = REPO / "docs" / "guide"
+MKDOCS = REPO / "mkdocs.yml"
+CLI_REFERENCE = GUIDE / "cli-reference.md"
+# A page that moved keeps a stub at its old path (for 0.2.0's links); its first line is fixed.
+STUB_FIRST_LINE = "# This page moved"
 
 LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]*)[^)]*\)")
 UNCLOSED_LINK = re.compile(r"\[[^\]]*\]\([^)]*$")
@@ -16,16 +22,26 @@ INLINE_CODE = re.compile(r"`[^`]*`")
 SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 
 
+REPO_URL = re.compile(r"^https://github\.com/IgniteRobotics/flashpoint/(?:blob|tree)/main/([^#]*)")
+
+
 def doc_files() -> list[Path]:
-    return [
-        REPO / "README.md",
-        REPO / "deploy" / "README.md",
-        *sorted((REPO / "docs" / "guide").glob("*.md")),
-    ]
+    return [REPO / "README.md", REPO / "deploy" / "README.md", *sorted(GUIDE.rglob("*.md"))]
 
 
-def link_problems(path: Path, root: Path) -> list[str]:
-    """Every broken or malformed relative link in one Markdown file, as `file:line: message`."""
+def is_stub(path: Path) -> bool:
+    with path.open(encoding="utf-8") as text:
+        return text.readline().rstrip("\n") == STUB_FIRST_LINE
+
+
+def link_problems(path: Path, root: Path, site: Path | None = None) -> list[str]:
+    """Every broken or malformed link in one Markdown file, as `file:line: message`.
+
+    A relative link must name a file that exists; on a page of the docs site (`site`, the
+    source folder) it must also stay inside the site. A link to this repository on GitHub
+    (`blob/main`, `tree/main`) must name a path that exists in the repository.
+    """
+    on_site = site is not None and path.is_relative_to(site) and not is_stub(path)
     problems: list[str] = []
     in_fence = False
     for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -38,12 +54,54 @@ def link_problems(path: Path, root: Path) -> list[str]:
         where = f"{path.relative_to(root).as_posix()}:{number}"
         for match in LINK.finditer(line):
             target = match[1]
+            if (repo := REPO_URL.match(target)) and not (REPO / repo[1]).exists():
+                problems.append(f"{where}: {target} names a path that doesn't exist")
             if not target or target.startswith("#") or SCHEME.match(target):
                 continue
-            if not (path.parent / target.split("#", 1)[0]).exists():
+            resolved = (path.parent / target.split("#", 1)[0]).resolve()
+            if not resolved.exists():
                 problems.append(f"{where}: broken link {target}")
+            elif on_site and site is not None and not resolved.is_relative_to(site.resolve()):
+                problems.append(
+                    f"{where}: {target} leaves the docs site"
+                    " (link it as https://github.com/IgniteRobotics/flashpoint/blob/main/...)"
+                )
         if UNCLOSED_LINK.search(LINK.sub("", line)):
             problems.append(f"{where}: malformed link (no closing parenthesis)")
+    return problems
+
+
+def nav_entries(nav: object) -> list[str]:
+    """The page paths an `mkdocs.yml` nav lists, in order (external links are skipped)."""
+    if isinstance(nav, str):
+        return [] if SCHEME.match(nav) else [nav]
+    if isinstance(nav, list):
+        return [entry for item in nav for entry in nav_entries(item)]
+    if isinstance(nav, dict):
+        return [entry for value in nav.values() for entry in nav_entries(value)]
+    return []
+
+
+def nav_problems(config: Path) -> list[str]:
+    """Pages missing from the nav, nav entries with no page, and stubs the build would publish."""
+    settings = yaml.safe_load(config.read_text(encoding="utf-8"))
+    site = config.parent / settings.get("docs_dir", "docs")
+    listed = nav_entries(settings.get("nav", []))
+    excluded = {line.strip().lstrip("/") for line in settings.get("exclude_docs", "").splitlines()}
+    problems = []
+    for entry in listed:
+        page = site / entry
+        if not page.is_file():
+            problems.append(f"{entry}: in the {config.name} nav but doesn't exist")
+        elif is_stub(page):
+            problems.append(f"{entry}: in the {config.name} nav but is a moved stub")
+    for page in sorted(site.rglob("*.md")):
+        name = page.relative_to(site).as_posix()
+        if is_stub(page):
+            if name not in excluded:
+                problems.append(f"{name}: moved stub missing from {config.name} exclude_docs")
+        elif name not in listed:
+            problems.append(f"{name}: not in the {config.name} nav")
     return problems
 
 
@@ -64,12 +122,41 @@ def test_fixture_broken_and_malformed_links_are_reported() -> None:
     ]
 
 
+def test_fixture_nested_page_links() -> None:
+    site = FIXTURES / "site"
+    assert link_problems(site / "how-to" / "nested.md", FIXTURES, site) == [
+        "site/how-to/nested.md:3: broken link missing-sibling.md",
+        "site/how-to/nested.md:5: https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/"
+        "nope.md names a path that doesn't exist",
+        "site/how-to/nested.md:6: ../../readme.md leaves the docs site"
+        " (link it as https://github.com/IgniteRobotics/flashpoint/blob/main/...)",
+    ]
+
+
+def test_fixture_stub() -> None:
+    site = FIXTURES / "site"
+    assert is_stub(site / "old.md")
+    assert not is_stub(site / "index.md")
+    assert link_problems(site / "old.md", FIXTURES, site) == []
+
+
+def test_fixture_nav_reports_unlisted_pages_and_missing_entries() -> None:
+    assert nav_problems(FIXTURES / "site" / "mkdocs.yml") == [
+        "how-to/gone.md: in the mkdocs.yml nav but doesn't exist",
+        "unlisted.md: not in the mkdocs.yml nav",
+    ]
+
+
 def test_relative_links_resolve() -> None:
-    problems = [p for path in doc_files() if path.exists() for p in link_problems(path, REPO)]
+    problems = [
+        p for path in doc_files() if path.exists() for p in link_problems(path, REPO, GUIDE)
+    ]
     assert problems == [], "\n".join(problems)
 
 
-REPO_URL = re.compile(r"^https://github\.com/IgniteRobotics/flashpoint/(?:blob|tree)/main/([^#]*)")
+def test_every_site_page_is_in_the_nav() -> None:
+    problems = nav_problems(MKDOCS)
+    assert problems == [], "\n".join(problems)
 
 
 def readme_link_problems(path: Path, root: Path) -> list[str]:
@@ -123,7 +210,7 @@ def test_every_subcommand_is_in_the_cli_reference() -> None:
 
 # --- live-can-health: "Guide matches the contract" ----------------------------------------
 
-LIVE_GUIDE = REPO / "docs" / "guide" / "live-can-health.md"
+LIVE_GUIDE = GUIDE / "live-can-health.md"
 GUIDE_TYPES = {"integer": "int", "double": "double", "boolean": "boolean", "string": "string"}
 CONTRACT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(\w+)\s*\|")
 
@@ -164,7 +251,7 @@ def test_guide_matches_the_contract() -> None:
 
 # --- release checklist (spec public-release) ------------------------------------------------
 
-DEVELOPER_GUIDE = REPO / "docs" / "guide" / "developer-guide.md"
+DEVELOPER_GUIDE = GUIDE / "developer-guide.md"
 CHECKLIST_STEPS = (
     ("promote", re.compile(r"`development`.*`main`|promot", re.IGNORECASE)),
     ("TestPyPI dry run", re.compile(r"TestPyPI.*dry run|dry run.*TestPyPI", re.IGNORECASE)),

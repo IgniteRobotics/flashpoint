@@ -101,7 +101,7 @@ The easiest way is the Setup view: its acquire service check has an **Install** 
 
 ### Linux (systemd user service)
 
-Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../../src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where `uv tool install` and pipx put it. Install it:
+Flashpoint ships a unit file, [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/deploy/systemd/flashpoint-acquire.service). It expects `flashpoint` at `~/.local/bin/flashpoint`, which is where `uv tool install` and pipx put it. Install it:
 
 ```sh
 mkdir -p ~/.config/systemd/user
@@ -127,7 +127,7 @@ For USB drives on a computer with no desktop, the watch only sees drives that ar
 
 ### Windows (scheduled task)
 
-Flashpoint ships a task definition, [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](../../src/flashpoint/deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. From that folder:
+Flashpoint ships a task definition, [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/deploy/windows/flashpoint-acquire.xml). It runs `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarts it up to 3 times if it fails, and never runs two copies at once. From that folder:
 
 ```bat
 schtasks /Create /XML src\flashpoint\deploy\windows\flashpoint-acquire.xml /TN flashpoint-acquire

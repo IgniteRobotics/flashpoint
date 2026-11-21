@@ -63,7 +63,7 @@ Ubuntu sets up a few traps for a fresh install:
 
 The code conventions are the [coding standards](#coding-standards) below.
 
-The domain rules (long format at rest, as-of joins with explicit tolerance, never trust filenames over FMS data, offline first, never delete robot logs) are in [`openspec/config.yaml`](../../openspec/config.yaml).
+The domain rules (long format at rest, as-of joins with explicit tolerance, never trust filenames over FMS data, offline first, never delete robot logs) are in [`openspec/config.yaml`](https://github.com/IgniteRobotics/flashpoint/blob/main/openspec/config.yaml).
 
 ### The browser app
 
@@ -240,11 +240,11 @@ Release-preparation pull requests (the promote PR, changelog moves) reference th
 
 | Path | What |
 |---|---|
-| [`docs/adr/`](../adr/README.md) | Architecture decision records. Add one when you make or change a decision |
-| [`docs/rewrite/`](../rewrite/README.md) | The research behind the rewrite: the [target architecture](../rewrite/05-target-architecture.md), the [roadmap](../rewrite/06-roadmap.md), and the [pitfalls list](../rewrite/03-pitfalls-and-performance.md) (cited as `#N`) |
-| [`docs/UX/`](../UX/) | The UI design canvas |
-| [`notebooks/`](../../notebooks/README.md) | marimo notebooks for questions the app doesn't answer yet |
-| [`openspec/`](../../openspec/) | Specs and changes (above) |
+| [`docs/adr/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md) | Architecture decision records. Add one when you make or change a decision |
+| [`docs/rewrite/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/README.md) | The research behind the rewrite: the [target architecture](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/05-target-architecture.md), the [roadmap](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/06-roadmap.md), and the [pitfalls list](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/03-pitfalls-and-performance.md) (cited as `#N`) |
+| [`docs/UX/`](https://github.com/IgniteRobotics/flashpoint/tree/main/docs/UX/) | The UI design canvas |
+| [`notebooks/`](https://github.com/IgniteRobotics/flashpoint/blob/main/notebooks/README.md) | marimo notebooks for questions the app doesn't answer yet |
+| [`openspec/`](https://github.com/IgniteRobotics/flashpoint/tree/main/openspec/) | Specs and changes (above) |
 
 ## Updating owlet
 

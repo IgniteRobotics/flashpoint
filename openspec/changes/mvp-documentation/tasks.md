@@ -29,8 +29,10 @@
 
 ## 2. Site skeleton and page moves (M1; merged by 2026-11-28, before #72's docs links)
 
-- [ ] 2.1 Test first: make `doc_files()` recursive over `docs/guide/**/*.md`, exempt "moved" stubs (a fixed first line), and apply the `blob/main` path-exists check to every page. Add fixtures under `tests/fixtures/docs/`: a nested page with a broken sibling link, a stub, and a `blob/main` link to a missing path. Verify: the fixture tests pass, and the run against the real tree passes.
-- [ ] 2.2 Test first: the navigation check. Parse the `mkdocs.yml` `nav`. Every non-stub page under `docs/guide/` must be listed, and every entry must exist. Use a fixture `mkdocs.yml` with one unlisted page and one missing entry. Verify: the fixture test reports both by name. The real-tree test fails until 2.3 (expected).
+- [x] 2.1 Test first: make `doc_files()` recursive over `docs/guide/**/*.md`, exempt "moved" stubs (a fixed first line), and apply the `blob/main` path-exists check to every page. Add fixtures under `tests/fixtures/docs/`: a nested page with a broken sibling link, a stub, and a `blob/main` link to a missing path. Verify: the fixture tests pass, and the run against the real tree passes.
+  Done 2026-11-20. The stub first line is `# This page moved`. The check also reports a relative link on a site page that leaves `docs/guide/` (D-b: such links break on the site; Zensical's strict build misses non-`.md` targets). The 45 such links in today's guide became `blob/main` (`tree/main` for folders) URLs here, so the real-tree run passes.
+- [x] 2.2 Test first: the navigation check. Parse the `mkdocs.yml` `nav`. Every non-stub page under `docs/guide/` must be listed, and every entry must exist. Use a fixture `mkdocs.yml` with one unlisted page and one missing entry. Verify: the fixture test reports both by name. The real-tree test fails until 2.3 (expected).
+  Done 2026-11-20. The check also reports a stub listed in the nav and a stub missing from `exclude_docs` (stubs must not build: `robot-side.md` would collide with `robot-side/index.md`).
 - [ ] 2.3 Create the D-d tree:
   - move `team-setup.md` to `tutorials/`, `auto-import.md` and `live-can-health.md` to `how-to/`, `cli-reference.md` to `reference/cli.md`, and `how-it-works.md` and `developer-guide.md` to `under-the-hood/`;
   - leave a "moved" stub at every old path;
