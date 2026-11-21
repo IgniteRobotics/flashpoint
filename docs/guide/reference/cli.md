@@ -1,6 +1,6 @@
 # CLI reference
 
-Every Flashpoint command is a subcommand of `flashpoint`. This page covers what each one is for, the options you'll use, and an example. For the full option list, run `flashpoint <command> --help`; it is always current.
+Every Flashpoint command is a subcommand of `flashpoint`. This page covers what each one is for, every option, and an example. The option tables are generated from the CLI itself (`python tools/gen-cli-reference.py`), so they match `flashpoint <command> --help`.
 
 In a source checkout, put `poetry run` in front of each command (`poetry run flashpoint doctor`).
 
@@ -22,12 +22,16 @@ Create your config folder: `acquire.toml` with your team number and lake folder,
 
 It prints each file it created, then the next step: `next: import a match's logs with flashpoint ingest <folder> (it drafts your robot from them), then run flashpoint serve`.
 
-| Option | What it does |
-|---|---|
-| `--team NUMBER` | Your FRC team number, 1 to 99999 |
-| `--lake PATH` | Where logs and results are stored. Default `~/flashpoint-lake` |
-| `--team-name NAME` | The name shown in the app header and page title, at most 40 characters. Default: none. The header then shows your team number from `--team` ("telemetry // 254"); with no name and no number it reads just "telemetry" |
-| `--palette PRESET` | The app's colours: `amber`, `green`, `blue`, `red` or `white`. Default `amber`. For your own colours, use the Setup view's Appearance section or edit `theme.toml` |
+<!-- generated:cli:init -->
+| Option | What it does | Default |
+|---|---|---|
+| `--team NUMBER` | your FRC team number, 1 to 99999 (asked if omitted) | |
+| `--lake LAKE` | lake folder for your logs (asked if omitted; ~/flashpoint-lake) | |
+| `--team-name NAME` | name shown in the app header, at most 40 characters (asked if omitted) | |
+| `--palette PRESET` | app colours: amber, green, blue, red or white (asked if omitted; amber) | |
+<!-- /generated:cli:init -->
+
+With no team name, the header shows your team number from `--team` ("telemetry // 254"); with neither, it reads just "telemetry". For your own colours instead of a preset, use the Setup view's Appearance section or edit `theme.toml`.
 
 ```sh
 flashpoint init --team 254 --team-name "The Cheesy Poofs" --palette blue --lake ~/frc-lake
@@ -37,13 +41,17 @@ flashpoint init --team 254 --team-name "The Cheesy Poofs" --palette blue --lake 
 
 Copy `.wpilog` and `.hoot` files into the lake and read them. You can pass files, folders (searched recursively), or both. Files already in the lake are skipped, so re-running is safe. When at least one file was ingested, `derive` (and so `detect`) runs afterward on its own, and then the Replay data is rebuilt for the matches that changed (the same build as `flashpoint report`).
 
-| Option | What it does |
-|---|---|
-| `--profile all` | Export every hoot signal instead of the health set (about 3× larger). Default `health` |
-| `--jobs N` | Hoot files converted in parallel. Default: half your CPU cores |
-| `--no-derive` | Skip the automatic `derive`, and so the Replay build too |
-| `--no-report` | Skip the automatic Replay build after `derive` |
-| `--no-robot-draft` | Don't draft a robot file for a season that has none (see [`flashpoint derive`](#flashpoint-derive)) |
+<!-- generated:cli:ingest -->
+| Option | What it does | Default |
+|---|---|---|
+| `PATH` | .wpilog and .hoot files, or folders (searched recursively) | |
+| `--profile {health,all}` | hoot signals: health (what Flashpoint uses; default) or all (about 3x larger) | `health` |
+| `--jobs N` | hoot files converted in parallel (default: half your CPU cores) | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+| `--no-derive` | skip the automatic derive, and so the Replay build too | |
+| `--no-report` | skip the automatic Replay build after derive | |
+| `--no-robot-draft` | don't draft a robot file for a season that has none (see Setup > Draft robot) | |
+<!-- /generated:cli:ingest -->
 
 ```sh
 flashpoint ingest ~/Downloads/GACMP/
@@ -66,12 +74,15 @@ If another Replay build is running (the acquire watch or `serve` at start), `ing
 
 Reprocess, from its raw copy, every file that an older version of Flashpoint processed, and every file that `failed` (a machine error such as no internet for the owlet download). `restore` marks every file this way. Use it when `doctor` says "N file(s) from an older pipeline version", and after a `restore`. When it reprocessed anything, `derive --all` runs afterward, then the Replay build. With nothing to do, it prints `0 ingested` and stops. You never need the original logs.
 
-| Option | What it does |
-|---|---|
-| `--profile all` | Export every hoot signal instead of the health set, as with `ingest`. Default `health` |
-| `--quarantined` | Reprocess only quarantined files, with a fresh count of 3 tries. Use it after a fix (a new owlet, a Flashpoint update), or for a file that crashed owlet 3 times. A file that is truly bad is quarantined again |
-| `--no-report` | Skip the automatic Replay build after `derive` |
-| `--no-robot-draft` | Don't draft a robot file for a season that has none (see [`flashpoint derive`](#flashpoint-derive)) |
+<!-- generated:cli:rebuild -->
+| Option | What it does | Default |
+|---|---|---|
+| `--profile {health,all}` | hoot signals: health (what Flashpoint uses; default) or all (about 3x larger) | `health` |
+| `--quarantined` | reprocess only quarantined files, from their raw copies, with a fresh 3 tries | |
+| `--no-report` | skip the automatic Replay build after derive | |
+| `--no-robot-draft` | don't draft a robot file for a season that has none (see Setup > Draft robot) | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:rebuild -->
 
 A file whose raw copy is missing is listed as `MISSING RAW` and left as it is.
 
@@ -86,11 +97,14 @@ Build the match-level data from what `ingest` read. That means grouping each wpi
 
 **The first derive drafts your robot.** When the lake holds logs from a season that has no robot file in your config folder, `derive` first drafts one per robot-code project, from the match with the most CAN devices, and saves it as `robots/<season>-comp.toml` (a second project gets `-practice`). It prints `drafted robot 2026-comp from 2026gacmp_qm7 (22 devices) into ...`, and the file's first line says it was drafted. Name each slot's subsystem and role in Setup > Robots, and keep the drafted slot ids. A season that already has any robot file is never touched. Hoot-only logs have no robot-code project, so they draft nothing: use Setup > Draft robot for them. With no configuration (`flashpoint init`) nothing is drafted, and a read-only config folder is named in a warning. Since `ingest`, `rebuild` and the acquire cycle run `derive`, they draft too.
 
-| Option | What it does |
-|---|---|
-| `--all` | Rebuild every session. Use it after editing a robot file in `robots/` in your config folder |
-| `--no-robot-draft` | Don't draft a robot file for a season that has none |
-| `--report` | Then build Replay data for the matches that changed, as `ingest` does. Saving a draft in Setup > Draft robot runs `derive --report` in the background |
+<!-- generated:cli:derive -->
+| Option | What it does | Default |
+|---|---|---|
+| `--all` | rebuild every session, not only changed ones (after editing a robot file) | |
+| `--no-robot-draft` | don't draft a robot file for a season that has none (see Setup > Draft robot) | |
+| `--report` | then build Replay data for the matches that changed, as ingest does | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:derive -->
 
 ```sh
 flashpoint derive --all
@@ -100,9 +114,12 @@ flashpoint derive --all
 
 Recompute anomalies. `derive` already does this, so you only need it after editing `anomaly.toml` in your config folder ([the default](https://github.com/IgniteRobotics/flashpoint/blob/main/src/flashpoint/defaults/anomaly.toml)); no re-derive is needed. It skips the work when nothing changed.
 
-| Option | What it does |
-|---|---|
-| `--all` | Recompute even when nothing changed |
+<!-- generated:cli:detect -->
+| Option | What it does | Default |
+|---|---|---|
+| `--all` | run even when nothing changed | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:detect -->
 
 ```sh
 flashpoint detect
@@ -111,6 +128,12 @@ flashpoint detect
 ## `flashpoint backtest`
 
 Score anomaly detection against the known failures in `failure-labels.toml` in your config folder (Ignite's is [config/failure-labels.toml](https://github.com/IgniteRobotics/flashpoint/blob/main/config/failure-labels.toml)): which ones were caught, how many matches early, and the false-positive rate. Writes a Markdown report and its data to `<lake>/report/backtest/`.
+
+<!-- generated:cli:backtest -->
+| Option | What it does | Default |
+|---|---|---|
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:backtest -->
 
 ```sh
 flashpoint backtest
@@ -122,13 +145,16 @@ Build the Replay data for each match, about 1 MB per match. Matches whose inputs
 
 Only one build runs on a lake at a time. While another build holds `<lake>/meta/report.lock`, `report` exits with code `3` and writes nothing; run it again when that build ends. `serve` started during a build skips its own build and serves the existing data.
 
-| Option | What it does |
-|---|---|
-| `--event KEY` | Only this event, e.g. `2026gacmp`. Repeat it for several |
-| `--match KEY` | Only this match, e.g. `2026gacmp_qm7`. Repeat it for several |
-| `--all` | Rebuild matches even when unchanged |
-| `--static DIR` | Also write a Replay folder that opens from `index.html` with no server, for a USB stick |
-| `--no-raw` | With `--static`: leave the raw logs out (much smaller) |
+<!-- generated:cli:report -->
+| Option | What it does | Default |
+|---|---|---|
+| `--event EVENT` | only this event, e.g. 2026gacmp (repeatable) | |
+| `--match KEY` | only this match key, e.g. 2026gacmp_qm7 (repeatable) | |
+| `--all` | rebuild even unchanged matches | |
+| `--static OUT` | also write a Replay folder that opens from index.html with no server | |
+| `--no-raw` | with --static: leave the raw logs out (much smaller) | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:report -->
 
 ```sh
 flashpoint report --static /Volumes/USB/flashpoint
@@ -138,12 +164,17 @@ flashpoint report --static /Volumes/USB/flashpoint
 
 Run the Flashpoint app in your browser: Replay, History, Anomalies, Setup and Live CAN. Builds any missing Replay data first.
 
-| Option | What it does |
-|---|---|
-| `--host 0.0.0.0` | Share on the pit network. No password, so only on a network you trust. Nothing can be changed from the app while it runs this way, not even on this laptop: no triage, no Setup saves or fixes, no Appearance changes, no AdvantageScope launch. Default `127.0.0.1` (this machine only) |
-| `--port N` | Default `8000` |
-| `--no-build` | Start without building Replay data first |
-| `--robot-host ADDR` | The robot address for the Live CAN view. Repeat it to try several. Default: the addresses `acquire` uses. The view connects only while it's open ([Live CAN health](../how-to/live-can-health.md)) |
+<!-- generated:cli:serve -->
+| Option | What it does | Default |
+|---|---|---|
+| `--host HOST` | bind address (default 127.0.0.1); 0.0.0.0 shares the app, read-only, on the pit network | `127.0.0.1` |
+| `--port PORT` | port (default 8000; 0 = any free port) | `8000` |
+| `--robot-host ADDRESS` | robot address for the Live CAN view (repeatable; default: the acquire hosts) | |
+| `--no-build` | start without building Replay data first | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:serve -->
+
+`--host 0.0.0.0` shares the app on the pit network. There's no password, so use it only on a network you trust. Nothing can be changed from the app while it runs this way, not even on this laptop: no triage, no Setup saves or fixes, no Appearance changes, no AdvantageScope launch. The Live CAN view connects to the robot only while it's open ([Live CAN health](../how-to/live-can-health.md)).
 
 ```sh
 flashpoint serve
@@ -158,13 +189,16 @@ Pull new logs from the roboRIO (over SFTP) and from USB drives plugged into this
 
 Pulling from the robot and running acquire as a service (`--watch`) are **beta, tested on one robot**; `--help` says so. Importing from USB drives isn't labelled.
 
-| Option | What it does |
-|---|---|
-| `--dry-run` | List what would be copied and change nothing. Can't be combined with `--watch` |
-| `--watch` | Keep going, one cycle every `poll_s` seconds, until Ctrl-C |
-| `--host ADDR [ADDR ...]` | Try these robot addresses instead of the configured ones |
-| `--no-usb` | Don't scan removable drives |
-| `--include-active` | Also pull logs still being written (tagged as incomplete) |
+<!-- generated:cli:acquire -->
+| Option | What it does | Default |
+|---|---|---|
+| `--watch` | repeat every poll_s until stopped; this is also how it runs as a service (beta, tested on one robot) | |
+| `--host H [H ...]` | robot addresses to try instead of the configured ones | |
+| `--include-active` | also pull logs still being written (tagged incomplete) | |
+| `--dry-run` | list what would be copied and change nothing (not with --watch) | |
+| `--no-usb` | don't scan removable drives | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:acquire -->
 
 ```sh
 flashpoint acquire --dry-run
@@ -175,6 +209,12 @@ flashpoint acquire --watch
 
 Back up the raw logs, the metadata and your configuration files to the rclone remote set as `backup.remote` in `acquire.toml`, right now. A running `acquire --watch` already does this on its own schedule, and this command exits with code `3` while one is running. See [Automatic import](../how-to/auto-import.md#backup-and-restore).
 
+<!-- generated:cli:backup -->
+| Option | What it does | Default |
+|---|---|---|
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:backup -->
+
 ```sh
 flashpoint backup
 ```
@@ -183,10 +223,15 @@ flashpoint backup
 
 Copy a backup into a new, empty lake. Then run `rebuild` on that lake to regenerate everything else. The backed-up configuration goes into the config folder only if it has no configuration files; otherwise it goes to `restored-config/` in the lake, and the config folder is left as it is. See [Restore drill](../how-to/auto-import.md#restore-drill).
 
-| Option | What it does |
-|---|---|
-| `--remote NAME:PATH` | Restore from here instead of `backup.remote` |
-| `--force` | Restore into a lake that already has data. Avoid this; restore into a new lake. It never overwrites configuration |
+<!-- generated:cli:restore -->
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | restore into a lake that already has data (avoid; use a new lake) | |
+| `--remote REMOTE` | rclone remote:path to restore from (default: backup.remote) | |
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:restore -->
+
+Restore into a new lake rather than using `--force`; a restore never overwrites configuration.
 
 ```sh
 flashpoint restore --lake ~/flashpoint-lake-restored
@@ -217,9 +262,15 @@ Then it runs the setup checks, one line each, marked `ok`, `WARN`, `PROBLEM` or 
 | owlet, per hoot format in the lake | the matching owlet isn't downloaded, or its checksum doesn't match |
 | AdvantageScope | the configured path is wrong (not found at all is a warning) |
 | Acquire service | never a problem: a warning when it isn't installed or running (Linux and Windows), `n/a` on macOS |
-| Python | the version isn't 3.11 to 3.13 |
+| Python | the version isn't 3.11 to 3.14 |
 
 It changes nothing and downloads nothing. It exits `1` when any check is a problem, else `0`. Run it first whenever something looks wrong.
+
+<!-- generated:cli:doctor -->
+| Option | What it does | Default |
+|---|---|---|
+| `--lake LAKE` | lake root (default: $FLASHPOINT_LAKE or ~/flashpoint-lake) | |
+<!-- /generated:cli:doctor -->
 
 ```sh
 flashpoint doctor

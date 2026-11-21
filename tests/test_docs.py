@@ -339,3 +339,15 @@ def test_docs_site_job_builds_strictly_on_every_change() -> None:
     assert order == sorted(order), "install, placeholders, strict build, media check"
     uploads = [s for s in job["steps"] if s.get("uses", "").startswith("actions/upload-artifact@")]
     assert uploads and uploads[0]["with"]["path"] == "site/"
+
+
+def test_cli_reference_tables_are_current() -> None:
+    """Spec project-documentation, "CLI reference": the generated tables match the CLI."""
+    spec = importlib.util.spec_from_file_location(
+        "gen_cli", REPO / "tools" / "gen-cli-reference.py"
+    )
+    assert spec is not None and spec.loader is not None
+    tool = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tool)
+    problems = tool.problems(CLI_REFERENCE.read_text(encoding="utf-8"), tool.tables(_parser()))
+    assert problems == [], "\n".join([*problems, "run: python tools/gen-cli-reference.py"])
