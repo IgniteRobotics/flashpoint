@@ -227,15 +227,16 @@
 
 ## 12. Support matrix, limits, troubleshooting, FAQ, privacy (M2)
 
-- [ ] 12.1 Test first:
+- [x] 12.1 Test first:
   - the `tools/gen-support-matrix.py` output for `docs/guide/support-matrix.toml` must equal the committed tables between the markers;
   - every cell must be one of the spec's six values ("supported", "supported (needs Phoenix Pro)", "rough", "not tested on real logs", "not tested", "not supported");
   - every "supported" cell's evidence must name an existing corpus group, an existing path under `tests/`, or `outside:<yyyy-mm>` with an issue link;
   - every "rough" cell must name its workaround and an issue, and every "not supported" row must link an issue.
 
   Use fixture TOMLs, including a cell reading "works". Verify: the fixtures fail as expected, with the table, row and column named.
-- [ ] 12.2 Write `support-matrix.toml`, the generator and `support-matrix.md`, with the device, log-setup and platform tables. Fill cells from the corpus and the tests; outside-team rows read "not tested" or "not tested on real logs". File or link the tracking issues for REV, Phoenix 5 and Systemcore. Verify: the 12.1 tests pass.
-- [ ] 12.3 Write the Known limits section:
+- [x] 12.2 Write `support-matrix.toml`, the generator and `support-matrix.md`, with the device, log-setup and platform tables. Fill cells from the corpus and the tests; outside-team rows read "not tested" or "not tested on real logs". File or link the tracking issues for REV, Phoenix 5 and Systemcore. Verify: the 12.1 tests pass.
+  Done 2026-11-21. `tools/gen-support-matrix.py` checks and renders; `tests/test_docs_support_matrix.py` runs the fixtures, the real data, the page's freshness and the spec's row order. A "not supported" cell may carry its issue itself (per-feature gaps such as Pigeon 2 temperature, #75) or on its row (hardware). Filed for the table: #108 (REV Spark), #109 (Phoenix 5, also linked from wpilog-only motor data), #110 (Systemcore), #111 (macOS service); PDH/PDP link #6, hoots-only links #8. Platform install/ingest/serve cite corpus E10 via CI's first-run smoke (real owlet) on all three OSes, so Windows reads "supported" there until 12.8 takes `mvp-public-release` 8.2's walkthrough result. Outside-log rows (non-Pro, AdvantageKit, rio bus only) read "not tested" until 12.8.
+- [x] 12.3 Write the Known limits section:
   - 2027 and Systemcore status (from #73);
   - the first hoot needs internet;
   - the hoot-only session warning (#8);
@@ -245,6 +246,7 @@
   - the Linux owlet crash that retries absorb (#4, handed over by `mvp-public-release` 1.4).
 
   Verify: the link check passes.
+  Done 2026-11-21. No event-scale first-run figure yet (`mvp-public-release` 8.5 is open); add the line if it hands one over. The Linux owlet line is the text requested on #84; #107 is listed as a known issue until it's fixed.
 - [ ] 12.4 Test first: the troubleshooting message check (design D-e) on a fixture entry whose message no longer exists in a fixture source tree. Then write the install and first-run half of `troubleshooting.md`:
   - command not found;
   - Python refused;
