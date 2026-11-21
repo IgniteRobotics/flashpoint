@@ -1,0 +1,50 @@
+name: docs-media
+
+# Non-blocking: shows reviewers the docs screenshots and animations a UI change produces
+# (mvp-documentation design D-f). Not part of ci-ok; the deploy (docs.yml) regenerates the media
+# itself, so nothing here is published.
+on:
+  pull_request:
+    paths:
+      - "src/flashpoint/web/**"
+      - "docs/media-manifest.toml"
+      - "tools/docs-media.py"
+
+permissions:
+  contents: read
+
+jobs:
+  docs-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # fetch-corpus.py downloads through gh, which needs a token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: pipx install poetry
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction --with docs
+      - run: poetry run playwright install --with-deps chromium
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .corpus
+          key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/flashpoint/owlet
+          key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
+      - run: poetry run python tools/fetch-corpus.py
+      - name: Capture every manifest entry
+        run: poetry run python tools/docs-media.py capture --out build/docs-media
+      - name: Join the flows (the announcement reel)
+        run: poetry run python tools/docs-media.py reel --out build/docs-media
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: docs-media
+          path: build/docs-media/
+          retention-days: 14

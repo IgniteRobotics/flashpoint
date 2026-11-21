@@ -114,3 +114,30 @@ def test_squash_is_manual_confirmed_and_never_overlaps_a_deploy() -> None:
     script = "\n".join(str(step.get("run", "")) for step in job["steps"])
     assert "git commit-tree" in script
     assert "--force-with-lease" in script  # a deploy that landed meanwhile is never lost
+
+
+# --- media capture (task 8.7) ---------------------------------------------------------------
+
+MEDIA_WORKFLOW = REPO / ".github" / "workflows" / "docs-media.yml"
+
+
+def test_build_captures_media_from_the_corpus_into_the_site() -> None:
+    runs = _runs("build")
+    assert _first(runs, "fetch-corpus.py") < _first(runs, "docs-media.py capture")
+    assert _first(runs, "docs-media.py capture") < _first(runs, "check-site")
+    assert "placeholders" not in "\n".join(runs), "the deploy publishes real media, not stand-ins"
+
+
+def test_media_pr_job_is_non_blocking_and_uploads_the_media() -> None:
+    flow = yaml.safe_load(MEDIA_WORKFLOW.read_text(encoding="utf-8"))
+    paths = flow[True]["pull_request"]["paths"]  # YAML reads the bare key `on` as True
+    assert set(paths) == {
+        "src/flashpoint/web/**",
+        "docs/media-manifest.toml",
+        "tools/docs-media.py",
+    }
+    steps = flow["jobs"]["docs-media"]["steps"]
+    uploads = [s for s in steps if s.get("uses", "").startswith("actions/upload-artifact@")]
+    assert uploads and uploads[0]["with"]["path"] == "build/docs-media/"
+    ci = yaml.safe_load((REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    assert "docs-media" not in ci["jobs"]["ci-ok"]["needs"], "the media job must not gate ci-ok"

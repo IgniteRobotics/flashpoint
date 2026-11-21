@@ -111,6 +111,8 @@ jobs:
     env:
       CONFIG: ${{ needs.plan.outputs.config }}
       VERSION: ${{ needs.plan.outputs.version }}
+      FLASHPOINT_CORPUS_DIR: ${{ github.workspace }}/.corpus
+      GH_TOKEN: ${{ github.token }}  # fetch-corpus.py downloads through gh, which needs a token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,9 +125,26 @@ jobs:
       - run: poetry install --no-interaction --only docs --no-root
       - name: Strict build (a broken link or anchor stops the run)
         run: poetry run zensical build --strict --clean --config-file "$CONFIG"
+      # Media (D-f): every screenshot and animation, regenerated from corpus-v1 and this commit's
+      # UI on every deploy. Needs Flashpoint itself, Chromium and the corpus.
+      - name: Install Flashpoint and Chromium for the media capture
+        run: |
+          poetry install --no-interaction --with docs
+          poetry run playwright install --with-deps chromium
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .corpus
+          key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/flashpoint/owlet
+          key: owlet-${{ runner.os }}-${{ hashFiles('src/flashpoint/readers/owlet-manifest.toml') }}
+      - run: poetry run python tools/fetch-corpus.py
       - name: Media
-        # Placeholders until mvp-documentation group 8 adds `capture` (D-f).
-        run: poetry run python tools/docs-media.py placeholders
+        run: |
+          poetry run python tools/docs-media.py capture --out build/docs-media
+          mkdir -p docs/guide/assets/media
+          cp build/docs-media/* docs/guide/assets/media/
       - name: Hosted Replay demo
         run: echo "The hosted demo is added by mvp-documentation group 9 (D-h); nothing to build yet."
       - name: Every image and video a page shows is in the site
