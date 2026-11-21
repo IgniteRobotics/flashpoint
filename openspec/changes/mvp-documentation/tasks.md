@@ -118,7 +118,8 @@
 
 ## 6. Install, Quickstart and sample logs (M1)
 
-- [ ] 6.1 Test first: `tools/build-sample-bundle.py` on fixture files writes `flashpoint-sample-1.zip`. It holds `logs/` (a wpilog and hoots, never a `truncated` file), `config/robots/2026-comp.toml`, `README.txt` and `SHA256SUMS`, and the sums match. Then write the tool. Verify: the unit test passes, and a run on the fetched corpus E10 gives a zip of 30 MB or less.
+- [x] 6.1 Test first: `tools/build-sample-bundle.py` on fixture files writes `flashpoint-sample-1.zip`. It holds `logs/` (a wpilog and hoots, never a `truncated` file), `config/robots/2026-comp.toml`, `README.txt` and `SHA256SUMS`, and the sums match. Then write the tool. Verify: the unit test passes, and a run on the fetched corpus E10 gives a zip of 30 MB or less.
+  Done 2026-11-21. Built from the fetched corpus-v1 E10 (each file checked against the corpus manifest): **15.1 MB**, sha256 `e63c5eebebad0e6e190af281d3c19d6fc3d31a87ef56a0085a6646bdfe800a11`. Entries carry a fixed timestamp, so two builds are byte-identical and the hash above stays true; `shasum -a 256 -c SHA256SUMS` passes inside the unpacked bundle. The robot file is `config/robots/2026-comp.toml`.
 - [ ] 6.2 [HUMAN] A maintainer publishes the bundle as the only asset of a `samples-v1` GitHub release, marked not-latest. Verify: `gh release view samples-v1` lists it, and `gh release list` still doesn't show it as Latest.
 - [ ] 6.3 Write `install/index.md`, `install/macos.md`, `install/linux.md` and `install/windows.md`, using the install command #70 ships (`mvp-install-and-first-run` 1.2–1.3; if it hasn't merged, write to its team-setup "Installable public package" requirement and re-check the commands once it lands):
   - uv first;
