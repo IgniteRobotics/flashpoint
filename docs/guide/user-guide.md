@@ -53,7 +53,7 @@ If `flashpoint` isn't found after the install, run `uv tool update-shell` and op
 
 `flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, your team name and colours (`theme.toml`), and copies of the default settings. Anything you leave out (`--team`, `--lake`, `--team-name`, `--palette`) it asks for in a terminal; leave the name blank for none. See [`flashpoint init`](reference/cli.md#flashpoint-init) for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
 
-**Your first import drafts your robot.** When the lake has logs from a season that has no robot file yet, `ingest` drafts one from them (`robots/2026-comp.toml`, from the match with the most CAN devices) and says so. Replay shows that match's data right away. Open **Setup > Robots** and fill in each slot's subsystem and role; keep the drafted slot ids, which already name each device's model and CAN id. Logs with hoots but no wpilog, or an import with `--no-robot-draft`, draft nothing: use **Setup > Draft robot** for those ([Setup](#setup-checks-and-configuration)).
+**Your first import drafts your robot.** When the lake has logs from a season that has no robot file yet, `ingest` drafts one from them (`robots/2026-comp.toml`, from the match with the most CAN devices) and says so. Replay shows that match's data right away. Open **Setup > Robots** and fill in each slot's subsystem and role; keep the drafted slot ids, which already name each device's model and CAN id. Logs with hoots but no wpilog, or an import with `--no-robot-draft`, draft nothing: use **Setup > Draft robot** for those ([Setup](reference/views/setup.md)).
 
 `flashpoint doctor` lists the setup checks. Right after `init`, the robot check is a warning: the lake has no logs from this season yet. Once you import this season's logs it is a problem only while no robot is configured. A drafted robot whose slots have no subsystem yet is a warning, not a problem.
 
@@ -160,68 +160,15 @@ flashpoint serve
 
 Open <http://127.0.0.1:8000/> in a browser. Stop the server with Ctrl-C. The app has these views.
 
-### Replay: one match
+Each view has its own reference page, with every control, marker and badge:
 
-Pick a match from the list on the left; matches are grouped by event. You'll see:
-- **Tracks** over the match: battery voltage, total current, the hottest motor's temperature, and the highest-current motor. Auto and teleop are shaded. You can swap any track for any motor and metric.
-- **Markers** on the timeline. A WARN or FAULT marker is a fact, such as "temperature reached 65 °C", "battery dropped below 6.75 V", "stall", "device rebooted", or "CAN frames stopped". Markers don't guess at a cause. Click one to jump to it.
-- A **readout** of every motor at the cursor. With no cursor placed, it lists each motor's maximum for the match, hottest first.
-- **Open in AdvantageScope** opens the match's logs in AdvantageScope, on the machine running `serve` only. There's also a link to download the raw logs. Flashpoint uses the newest WPILib install of AdvantageScope unless `report.toml` in your config folder names another (`path` under `[advantagescope]`). The Setup view's **Set AdvantageScope path** button sets it for you.
-
-"Not logged" means the data isn't there, which is not the same as zero. A match whose hoots didn't record temperature says so in its header.
-
-### History: every motor over time
-
-Pick a metric (maximum temperature, lowest voltage under load, energy, stall time, current, reboots, CAN gaps) to see one point per match:
-- By default there is one line per **unit**, the physical motor, followed by serial number across slots and robots. You can switch to one line per **slot**, the position on the robot.
-- Point at a line to see which motor it is.
-- Dashed lines mark where each competition starts, labelled with the event (for example GACMP); the line above the chart lists the competitions and their match counts.
-- Select a motor to highlight it, see its totals, and jump to its matches in Replay.
-
-### Anomalies: what Flashpoint flagged
-
-A queue of everything detection found. Each anomaly comes with its evidence (the matches and values), a severity (HIGH, MED, or LOW), and likely causes to check.
-
-| Kind | Meaning |
+| View | For |
 |---|---|
-| SPEC | Broke a fixed limit |
-| DRIFT | Slowly moving away from this motor's own normal |
-| STEP | Jumped and stayed there |
-| SIBLING | Different from the motors doing the same job |
-
-The count badge in the navigation always counts the whole lake, whatever the filters. A new motor needs about 5 matches of history before DRIFT and STEP can fire; until then it shows as "building baseline". GROUP DEVICE groups the queue by motor, with a robot's brownouts under its battery.
-
-**Triage** records what the team did about an anomaly:
-- **INVESTIGATE**: someone is looking into it.
-- **MARK RESOLVED**: fixed. Write what you did.
-- **DISMISS AS EXPECTED**: not a problem, for example after a gearbox change. Write why. You can also restart the motor's baseline from that match.
-- **REOPEN**: undo either of the last two.
-
-Triage is saved in the lake and kept in the backup. It only works in a browser on the laptop running `serve`. Anyone viewing over the network can look but can't change anything.
-
-### Filters
-
-The bar under the header filters by season, robot, event, and unit. A filter set in one view stays set in the others, and it's in the address, so a copied link keeps it. CLEAR FILTERS clears them everywhere. History's own filters (metric type, phase, subsystem, slot) come after the divider and affect History only. Replay ignores the unit filter, because its match list doesn't record which units played each match.
-
-On a wide screen each column scrolls on its own, and the ◂ / ▸ control on a side rail shrinks it to a strip. This laptop remembers that per view.
-
-### Setup: checks and configuration
-
-The **Setup** tab shows what `flashpoint doctor` checks, and your whole configuration, and lets you change it without editing files.
-
-- **Checks:** one line per check, marked ✓, `!` (warning) or ✕ (problem). Known problems have a button: **Create configuration** (as `flashpoint init`), **Download owlet**, **Set AdvantageScope path**, **Install** or **Start the acquire service** (Linux and Windows). The checks run again after each fix. Anything else shows the command to run.
-- **Configuration:** your team number and robot addresses, each robot's slots, buses and signals, the report and anomaly thresholds, the units list, and **Appearance** (team name and colours, with a live preview; see [Team name and colours](#team-name-and-colours)), each with the file it comes from. `DEFAULT` marks a file that ships with Flashpoint; saving it writes your own copy. Each section has its own **SAVE**:
-  - a save is checked with the same rules as loading the file, and refused with the same message if something is wrong (two slots with the same CAN id, a signal under a root the season doesn't have);
-  - a save is refused if someone changed the file by hand since you opened it: reload and redo the edit;
-  - comments and the order of everything you didn't change are kept, and the previous version goes to `.backups/` in the config folder (the last 20 of each file);
-  - after a save, the view says what to run: `flashpoint derive` after a robot change, `flashpoint detect` after an anomaly threshold, `flashpoint report` after a report threshold, and a page reload after a team name or colour change. Saving never changes the lake.
-- **Draft robot:** your first import usually drafts the robot for you (see [Install](#install)); use this tab for another robot, for hoot-only logs, or after `--no-robot-draft`. Pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side/index.md)). Fill in each slot's subsystem and role now or later (slots without a subsystem are marked UNNAMED), then **SAVE ROBOT**. Saving rebuilds the lake in the background; reload Replay when it finishes. A log with no hoots can't be drafted from. On an empty lake the tab shows the import command for this lake.
-
-Fixes and saves only run on the computer running `flashpoint serve`. Opened from another computer, or with `--host 0.0.0.0`, Setup is read-only and shows commands instead of buttons.
-
-### Live CAN: dropouts while you test
-
-The **Live CAN** tab reads the robot while you shake-test it (disabled, wiggling each harness) or drive-test it (enabled): which device dropped out, rebooted or faulted, and whether it was one device or the whole bus, with marks ("now wiggling: FL module") on the events that follow. It needs a small addition to robot code and records nothing. See [Live CAN health](how-to/live-can-health.md).
+| [Replay](reference/views/replay.md) | One match: tracks, markers, a readout of every motor, and the raw logs |
+| [History](reference/views/history.md) | Every motor over time, one point per match |
+| [Anomalies](reference/views/anomalies.md) (beta) | What detection flagged, with evidence, likely causes and triage |
+| [Setup](reference/views/setup.md) | The `doctor` checks, your whole configuration, and Draft robot |
+| [Live CAN](reference/views/live-can.md) (experimental) | CAN dropouts while you shake-test or drive-test |
 
 ### Showing other people on the pit network
 
@@ -245,7 +192,7 @@ The app header shows your team name and number, and the app uses your team's col
 
 ## Describe a robot
 
-Flashpoint needs to know which motor is which. Each robot has a file in the `robots/` folder of your config folder. The quickest start is **Draft robot** in the [Setup view](#setup-checks-and-configuration). Every key, NetworkTables signals, sibling groups, the battery proxy, swap dates and which robot file a log uses are in the [robot file reference](reference/config/robots.md).
+Flashpoint needs to know which motor is which. Each robot has a file in the `robots/` folder of your config folder. The quickest start is **Draft robot** in the [Setup view](reference/views/setup.md). Every key, NetworkTables signals, sibling groups, the battery proxy, swap dates and which robot file a log uses are in the [robot file reference](reference/config/robots.md).
 
 The other settings files (`report.toml`, `anomaly.toml`, `anomaly-causes.toml`, `failure-labels.toml`, `seasons/`, `units/units-seed.csv`) each have a page under [Reference: config files](reference/config/robots.md). A file missing from your config folder uses the default that ships with Flashpoint.
 

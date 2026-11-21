@@ -210,8 +210,9 @@
 - [x] 10.3 Write `reference/config/robots.md`, `seasons.md` and `units.md` (every column of the units CSV header). The robots page covers slots, buses, signals, siblings, `battery_proxy` and swap dates, moved from the user guide. Test first: a robot file with an unknown key produces exactly the message quoted under "Common errors". Verify: both tests pass.
 - [x] 10.4 Write `reference/config/report.md`, `anomaly.md`, `anomaly-causes.md` and `failure-labels.md`, linking the bundled defaults instead of restating thresholds. Verify: the 10.1 test passes on the whole tree.
   Done 2026-11-21. `tests/test_docs_config_reference.py` maps each page to its loader models by TOML name (`[[slot]]`, not `slots`); a table counts when written `[name]` or `[[name]]`. Every "Common errors" line is `flashpoint doctor`'s own one-line form (`describe_error`), captured by feeding each loader a broken file; the robots test runs the real checks and requires the page to quote the result exactly. The `acquire.toml` table left the auto-import how-to, and the robot, theme and thresholds sections left the user guide, each replaced by a link. Found while writing: a season file in the config folder replaces the bundled one whole, so it must repeat every root (now said on `seasons.md`).
-- [ ] 10.5 Test first: each view in `web/static/views/*.js` must have `reference/views/<view>.md`. Then write `replay.md` and `history.md`, explaining every control, marker and badge, with the manifest screenshot. Verify: the test passes for these two views, and the strict build passes.
-- [ ] 10.6 Write `reference/views/anomalies.md` (beta label, #77), `setup.md` and `live-can.md` (experimental label). Verify: the 10.5 test passes for every view.
+- [x] 10.5 Test first: each view in `web/static/views/*.js` must have `reference/views/<view>.md`. Then write `replay.md` and `history.md`, explaining every control, marker and badge, with the manifest screenshot. Verify: the test passes for these two views, and the strict build passes.
+- [x] 10.6 Write `reference/views/anomalies.md` (beta label, #77), `setup.md` and `live-can.md` (experimental label). Verify: the 10.5 test passes for every view.
+  Done 2026-11-21 (10.5 and 10.6 together). Each page was written from the view's JS and its server/report code. A per-claim source list was spot-checked against the code: stall constants, History showing motors only, read-only following the bind address, serve building Replay data unless `--no-build`, and the triage labels. Corrections to the user guide's old wording went into the pages; the user guide's view sections now point at them. Labels in the first lines: Anomalies "beta" (#77, with what's shipped vs planned), Live CAN "experimental". The 10.5 structural test passed before the pages were written, because group 2's placeholders already had each screenshot.
 
 ## 11. Tutorials and how-to guides (M2)
 
@@ -247,7 +248,7 @@
 
   Verify: the link check passes.
   Done 2026-11-21. No event-scale first-run figure yet (`mvp-public-release` 8.5 is open); add the line if it hands one over. The Linux owlet line is the text requested on #84; #107 is listed as a known issue until it's fixed.
-- [ ] 12.4 Test first: the troubleshooting message check (design D-e) on a fixture entry whose message no longer exists in a fixture source tree. Then write the install and first-run half of `troubleshooting.md`:
+- [x] 12.4 Test first: the troubleshooting message check (design D-e) on a fixture entry whose message no longer exists in a fixture source tree. Then write the install and first-run half of `troubleshooting.md`:
   - command not found;
   - Python refused;
   - proxy blocks owlet;
@@ -256,7 +257,7 @@
   - each `doctor` `PROBLEM`.
 
   Take each message from the code or from real output. Verify: the test passes on the real page.
-- [ ] 12.5 Test first (corpus marker): ingest the corpus's empty hoot and check that it is quarantined with the message the quarantined-file entry quotes; ingest the truncated E10 copy and check that it succeeds with the warning the incomplete-file entry quotes. Then write the logs-and-views half of `troubleshooting.md`:
+- [x] 12.5 Test first (corpus marker): ingest the corpus's empty hoot and check that it is quarantined with the message the quarantined-file entry quotes; ingest the truncated E10 copy and check that it succeeds with the warning the incomplete-file entry quotes. Then write the logs-and-views half of `troubleshooting.md`:
   - all non-match;
   - each empty Replay state (from #72);
   - no temperature (from #75);
@@ -265,6 +266,7 @@
   - incomplete file.
 
   Verify: the corpus test and the message check pass.
+  Done 2026-11-21 (12.4 and 12.5). `tests/test_docs_troubleshooting.py`: the message check joins adjacent string literals (Python and JS) before searching, so messages split over lines still count. Runtime-composed parts (a quarantine reason, a warning name) are `<placeholders>`, with the values in a table. The corpus tests ingest the empty hoot and E10 plus its truncated copy, and match the printed lines against the quoted messages. Found: the truncated copy is flagged `short-coverage` only next to its session's other hoots (alone it's `unchecked`), so the test ingests it with E10.
 - [ ] 12.6 Write `faq.md`: REV, AdvantageKit, non-Pro hoots, Systemcore/2027, Windows, cost, where data lives, whether it sends data, one lake on several laptops, getting help and build-season support expectations (linking Discussions and issue forms from #79). `mvp-public-release` 10.2 writes the announcement FAQ from this page. Verify: the link check passes.
 - [ ] 12.7 Test first (corpus marker): with owlet cached, patch socket connections so any non-loopback connect raises. Then ingest, derive, report and serve one corpus match, and check that every step succeeds with no outbound attempt. Then write `privacy.md`:
   - no telemetry;
