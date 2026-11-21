@@ -1,8 +1,11 @@
 """Documentation drift checks: relative links resolve, and every CLI subcommand is documented."""
 
 import argparse
+import contextlib
 import importlib.util
+import io
 import re
+import shlex
 from pathlib import Path
 
 import yaml
@@ -218,6 +221,102 @@ def test_readme_says_where_to_get_help() -> None:
     line = next((line for line in text.splitlines() if "Getting help" in line), "")
     assert "https://github.com/IgniteRobotics/flashpoint/discussions/categories/q-a" in line
     assert "https://github.com/IgniteRobotics/flashpoint/issues/new/choose" in line
+
+
+# --- commands in docs parse (design D-e "Commands parse") ------------------------------------
+
+COMMAND_FENCES = ("sh", "console", "powershell")
+FENCE = re.compile(r"^\s*(```|~~~)\s*([A-Za-z]*)")
+ENV_ASSIGNMENT = re.compile(r"^(?:\$env:)?[A-Za-z_][A-Za-z0-9_]*=")
+PLACEHOLDER = re.compile(r"<[^<>]+>")
+
+
+def _commands(path: Path) -> list[tuple[int, str]]:
+    """Every shell command in a page's sh, console and powershell blocks: (line, command), with
+    `\\` continuations joined and a console block's `$ ` prompt stripped (other lines there are
+    output)."""
+    commands: list[tuple[int, str]] = []
+    fence: str | None = None
+    pending: tuple[int, str] | None = None
+    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        opened = FENCE.match(raw)
+        if opened:
+            fence = None if fence is not None else opened[2].lower()
+            continue
+        if fence not in COMMAND_FENCES:
+            continue
+        line = raw.strip()
+        if pending is not None:
+            line, number = pending[1] + " " + line, pending[0]
+            pending = None
+        if fence == "console":
+            if not line.startswith("$ "):
+                continue
+            line = line[2:]
+        if line.endswith("\\"):
+            pending = (number, line[:-1].strip())
+            continue
+        if line and not line.startswith("#"):
+            commands.append((number, line))
+    return commands
+
+
+def _flashpoint_args(command: str) -> list[list[str]]:
+    """The argument lists of every `flashpoint` call in one command line, after env assignments
+    and `poetry run` / `uv run` prefixes; `<placeholder>` becomes `1`."""
+    calls = []
+    for segment in re.split(r"\s*(?:&&|;|\|)\s*", command):
+        try:
+            words = shlex.split(PLACEHOLDER.sub("1", segment), comments=True)
+        except ValueError:
+            words = segment.split()
+        while words and ENV_ASSIGNMENT.match(words[0]):
+            words = words[1:]
+        if words[:2] in (["poetry", "run"], ["uv", "run"]):
+            words = words[2:]
+        if words[:1] == ["flashpoint"]:
+            calls.append(words[1:])
+    return calls
+
+
+def command_problems(path: Path, root: Path) -> list[str]:
+    """Every `flashpoint` command in a page that the CLI rejects, as `file:line: command: error`."""
+    problems = []
+    for number, command in _commands(path):
+        for args in _flashpoint_args(command):
+            errors = io.StringIO()
+            try:
+                with contextlib.redirect_stderr(errors), contextlib.redirect_stdout(io.StringIO()):
+                    _parser().parse_args(args)
+            except SystemExit as stop:
+                if stop.code not in (0, None):
+                    message = errors.getvalue().strip().splitlines()[-1].split("error: ", 1)[-1]
+                    where = f"{path.relative_to(root).as_posix()}:{number}"
+                    problems.append(f"{where}: flashpoint {' '.join(args)}: {message}")
+    return problems
+
+
+def test_fixture_commands_parse() -> None:
+    problems = command_problems(FIXTURES / "commands.md", FIXTURES)
+    assert len(problems) == 4, problems
+    assert problems[0] == (
+        "commands.md:5: flashpoint ingest --recursive logs/: unrecognized arguments: --recursive"
+    )
+    assert problems[1] == (
+        "commands.md:15: flashpoint serve --colour red: unrecognized arguments: --colour red"
+    )
+    # argparse quotes the choices differently across Python versions
+    assert problems[2].startswith("commands.md:21: flashpoint frobnicate: argument command:")
+    assert "invalid choice" in problems[2]
+    assert problems[3] == (
+        "commands.md:26: flashpoint report --match 1 --no-raw --bogus:"
+        " unrecognized arguments: --bogus"
+    )
+
+
+def test_commands_in_the_docs_parse() -> None:
+    problems = [p for path in doc_files() if path.exists() for p in command_problems(path, REPO)]
+    assert problems == [], "\n".join(problems)
 
 
 def test_every_subcommand_is_in_the_cli_reference() -> None:

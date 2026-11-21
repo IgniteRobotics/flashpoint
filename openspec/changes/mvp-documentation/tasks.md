@@ -97,7 +97,7 @@
   Verify: the fixture tests pass, and the real-tree test fails until 4.2 (expected).
 - [x] 4.2 Write `tools/gen-cli-reference.py`: a table per subcommand with option (positional arguments included), help and default. Add the three missing help strings in `src/flashpoint/cli.py`: `ingest`'s `paths` and `--profile`, and `rebuild`'s `--profile`. Regenerate `reference/cli.md`, keeping the hand-written purpose and examples outside the markers. Verify: `pytest tests/test_docs.py` passes, and `flashpoint <cmd> --help` for each subcommand agrees with its table.
   Done 2026-11-21. Markers are `<!-- generated:cli:<name> -->` … `<!-- /generated:cli:<name> -->`; columns Option, What it does, Default. The option cell is argparse's own invocation and the help is expanded the way `--help` shows it (`%(default)s`), so the tables agree with `--help` by construction (spot-checked on `serve` and `ingest`). `--check` exits 1 naming each stale subcommand and option. Help strings added for `ingest`'s `paths` (now `PATH`) and `--profile` and `rebuild`'s `--profile`, and sharpened where the hand tables said more than `--help` (`--jobs` default, `--team` range, `--team-name` length, `--quarantined` retries, `report --static`/`--no-raw`, `serve --host`/`--port` defaults, the acquire options). Longer notes (`serve --host 0.0.0.0` has no password and makes the app read-only; `init` header fallback; `restore --force`) moved to prose outside the markers. Fixed the stale Python range in the `doctor` table (3.11 to 3.14).
-- [ ] 4.3 Test first: the commands-parse check (design D-e) on fixtures:
+- [x] 4.3 Test first: the commands-parse check (design D-e) on fixtures:
   - a good command;
   - `flashpoint ingest --recursive logs/` (rejected);
   - a `FLASHPOINT_CONFIG=… flashpoint …` prefix;
@@ -107,6 +107,7 @@
   - a `<placeholder>`.
 
   Then run it on the real docs, and fix every page it flags. Verify: `pytest tests/test_docs.py` passes.
+  Done 2026-11-21. Fixture `tests/fixtures/docs/commands.md` covers each case, plus `uv tool install … flashpoint` (not a flashpoint call), a comment line, a trailing `# comment`, a placeholder with spaces, console output lines, and a non-shell fence. Calls are split on `&&`, `;` and `|`; argparse's message is reported with the page, line and command. The real docs (README, deploy README, every guide page) had nothing to fix. The invalid-choice wording differs across Python versions, so that fixture line is checked by prefix.
 
 ## 5. Docs links from the app (M1, with #72)
 
