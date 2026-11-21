@@ -96,3 +96,21 @@ def test_a_tag_attaches_the_offline_archive_to_its_release() -> None:
     assert "gh release view" in script
     assert "gh release upload" in script and "--clobber" in script
     assert "flashpoint-docs-$VERSION.zip" in script
+
+
+# --- docs-squash.yml (design D-c: gh-pages history is disposable) ---------------------------
+
+SQUASH = REPO / ".github" / "workflows" / "docs-squash.yml"
+
+
+def test_squash_is_manual_confirmed_and_never_overlaps_a_deploy() -> None:
+    workflow: dict[Any, Any] = yaml.safe_load(SQUASH.read_text(encoding="utf-8"))
+    assert set(workflow[True]) == {"workflow_dispatch"}
+    assert workflow["permissions"] == {"contents": "read"}
+    (job,) = workflow["jobs"].values()
+    assert job["permissions"] == {"contents": "write"}
+    assert "inputs.confirm" in job["if"]
+    assert job["concurrency"] == {"group": "docs-deploy", "cancel-in-progress": False}
+    script = "\n".join(str(step.get("run", "")) for step in job["steps"])
+    assert "git commit-tree" in script
+    assert "--force-with-lease" in script  # a deploy that landed meanwhile is never lost

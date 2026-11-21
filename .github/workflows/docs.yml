@@ -200,8 +200,15 @@ jobs:
             poetry run mike deploy --push --config-file "$CONFIG" --title "$TITLE" "$VERSION"
           fi
       - name: The site root opens latest
+        # `latest` exists once dev or a final release is deployed; a first-ever deploy from a
+        # pre-release tag has none yet, so the root opens that version until then.
         run: |
-          poetry run mike set-default --push latest
+          if poetry run mike list --json | jq -e 'any(.[]; .aliases | index("latest"))' > /dev/null; then
+            poetry run mike set-default --push latest
+          else
+            echo "::notice::No latest alias yet; the site root opens $VERSION until dev or a final release is deployed."
+            poetry run mike set-default --push "$VERSION"
+          fi
           poetry run mike list
 
   attach-archive:

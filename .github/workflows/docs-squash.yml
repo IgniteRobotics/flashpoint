@@ -1,0 +1,43 @@
+name: docs-squash
+
+# Replace gh-pages history with one commit of its current tree (mvp-documentation design D-c).
+# Every docs deploy commits a full copy of a version, so the branch's history grows; it's a
+# disposable deploy branch, so when it passes about 300 MB an admin runs this. The published
+# files are unchanged. A deploy that lands while this runs makes the push fail (lease), not vanish.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "squash gh-pages" to replace its history'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  squash:
+    if: inputs.confirm == 'squash gh-pages'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    # The same group as docs.yml's deploy job: never while a deploy is pushing.
+    concurrency:
+      group: docs-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+      - name: One commit of the current tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898237+github-actions[bot]@users.noreply.github.com"
+          head=$(git rev-parse HEAD)
+          tree=$(git rev-parse "HEAD^{tree}")
+          echo "gh-pages: $(git rev-list --count HEAD) commits, $(du -sh .git | cut -f1) of history"
+          squashed=$(git commit-tree "$tree" -m "Squash gh-pages history: one commit of the published tree from $head")
+          test "$(git rev-parse "$squashed^{tree}")" = "$tree"
+          git push --force-with-lease="gh-pages:$head" origin "$squashed:refs/heads/gh-pages"
+          echo "gh-pages is now $squashed, with the same tree as $head."
