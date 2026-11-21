@@ -1,0 +1,116 @@
+name: fresh-install
+
+# Evidence for mvp-install-and-first-run task 1.4 (team-setup "Fresh machine with no suitable
+# Python"): the documented `uv tool install --python 3.13 flashpoint` on a machine with no
+# Python in range, then `flashpoint --version` and `init`. Started by hand (issue #104).
+# - Ubuntu 24.04 runs in a clean `ubuntu:24.04` container: no Python at all. It also records
+#   apt's pipx version (design D-a: `--fetch-missing-python` needs pipx 1.5+).
+# - Hosted macOS and Windows runners come with Pythons, so uv is told to use only Pythons it
+#   downloads (UV_PYTHON_PREFERENCE=only-managed), which is what a laptop with none in range
+#   gets. That's a stand-in for a fresh laptop, not one.
+# Also runs on a pull request that changes this file, so a change to it is tried once.
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "What to install: a requirement such as flashpoint or flashpoint==0.3.0rc1"
+        required: false
+        default: "flashpoint"
+      testpypi:
+        description: "Install from TestPyPI (dependencies still from PyPI), for a release dry run"
+        type: boolean
+        required: false
+        default: false
+  pull_request:
+    paths:
+      - ".github/workflows/fresh-install.yml"
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: ${{ inputs.package || 'flashpoint' }}
+  # Installer scripts and the uv they install are pinned (released 2026-10-27).
+  UV_VERSION: "0.13.6"
+
+jobs:
+  ubuntu:
+    name: fresh install (ubuntu 24.04, no Python)
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    timeout-minutes: 20
+    steps:
+      - name: What a fresh 24.04 has
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq curl ca-certificates > /dev/null
+          python3 --version 2>&1 || true
+          pipx="$(apt-cache policy pipx | sed -n 's/ *Candidate: //p')"
+          echo "apt pipx: $pipx"
+          {
+            echo "### Ubuntu 24.04 (clean container)"
+            echo "- python3 before install: \`$(python3 --version 2>&1 || echo none)\`"
+            echo "- apt's pipx version: \`$pipx\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      # A release dry run: the package from TestPyPI, its dependencies from PyPI.
+      - name: Use TestPyPI
+        if: inputs.testpypi
+        run: |
+          echo "UV_EXTRA_INDEX_URL=https://test.pypi.org/simple/" >> "$GITHUB_ENV"
+          echo "UV_INDEX_STRATEGY=unsafe-best-match" >> "$GITHUB_ENV"
+      - name: Install uv (uv's installer, as the guide says)
+        run: |
+          curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: uv tool install --python 3.13
+        run: uv tool install --python 3.13 "$PACKAGE"
+      - name: flashpoint --version and init
+        run: |
+          flashpoint --version
+          flashpoint init --team 9999 --lake "$HOME/flashpoint-lake" --team-name "" --palette amber
+          flashpoint doctor || true  # shown, not judged: 1.4 asks for --version and init
+          echo "- \`$(flashpoint --version)\` installed and \`init\` ran" >> "$GITHUB_STEP_SUMMARY"
+
+  others:
+    name: fresh install (${{ matrix.os }}, uv-managed Python only)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    env:
+      UV_PYTHON_PREFERENCE: only-managed
+    steps:
+      # A release dry run: the package from TestPyPI, its dependencies from PyPI.
+      - name: Use TestPyPI
+        if: inputs.testpypi
+        run: |
+          echo "UV_EXTRA_INDEX_URL=https://test.pypi.org/simple/" >> "$GITHUB_ENV"
+          echo "UV_INDEX_STRATEGY=unsafe-best-match" >> "$GITHUB_ENV"
+      - name: Install uv (Homebrew on macOS, uv's installer on Windows)
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew install uv
+          else
+            powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/$UV_VERSION/install.ps1 | iex"
+            echo "$USERPROFILE/.local/bin" >> "$GITHUB_PATH"
+          fi
+      - name: uv tool install --python 3.13
+        run: |
+          uv --version
+          uv tool install --python 3.13 "$PACKAGE"
+          uv tool dir --bin >> "$GITHUB_PATH"
+      - name: flashpoint --version and init
+        run: |
+          flashpoint --version
+          flashpoint init --team 9999 --lake "$RUNNER_TEMP/flashpoint-lake" --team-name "" --palette amber
+          flashpoint doctor || true  # shown, not judged: 1.4 asks for --version and init
+          {
+            echo "### $RUNNER_OS (uv-managed Python only)"
+            echo "- uv: \`$(uv --version)\`; Python used: \`$(uv python find 3.13)\`"
+            echo "- \`$(flashpoint --version)\` installed and \`init\` ran"
+          } >> "$GITHUB_STEP_SUMMARY"

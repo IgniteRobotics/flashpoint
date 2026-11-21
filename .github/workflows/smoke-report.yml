@@ -1,0 +1,49 @@
+name: smoke-report
+
+# Evidence for mvp-install-and-first-run task 9.5: the nightly first-run smoke's pass rate per
+# OS over the last N days, with a line per failure (tools/smoke-pass-rate.py). Started by hand
+# (issue #104); it can post the report on #71. Fixing or filing each flake stays a person's job.
+# Also runs on a pull request that changes it or its script, without posting.
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days back"
+        required: false
+        default: "7"
+      post:
+        description: "Also post the report as a comment on #71"
+        type: boolean
+        required: false
+        default: false
+  pull_request:
+    paths:
+      - ".github/workflows/smoke-report.yml"
+      - "tools/smoke-pass-rate.py"
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: nightly smoke pass rate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read  # the smoke runs and their jobs
+      issues: write  # only used when `post` is set
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      DAYS: ${{ inputs.days || '7' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Pass rate
+        run: |
+          python3 tools/smoke-pass-rate.py --days "$DAYS" > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          cat report.md
+      - name: Post on #71
+        if: inputs.post
+        run: gh issue comment 71 --body-file report.md
