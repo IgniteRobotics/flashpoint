@@ -132,3 +132,47 @@ def test_no_shipped_text_installs_with_pipx_alone() -> None:
     assert not offenders, "name `uv tool ...` first, pipx as the alternative:\n" + "\n".join(
         offenders
     )
+
+
+# --- docs media and links in the package (mvp-documentation design D-g, task 13.3 and 13.6) --
+
+MEDIA_SUFFIXES = (".png", ".gif", ".webm", ".mp4")
+DOCS_SITE = "https://igniterobotics.github.io/flashpoint/"
+
+
+@pytest.fixture(scope="module")
+def sdist_with_media_present(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """An sdist built while the docs media placeholders exist in the source tree."""
+    poetry = shutil.which("poetry")
+    if poetry is None:
+        pytest.skip("poetry is not on PATH")
+    media = REPO / "tools" / "docs-media.py"
+    subprocess.run(["python3", str(media), "placeholders"], cwd=REPO, check=True,
+                   capture_output=True)  # fmt: skip
+    out = tmp_path_factory.mktemp("sdist")
+    subprocess.run([poetry, "build", "-f", "sdist", "-o", str(out)], cwd=REPO, check=True,
+                   capture_output=True)  # fmt: skip
+    (path,) = out.glob("*.tar.gz")
+    return path
+
+
+def test_wheel_and_sdist_hold_no_media(wheel: Path, sdist_with_media_present: Path) -> None:
+    import tarfile
+
+    with zipfile.ZipFile(wheel) as zf:
+        assert not [n for n in zf.namelist() if n.endswith(MEDIA_SUFFIXES)]
+    with tarfile.open(sdist_with_media_present) as tf:
+        assert not [n for n in tf.getnames() if n.endswith(MEDIA_SUFFIXES)]
+
+
+def test_documentation_url_is_the_docs_site(wheel: Path) -> None:
+    with zipfile.ZipFile(wheel) as zf:
+        meta = next(n for n in zf.namelist() if n.endswith(".dist-info/METADATA"))
+        lines = zf.read(meta).decode().splitlines()
+    urls = dict(
+        line.removeprefix("Project-URL: ").split(", ", 1)
+        for line in lines
+        if line.startswith("Project-URL: ")
+    )
+    assert urls["Documentation"] == DOCS_SITE
+    assert urls["Homepage"] == DOCS_SITE

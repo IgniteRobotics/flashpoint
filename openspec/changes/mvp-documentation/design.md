@@ -88,7 +88,7 @@ The repo's `config/` holds Ignite's robot files for these logs.
 
 ## Decisions
 
-### D-a. Generator: Zensical, with pinned MkDocs 1.6.1 + Material 9.7.x as the fallback
+### D-a. Generator: Zensical, with pinned MkDocs 1.6.1 + Material 9.8.x as the fallback
 **Facts checked 2026-11-14 (web; re-check at task 1.1):**
 - Material for MkDocs is in maintenance mode ("no longer receives new features"). Its changelog notice says critical bug fixes and security updates continue through **2027-05-05**; 9.8.0 (2026-10-24, a security release) moved the CLI end-of-life notice to that date, and 9.8.1 shipped 2026-11-07. (An earlier announced date was 2026-11-05.) `ignition-labs` is on 9.7.7.
 - MkDocs 2.0 is incompatible with Material: TOML config, and the plugin and template system replaced.
@@ -303,6 +303,7 @@ The `docs.yml` deploy runs `flashpoint report --static <site>/demo --no-raw --ma
 ### D-i. Sample bundle for "Try it with sample logs"
 `tools/build-sample-bundle.py` writes `flashpoint-sample-1.zip` from corpus-v1 E10, the smaller full match (its wpilog and four hoots, without the truncated copy), together with:
 - `config/robots/2026-comp.toml`;
+- `config/seasons/2026.toml` (Ignite's: the robot file's signals use its `robot` root, which the bundled default season leaves unset) and a one-line `config/acquire.toml` (`team = 6829`; without an `acquire.toml` the folder doesn't count as a configuration and nothing is mapped). Both found by running the bundle, 2026-11-21;
 - a `README.txt`;
 - `SHA256SUMS`.
 

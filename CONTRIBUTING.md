@@ -25,7 +25,7 @@ If you'd like to fix something:
 - open an issue first, describing the problem and the fix you have in mind;
 - or push the fix to a branch on your own fork and link it from the issue. A team member can bring it in with a `Co-authored-by` credit, as we did for #92.
 
-Our developer guide covers building and testing from source: [developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/developer-guide.md).
+Our developer guide covers building and testing from source: [developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/developer-guide.md).
 
 ## Response times
 

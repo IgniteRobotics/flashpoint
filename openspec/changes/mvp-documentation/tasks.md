@@ -1,14 +1,27 @@
 ## 1. Toolchain decision (M1; decide by 2026-11-21)
 
-- [ ] 1.1 Cut `feature/82-mvp-documentation` from `development`. Spike the docs toolchain (design D-a), time-boxed to 2 h:
+- [x] 1.1 Cut `feature/82-mvp-documentation` from `development`. Spike the docs toolchain (design D-a), time-boxed to 2 h:
   - Add an optional Poetry group `docs` with Zensical pinned exactly, and its mike fork (a git dependency, not on PyPI) pinned to a commit SHA. Write a minimal `mkdocs.yml` that uses only the D-a feature subset over the current `docs/guide/`.
   - Add one scratch page with a broken link and one with a broken anchor. Check that `zensical build --strict` fails on both and names them, that OS content tabs render, and that search works when served under `/flashpoint/dev/`.
   - Check that the mike fork deploys `0.2`, `0.3`, `latest` and `dev` to a local bare `gh-pages` repo, and that `INHERIT` overlays work for the `dev` banner.
   - Re-check the facts against the live pages: Material's fixes end 2027-05-05 and its latest patch (9.8.1 on 2026-11-14), the Zensical version (0.1.1 on 2026-11-14), and the mike fork's install source.
   - Record each result, with versions and dates, here. Pick Zensical or the pinned MkDocs 1.6.1 + Material 9.8.x fallback by the D-a trigger.
   - Verify: the results are recorded, and the scratch pages are removed.
-- [ ] 1.2 Write `docs/adr/00NN-docs-site-toolchain.md` (the next free number) with the decision, the facts and their dates, the feature-subset rule, the fallback trigger and the rejected options. Add it to `docs/adr/README.md`. Verify: `pytest tests/test_docs.py` passes.
-- [ ] 1.3 Update `docs/rewrite/`:
+
+  **Results (2026-11-20, macOS, Python 3.11, Chromium via Playwright). Decision: Zensical; no fallback trigger fired.**
+  - Facts: Zensical **0.1.3** (PyPI 2026-11-20; 0.1.2 was 2026-11-17; still "Development Status :: 4 - Beta"). Material **9.8.2** (2026-11-19, a security fix in the privacy plugin, which we don't use); its README states end of life **2027-05-05**. The mike fork is `github.com/squidfunk/mike` (a fork, default branch `master`), head `2d4ad799442f4592db8ad53b179bfb33db8c69ac` (2026-04-17), which reports itself as `2.2.0+zensical-0.1.0`. PyPI `mike` is 2.2.0 (upstream, MkDocs only).
+  - `docs` group: `zensical = "0.1.3"` and `mike` as a git dependency at that SHA, `optional = true`; `poetry install --with docs` installs both. The minimal `mkdocs.yml` (repo root, `docs_dir: docs/guide`) uses only the D-a subset and builds with no warnings about unknown keys.
+  - Strict build: a scratch page with a link to a missing page and one with a missing anchor (next to a valid anchor) fail `zensical build --strict` with exit 1, "page does not exist" / "anchor does not exist" and `file:line:col` for each; the valid anchor isn't flagged. The output ends with a Python traceback (`RuntimeError: Aborted because --strict flag is set`), which is noisy but harmless in CI.
+  - Today's guide fails strict with 24 issues, all `../` links to files outside `docs_dir` (`docs/rewrite/`, `docs/adr/`, `notebooks/`, `deploy/`, `config/units/`). Group 2 turns these into `blob/main` URLs (D-b) before the build is a CI gate.
+  - OS tabs (`pymdownx.tabbed`, alternate style): three labelled tabs render; clicking each shows only its own block.
+  - Search under `/flashpoint/dev/` (served with `http.server` from a parent dir): the index (`search.json`) loads, a query finds the page, and the result opens `/flashpoint/dev/#real-heading`.
+  - mike fork against a local bare repo: `deploy --push 0.2`, `0.3`, `--update-aliases 0.3 latest`, `set-default --push latest`, `deploy -F mkdocs.dev.yml dev` all succeed. `gh-pages` holds `0.2/ 0.3/ dev/ latest`(a git symlink, mike's default alias type) `versions.json` and a root redirect. In the browser the root lands on `/flashpoint/latest/`, every version shows the selector listing `dev, 0.3, 0.2`, `latest` shows `0.3`, and canonical URLs are `/flashpoint/<version>/` (mike appends the version, so `site_url` must stay `/flashpoint/`).
+  - mike's deploy runs `zensical build --clean` without `--strict`, so `docs.yml` runs the strict build as its own first step (D-c's order already does).
+  - `INHERIT` overlay: `mkdocs.dev.yml` with `INHERIT: mkdocs.yml` and `extra.dev_banner` merges `extra` (the mike provider survives) and, with a `theme.custom_dir` override of the `announce` block, shows the banner on `dev` only. A template override is not a plugin; it's added to the feature subset in the ADR.
+  - Scratch pages, the scratch site and the overlay test lived outside the repo and are removed; `docs/guide/` is unchanged.
+  - Missed by the spike, found in 2.4: the strict build does **not** fail on a missing image or video (it builds clean). Not a D-a fallback trigger, but the spec requires it, so `tools/docs-media.py check-site` checks the built site after the strict build (ADR-0019 updated).
+- [x] 1.2 Write `docs/adr/00NN-docs-site-toolchain.md` (the next free number) with the decision, the facts and their dates, the feature-subset rule, the fallback trigger and the rejected options. Add it to `docs/adr/README.md`. Verify: `pytest tests/test_docs.py` passes.
+- [x] 1.3 Update `docs/rewrite/`:
   - add the docs site and toolchain to `04-ecosystem-and-tools.md`;
   - add the docs tooling (`tools/docs-media.py`, `tools/gen-cli-reference.py`, `tools/gen-support-matrix.py`) to `05-target-architecture.md` §5;
   - the MVP section of `06-roadmap.md` already has a docs line (`mvp-public-release`); change it only if the toolchain decision changes what it says.
@@ -17,9 +30,11 @@
 
 ## 2. Site skeleton and page moves (M1; merged by 2026-11-28, before #72's docs links)
 
-- [ ] 2.1 Test first: make `doc_files()` recursive over `docs/guide/**/*.md`, exempt "moved" stubs (a fixed first line), and apply the `blob/main` path-exists check to every page. Add fixtures under `tests/fixtures/docs/`: a nested page with a broken sibling link, a stub, and a `blob/main` link to a missing path. Verify: the fixture tests pass, and the run against the real tree passes.
-- [ ] 2.2 Test first: the navigation check. Parse the `mkdocs.yml` `nav`. Every non-stub page under `docs/guide/` must be listed, and every entry must exist. Use a fixture `mkdocs.yml` with one unlisted page and one missing entry. Verify: the fixture test reports both by name. The real-tree test fails until 2.3 (expected).
-- [ ] 2.3 Create the D-d tree:
+- [x] 2.1 Test first: make `doc_files()` recursive over `docs/guide/**/*.md`, exempt "moved" stubs (a fixed first line), and apply the `blob/main` path-exists check to every page. Add fixtures under `tests/fixtures/docs/`: a nested page with a broken sibling link, a stub, and a `blob/main` link to a missing path. Verify: the fixture tests pass, and the run against the real tree passes.
+  Done 2026-11-20. The stub first line is `# This page moved`. The check also reports a relative link on a site page that leaves `docs/guide/` (D-b: such links break on the site; Zensical's strict build misses non-`.md` targets). The 45 such links in today's guide became `blob/main` (`tree/main` for folders) URLs here, so the real-tree run passes.
+- [x] 2.2 Test first: the navigation check. Parse the `mkdocs.yml` `nav`. Every non-stub page under `docs/guide/` must be listed, and every entry must exist. Use a fixture `mkdocs.yml` with one unlisted page and one missing entry. Verify: the fixture test reports both by name. The real-tree test fails until 2.3 (expected).
+  Done 2026-11-20. The check also reports a stub listed in the nav and a stub missing from `exclude_docs` (stubs must not build: `robot-side.md` would collide with `robot-side/index.md`).
+- [x] 2.3 Create the D-d tree:
   - move `team-setup.md` to `tutorials/`, `auto-import.md` and `live-can-health.md` to `how-to/`, `cli-reference.md` to `reference/cli.md`, and `how-it-works.md` and `developer-guide.md` to `under-the-hood/`;
   - leave a "moved" stub at every old path;
   - create empty titled pages for every other D-d page, each with a one-line purpose;
@@ -28,8 +43,18 @@
   - if #72's `flashpoint/docs_links.py` has already merged, update its page-path map in the same commit (design D-b); otherwise post the final paths on #72 (5.2).
 
   Rebase over any guide edits the sibling changes have merged (#70's install text, the Live CAN status paragraph from `mvp-public-release` 5.2). After this lands, nobody else moves guide files. Verify: `pytest tests/test_docs.py` passes, including 2.2, and the strict build passes locally.
-- [ ] 2.4 Write a minimal `docs/media-manifest.toml`: one screenshot entry for each view, with alt text. Add `tools/docs-media.py placeholders`, which writes a tiny valid PNG, GIF or WebM for each entry into `docs/guide/assets/media/` (gitignored). Write a unit test that the placeholders match the manifest's file names. Verify: the test passes, and the strict build with placeholders passes.
-- [ ] 2.5 Add the `docs-site` CI job:
+
+  Done 2026-11-20 (branched from `development` after #70 and 5.2 merged). Decisions:
+  - `robot-side.md` moved to `robot-side/index.md` (not in the move list, but D-d's `robot-side/index.md` would build to the same `/robot-side/` URL); its stub stays.
+  - `user-guide.md` stays where it is and is listed under Quickstart until groups 6, 10 and 11 split it; `docs_links.py` still links two of its anchors.
+  - The old `README.md` became `index.md` (the home until 13.5); `README.md` is now the stub index. The nav starts with `Home: index.md`, then the spec's 11 sections in order.
+  - `docs_links.py` had merged (#103), so its `PAGES` paths changed in this commit; 5.2's comment on #72 isn't needed.
+  - Tests changed for the move: the guide path constants in `tests/test_docs.py` and `AUTO_IMPORT` in `tests/acquire/test_maturity_label.py`.
+  - Repo links: `README.md` and `CONTRIBUTING.md` `blob/main` links and `deploy/README.md` relative links point at the new paths.
+- [x] 2.4 Write a minimal `docs/media-manifest.toml`: one screenshot entry for each view, with alt text. Add `tools/docs-media.py placeholders`, which writes a tiny valid PNG, GIF or WebM for each entry into `docs/guide/assets/media/` (gitignored). Write a unit test that the placeholders match the manifest's file names. Verify: the test passes, and the strict build with placeholders passes.
+
+  Done 2026-11-20. Placeholders need only the standard library (a 1x1 PNG and GIF, and a 475-byte one-frame VP8 WebM made once with ffmpeg; a frameless WebM doesn't load in Chromium). All three decode in Chromium. The strict build doesn't catch a missing image, so `docs-media.py check-site <site>` does (fails without placeholders, passes with them), and the unit link check requires `assets/media/` links to name manifest files. The five view reference pages show their screenshot with the manifest's alt text.
+- [x] 2.5 Add the `docs-site` CI job:
   - `poetry install --only docs`;
   - placeholders;
   - strict build;
@@ -37,10 +62,13 @@
 
   It runs on every PR and push, whatever paths changed, and is added to `ci-ok`'s `needs`. Verify: the job is green on the PR, under 8 min, and a pushed commit with a broken anchor turns it red (then revert).
 
+  Done 2026-11-20 on #106. It also runs `docs-media.py check-site site` after the strict build (2.4). Green in 23 s on 71cc6f0; the broken-anchor commit 574c70e failed it at "Strict build" (run 44859966879), and 3e32ca4 reverts it. Install uses `--only docs --no-root`: the build doesn't need the package.
+
 ## 3. Versioned deploy (M1; live before `0.3.0rc1`, ~2026-12-07)
 
-- [ ] 3.1 Test first: `tools/docs-version.py` maps a tag and the published versions to (version, move `latest`?, banner). Cases: `v0.3.0` with nothing published gives `0.3`, moves `latest`, no banner; `v0.3.0rc1` gives `0.3`, leaves `latest`, "pre-release" banner; `v0.2.5` with `0.3` published gives `0.2` and leaves `latest`; `v0.3.1` after `v0.3.0` gives `0.3` and moves `latest`; a malformed tag such as `v0.3` fails, naming it. Then write the tool. Verify: the tests pass.
-- [ ] 3.2 Write `.github/workflows/docs.yml` (design D-c), using 3.1's tool:
+- [x] 3.1 Test first: `tools/docs-version.py` maps a tag and the published versions to (version, move `latest`?, banner). Cases: `v0.3.0` with nothing published gives `0.3`, moves `latest`, no banner; `v0.3.0rc1` gives `0.3`, leaves `latest`, "pre-release" banner; `v0.2.5` with `0.3` published gives `0.2` and leaves `latest`; `v0.3.1` after `v0.3.0` gives `0.3` and moves `latest`; a malformed tag such as `v0.3` fails, naming it. Then write the tool. Verify: the tests pass.
+  Done 2026-11-20. A pre-release deploy is titled "X.Y (pre-release)" in mike's `versions.json`, so a later final tag counts only final versions when deciding `latest` (a 0.2 patch still moves `latest` while 0.3 is only an rc). Output is `version=`, `latest=`, `banner=`, `title=` lines for `$GITHUB_OUTPUT`; a bad tag exits 2.
+- [x] 3.2 Write `.github/workflows/docs.yml` (design D-c), using 3.1's tool:
   - `dev` nightly when `development` moved, and on `workflow_dispatch`;
   - `X.Y` on `v*` tags, with `latest` moved only for the highest final release, and the pre-release banner on pre-release tags;
   - `mike set-default latest`;
@@ -48,21 +76,28 @@
   - strict build, then media, then demo, then offline zip, then push, with any failure stopping before the push.
 
   Until groups 8 and 9 land, the media and demo steps use placeholders and skip. Add the `mkdocs.dev.yml` overlay with the "unreleased" banner, and the same overlay with "pre-release" text. Verify: `actionlint` passes (or a workflow lint in CI), and a dispatch run on the branch builds without pushing (dry-run input).
+  Done 2026-11-20. `actionlint` passes; `tests/test_docs_workflow.py` checks the triggers, permissions, step order and the gh-pages fetch. A manual run needs the workflow on the default branch (`main`), so the dry run was a `pull_request` run instead: PRs touching the deploy machinery get a forced dry run of `dev` (run 44862767880 on #106: plan and build passed, deploy skipped). The plan and deploy scripts were also rehearsed against a scratch origin: first nightly `dev` (holds `latest`), a no-change nightly (skipped), a feature-branch manual run (forced dry run), `v0.3.0rc1` (`0.3 (pre-release)`, `latest` unchanged), `v0.3.0` (takes `latest`).
+  Found in the rehearsal: mike works from the local `gh-pages` branch, so the deploy job fetches it first (without it, the first push would replace every published version); `mike set-default latest` fails when no `latest` exists (a first deploy from an rc tag), so the root then opens the deployed version. Concurrency is on the deploy job, not the workflow, so a PR dry run can't displace a queued deploy. `docs-version.py dev` gives `latest` to `dev` until the first final release (D-b). A manual run can also redeploy a released minor (`tag` input) from `main` or the tag, for release-checklist step 8.
 - [ ] 3.3 [HUMAN] An org or repo admin enables GitHub Pages for `IgniteRobotics/flashpoint` from the `gh-pages` branch, root. Verify: `gh api repos/IgniteRobotics/flashpoint/pages` returns the site URL.
+  Order: Pages can only be enabled once `gh-pages` exists, and the first deploy creates it (the first nightly after `docs.yml` reaches `main`, or the rc1 tag, whichever comes first). So 3.3 follows that first deploy, and 3.4's checks follow 3.3.
 - [ ] 3.4 Run the first `dev` deploy, and alias `latest` to `dev` until 0.3.0 (design D-b). Verify: `https://igniterobotics.github.io/flashpoint/` opens `latest`; `/dev/` pages show the unreleased banner and the version selector; a page with a broken link pushed to a test branch fails its dispatch run without changing `gh-pages`.
-- [ ] 3.5 Add the offline archive step: a `use_directory_urls: false` build zipped as `flashpoint-docs-X.Y.zip`, published at `/X.Y/`. Coordinate with #80 so the release workflow also attaches it to the GitHub Release. Verify: unzip it locally, open `index.html` from disk with Wi-Fi off, and pages, navigation, links and images work.
-- [ ] 3.6 Add a manual `docs-squash.yml` workflow that replaces `gh-pages` history with one commit of its current tree. Verify: a run on a scratch fork keeps every version's files, and leaves one commit.
+  Blocked until `docs.yml` is on `main`: GitHub fires schedule and manual runs only from the default branch's workflow file, so the nightly `dev` deploy starts with the `development` → `main` promotion (rc1, ~12-07), Josh chose to keep it that way (2026-11-21): no `push` trigger on `development`. The plan already gives `dev` the `latest` alias while no final version exists.
+- [x] 3.5 Add the offline archive step: a `use_directory_urls: false` build zipped as `flashpoint-docs-X.Y.zip`, published at `/X.Y/`. Coordinate with #80 so the release workflow also attaches it to the GitHub Release. Verify: unzip it locally, open `index.html` from disk with Wi-Fi off, and pages, navigation, links and images work.
+  Done 2026-11-20. `mkdocs.offline.yml` (`use_directory_urls: false`, no web fonts, no version selector); the build job zips it into `docs/guide/` so mike publishes it at `/X.Y/flashpoint-docs-X.Y.zip`. #80's `release.yml` is unchanged: `docs.yml`'s `attach-archive` job (tags only) waits up to 30 min for the GitHub Release and uploads the zip, because only `docs.yml` will have the real media. Checked by unzipping a built archive elsewhere and opening it in Chromium from `file://` with every non-file request blocked: pages, tab navigation, all 45 links on the team-setup page and images work. Search doesn't work from `file://` (expected; the offline install page must say so, D-c).
+- [x] 3.6 Add a manual `docs-squash.yml` workflow that replaces `gh-pages` history with one commit of its current tree. Verify: a run on a scratch fork keeps every version's files, and leaves one commit.
+  Written 2026-11-20 (`docs-squash.yml`, confirm input, the deploy concurrency group, `--force-with-lease` on the checked-out head). Rehearsed against the scratch origin: 4 commits became 1 with an identical tree (`0.3`, `dev`, `latest`, `versions.json`, root redirect kept), and a deploy pushed mid-squash made the push fail (stale info) instead of being lost. Not run on a scratch fork: Josh accepted the local rehearsal instead (2026-11-21).
 
 ## 4. CLI reference generated from the CLI (M1)
 
-- [ ] 4.1 Test first:
+- [x] 4.1 Test first:
   - The generator's output for the real `_parser()` must equal the committed `reference/cli.md` blocks between `<!-- generated:cli:<name> -->` markers.
   - A fixture parser with an option that has no help text must make generation fail, naming the subcommand and option.
   - A fixture where an option is added without regenerating must fail, naming both.
 
   Verify: the fixture tests pass, and the real-tree test fails until 4.2 (expected).
-- [ ] 4.2 Write `tools/gen-cli-reference.py`: a table per subcommand with option (positional arguments included), help and default. Add the three missing help strings in `src/flashpoint/cli.py`: `ingest`'s `paths` and `--profile`, and `rebuild`'s `--profile`. Regenerate `reference/cli.md`, keeping the hand-written purpose and examples outside the markers. Verify: `pytest tests/test_docs.py` passes, and `flashpoint <cmd> --help` for each subcommand agrees with its table.
-- [ ] 4.3 Test first: the commands-parse check (design D-e) on fixtures:
+- [x] 4.2 Write `tools/gen-cli-reference.py`: a table per subcommand with option (positional arguments included), help and default. Add the three missing help strings in `src/flashpoint/cli.py`: `ingest`'s `paths` and `--profile`, and `rebuild`'s `--profile`. Regenerate `reference/cli.md`, keeping the hand-written purpose and examples outside the markers. Verify: `pytest tests/test_docs.py` passes, and `flashpoint <cmd> --help` for each subcommand agrees with its table.
+  Done 2026-11-21. Markers are `<!-- generated:cli:<name> -->` … `<!-- /generated:cli:<name> -->`; columns Option, What it does, Default. The option cell is argparse's own invocation and the help is expanded the way `--help` shows it (`%(default)s`), so the tables agree with `--help` by construction (spot-checked on `serve` and `ingest`). `--check` exits 1 naming each stale subcommand and option. Help strings added for `ingest`'s `paths` (now `PATH`) and `--profile` and `rebuild`'s `--profile`, and sharpened where the hand tables said more than `--help` (`--jobs` default, `--team` range, `--team-name` length, `--quarantined` retries, `report --static`/`--no-raw`, `serve --host`/`--port` defaults, the acquire options). Longer notes (`serve --host 0.0.0.0` has no password and makes the app read-only; `init` header fallback; `restore --force`) moved to prose outside the markers. Fixed the stale Python range in the `doctor` table (3.11 to 3.14).
+- [x] 4.3 Test first: the commands-parse check (design D-e) on fixtures:
   - a good command;
   - `flashpoint ingest --recursive logs/` (rejected);
   - a `FLASHPOINT_CONFIG=… flashpoint …` prefix;
@@ -72,17 +107,21 @@
   - a `<placeholder>`.
 
   Then run it on the real docs, and fix every page it flags. Verify: `pytest tests/test_docs.py` passes.
+  Done 2026-11-21. Fixture `tests/fixtures/docs/commands.md` covers each case, plus `uv tool install … flashpoint` (not a flashpoint call), a comment line, a trailing `# comment`, a placeholder with spaces, console output lines, and a non-shell fence. Calls are split on `&&`, `;` and `|`; argparse's message is reported with the page, line and command. The real docs (README, deploy README, every guide page) had nothing to fix. The invalid-choice wording differs across Python versions, so that fixture line is checked by prefix.
 
 ## 5. Docs links from the app (M1, with #72)
 
-- [ ] 5.1 Test first (design D-e "App docs links"): until #72 lands, the repo-relative docs paths in `setup/checks.py` and `live-can.js` must name files that exist under `docs/guide/` (stubs count). Once `flashpoint/docs_links.py` exists, every path in its page map must be a page listed in the site navigation (#72's own test checks pages and anchors against the source tree). Use a fixture page map with a stub path. Verify: the fixture fails, naming the page id and path, and the real tree passes.
-- [ ] 5.2 Post the D-d page paths and the version rule (design D-b) on #72, so `mvp-install-and-first-run`'s `docs_links.py` uses them. Verify: the comment is linked here, and after #72 merges, 5.1's second case runs against the real map.
+- [x] 5.1 Test first (design D-e "App docs links"): until #72 lands, the repo-relative docs paths in `setup/checks.py` and `live-can.js` must name files that exist under `docs/guide/` (stubs count). Once `flashpoint/docs_links.py` exists, every path in its page map must be a page listed in the site navigation (#72's own test checks pages and anchors against the source tree). Use a fixture page map with a stub path. Verify: the fixture fails, naming the page id and path, and the real tree passes.
+  Done 2026-11-21. #72 had landed, so only the second case applies: `page_map_problems` checks each `docs_links.PAGES` path is a nav-listed, existing, non-stub page (`<path>.md` or `<path>/index.md`). The fixture names a stub path and a nav entry with no page; the real map passes, and pointing an id at an old path (`auto-import`) is caught as a moved stub.
+- [x] 5.2 Post the D-d page paths and the version rule (design D-b) on #72, so `mvp-install-and-first-run`'s `docs_links.py` uses them. Verify: the comment is linked here, and after #72 merges, 5.1's second case runs against the real map.
+  Moot 2026-11-21: #72's `docs_links.py` merged (#103) before the tree moved, so 2.3 updated its `PAGES` paths in the move commit, and 5.1's check runs against the real map. No comment on #72 was needed.
 
 ## 6. Install, Quickstart and sample logs (M1)
 
-- [ ] 6.1 Test first: `tools/build-sample-bundle.py` on fixture files writes `flashpoint-sample-1.zip`. It holds `logs/` (a wpilog and hoots, never a `truncated` file), `config/robots/2026-comp.toml`, `README.txt` and `SHA256SUMS`, and the sums match. Then write the tool. Verify: the unit test passes, and a run on the fetched corpus E10 gives a zip of 30 MB or less.
+- [x] 6.1 Test first: `tools/build-sample-bundle.py` on fixture files writes `flashpoint-sample-1.zip`. It holds `logs/` (a wpilog and hoots, never a `truncated` file), `config/robots/2026-comp.toml`, `README.txt` and `SHA256SUMS`, and the sums match. Then write the tool. Verify: the unit test passes, and a run on the fetched corpus E10 gives a zip of 30 MB or less.
+  Done 2026-11-21. Built from the fetched corpus-v1 E10 (each file checked against the corpus manifest): **15.1 MB**. Entries carry a fixed timestamp, so two builds are byte-identical; `shasum -a 256 -c SHA256SUMS` passes inside the unpacked bundle. Its `config/` holds `robots/2026-comp.toml`, plus `acquire.toml` and Ignite's `seasons/2026.toml` (added in 6.5, when running the bundle showed the robot file needs them). Current sha256: `92558ca93444048069b9b7594177bdcc24d412c084873078874cf0d42a95e4bd` (the one `quickstart.md` quotes; the corpus test fails if they drift).
 - [ ] 6.2 [HUMAN] A maintainer publishes the bundle as the only asset of a `samples-v1` GitHub release, marked not-latest. Verify: `gh release view samples-v1` lists it, and `gh release list` still doesn't show it as Latest.
-- [ ] 6.3 Write `install/index.md`, `install/macos.md`, `install/linux.md` and `install/windows.md`, using the install command #70 ships (`mvp-install-and-first-run` 1.2–1.3; if it hasn't merged, write to its team-setup "Installable public package" requirement and re-check the commands once it lands):
+- [x] 6.3 Write `install/index.md`, `install/macos.md`, `install/linux.md` and `install/windows.md`, using the install command #70 ships (`mvp-install-and-first-run` 1.2–1.3; if it hasn't merged, write to its team-setup "Installable public package" requirement and re-check the commands once it lands):
   - uv first;
   - pipx as the alternative;
   - the `py` launcher form on Windows;
@@ -91,8 +130,13 @@
   - offline prep (the owlet download, linking `how-to/install-offline.md`).
 
   Use OS content tabs only where commands differ. Verify: the commands-parse and link checks pass.
-- [ ] 6.4 Test first (corpus marker), against a fixture `quickstart.md` until 6.5 writes the real one: a test builds the bundle from the corpus, runs the Quickstart's `sh` "Try it" commands taken from the page (with the download replaced by the local zip) in a temp home, and checks that Replay's API lists the E10 match with motor tracks, that ingest printed the `incomplete-read` warning for the two 19-29-15 hoots in the words the page's note quotes, and that the temp home's default config folder and lake don't exist afterwards. A second case checks a cut-short copy of the zip against the page's SHA-256 command and expects a mismatch. Verify: `pytest -m corpus tests/test_quickstart_sample.py` passes on the fixture page.
-- [ ] 6.5 Write `quickstart.md`: own logs with the install plus at most three commands; "Try it with sample logs" with `sh` and PowerShell tabs, the size, the SHA-256 check and the note that the incomplete warning is expected; a link to the demo; and a closing link to the Robot side section (#83). Point 6.4's test at the real page. Verify: `pytest -m corpus tests/test_quickstart_sample.py` passes, and the commands-parse and link checks pass.
+  Done 2026-11-21, from the install #70 shipped (ADR-0018; the user guide's Install section). One page per OS rather than tabs, since every step's command differs by OS (Windows blocks are `powershell`). Each page: the floor, uv once, `uv tool install --python 3.13 flashpoint`, `init`, a "Check it worked" with `--version` and `doctor`, pipx (the `py` launcher form on Windows), owlet prep before the first event linking `how-to/install-offline.md`, and updating. Commands-parse, link and nav checks and the strict build pass.
+- [x] 6.4 Test first (corpus marker), against a fixture `quickstart.md` until 6.5 writes the real one: a test builds the bundle from the corpus, runs the Quickstart's `sh` "Try it" commands taken from the page (with the download replaced by the local zip) in a temp home, and checks that Replay's API lists the E10 match with motor tracks, that ingest printed the `incomplete-read` warning for the two 19-29-15 hoots in the words the page's note quotes, and that the temp home's default config folder and lake don't exist afterwards. A second case checks a cut-short copy of the zip against the page's SHA-256 command and expects a mismatch. Verify: `pytest -m corpus tests/test_quickstart_sample.py` passes on the fixture page.
+- [x] 6.5 Write `quickstart.md`: own logs with the install plus at most three commands; "Try it with sample logs" with `sh` and PowerShell tabs, the size, the SHA-256 check and the note that the incomplete warning is expected; a link to the demo; and a closing link to the Robot side section (#83). Point 6.4's test at the real page. Verify: `pytest -m corpus tests/test_quickstart_sample.py` passes, and the commands-parse and link checks pass.
+  Done 2026-11-21 (6.4's test written first, against the page path; it failed on the placeholder page, then passed on the real one). The test builds the bundle from the corpus, runs the page's `sh` block in a temp home (download → local copy, `serve` dropped), and checks E10 is `ok` in Replay with motor series, the two `19-29-15` `incomplete-read` warnings the note quotes, the page's SHA-256 line passing (so the published hash matches the built bundle), and no `~/.config/flashpoint` or `~/flashpoint-lake` afterwards; a cut-short zip fails the page's checksum line. The PowerShell tab is untested here (no pwsh; 6.6). Running it found:
+  - the bundle needed `config/acquire.toml` and Ignite's `config/seasons/2026.toml` (6.1 and D-i updated; new sha256 `92558ca93444048069b9b7594177bdcc24d412c084873078874cf0d42a95e4bd`, still 15.1 MB);
+  - **a relative `--lake` crashes `detect`** (`restarts.py`: `lake.ledger.as_uri()` on a relative path) and `ingest` still exits 0 with no Replay data. A `src/` bug, filed as #107; the page uses `--lake "$PWD/lake"`, which is right either way.
+  The env var is inline on each `sh` command so it doesn't linger; the PowerShell tab says to close the window. Added the Troubleshooting entry the "Damaged download" scenario needs. The page's download URL works once 6.2 publishes `samples-v1`.
 - [ ] 6.6 [HUMAN] Someone runs the PowerShell "Try it" tab on a Windows 11 machine, and the `sh` tab on Ubuntu 24.04. Note where the steps differ from the page, and fix the page. Verify: both reach Replay, and the results are recorded here.
 
 ## 7. Robot side: "What to log" and samples (M2)
@@ -234,11 +278,14 @@
   - `tools/pin-readme-media.py`, run on a fixture README for version `0.3.0`, must rewrite every docs-site `/latest/` image to `/0.3/`, every `blob/main/` and `tree/main/` repository link to `blob/v0.3.0/` and `tree/v0.3.0/`, and change nothing else; for `0.3.0rc1` the images go to `/0.3/` and links to `blob/v0.3.0rc1/`.
 
   Verify: the tests fail on today's README (expected).
+  Partly done 2026-11-21: the pin-tool case (`tests/tools/test_pin_readme_media.py`, fixtures in `tests/fixtures/pin-readme/`) is in, because 13.3 needed it by 12-05. The three README-content cases come with 13.2, since today's README would fail them and the README's images don't exist until group 8.
 - [ ] 13.2 Rewrite `README.md` (design D-j): pitch, hero GIF, three screenshots, "Works with / needs", the quickstart, "Try it" (demo and sample logs), docs links, the "Getting help" line (Discussions and issue forms; keep `mvp-public-release` 6.3's line if it landed first), project and license. Run `audience-style:de-slop`. Verify: the 13.1 README tests and the existing PyPI link test pass.
 - [ ] 13.3 Add `tools/pin-readme-media.py` to the release workflow's build step, before `poetry build` and before `mvp-public-release`'s release-build link check (its task 4.4), and add `.png`, `.gif`, `.webm` and `.mp4` to its no-media assertion. Extend `tests/test_package.py` with the same no-media assertion for the wheel and sdist. Coordinate with #80, which owns `release.yml`. Verify: `pytest tests/test_package.py` passes, and a TestPyPI dry run's long description shows `/X.Y/` image URLs, tag-pinned repository links, and passes the link check.
+  Implemented 2026-11-21: `release.yml`'s build job runs `tools/pin-readme-media.py` before `poetry build` (the README is read at build time) and before the link check, and its wheel assertion refuses `.png`, `.gif`, `.webm` and `.mp4`; #80 had left a placeholder comment for this step. `tests/test_package.py` asserts no media in the wheel or the sdist, building the sdist while the placeholders exist. Rehearsed on a scratch copy for `0.3.0rc1`: today's README has 14 moving-branch links; after pinning the built wheel passes the link check. Not ticked until a TestPyPI dry run (Josh: it publishes).
 - [ ] 13.4 Write `why.md` (spec: Why Flashpoint page). Cover the FRC problems, then each differentiator followed by its manifest image or page link, then "What it doesn't do (yet)" linking the support matrix and known limits, then the demo and Quickstart links. Check every claim against the matrix. Run de-slop. Verify: the link check passes, and a reviewer confirms that no claim goes beyond the matrix (13.8).
 - [ ] 13.5 Write `index.md` (the home): pitch, three images, demo link, and "start here" cards for Quickstart, Install, Tutorial and Robot side. Verify: the strict build passes.
-- [ ] 13.6 Point `pyproject.toml` `Documentation` and `Homepage` at the site, and add a test that the built wheel's metadata `Project-URL: Documentation` is the site URL. Verify: the test passes.
+- [x] 13.6 Point `pyproject.toml` `Documentation` and `Homepage` at the site, and add a test that the built wheel's metadata `Project-URL: Documentation` is the site URL. Verify: the test passes.
+  Done 2026-11-21. Both point at `https://igniterobotics.github.io/flashpoint/`; the repository stays on the PyPI page as `Source`. `tests/test_package.py` checks the built wheel's `Project-URL` lines.
 - [ ] 13.7 [HUMAN] A repo admin runs `gh repo edit IgniteRobotics/flashpoint` with:
   - `--description` set to the README pitch;
   - `--homepage https://igniterobotics.github.io/flashpoint/`;

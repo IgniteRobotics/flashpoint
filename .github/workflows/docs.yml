@@ -1,0 +1,243 @@
+name: docs
+
+# The versioned docs site on gh-pages (mvp-documentation design D-c, ADR-0019), deployed with the
+# Zensical mike fork:
+# - a `v*` tag deploys `X.Y` (a pre-release with its banner); `latest` moves only for the highest
+#   final release (tools/docs-version.py decides);
+# - nightly, `dev` is rebuilt from `development` when it moved since the last `dev` deploy;
+# - a manual run rebuilds `dev`, or with `tag` redeploys a released minor (a docs-only fix, from
+#   `main` or the tag). `dry_run` builds without pushing; a run that isn't from `development`
+#   (for dev) or from `main` or the tag itself (for a tag) is always a dry run;
+# - a pull request that changes the deploy machinery gets a dry run of `dev`.
+# The build job runs strict build, media, demo and offline archive; any failure stops the run
+# before the deploy job, so published versions stay as they were.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/docs.yml
+      - "mkdocs*.yml"
+      - docs/overrides/**
+      - tools/docs-version.py
+      - tools/docs-media.py
+  schedule:
+    - cron: "43 7 * * *" # nightly dev
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to redeploy (e.g. v0.3.1); empty rebuilds dev"
+        required: false
+        default: ""
+      dry_run:
+        description: "Build only; push nothing"
+        type: boolean
+        default: true
+
+# Read-only by default; only the deploy job gets contents: write, for the gh-pages push.
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      latest: ${{ steps.plan.outputs.latest }}
+      title: ${{ steps.plan.outputs.title }}
+      config: ${{ steps.plan.outputs.config }}
+      ref: ${{ steps.plan.outputs.ref }}
+      archive: ${{ steps.plan.outputs.archive }}
+      dry_run: ${{ steps.plan.outputs.dry_run }}
+      skip: ${{ steps.plan.outputs.skip }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          git fetch --quiet origin gh-pages:refs/remotes/origin/gh-pages 2>/dev/null \
+            || echo "No gh-pages branch yet: nothing is published."
+          git show origin/gh-pages:versions.json > versions.json 2>/dev/null || rm -f versions.json
+          dry_run=false
+          skip=false
+          case "$EVENT" in
+            push) target="$GITHUB_REF_NAME"; ref="$GITHUB_REF" ;;
+            schedule) target=dev; ref=refs/heads/development ;;
+            *) target="${INPUT_TAG:-dev}"; ref="$GITHUB_REF"; dry_run="$INPUT_DRY_RUN" ;;
+          esac
+          if [ "$target" = dev ] && [ "$ref" != refs/heads/development ]; then
+            echo "::notice::dev is only deployed from development; $ref is a dry run."
+            dry_run=true
+          elif [ "$target" != dev ] && [ "$ref" != refs/heads/main ] && [ "$ref" != "refs/tags/$target" ]; then
+            echo "::notice::$target is only deployed from main or its tag; $ref is a dry run."
+            dry_run=true
+          fi
+          if [ "$EVENT" = schedule ]; then
+            # mike's commit says "Deployed <sha> to dev with ..."; skip when development is unchanged.
+            last=$(git log origin/gh-pages --format=%s 2>/dev/null | awk '/ to dev with /{print $2; exit}')
+            if [ -n "$last" ] && [ "$(git rev-parse "$last^{commit}" 2>/dev/null)" = "$(git rev-parse origin/development)" ]; then
+              echo "development hasn't moved since the last dev deploy ($last): nothing to do."
+              skip=true
+            fi
+          fi
+          python3 tools/docs-version.py "$target" --versions versions.json > plan.txt
+          cat plan.txt
+          banner=$(sed -n 's/^banner=//p' plan.txt)
+          case "$banner" in
+            unreleased) config=mkdocs.dev.yml ;;
+            pre-release) config=mkdocs.pre.yml ;;
+            *) config=mkdocs.yml ;;
+          esac
+          {
+            grep -v '^banner=' plan.txt
+            echo "config=$config"
+            echo "ref=$ref"
+            echo "archive=$([ "$target" = dev ] && echo false || echo true)"
+            echo "dry_run=$dry_run"
+            echo "skip=$skip"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONFIG: ${{ needs.plan.outputs.config }}
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.ref }}
+      - run: pipx install poetry
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction --only docs --no-root
+      - name: Strict build (a broken link or anchor stops the run)
+        run: poetry run zensical build --strict --clean --config-file "$CONFIG"
+      - name: Media
+        # Placeholders until mvp-documentation group 8 adds `capture` (D-f).
+        run: poetry run python tools/docs-media.py placeholders
+      - name: Hosted Replay demo
+        run: echo "The hosted demo is added by mvp-documentation group 9 (D-h); nothing to build yet."
+      - name: Every image and video a page shows is in the site
+        run: |
+          poetry run zensical build --clean --config-file "$CONFIG"
+          poetry run python tools/docs-media.py check-site site
+      - name: Offline archive
+        if: needs.plan.outputs.archive == 'true'
+        run: |
+          poetry run zensical build --strict --clean --config-file mkdocs.offline.yml
+          (cd offline-site && zip -qr "../docs/guide/flashpoint-docs-$VERSION.zip" .)
+          ls -l "docs/guide/flashpoint-docs-$VERSION.zip"
+      # What the deploy job adds to the source before mike builds it: the media, and the
+      # archive (served at /X.Y/flashpoint-docs-X.Y.zip).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-inputs
+          path: |
+            docs/guide/assets/media/
+            docs/guide/flashpoint-docs-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: [plan, build]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    # One push to gh-pages at a time, never cancelled half-way. On the job, not the workflow, so
+    # a pull request's dry run can't displace a queued deploy.
+    concurrency:
+      group: docs-deploy
+      cancel-in-progress: false
+    env:
+      CONFIG: ${{ needs.plan.outputs.config }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      LATEST: ${{ needs.plan.outputs.latest }}
+      TITLE: ${{ needs.plan.outputs.title }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.ref }}
+          fetch-depth: 0
+      - run: pipx install poetry
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: poetry
+      - run: poetry install --no-interaction --only docs --no-root
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: docs-inputs
+          path: docs/guide
+      - name: Start from the published site
+        # mike commits on top of the local gh-pages branch: without it, the push would replace
+        # every published version with this one.
+        run: |
+          if git fetch origin gh-pages:refs/remotes/origin/gh-pages; then
+            git branch --force gh-pages origin/gh-pages
+          else
+            echo "No gh-pages branch yet: this is the first deploy."
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898237+github-actions[bot]@users.noreply.github.com"
+      - name: Deploy
+        run: |
+          if [ "$LATEST" = true ]; then
+            poetry run mike deploy --push --config-file "$CONFIG" --title "$TITLE" --update-aliases "$VERSION" latest
+          else
+            poetry run mike deploy --push --config-file "$CONFIG" --title "$TITLE" "$VERSION"
+          fi
+      - name: The site root opens latest
+        # `latest` exists once dev or a final release is deployed; a first-ever deploy from a
+        # pre-release tag has none yet, so the root opens that version until then.
+        run: |
+          if poetry run mike list --json | jq -e 'any(.[]; .aliases | index("latest"))' > /dev/null; then
+            poetry run mike set-default --push latest
+          else
+            echo "::notice::No latest alias yet; the site root opens $VERSION until dev or a final release is deployed."
+            poetry run mike set-default --push "$VERSION"
+          fi
+          poetry run mike list
+
+  attach-archive:
+    # A tag's offline archive goes on its GitHub Release (spec "Offline copy of the docs"). It's
+    # built here because only this workflow has the real media. release.yml creates the Release
+    # after the smoke and the PyPI publish, so wait for it, up to 30 minutes.
+    needs: [plan, build, deploy]
+    if: github.event_name == 'push' && needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: docs-inputs
+          path: docs-inputs
+      - name: Attach the archive to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          for _ in $(seq 60); do
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 && break
+            sleep 30
+          done
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::No GitHub Release for $TAG after 30 minutes. Attach docs-inputs/flashpoint-docs-$VERSION.zip from this run's docs-inputs artifact by hand."
+            exit 1
+          fi
+          gh release upload "$TAG" "docs-inputs/flashpoint-docs-$VERSION.zip" --repo "$GITHUB_REPOSITORY" --clobber
