@@ -1,19 +1,55 @@
-# Flashpoint documentation
+# Flashpoint
 
-| Read | If you want to |
-|---|---|
-| [Setting up Flashpoint for your team](tutorials/team-setup.md) | Start here if your team is new to Flashpoint: install, configure, robot code, logs, backups and branding, in order |
-| [User guide](user-guide.md) | Install Flashpoint, import logs, and use Replay, History, Anomalies, Setup and Live CAN |
-| [Robot-side logging](robot-side/index.md) | What to log in robot code so Flashpoint can do more, with Java samples |
-| [Live CAN health](how-to/live-can-health.md) | Watch CAN dropouts, reboots and faults live during shake and drive tests, and add the publisher to robot code |
-| [Automatic import](how-to/auto-import.md) | Have logs pulled from the robot and USB sticks on their own, and back up the lake |
-| [CLI reference](reference/cli.md) | Look up a `flashpoint` command and its options |
-| [How it works](under-the-hood/how-it-works.md) | Understand the pipeline, the lake, matches, motors, and detection, and query the data yourself |
-| [Developer guide](under-the-hood/developer-guide.md) | Build from source, run the tests, and make a change |
+FRC robot telemetry: import WPILib .wpilog and CTRE .hoot logs, and track every motor's health across your robot's life. Runs offline on a pit laptop.
 
-Elsewhere in the repository:
+<div class="grid" markdown>
+
+![Replay view: one match's motor currents, temperatures and battery voltage on a shared timeline](assets/media/replay.png)
+
+![History view: one motor's temperature and current across every match of the season](assets/media/history.png)
+
+![Anomalies view: flagged motors with their evidence and triage state](assets/media/anomalies.png)
+
+</div>
+
+Replay shows one match on a timeline, History follows each motor across every match and season, and Anomalies (beta) flags what looks wrong, with the evidence. [Why Flashpoint](why.md) says what it does for a team, and what it doesn't do yet.
+
+**[Open the hosted demo](demo.md)**: Replay in your browser, on real matches from team 6829's robots, with nothing to install.
+
+## Start here
+
+<div class="grid cards" markdown>
+
+-   **[Quickstart](quickstart.md)**
+
+    ---
+
+    Install, then three commands to get your own match into Replay. Or try it on sample logs first.
+
+-   **[Install](install/index.md)**
+
+    ---
+
+    Step by step for macOS, Linux and Windows, including installing without internet.
+
+-   **[Your first event](tutorials/first-event.md)**
+
+    ---
+
+    One match from logs to Replay, History and an anomaly (beta), the way you'd do it at an event.
+
+-   **[Robot side](robot-side/index.md)**
+
+    ---
+
+    What to log in robot code so Flashpoint can do more, with Java samples that compile.
+
+</div>
+
+## Elsewhere in the repository
+
 - [`deploy/`](https://github.com/IgniteRobotics/flashpoint/blob/main/deploy/README.md): how to install the automatic-import service by hand (the Setup view can do it for you).
 - [`notebooks/`](https://github.com/IgniteRobotics/flashpoint/blob/main/notebooks/README.md): marimo notebooks for questions the app doesn't answer yet.
-- [`examples/robot-java/`](https://github.com/IgniteRobotics/flashpoint/tree/main/examples/robot-java): the robot-side samples, as a small robot project that compiles ([Robot side](robot-side/index.md)).
+- [`examples/robot-java/`](https://github.com/IgniteRobotics/flashpoint/tree/main/examples/robot-java): the robot-side samples, as a small robot project that compiles.
 - [`docs/adr/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md): architecture decisions.
 - [`docs/rewrite/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/README.md): the research and roadmap behind the rewrite.
