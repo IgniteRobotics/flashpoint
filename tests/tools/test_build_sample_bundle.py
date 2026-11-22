@@ -79,9 +79,10 @@ def test_a_truncated_file_never_goes_in(tmp_path: Path) -> None:
         )
 
 
-def test_corpus_selection_is_the_e10_match_without_the_truncated_copy() -> None:
+def test_corpus_selection_is_the_full_q7_match() -> None:
+    """Q7, not E10: E10's robot code restarted mid-match, so its wpilog is pre-match only."""
     names = [entry["name"] for entry in _tool().sample_entries()]
-    assert len(names) == 5
+    assert len(names) == 3
     assert sum(n.endswith(".wpilog") for n in names) == 1
     assert not [n for n in names if "truncated" in n]
-    assert all("E10" in n for n in names)
+    assert all("Q7" in n for n in names)

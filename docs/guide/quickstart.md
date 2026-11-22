@@ -24,7 +24,7 @@ Stop the app with Ctrl-C.
 
 ## Try it with sample logs
 
-No logs yet? Try Flashpoint on one real match from team 6829's 2026 season: playoff match E10 at the Georgia district championship. The bundle is 15.1 MB, with SHA-256 `92558ca93444048069b9b7594177bdcc24d412c084873078874cf0d42a95e4bd`.
+No logs yet? Try Flashpoint on one real match from team 6829's 2026 season: qualification match 7 at the Georgia district championship, a full match with the robot enabled throughout. The bundle is 55.4 MB, with SHA-256 `20ecfd9e3e4c8cdef14c26e80d75735cab048759e52565636a99987f79a8f96c`.
 
 It uses its own configuration and its own lake inside the bundle's folder, so your configuration and lake aren't touched. Install Flashpoint first ([Install](install/index.md)), then, in an empty folder:
 
@@ -32,7 +32,7 @@ It uses its own configuration and its own lake inside the bundle's folder, so yo
 
     ```sh
     curl -LO https://github.com/IgniteRobotics/flashpoint/releases/download/samples-v1/flashpoint-sample-1.zip
-    echo "92558ca93444048069b9b7594177bdcc24d412c084873078874cf0d42a95e4bd  flashpoint-sample-1.zip" | shasum -a 256 -c -
+    echo "20ecfd9e3e4c8cdef14c26e80d75735cab048759e52565636a99987f79a8f96c  flashpoint-sample-1.zip" | shasum -a 256 -c -
     unzip -q flashpoint-sample-1.zip -d flashpoint-sample
     cd flashpoint-sample
     FLASHPOINT_CONFIG="$PWD/config" flashpoint ingest --lake "$PWD/lake" logs/
@@ -43,7 +43,7 @@ It uses its own configuration and its own lake inside the bundle's folder, so yo
 
     ```powershell
     Invoke-WebRequest https://github.com/IgniteRobotics/flashpoint/releases/download/samples-v1/flashpoint-sample-1.zip -OutFile flashpoint-sample-1.zip
-    (Get-FileHash flashpoint-sample-1.zip -Algorithm SHA256).Hash -eq "92558ca93444048069b9b7594177bdcc24d412c084873078874cf0d42a95e4bd"
+    (Get-FileHash flashpoint-sample-1.zip -Algorithm SHA256).Hash -eq "20ecfd9e3e4c8cdef14c26e80d75735cab048759e52565636a99987f79a8f96c"
     Expand-Archive flashpoint-sample-1.zip -DestinationPath flashpoint-sample
     cd flashpoint-sample
     $env:FLASHPOINT_CONFIG = "$PWD\config"
@@ -55,10 +55,10 @@ It uses its own configuration and its own lake inside the bundle's folder, so yo
 
 The checksum line must print `OK` (on Windows, `True`). If it doesn't, the download was cut short: see [The sample's checksum doesn't match](troubleshooting.md#the-samples-checksum-doesnt-match).
 
-Then open <http://127.0.0.1:8000/> and pick **2026gacmp_e10** in Replay. Stop the app with Ctrl-C.
+Then open <http://127.0.0.1:8000/> and pick **2026gacmp_qm7** in Replay. Anomalies has two findings from this match to look at. Stop the app with Ctrl-C.
 
-!!! note "Expected: two `incomplete-read` warnings"
-    `ingest` prints `WARNING` lines with `incomplete-read` for the two `19-29-15` hoot files. The robot was powered off at the event while those files were still being written, so their ends are missing. That's normal for real event logs, and the rest of the match is still read. You'll also see a warning that one session has hoots but no wpilog: the robot code restarted during the match, and only the first part has a wpilog.
+!!! note "Expected: a note about 10 declared signals"
+    `ingest` prints one line about 10 `declared signal(s) not written`, naming CAN bus status signals such as `can-rio-utilization`. The sample's robot file is Ignite's, which declares the [CAN bus status](robot-side/bus-status.md) entries its robot code logs now; this match is from before that logger was added. Nothing is wrong with the sample.
 
 To remove the sample, delete the `flashpoint-sample` folder.
 

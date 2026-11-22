@@ -301,13 +301,15 @@ The `docs.yml` deploy runs `flashpoint report --static <site>/demo --no-raw --ma
 - A browser check in the same job opens the built demo with non-loopback requests blocked, and asserts that the matches are listed with no console errors.
 
 ### D-i. Sample bundle for "Try it with sample logs"
-`tools/build-sample-bundle.py` writes `flashpoint-sample-1.zip` from corpus-v1 E10, the smaller full match (its wpilog and four hoots, without the truncated copy), together with:
+`tools/build-sample-bundle.py` writes `flashpoint-sample-1.zip` from corpus-v1 Q7, a full qualification match (its wpilog and two hoots; 55.4 MB), together with:
 - `config/robots/2026-comp.toml`;
 - `config/seasons/2026.toml` (Ignite's: the robot file's signals use its `robot` root, which the bundled default season leaves unset) and a one-line `config/acquire.toml` (`team = 6829`; without an `acquire.toml` the folder doesn't count as a configuration and nothing is mapped). Both found by running the bundle, 2026-11-21;
 - a `README.txt`;
 - `SHA256SUMS`.
 
-It's published once as an asset of a `samples-v1` GitHub release, marked not-latest like the corpus ([HUMAN] maintainer upload). Its URL and SHA-256 go into `quickstart.md`. E10's two 19-29-15 hoots carry an `incomplete-read` warning on ingest (event power-off), so the Quickstart says that warning is expected; it doubles as an honest first look at what a real event log does.
+It's published once as an asset of a `samples-v1` GitHub release, marked not-latest like the corpus ([HUMAN] maintainer upload). Its URL and SHA-256 go into `quickstart.md`.
+
+**Why Q7, not E10** (changed 2026-11-21, Josh). E10 was first chosen as the smaller match (15.1 MB). Running the tutorial on it showed that its robot code restarted mid-match: the wpilog covers only the pre-match minutes, and the match itself is a hoot-only session. So it has no match phases, History and Anomalies stay empty, and Replay shows a robot that was never enabled. Q7 is enabled throughout, aligned by payload match, and detection finds two MED anomalies in it. Ingest notes the bus-status signals that Ignite's robot file declares and Q7's robot code didn't log yet; the Quickstart says that note is expected.
 
 The Quickstart commands set `FLASHPOINT_CONFIG` to the bundle's `config/`, and pass `--lake` to the bundle's `lake/`. Settings files missing from that folder fall back to the bundled defaults, so the reader's own config and lake are untouched. The commands are given in `sh` and PowerShell tabs.
 

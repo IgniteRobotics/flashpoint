@@ -68,6 +68,7 @@ DEMO_MATCHES = (
 )
 DEMO_BUDGET_MB = 15
 EXIT_NO_CORPUS = 2
+TUTORIAL_GROUP = "2026-gacmp-q7"  # the sample bundle's match (tools/build-sample-bundle.py)
 
 # A 1x1 transparent GIF89a.
 GIF = bytes.fromhex(
@@ -251,21 +252,29 @@ class ShotError(Exception):
     """A shot that can't be taken as specified: named, so the run says which entry failed."""
 
 
-def _first_match(page: Any) -> None:
-    page.locator(".match-btn").filter(has_not_text="NO ALIGNED SAMPLES").first.click()
+def _target(page: Any, selector: str, shot: dict[str, Any]) -> Any:
+    """The first element for `selector`, or the first holding the entry's `target` text."""
+    found = page.locator(selector)
+    return (found.filter(has_text=shot["target"]) if shot.get("target") else found).first
+
+
+def _first_match(page: Any, shot: dict[str, Any]) -> None:
+    _target(page, ".match-btn:not(:has-text('NO ALIGNED SAMPLES'))", shot).click()
     page.wait_for_selector(".match-btn[aria-current='page']", timeout=WAIT_MS)
 
 
-def _open_first_anomaly(page: Any) -> None:
-    page.locator("#queue button.anom").first.click()
+def _open_first_anomaly(page: Any, shot: dict[str, Any]) -> None:
+    _target(page, "#queue button.anom", shot).click()
     page.wait_for_selector("#causes", timeout=WAIT_MS)
 
 
-def _triage(page: Any) -> None:
+def _triage(page: Any, shot: dict[str, Any]) -> None:
     """INVESTIGATE the first anomaly still new: an earlier entry may have triaged the first."""
     page.wait_for_selector("#queue button.anom", timeout=WAIT_MS)
     investigate = page.get_by_role("button", name="INVESTIGATE")
-    for item in page.locator("#queue button.anom").all():
+    queue = page.locator("#queue button.anom")
+    items = queue.filter(has_text=shot["target"]).all() if shot.get("target") else queue.all()
+    for item in items:
         item.click()
         page.wait_for_selector("#causes", timeout=WAIT_MS)
         if investigate.count():
@@ -279,17 +288,17 @@ def _triage(page: Any) -> None:
     page.get_by_role("button", name="MARK RESOLVED").wait_for(timeout=WAIT_MS)
 
 
-def _nothing(_page: Any) -> None:
+def _nothing(_page: Any, _shot: dict[str, Any]) -> None:
     return None
 
 
-def _hottest_motor(page: Any) -> None:
-    _first_match(page)  # with no cursor placed, the readout lists match maxima, hottest first
+def _hottest_motor(page: Any, shot: dict[str, Any]) -> None:
+    _first_match(page, shot)  # with no cursor placed, the readout lists match maxima, hottest first
     page.wait_for_selector("#readout tr", timeout=WAIT_MS)
 
 
-def _pick_motor(page: Any) -> None:
-    page.locator("#rows tr button").first.click()
+def _pick_motor(page: Any, shot: dict[str, Any]) -> None:
+    _target(page, "#rows tr button", shot).click()
 
 
 STEP_FUNCTIONS: dict[str, Any] = {
@@ -299,7 +308,7 @@ STEP_FUNCTIONS: dict[str, Any] = {
     "history-pick-motor": _pick_motor,
     "anomaly-open-first": _open_first_anomaly,
     "anomaly-triage": _triage,
-    "live-can-shake": lambda page: page.wait_for_selector(DROPOUT, timeout=LIVE_WAIT_MS),
+    "live-can-shake": lambda page, _shot: page.wait_for_selector(DROPOUT, timeout=LIVE_WAIT_MS),
 }
 
 
@@ -358,7 +367,7 @@ def shoot(page: Any, watch: Watch, base_url: str, shot: dict[str, Any], out: Pat
     name = shot["id"]
     page.goto(f"{base_url}/{shot['route']}")
     try:
-        STEP_FUNCTIONS[shot["steps"]](page)
+        STEP_FUNCTIONS[shot["steps"]](page, shot)
         page.wait_for_selector(shot["expect"], state="visible", timeout=WAIT_MS)
     except Exception as exc:  # Playwright raises its own error types; each names the shot
         raise ShotError(f"{name}: {shot['expect']!r} never showed ({exc})") from exc
@@ -462,7 +471,7 @@ def record(
     )
     try:
         page.goto(f"{base_url}/{shot['route']}")
-        STEP_FUNCTIONS[shot["steps"]](page)
+        STEP_FUNCTIONS[shot["steps"]](page, shot)
         page.wait_for_selector(shot["expect"], state="visible", timeout=LIVE_WAIT_MS)
         page.wait_for_timeout(HOLD_MS)
     except Exception as exc:  # Playwright raises its own error types; each names the shot
@@ -672,7 +681,10 @@ def capture(out: Path, corpus: Path | None, work: Path) -> int:
     triage = work / "triage" / "lake"
     shutil.rmtree(triage.parent, ignore_errors=True)
     shutil.copytree(lake, triage)
-    lakes = {"sample": lake, "quarantine": quarantine, "triage": triage}
+    # The first-event tutorial's shots show what a reader of it sees: the bundle's match alone.
+    bundle = [e for e in manifest["file"] if e["group"] == TUTORIAL_GROUP]
+    tutorial = build_sample_lake(work / "tutorial", corpus, bundle, DOCS_THEME)
+    lakes = {"sample": lake, "quarantine": quarantine, "triage": triage, "tutorial": tutorial}
     shots = load_manifest()
     failed = take_media(lakes, [s for s in shots if s["view"] != "live"], out, work / "video")
     failed += take_live(

@@ -23,10 +23,8 @@ pytestmark = [
 REPO = Path(__file__).resolve().parents[1]
 QUICKSTART = REPO / "docs" / "guide" / "quickstart.md"
 BUNDLE_TOOL = REPO / "tools" / "build-sample-bundle.py"
-CUT_SHORT_HOOTS = (
-    "6E9415C3394C485320202050101C18FF_2026-04-11_19-29-15",
-    "rio_2026-04-11_19-29-15",
-)
+MATCH = "2026gacmp_qm7"
+NOTE = "declared signal(s) not written"
 
 
 def _bundle_tool() -> ModuleType:
@@ -104,18 +102,20 @@ def test_sample_logs_reach_replay(bundle: Path, tmp_path: Path) -> None:
     ).read_text()
     index = json.loads(index_text[index_text.index("(") + 1 : index_text.rindex(")")])
     statuses = {m["key"]: m["status"] for m in index["matches"]}
-    assert statuses.get("2026gacmp_e10") == "ok", statuses
+    assert statuses.get(MATCH) == "ok", statuses
     match_text = (
-        work / "flashpoint-sample" / "lake" / "report" / "data" / "2026gacmp_e10.js"
+        work / "flashpoint-sample" / "lake" / "report" / "data" / f"{MATCH}.js"
     ).read_text()
     match = json.loads(match_text[match_text.index("(") + 1 : match_text.rindex(")")])
     assert match["series"], "no motor tracks"
 
-    # Ingest warned about the two cut-short hoots, in the words the page quotes.
-    note = _try_it_section()
-    assert "`incomplete-read`" in note
-    for hoot in CUT_SHORT_HOOTS:
-        assert re.search(rf"WARNING\s+GACMP_E10_{hoot}\.hoot: incomplete-read", output), output
+    # A full match (spec "Sample is a full match"): phases framed, no file warnings, and
+    # detection finds something to triage in the tutorial.
+    assert match["framed"], "no autonomous/teleop phases"
+    assert "WARNING" not in output, output
+    assert re.search(r"detected [1-9]\d* anomal", output), output
+    assert f"`{NOTE}`" in _try_it_section()
+    assert NOTE in output, output
 
     # The reader's own configuration and default lake are untouched.
     assert not (home / ".config" / "flashpoint").exists()

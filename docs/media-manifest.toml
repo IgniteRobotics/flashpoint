@@ -52,6 +52,7 @@ alt = "Live CAN view: CAN devices with dropouts, reboots and faults during a sha
 
 [[shot]]
 id = "tutorial-replay-match"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
 kind = "screenshot"
 view = "replay"
 route = "#view=replay"
@@ -61,6 +62,7 @@ alt = "Replay with a match open: its tracks, markers and the match list on the l
 
 [[shot]]
 id = "tutorial-replay-hottest"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
 kind = "screenshot"
 view = "replay"
 route = "#view=replay"
@@ -70,6 +72,8 @@ alt = "Replay's readout listing each motor's maximum temperature for the match, 
 
 [[shot]]
 id = "tutorial-history-motor"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+target = "intake-extension"  # the hottest motor, which also has the stall finding
 kind = "screenshot"
 view = "history"
 route = "#view=history"
@@ -79,6 +83,8 @@ alt = "History with one motor selected: its line highlighted, and its matches li
 
 [[shot]]
 id = "tutorial-anomaly"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+target = "Stall time reached 21.5 s"  # the hottest motor\'s finding (intake-extension)
 kind = "screenshot"
 view = "anomalies"
 route = "#view=anomalies"
@@ -88,6 +94,8 @@ alt = "An anomaly opened in the Anomalies view: its evidence, severity and likel
 
 [[shot]]
 id = "tutorial-triage"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+target = "Stall time reached 21.5 s"  # the hottest motor\'s finding (intake-extension)
 kind = "screenshot"
 view = "anomalies"
 route = "#view=anomalies"

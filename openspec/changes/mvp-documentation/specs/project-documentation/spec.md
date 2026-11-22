@@ -309,15 +309,15 @@ The path's commands:
 - ingest the bundle into a separate sample lake, with the bundle's own configuration, so the reader's own configuration and lake are untouched;
 - are given for macOS and Linux shells, and for Windows PowerShell.
 
-The sample match's hoots were cut short by a power-off at the event, so ingest warns that they are incomplete. The Quickstart SHALL say this warning is expected for the sample. The Quickstart SHALL end by linking the Robot side section.
+The sample match SHALL be a full match: the robot enabled through autonomous and teleop, with its wpilog and hoots lined up, so the first-event tutorial can follow a motor in History and triage an anomaly from it. The sample's robot file declares signals that the match's robot code didn't log yet, so ingest notes them; the Quickstart SHALL say this note is expected for the sample. The Quickstart SHALL end by linking the Robot side section.
 
 #### Scenario: Sample logs reach Replay
 - **WHEN** a reader on a clean machine follows "Try it with sample logs"
 - **THEN** Replay lists the sample match with motor tracks, and the reader's own config folder and default lake are unchanged
 
-#### Scenario: Sample hoots cut short at the event
+#### Scenario: Sample is a full match
 - **WHEN** the bundle is ingested by the documented commands
-- **THEN** ingest succeeds, it warns that the hoots cut short by the event's power-off are incomplete, and the Quickstart's note about that warning quotes the same words
+- **THEN** ingest succeeds with no file warnings, the sample match has autonomous and teleop phases, detection finds at least one anomaly in it, and the Quickstart's note about the declared-signals note quotes the same words
 
 #### Scenario: Damaged download
 - **WHEN** a copy of the bundle cut short in download is checked with the documented SHA-256 command

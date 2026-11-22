@@ -3,10 +3,11 @@
 
     python tools/build-sample-bundle.py [--out flashpoint-sample-1.zip]
 
-It holds corpus-v1's E10 match (its wpilog and four hoots, never the truncated copy) under
-`logs/`; a `config/` with what that robot needs (an `acquire.toml` naming team 6829, so the folder
-counts as a configuration; Ignite's `seasons/2026.toml`, whose `robot` root the robot file uses;
-and `robots/2026-comp.toml`); a `README.txt`; and `SHA256SUMS`.
+It holds corpus-v1's Q7 match (its wpilog and two hoots: a full qualification match, robot
+enabled throughout) under `logs/`; a `config/` with what that robot needs (an `acquire.toml`
+naming team 6829, so the folder counts as a configuration; Ignite's `seasons/2026.toml`, whose
+`robot` root the robot file uses; and `robots/2026-comp.toml`); a `README.txt`; and
+`SHA256SUMS`.
 The corpus comes from `$FLASHPOINT_CORPUS_DIR/corpus-v1` (run `python tools/fetch-corpus.py`
 first); each file is checked against the corpus manifest. Entries carry a fixed timestamp, so
 the same inputs give the same zip, byte for byte, and the SHA-256 in the Quickstart stays true.
@@ -25,22 +26,19 @@ REPO = Path(__file__).resolve().parents[1]
 MANIFEST = REPO / "tests" / "corpus" / "manifest.toml"
 ROBOT = REPO / "config" / "robots" / "2026-comp.toml"
 SEASON = REPO / "config" / "seasons" / "2026.toml"
-GROUP = "2026-gacmp-e10"
-STAMP = (2026, 4, 11, 0, 0, 0)  # the match's day: a fixed time keeps the zip reproducible
+GROUP = "2026-gacmp-q7"
+STAMP = (2026, 4, 9, 0, 0, 0)  # the match's day: a fixed time keeps the zip reproducible
 README = """\
 Flashpoint sample logs (flashpoint-sample-1)
 
-One full match from FRC team 6829 Ignite Robotics' 2026 season: playoff match E10 at the
-Georgia district championship (GACMP), 2026-04-11. It's here so you can try Flashpoint before
+One full match from FRC team 6829 Ignite Robotics' 2026 season: qualification match 7 at the
+Georgia district championship (GACMP), 2026-04-09. It's here so you can try Flashpoint before
 you have logs of your own.
 
   logs/                     the match's WPILib data log (.wpilog) and its CTRE hoot logs
   config/                   that robot's settings: its robot file (which motor is which) and
                             the 2026 season file its robot code needs
   SHA256SUMS                checksums of every file in this bundle
-
-Two of the hoot files (the 19-29-15 ones) were cut short when the robot was powered off at the
-event, so `flashpoint ingest` warns that they are incomplete. That's expected for this sample.
 
 How to use it: the Quickstart's "Try it with sample logs" section, on the Flashpoint docs site
 https://igniterobotics.github.io/flashpoint/latest/quickstart/
