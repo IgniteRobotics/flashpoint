@@ -404,7 +404,7 @@ The command SHALL fail with a non-zero exit, naming the cause:
 - **THEN** the unit test run fails and names the view
 
 ### Requirement: Hosted Replay demo
-Each docs version SHALL publish a static Replay export of the corpus-v1 sample matches, without raw logs, at `demo/` under that version's path. The README, the docs home and the Why page SHALL link the `latest` demo. The demo SHALL:
+Each docs version SHALL publish a static Replay export of the sample matches (the corpus-v1 sample groups and the `samples-v1` matches), without raw logs, at `demo/` under that version's path. The README, the docs home and the Why page SHALL link the `latest` demo. The demo SHALL:
 - open with no server;
 - make no request to any host but its own;
 - name itself as sample data in the app header;
