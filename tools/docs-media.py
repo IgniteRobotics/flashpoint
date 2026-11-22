@@ -9,8 +9,9 @@
 and a GIF per animation) so the docs site builds without the corpus. `check-site` fails when a
 built page shows an image or video whose file isn't in the built site: Zensical's strict build
 doesn't check media (ADR-0019). `capture` makes the real images: it checks corpus-v1 (exit 2
-naming the first missing file), builds a sample lake from five corpus groups with the real CLI,
-and shoots each entry. Only `capture` needs Flashpoint and the docs group installed.
+naming the first missing file), fetches GACMP Q73 and Q89 from the samples-v1 release (checked
+against their SHA-256), builds a sample lake from five corpus groups and those two matches with
+the real CLI, and shoots each entry. Only `capture` needs Flashpoint and the docs group installed.
 """
 
 import argparse
@@ -23,6 +24,7 @@ import subprocess
 import sys
 import time
 import tomllib
+import zipfile
 import zlib
 from pathlib import Path
 from types import ModuleType
@@ -65,7 +67,20 @@ DEMO_MATCHES = (
     "2026gacmp_e10",
     "2026gacmp_pm2",
     "2026gacmp_qm7",
+    "2026gacmp_qm73",
+    "2026gacmp_qm89",
 )
+# Two more full matches for the sample lake (so History and the demo have more than Q7). They
+# aren't corpus files: they're on the samples-v1 release, each a zip of logs/ and SHA256SUMS.
+SAMPLES_RELEASE = "https://github.com/IgniteRobotics/flashpoint/releases/download/samples-v1"
+EXTRA_SAMPLES = {
+    "flashpoint-sample-2026gacmp_qm73.zip": (
+        "f8c8e6989620a5f11000a6c8db646edd18caf195cfa1ccbad043af425c4c33a1"
+    ),
+    "flashpoint-sample-2026gacmp_qm89.zip": (
+        "ff0502ca470a3012193b9fc150a54eb3fe48e3a0bc9f440489f6a2918e547e3d"
+    ),
+}
 DEMO_BUDGET_MB = 15
 EXIT_NO_CORPUS = 2
 TUTORIAL_GROUP = "2026-gacmp-q7"  # the sample bundle's match (tools/build-sample-bundle.py)
@@ -204,8 +219,62 @@ def first_missing(corpus: Path, entries: list[dict[str, Any]]) -> str | None:
     return next((e["name"] for e in entries if not check(corpus / e["name"], e)), None)
 
 
+def default_samples_dir() -> Path:
+    root = os.environ.get("FLASHPOINT_SAMPLES_DIR")
+    return Path(root) if root else Path.home() / ".cache" / "flashpoint" / "samples-v1"
+
+
+def unpack_sample(archive: Path, folder: Path) -> list[Path]:
+    """Unpack a sample zip into `folder` (once) and return its logs, each checked against the
+    zip's SHA256SUMS."""
+    sums = folder / "SHA256SUMS"
+    if not sums.is_file():
+        shutil.rmtree(folder, ignore_errors=True)
+        with zipfile.ZipFile(archive) as unzipped:
+            for name in unzipped.namelist():
+                if name != "SHA256SUMS" and not (
+                    name.startswith("logs/") and ".." not in Path(name).parts
+                ):
+                    raise SystemExit(f"sample {archive.name}: {name} is outside logs/")
+            unzipped.extractall(folder)
+    sha256_of = _fetch_corpus().sha256_of
+    logs: list[Path] = []
+    for line in sums.read_text(encoding="utf-8").splitlines():
+        digest, name = line.split(maxsplit=1)
+        path = folder / name.lstrip("*")
+        if not path.is_file() or sha256_of(path) != digest:
+            raise SystemExit(f"sample {archive.name}: {name} doesn't match its SHA256SUMS")
+        logs.append(path)
+    return logs
+
+
+def fetch_extra_samples(cache: Path) -> list[Path]:
+    """The extra samples' logs: each zip is downloaded unless it's cached with the right
+    SHA-256, then unpacked and checked."""
+    fetch = _fetch_corpus()
+    logs: list[Path] = []
+    for name, digest in EXTRA_SAMPLES.items():
+        archive = cache / name
+        if not archive.is_file() or fetch.sha256_of(archive) != digest:
+            cache.mkdir(parents=True, exist_ok=True)
+            part = archive.with_suffix(".zip.part")
+            fetch.download(name, SAMPLES_RELEASE, part)
+            if fetch.sha256_of(part) != digest:
+                part.unlink()
+                raise SystemExit(f"sample {name}: SHA-256 doesn't match the release's")
+            part.replace(archive)
+            shutil.rmtree(cache / name.removesuffix(".zip"), ignore_errors=True)
+        logs += unpack_sample(archive, cache / name.removesuffix(".zip"))
+    return logs
+
+
 def build_sample_lake(
-    work: Path, corpus: Path, entries: list[dict[str, Any]], theme: str, ok: tuple[int, ...] = (0,)
+    work: Path,
+    corpus: Path,
+    entries: list[dict[str, Any]],
+    theme: str,
+    ok: tuple[int, ...] = (0,),
+    extra: list[Path] | None = None,
 ) -> Path:
     """A lake of the sample matches, built with the real CLI; returns the lake folder.
 
@@ -219,7 +288,7 @@ def build_sample_lake(
     (config / "theme.toml").write_text(theme, encoding="utf-8")
     env = {**os.environ, "FLASHPOINT_CONFIG": str(config), "FLASHPOINT_LAKE": str(lake)}
     cli = [sys.executable, "-m", "flashpoint"]
-    files = [str(corpus / e["name"]) for e in entries]
+    files = [str(corpus / e["name"]) for e in entries] + [str(p) for p in extra or []]
     for args in (["ingest", "--lake", str(lake), *files], ["report", "--lake", str(lake)]):
         started = time.monotonic()
         done = subprocess.run([*cli, *args], env=env, check=False, capture_output=True, text=True)  # noqa: S603 - our own CLI
@@ -648,7 +717,8 @@ def demo(site: Path, corpus: Path | None, work: Path) -> int:
             print(f"corpus file missing or damaged: {corpus / missing}", file=sys.stderr)
             print("fetch the corpus first: python tools/fetch-corpus.py", file=sys.stderr)
             return EXIT_NO_CORPUS
-        build_sample_lake(work / "sample", corpus, entries, DOCS_THEME)
+        extra = fetch_extra_samples(default_samples_dir())
+        build_sample_lake(work / "sample", corpus, entries, DOCS_THEME, extra=extra)
     export_demo(lake, work / "sample" / "config", site)
     problems = demo_problems(site) or check_demo_in_browser(site)
     for problem in problems:
@@ -669,7 +739,8 @@ def capture(out: Path, corpus: Path | None, work: Path) -> int:
             file=sys.stderr,
         )
         return EXIT_NO_CORPUS
-    lake = build_sample_lake(work / "sample", corpus, entries, DOCS_THEME)
+    extra = fetch_extra_samples(default_samples_dir())
+    lake = build_sample_lake(work / "sample", corpus, entries, DOCS_THEME, extra=extra)
     os.environ["FLASHPOINT_CONFIG"] = str(
         work / "sample" / "config"
     )  # the in-process servers' theme

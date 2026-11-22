@@ -4,7 +4,7 @@ Look around Flashpoint's Replay view before you install anything:
 
 **[Open the hosted demo](demo/replay/index.html)**
 
-It's real data: five matches from team 6829's (Ignite Robotics) 2025 and 2026 robots, from the Georgia district events. The header reads "Sample data · 6829" so you can tell it apart from your own.
+It's real data: seven matches from team 6829's (Ignite Robotics) 2025 and 2026 robots, from the Georgia district events. The header reads "Sample data · 6829" so you can tell it apart from your own.
 
 ## What it is
 
@@ -12,7 +12,7 @@ It's real data: five matches from team 6829's (Ignite Robotics) 2025 and 2026 ro
 - **No raw logs.** The export leaves out the `.wpilog` and `.hoot` files, so there's nothing to download or open in AdvantageScope.
 - **Nothing to set up.** It runs in your browser and talks to no server but this site.
 
-Start with **Q7** (2026, Georgia district championship): a full qualification match with tracks, markers and every motor in the readout. The seasons filter starts on the latest season; pick **All seasons** to see the 2025 matches.
+Start with **Q7**, **Q73** and **Q89** (2026, Georgia district championship): full qualification matches with tracks, markers and every motor in the readout. The seasons filter starts on the latest season; pick **All seasons** to see the 2025 matches.
 
 The other four show what real logs can look like, and what Replay says about it:
 - **E10**: the robot code restarted during the match, so its Replay covers only the part before the restart.
