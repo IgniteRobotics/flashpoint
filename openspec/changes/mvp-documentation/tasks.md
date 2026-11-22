@@ -177,7 +177,8 @@
 
 ## 8. Generated screenshots and animations (M2; final capture in M3)
 
-- [ ] 8.1 [HUMAN] Josh decides design open question 2: publish more 2026 matches as `samples-v1` assets, or capture from corpus-v1 only. If more, add them to the bundle tool's sample-lake list and to `samples-v1` (6.2). Verify: the decision is recorded here.
+- [x] 8.1 [HUMAN] Josh decides design open question 2: publish more 2026 matches as `samples-v1` assets, or capture from corpus-v1 only. If more, add them to the bundle tool's sample-lake list and to `samples-v1` (6.2). Verify: the decision is recorded here.
+  Decided 2026-11-21 (Josh): publish two more matches. GACMP Q73 and Q89 (the full, high-alignment 2026 matches with the most FAULT markers; same event as Q7) are on `samples-v1` as `flashpoint-sample-2026gacmp_qm73.zip` (107.3 MB, sha256 `f8c8e698…33a1`) and `flashpoint-sample-2026gacmp_qm89.zip` (77.7 MB, sha256 `ff0502ca…7e3d`). Each holds `logs/` (wpilog and two hoots) and `SHA256SUMS`, packed from the lake's raw store with fixed timestamps. Both ingest with the bundle's config as `ok` matches with no warnings. **Still to do:** add them to `docs-media.py`'s sample lake and the demo, fetching from `samples-v1` with their checksums, since they aren't corpus files.
 - [x] 8.2 Test first:
   - every view in `web/static/views/*.js` must have a screenshot entry;
   - every entry must have non-empty `alt`, a known `kind` and a `steps` name that the script defines;
@@ -308,12 +309,13 @@
 - [ ] 13.5 Write `index.md` (the home): pitch, three images, demo link, and "start here" cards for Quickstart, Install, Tutorial and Robot side. Verify: the strict build passes.
 - [x] 13.6 Point `pyproject.toml` `Documentation` and `Homepage` at the site, and add a test that the built wheel's metadata `Project-URL: Documentation` is the site URL. Verify: the test passes.
   Done 2026-11-21. Both point at `https://igniterobotics.github.io/flashpoint/`; the repository stays on the PyPI page as `Source`. `tests/test_package.py` checks the built wheel's `Project-URL` lines.
-- [ ] 13.7 [HUMAN] A repo admin runs `gh repo edit IgniteRobotics/flashpoint` with:
+- [x] 13.7 [HUMAN] A repo admin runs `gh repo edit IgniteRobotics/flashpoint` with:
   - `--description` set to the README pitch;
   - `--homepage https://igniterobotics.github.io/flashpoint/`;
   - `--add-topic` for `frc`, `wpilib`, `ctre`, `phoenix6`, `telemetry` and `datalog`.
 
   Verify: `gh repo view --json description,homepageUrl,repositoryTopics` shows them.
+  Done 2026-11-21 at Josh's request. Description: "FRC robot telemetry: import WPILib .wpilog and CTRE .hoot logs, and track every motor's health across your robot's life. Runs offline on a pit laptop." (13.2 writes the README pitch to match). Homepage https://igniterobotics.github.io/flashpoint/ (live after the first deploy, 3.3/3.4). Topics: frc, wpilib, ctre, phoenix6, telemetry, datalog. `gh repo view` shows all three.
 - [ ] 13.8 [HUMAN] Josh reviews `why.md`, `README.md` and `index.md` for tone and honesty (his "why Flashpoint kicks ass" bar). Verify: the review comments are resolved, and recorded on the PR.
 
 ## 14. Maturity labels (M3)
