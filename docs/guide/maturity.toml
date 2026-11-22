@@ -1,0 +1,28 @@
+# Feature maturity labels for this release (spec project-documentation, "Feature maturity
+# labels"; mvp-documentation task 14.1). tests/test_docs_maturity.py checks that:
+# - every page in `pages` shows `label` in its first 10 lines;
+# - the support matrix has a line naming the feature with its label;
+# - every line of README.md and why.md that matches one of `mentions` (case-insensitive)
+#   also shows `label`.
+# Drop a feature when the release removes its label. Robot pull's label must match the app's
+# (flashpoint.acquire.config.ROBOT_PULL_LABEL).
+
+[[feature]]
+name = "Robot pull"
+label = "beta, tested on one robot"
+issue = 74
+mentions = ["robot pull", "from the robot", "off the robot"]
+pages = ["how-to/auto-import.md"]
+
+[[feature]]
+name = "Anomalies"
+label = "beta"
+issue = 77
+mentions = ["anomal"]
+pages = ["reference/views/anomalies.md", "how-to/triage-an-anomaly.md"]
+
+[[feature]]
+name = "Live CAN"
+label = "experimental"
+mentions = ["live can"]
+pages = ["how-to/live-can-health.md", "reference/views/live-can.md"]
