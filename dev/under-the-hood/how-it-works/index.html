@@ -61,6 +61,8 @@
       
     
     
+      <link rel="stylesheet" href="../../assets/stylesheets/zoom.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -3005,7 +3007,7 @@
 <h1 id="how-flashpoint-works">How Flashpoint works<a class="headerlink" href="#how-flashpoint-works" title="Permanent link">&para;</a></h1>
 <p>This page explains what happens to a log between the robot and the screen. It's written for developers, but nothing here needs code. For the design reasoning and the trade-offs, see the <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/05-target-architecture.md">target architecture</a> and the <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md">decision records</a>.</p>
 <h2 id="the-pipeline">The pipeline<a class="headerlink" href="#the-pipeline" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>flowchart LR
+<pre class="mermaid"><code>flowchart LR
     R[roboRIO and USB stick] --&gt;|acquire| I[(inbox)]
     M[logs you copied by hand] --&gt;|ingest| RAW
     I --&gt;|ingest| RAW[(raw)]
@@ -3014,8 +3016,7 @@
     S --&gt; G[(gold)]
     G --&gt;|detect| A[(anomalies)]
     G --&gt;|report| RP[Replay data]
-    G &amp; A &amp; RP --&gt;|serve| APP[Replay, History, Anomalies, Setup, Live CAN]
-</code></pre></div>
+    G &amp; A &amp; RP --&gt;|serve| APP[Replay, History, Anomalies, Setup, Live CAN]</code></pre>
 <table>
 <thead>
 <tr>
@@ -3302,9 +3303,14 @@
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.sections","navigation.top","search","content.code.copy","content.tabs.link"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"provider":"mike"}}</script>
     
     
+    <script src="../../assets/vendor/mermaid.min.js"></script>
+  
       <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
       
       
+        <script src="../../assets/javascripts/zoom.js"></script>
+      
     
+
   </body>
 </html>
