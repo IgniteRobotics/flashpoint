@@ -125,6 +125,10 @@ jobs:
       - run: poetry install --no-interaction --only docs --no-root
       - name: Strict build (a broken link or anchor stops the run)
         run: poetry run zensical build --strict --clean --config-file "$CONFIG"
+      # The site serves its own copy of the diagram renderer (docs-visual-polish D2): fetched by
+      # SHA-256 before the builds that publish, and shipped to the deploy with the media.
+      - name: The diagram renderer, by checksum
+        run: poetry run python tools/docs-media.py vendor
       # Media (D-f): every screenshot and animation, regenerated from corpus-v1 and this commit's
       # UI on every deploy. Needs Flashpoint itself, Chromium and the corpus.
       - name: Install Flashpoint and Chromium for the media capture
@@ -159,13 +163,14 @@ jobs:
           poetry run zensical build --strict --clean --config-file mkdocs.offline.yml
           (cd offline-site && zip -qr "../docs/guide/flashpoint-docs-$VERSION.zip" .)
           ls -l "docs/guide/flashpoint-docs-$VERSION.zip"
-      # What the deploy job adds to the source before mike builds it: the media, and the
-      # archive (served at /X.Y/flashpoint-docs-X.Y.zip).
+      # What the deploy job adds to the source before mike builds it: the media, the diagram
+      # renderer, and the archive (served at /X.Y/flashpoint-docs-X.Y.zip).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: docs-inputs
           path: |
             docs/guide/assets/media/
+            docs/guide/assets/vendor/
             docs/guide/demo/replay/
             docs/guide/flashpoint-docs-*.zip
           if-no-files-found: error

@@ -117,9 +117,21 @@ markdown_extensions:
   - toc:
       permalink: true
   - pymdownx.details
-  - pymdownx.superfences
+  # The theme renders a `mermaid` fence as a diagram; the page loads the site's own copy of the
+  # renderer (docs/overrides/main.html). pymdownx's default format is fence_code_format.
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
   - pymdownx.tabbed:
       alternate_style: true
+
+# Click to zoom (docs-visual-polish D4): from the theme folder (docs/overrides/assets/), so they
+# ship with every build, the offline archive too.
+extra_css:
+  - assets/stylesheets/zoom.css
+extra_javascript:
+  - assets/javascripts/zoom.js
 
 extra:
   version:

@@ -2,13 +2,16 @@
 """Docs screenshots and animations from `docs/media-manifest.toml` (mvp-documentation, D-f).
 
     python tools/docs-media.py placeholders [--out DIR]
+    python tools/docs-media.py vendor [--out DIR]
     python tools/docs-media.py check-site SITE_DIR
     python tools/docs-media.py capture [--out DIR] [--corpus-dir DIR] [--work DIR]
 
 `placeholders` writes a tiny valid file for every manifest entry (a PNG per screenshot, a WebM
-and a GIF per animation) so the docs site builds without the corpus. `check-site` fails when a
-built page shows an image or video whose file isn't in the built site: Zensical's strict build
-doesn't check media (ADR-0019). `capture` makes the real images: it checks corpus-v1 (exit 2
+and a GIF per animation) so the docs site builds without the corpus. `vendor` fetches the pinned
+Mermaid build (checked against its SHA-256) that the site serves itself, so diagrams render
+offline. `check-site` fails when a built page shows an image or video whose file isn't in the
+built site, or a diagram when the site has no renderer: Zensical's strict build checks neither
+(ADR-0019). `capture` makes the real images: it checks corpus-v1 (exit 2
 naming the first missing file), fetches GACMP Q73 and Q89 from the samples-v1 release (checked
 against their SHA-256), builds a sample lake from five corpus groups and those two matches with
 the real CLI, and shoots each entry. Only `capture` needs Flashpoint and the docs group installed.
@@ -171,6 +174,53 @@ WEBM = bytes.fromhex(
 MEDIA_SRC = re.compile(r"<(?:img|video|source)\b[^>]*?\ssrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
 
 
+# --- vendor: the diagram renderer, served by the docs site itself (docs-visual-polish, D2) ---
+
+VENDOR = REPO / "docs" / "guide" / "assets" / "vendor"  # gitignored; written by `vendor`
+# The release the theme's own loader asks unpkg for (`mermaid@12`), pinned. Bump by a deliberate
+# PR: change both lines, and check How Flashpoint works renders.
+MERMAID_VERSION = "12.3.0"
+VENDORED = {
+    "mermaid.min.js": (
+        f"https://unpkg.com/mermaid@{MERMAID_VERSION}/dist",
+        "336df803d87a38b70a01e736e666c8f7601d2ce42f5e47c8fafe5d721074b9a3",
+    ),
+}
+DIAGRAM = re.compile(r"<pre\b[^>]*\sclass=[\"'](?:[^\"']*\s)?mermaid[\s\"']", re.IGNORECASE)
+
+
+def vendor(out: Path = VENDOR) -> list[Path]:
+    """Fetch each pinned file unless it's already there with the right SHA-256; a download that
+    doesn't match its pin is refused, naming the file and both sums, and nothing is written."""
+    fetch = _fetch_corpus()
+    written: list[Path] = []
+    for name, (url, digest) in VENDORED.items():
+        target = out / name
+        if not target.is_file() or fetch.sha256_of(target) != digest:
+            out.mkdir(parents=True, exist_ok=True)
+            part = out / f"{name}.part"
+            fetch.download(name, url, part)
+            got = fetch.sha256_of(part)
+            if got != digest:
+                part.unlink()
+                raise SystemExit(f"vendor {name}: SHA-256 {got} doesn't match the pinned {digest}")
+            part.replace(target)
+        written.append(target)
+    return written
+
+
+def missing_renderer(site: Path) -> list[str]:
+    """Each built page that shows a diagram when the site has no copy of the renderer."""
+    if (site / "assets" / "vendor" / "mermaid.min.js").is_file():
+        return []
+    return [
+        f"{page.relative_to(site).as_posix()}: shows a diagram, and the site has no"
+        " assets/vendor/mermaid.min.js"
+        for page in sorted(site.rglob("*.html"))
+        if DIAGRAM.search(page.read_text(encoding="utf-8"))
+    ]
+
+
 def missing_media(site: Path) -> list[str]:
     """Every local image or video a built page shows whose file isn't in the site."""
     problems = []
@@ -327,47 +377,79 @@ def _target(page: Any, selector: str, shot: dict[str, Any]) -> Any:
     return (found.filter(has_text=shot["target"]) if shot.get("target") else found).first
 
 
-def _first_match(page: Any, shot: dict[str, Any]) -> None:
-    _target(page, ".match-btn:not(:has-text('NO ALIGNED SAMPLES'))", shot).click()
+# Pacing (docs-visual-polish D3): a recorded flow holds its start view, marks each element just
+# before it's clicked, pauses after each click, and holds the result. Screenshots run the same
+# steps unpaced.
+START_HOLD_MS = 2000
+MARK_MS = 800
+STEP_PAUSE_MS = 1500
+MARK_CLASS = "fp-docs-mark"
+MARK_CSS = (
+    f".{MARK_CLASS} {{ outline: 3px solid #FFFFFF !important; outline-offset: 3px !important;"
+    " box-shadow: 0 0 0 7px rgba(255, 176, 0, 0.45) !important; }"
+)
+
+
+UNMARK = "mark => document.querySelectorAll('.' + mark).forEach(e => e.classList.remove(mark))"
+
+
+def _press(page: Any, target: Any, pace: bool) -> None:
+    """Click `target`; paced, scroll it into view and mark it first, and pause after."""
+    if pace:
+        target.scroll_into_view_if_needed()
+        target.evaluate("(el, mark) => el.classList.add(mark)", MARK_CLASS)
+        page.wait_for_timeout(MARK_MS)
+    target.click()
+    if pace:
+        page.evaluate(UNMARK, MARK_CLASS)
+        page.wait_for_timeout(STEP_PAUSE_MS)
+
+
+def _first_match(page: Any, shot: dict[str, Any], pace: bool = False) -> None:
+    _press(page, _target(page, ".match-btn:not(:has-text('NO ALIGNED SAMPLES'))", shot), pace)
     page.wait_for_selector(".match-btn[aria-current='page']", timeout=WAIT_MS)
 
 
-def _open_first_anomaly(page: Any, shot: dict[str, Any]) -> None:
-    _target(page, "#queue button.anom", shot).click()
+def _open_first_anomaly(page: Any, shot: dict[str, Any], pace: bool = False) -> None:
+    _press(page, _target(page, "#queue button.anom", shot), pace)
     page.wait_for_selector("#causes", timeout=WAIT_MS)
 
 
-def _triage(page: Any, shot: dict[str, Any]) -> None:
+def _triage(page: Any, shot: dict[str, Any], pace: bool = False) -> None:
     """INVESTIGATE the first anomaly still new: an earlier entry may have triaged the first."""
     page.wait_for_selector("#queue button.anom", timeout=WAIT_MS)
     investigate = page.get_by_role("button", name="INVESTIGATE")
     queue = page.locator("#queue button.anom")
     items = queue.filter(has_text=shot["target"]).all() if shot.get("target") else queue.all()
     for item in items:
-        item.click()
+        _press(page, item, pace)
         page.wait_for_selector("#causes", timeout=WAIT_MS)
         if investigate.count():
             break
     else:
         raise ShotError("no anomaly in the queue is still new, so none can be triaged")
-    investigate.click()
+    _press(page, investigate, pace)
     save = page.locator("#triage-save")
     if save.count():
-        save.click()
+        _press(page, save, pace)
     page.get_by_role("button", name="MARK RESOLVED").wait_for(timeout=WAIT_MS)
 
 
-def _nothing(_page: Any, _shot: dict[str, Any]) -> None:
+def _nothing(_page: Any, _shot: dict[str, Any], _pace: bool = False) -> None:
     return None
 
 
-def _hottest_motor(page: Any, shot: dict[str, Any]) -> None:
-    _first_match(page, shot)  # with no cursor placed, the readout lists match maxima, hottest first
+def _hottest_motor(page: Any, shot: dict[str, Any], pace: bool = False) -> None:
+    _first_match(page, shot, pace)  # no cursor: the readout lists match maxima, hottest first
     page.wait_for_selector("#readout tr", timeout=WAIT_MS)
 
 
-def _pick_motor(page: Any, shot: dict[str, Any]) -> None:
-    _target(page, "#rows tr button", shot).click()
+def _pick_motor(page: Any, shot: dict[str, Any], pace: bool = False) -> None:
+    _press(page, _target(page, "#rows tr button", shot), pace)
+
+
+def _shake(page: Any, _shot: dict[str, Any], _pace: bool = False) -> None:
+    page.wait_for_selector(DROPOUT, timeout=LIVE_WAIT_MS)
 
 
 STEP_FUNCTIONS: dict[str, Any] = {
@@ -377,8 +459,33 @@ STEP_FUNCTIONS: dict[str, Any] = {
     "history-pick-motor": _pick_motor,
     "anomaly-open-first": _open_first_anomaly,
     "anomaly-triage": _triage,
-    "live-can-shake": lambda page, _shot: page.wait_for_selector(DROPOUT, timeout=LIVE_WAIT_MS),
+    "live-can-shake": _shake,
 }
+# What shows once each step's start view has loaded: a recording starts here, so its first frame
+# is never the app's loading notice. A step not listed starts when its `expect` shows.
+READY: dict[str, tuple[str, ...]] = {
+    "replay-first-match": (".match-btn",),
+    "replay-hottest-motor": (".match-btn",),
+    "history-pick-motor": ("#rows tr button", "#chart canvas"),
+    "anomaly-open-first": ("#queue button.anom",),
+    "anomaly-triage": ("#queue button.anom",),
+    "live-can-shake": ("#live-buses > *",),
+}
+
+
+def run_steps(page: Any, shot: dict[str, Any], pace: bool) -> None:
+    """The entry's steps; paced (recording only), after holding the start view."""
+    if pace:
+        page.add_style_tag(content=MARK_CSS)
+        page.wait_for_timeout(START_HOLD_MS)
+    STEP_FUNCTIONS[shot["steps"]](page, shot, pace)
+
+
+def wait_until_ready(page: Any, shot: dict[str, Any], timeout: int = WAIT_MS) -> None:
+    """The loading notice gone and the start view's own elements visible."""
+    page.wait_for_selector("#app > .notice", state="detached", timeout=timeout)
+    for selector in READY.get(shot["steps"], (shot["expect"],)):
+        page.wait_for_selector(selector, state="visible", timeout=timeout)
 
 
 class Watch:
@@ -436,7 +543,7 @@ def shoot(page: Any, watch: Watch, base_url: str, shot: dict[str, Any], out: Pat
     name = shot["id"]
     page.goto(f"{base_url}/{shot['route']}")
     try:
-        STEP_FUNCTIONS[shot["steps"]](page, shot)
+        run_steps(page, shot, pace=False)
         page.wait_for_selector(shot["expect"], state="visible", timeout=WAIT_MS)
     except Exception as exc:  # Playwright raises its own error types; each names the shot
         raise ShotError(f"{name}: {shot['expect']!r} never showed ({exc})") from exc
@@ -459,14 +566,23 @@ def shoot(page: Any, watch: Watch, base_url: str, shot: dict[str, Any], out: Pat
 # --- capture: animations and the reel (task 8.5) --------------------------------------------
 
 VIDEO_SIZE = {"width": 1280, "height": 800}
+ANIMATION_MIN_S = 6.0
 ANIMATION_MAX_S = 20.0
 GIF_BUDGET_KB = 3 * 1024
 WEBM_BUDGET_KB = 2 * 1024
 GIF_FPS = 12
 GIF_WIDTH = 960
 GIF_SMALLER = (10, 800)  # fps and width for a GIF that's over budget at the defaults
+GIF_SMALLEST_FPS = 8  # and the last try, still over (design D3, risks)
 REEL_MAX_S = 60.0
-HOLD_MS = 1500  # keep the end state on screen this long before the recording stops
+HOLD_MS = 3000  # keep the end state on screen this long before the recording stops
+# A first frame with more than this share of its pixels within FLAT_LEVELS grey levels of its
+# commonest shade is the loading notice (one short line on a flat background), not a loaded view.
+# Calibrated 2026-11-23: the unpaced clips' loading frames measured 99.7 %, loaded views 72-84 %.
+FIRST_FRAME_UNIFORM = 0.95
+FLAT_LEVELS = 6
+# The trimmed WebM: VP8 at a bitrate that keeps a 20 s flow inside WEBM_BUDGET_KB.
+TRIM_VIDEO = ("-c:v", "libvpx", "-crf", "10", "-b:v", "750k", "-an")
 DURATION = re.compile(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)")
 
 
@@ -519,7 +635,40 @@ def to_gif(webm: Path, gif: Path, fps: int = GIF_FPS, width: int = GIF_WIDTH) ->
     return gif
 
 
+def first_frame_uniformity(video: Path) -> float:
+    """The share of the first frame's pixels near its commonest grey level (1.0: one flat shade)."""
+    from PIL import Image
+
+    still = video.with_name(video.name + ".first.png")
+    try:
+        done = _ffmpeg("-i", str(video), "-frames:v", "1", str(still))
+        if done.returncode != 0 or not still.is_file():
+            raise ShotError(f"{video.name}: ffmpeg can't read the first frame")
+        with Image.open(still) as image:
+            grey = image.convert("L").resize((160, 100))
+    finally:
+        still.unlink(missing_ok=True)
+    counts = grey.histogram()
+    commonest = max(range(256), key=counts.__getitem__)
+    near = sum(counts[max(0, commonest - FLAT_LEVELS) : commonest + FLAT_LEVELS + 1])
+    return float(near / (grey.width * grey.height))
+
+
 def check_animation(name: str, webm: Path, gif: Path) -> None:
+    """Everything capture asks of a recorded flow: long enough to follow, opening on a loaded
+    view, and inside the length and size budgets."""
+    length = duration_s(webm)
+    if length < ANIMATION_MIN_S:
+        raise ShotError(f"{name}: {length:.1f} s, under {ANIMATION_MIN_S:.0f} s")
+    flat = first_frame_uniformity(webm)
+    if flat > FIRST_FRAME_UNIFORM:
+        raise ShotError(
+            f"{name}: the first frame is {flat:.0%} one shade, like the app's loading screen"
+        )
+    check_budgets(name, webm, gif)
+
+
+def check_budgets(name: str, webm: Path, gif: Path) -> None:
     length = duration_s(webm)
     if length > ANIMATION_MAX_S:
         raise ShotError(f"{name}: {length:.1f} s, over {ANIMATION_MAX_S:.0f} s")
@@ -529,18 +678,39 @@ def check_animation(name: str, webm: Path, gif: Path) -> None:
             raise ShotError(f"{name}: {path.name} is {size_kb} KB, over {budget} KB")
 
 
+def trim(video: Path, start_s: float, target: Path) -> Path:
+    """`video` from `start_s` on, re-encoded, so its first frame is the loaded start view."""
+    done = _ffmpeg("-ss", f"{start_s:.3f}", "-i", str(video), *TRIM_VIDEO, str(target))
+    if done.returncode != 0:
+        raise ShotError(f"{target.name}: ffmpeg failed: {done.stderr.strip().splitlines()[-1:]}")
+    return target
+
+
 def record(
     browser: Any, base_url: str, shot: dict[str, Any], out: Path, scratch: Path
 ) -> list[Path]:
-    """Record one animation entry: WebM from Playwright, then a GIF from it."""
+    """Record one animation entry, paced: WebM from Playwright, trimmed to start at the loaded
+    view, then a GIF from it. Checks the length and size budgets; `capture` checks the rest
+    (`check_animation`)."""
     name = shot["id"]
     videos = scratch / name
+    # Playwright starts the video when the page opens, no earlier than this, so cutting at
+    # (ready - started) never keeps a frame from before the view was ready.
+    started = time.monotonic()
+    # bypass_csp: the app's CSP (style-src 'self') refuses the marks' stylesheet. Only recordings
+    # inject it; screenshots keep the app's own policy, so a CSP error still fails a capture.
     page, watch = open_page(
-        browser, record_video_dir=str(videos), record_video_size=VIDEO_SIZE, viewport=VIDEO_SIZE
+        browser,
+        record_video_dir=str(videos),
+        record_video_size=VIDEO_SIZE,
+        viewport=VIDEO_SIZE,
+        bypass_csp=True,
     )
     try:
         page.goto(f"{base_url}/{shot['route']}")
-        STEP_FUNCTIONS[shot["steps"]](page, shot)
+        wait_until_ready(page, shot, timeout=LIVE_WAIT_MS)
+        ready_s = time.monotonic() - started
+        run_steps(page, shot, pace=True)
         page.wait_for_selector(shot["expect"], state="visible", timeout=LIVE_WAIT_MS)
         page.wait_for_timeout(HOLD_MS)
     except Exception as exc:  # Playwright raises its own error types; each names the shot
@@ -552,12 +722,13 @@ def record(
     if problems:
         raise ShotError("; ".join(problems))
     out.mkdir(parents=True, exist_ok=True)
-    webm = out / f"{name}.webm"
-    shutil.move(video.path(), webm)
+    webm = trim(Path(video.path()), ready_s, out / f"{name}.webm")
     gif = to_gif(webm, out / f"{name}.gif")
     if gif.stat().st_size > GIF_BUDGET_KB * 1024:  # a busy screen: one smaller try, as PNGs get
         gif = to_gif(webm, gif, *GIF_SMALLER)
-    check_animation(name, webm, gif)
+    if gif.stat().st_size > GIF_BUDGET_KB * 1024:  # still over: the README's GIF drops to 8 fps
+        gif = to_gif(webm, gif, GIF_SMALLEST_FPS, GIF_SMALLER[1])
+    check_budgets(name, webm, gif)
     return [webm, gif]
 
 
@@ -634,7 +805,9 @@ def take_live(shots: list[dict[str, Any]], config: Path, out: Path, scratch: Pat
 
 def _take(browser: Any, base: str, shot: dict[str, Any], out: Path, scratch: Path) -> list[Path]:
     if shot["kind"] == "animation":
-        return record(browser, base, shot, out, scratch)
+        webm, gif = record(browser, base, shot, out, scratch)
+        check_animation(shot["id"], webm, gif)
+        return [webm, gif]
     page, watch = open_page(browser)
     try:
         return [shoot(page, watch, base, shot, out)]
@@ -822,6 +995,8 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     holders = commands.add_parser("placeholders", help="write a tiny stand-in for every entry")
     holders.add_argument("--out", type=Path, default=MEDIA, help=f"default: {MEDIA}")
+    pinned = commands.add_parser("vendor", help="fetch the pinned diagram renderer by SHA-256")
+    pinned.add_argument("--out", type=Path, default=VENDOR, help=f"default: {VENDOR}")
     check = commands.add_parser("check-site", help="fail on media a built page shows but lacks")
     check.add_argument("site", type=Path, help="the built site folder")
     shoot = commands.add_parser("capture", help="build the sample lake and capture every entry")
@@ -849,12 +1024,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "capture":
         return capture(args.out, args.corpus_dir, args.work)
+    if args.command == "vendor":
+        for path in vendor(args.out):
+            print(f"vendored {path}")
+        return 0
     if args.command == "check-site":
-        problems = missing_media(args.site)
-        for problem in problems:
+        media = missing_media(args.site)
+        renderer = missing_renderer(args.site)
+        for problem in media + renderer:
             print(problem, file=sys.stderr)
-        print(f"{len(problems)} missing media files in {args.site}")
-        return 1 if problems else 0
+        print(f"{len(media)} missing media files, {len(renderer)} diagrams without a renderer"
+              f" in {args.site}")  # fmt: skip
+        return 1 if media or renderer else 0
     written = placeholders(args.out)
     if not (DEMO_SITE / "index.html").is_file():
         DEMO_SITE.mkdir(parents=True, exist_ok=True)

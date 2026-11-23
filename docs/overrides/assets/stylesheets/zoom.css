@@ -1,0 +1,76 @@
+/* Click to zoom (docs-visual-polish D4): see assets/javascripts/zoom.js. The dialog is dark in
+   both palettes, so it doesn't use the theme's colour tokens. */
+.md-content .fp-zoomable {
+  cursor: zoom-in;
+}
+
+.md-content .fp-zoomable:focus-visible {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+dialog.fp-zoom {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  cursor: zoom-out;
+}
+
+dialog.fp-zoom::backdrop {
+  background: rgb(10 10 10);  /* opaque: the page behind never shows through */
+}
+
+.fp-zoom__figure {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+/* Fill the window, keeping the aspect ratio, with the whole frame in view. */
+.fp-zoom__figure > img,
+.fp-zoom__figure > video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.fp-zoom__caption {
+  padding: 0.5rem 1rem 0.75rem;
+  color: #e8e8e8;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.fp-zoom__close {
+  position: fixed;
+  top: 0.5rem;
+  right: 0.75rem;
+  z-index: 1;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 15%);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fp-zoom__close:hover,
+.fp-zoom__close:focus-visible {
+  background: rgb(255 255 255 / 30%);
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}

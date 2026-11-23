@@ -4,15 +4,21 @@ FRC robot telemetry: import WPILib .wpilog and CTRE .hoot logs, and track every 
 
 ![From the match list to one match in Replay: tracks, markers and the readout](https://igniterobotics.github.io/flashpoint/latest/assets/media/flow-ingest-to-replay.gif)
 
-| Replay | History | Anomalies (beta) |
-|---|---|---|
-| ![Replay view: one match's motor currents, temperatures and battery voltage on a shared timeline](https://igniterobotics.github.io/flashpoint/latest/assets/media/replay.png) | ![History view: one motor's temperature and current across every match of the season](https://igniterobotics.github.io/flashpoint/latest/assets/media/history.png) | ![Anomalies view: flagged motors with their evidence and triage state](https://igniterobotics.github.io/flashpoint/latest/assets/media/anomalies.png) |
+Point Flashpoint at the logs your robot already writes, and it serves a local web app with these views.
 
-Point Flashpoint at the logs your robot already writes, and a local web app shows:
-- **Replay**: one match on a timeline, with markers for heat, brownouts, stalls and CAN dropouts.
-- **History**: each motor across every match, event and season. It follows the physical motor by serial number through swaps, when the robot logs its CAN inventory.
-- **Anomalies (beta)**: what looks wrong, with the evidence, for the team to triage.
-- **Live CAN (experimental)**: which device drops out or reboots while you shake-test the robot.
+**Replay** puts one match on a timeline, with markers for heat, brownouts, stalls and CAN dropouts.
+
+![Replay view: one match's motor currents, temperatures and battery voltage on a shared timeline](https://igniterobotics.github.io/flashpoint/latest/assets/media/replay.png)
+
+**History** follows each motor across every match, event and season. When the robot logs its CAN inventory, it tracks the physical motor by serial number through swaps.
+
+![History view: one motor's temperature and current across every match of the season](https://igniterobotics.github.io/flashpoint/latest/assets/media/history.png)
+
+**Anomalies (beta)** lists what looks wrong, with the evidence, for the team to triage.
+
+![Anomalies view: flagged motors with their evidence and triage state](https://igniterobotics.github.io/flashpoint/latest/assets/media/anomalies.png)
+
+**Live CAN (experimental)** shows which device drops out or reboots while you shake-test the robot.
 
 For a deep dive into one log, it opens the match in AdvantageScope. It needs no account and sends no telemetry, and it's free and open source.
 

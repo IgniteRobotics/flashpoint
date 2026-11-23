@@ -77,6 +77,8 @@ jobs:
       - run: poetry install --no-interaction --only docs --no-root
       - name: Placeholder media
         run: poetry run python tools/docs-media.py placeholders
+      - name: The diagram renderer, by checksum
+        run: poetry run python tools/docs-media.py vendor
       - name: Strict build
         run: poetry run zensical build --strict --clean
       - name: Every image and video a page shows is in the site
