@@ -31,5 +31,5 @@
 
 - [x] 5.1 Amend ADR-0019's feature subset with the `mermaid` custom fence, `extra_javascript`/`extra_css` and the `scripts` override (dated), and update the `docs/rewrite/` toolchain table if it lists the subset. Verify: the link check passes, and a mentor confirms the amendment. Confirmed by Josh (mentor), 2026-11-23.
 - [x] 5.2 Run the full gate: `ruff`, `mypy src tests tools`, `pytest`, `-m browser`, the strict build, `check-site`, and `openspec validate docs-visual-polish --strict`. Verify: all pass.
-- [ ] 5.3 [HUMAN] After the next `dev` deploy, Josh checks the live README, How Flashpoint works, the Why page's animation and zoom on a phone and a laptop. Verify: his OK is recorded on the PR.
+- [x] 5.3 [HUMAN] After the next `dev` deploy, Josh checks the live README, How Flashpoint works, the Why page's animation and zoom on a phone and a laptop. Verify: his OK is recorded on the PR. Done: Josh checked the dev deploy (runs 45261839482 and 45270249189, after #117 and #118) and approved it on 2026-11-23 ("looks good").
 - [ ] 5.4 Run `openspec archive docs-visual-polish` as the PR's last commit. The four requirements are ADDED under new names, so they append to `project-documentation` whether or not `mvp-documentation` has archived. Verify: `openspec validate --all` passes.
