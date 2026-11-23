@@ -9,7 +9,7 @@
 - [x] 2.2 Add the `vendor` subcommand (pick the exact Mermaid 12 release the theme expects, and pin its version and SHA-256), gitignore `docs/guide/assets/vendor/`, and extend `check-site`. Verify: 2.1 passes.
 - [x] 2.3 Add the `mermaid` custom fence to `mkdocs.yml`, and the `scripts` block override in `docs/overrides/main.html` that loads the local copy only on pages with a diagram (front-matter fallback if `page.content` isn't testable). Verify: the strict build passes, and only `how-it-works` HTML references `assets/vendor/mermaid.min.js`.
 - [x] 2.4 Browser test (new file, `browser` marker): build the site and the offline archive, then open How Flashpoint works over loopback and from `file://` with every other host blocked. The pipeline diagram is an SVG, its source text isn't visible, the console is clean, and no request goes to unpkg.com. A page without a diagram doesn't request the renderer. Verify: it passes.
-- [ ] 2.5 Run `vendor` in the `docs-site` CI job and in `docs.yml`'s build job, before the build. Verify: the workflow tests pass, and a `docs.yml` dry run on the PR builds with the diagram.
+- [x] 2.5 Run `vendor` in the `docs-site` CI job and in `docs.yml`'s build job, before the build. Verify: the workflow tests pass, and a `docs.yml` dry run on the PR builds with the diagram. Done: #117's dry run (run 45259899070) vendored the renderer, made 15 of 15 entries, and `check-site` found 0 diagrams without a renderer.
 
 ## 3. Paced animations (design D3)
 
@@ -21,6 +21,11 @@
 
 - [x] 4.1 Browser test first, in a new file: on the built home page, clicking the Replay screenshot opens a dialog whose image fills the viewport (whole frame visible), and clicking it closes the dialog at the same scroll position. Enter opens and Esc closes, with focus back on the image. The Why page's animation opens and keeps playing (`currentTime` advances). The logo and linked images don't open. From the offline archive with the network blocked, zoom works and makes no outside request. Verify: it fails before 4.2.
 - [x] 4.2 Add `zoom.js` and `zoom.css` under `docs/overrides/assets/` through `extra_javascript` and `extra_css`. Verify: 4.1 passes, the strict build and `check-site` pass, and the page works in the dark palette (screenshot check).
+
+## 6. Docs home screenshots, one per row (found at the 5.3 check)
+
+- [x] 6.1 Test first, in a new file (`tests/test_docs_page_layout.py`, fixtures in `tests/fixtures/docs-layout/`): an image in a `grid` block or a table row on any docs page fails, naming the page and line; the docs home's Replay, History and Anomalies screenshots each sit alone after a line naming the view, Anomalies with "beta". Verify: the fixture cases pass, and the home page fails today.
+- [x] 6.2 Rewrite the docs home's screenshot grid and summary sentence as three captioned rows (the README's wording). Verify: 6.1 passes, the strict build and `check-site` pass, the zoom and diagram browser tests pass, and a screenshot of the built home page shows one screenshot per row.
 
 ## 5. Decision docs and wrap-up
 

@@ -2,17 +2,19 @@
 
 FRC robot telemetry: import WPILib .wpilog and CTRE .hoot logs, and track every motor's health across your robot's life. Runs offline on a pit laptop.
 
-<div class="grid" markdown>
+**Replay** puts one match on a timeline, with markers for heat, brownouts, stalls and CAN dropouts.
 
 ![Replay view: one match's motor currents, temperatures and battery voltage on a shared timeline](assets/media/replay.png)
 
+**History** follows each motor across every match, event and season. When the robot logs its CAN inventory, it tracks the physical motor by serial number through swaps.
+
 ![History view: one motor's temperature and current across every match of the season](assets/media/history.png)
+
+**Anomalies (beta)** lists what looks wrong, with the evidence, for the team to triage.
 
 ![Anomalies view: flagged motors with their evidence and triage state](assets/media/anomalies.png)
 
-</div>
-
-Replay shows one match on a timeline, History follows each motor across every match and season, and Anomalies (beta) flags what looks wrong, with the evidence. [Why Flashpoint](why.md) says what it does for a team, and what it doesn't do yet.
+[Why Flashpoint](why.md) says what it does for a team, and what it doesn't do yet.
 
 **[Open the hosted demo](demo.md)**: Replay in your browser, on real matches from team 6829's robots, with nothing to install.
 
