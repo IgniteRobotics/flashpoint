@@ -47,6 +47,9 @@ Each of Replay, History and Anomalies (beta) becomes a short paragraph naming th
 
   The end state is held for `HOLD_MS`, raised to 3 s. Screenshots run the same steps unpaced, so they aren't slowed down.
 - **Checks:** `check_animation` adds `ANIMATION_MIN_S = 6` next to the existing 20 s maximum. A first-frame check samples frame 0 and fails when it's near-uniform (the loading notice is one short line on a flat background). The threshold is calibrated on today's clips, which must fail, and on the paced ones, which must pass.
+- **Where the checks run (found in apply):** `record()` keeps the length cap and size budgets it had; `capture` runs the full `check_animation` (minimum, first frame, budgets) on each recorded flow. The existing browser test records a flow with no steps (about 5 s paced), and the test freeze keeps that test as it is. The ffmpeg-based unit tests carry the `browser` marker, because only the browser job installs the optional docs group.
+- **Marks and the app's CSP (found in apply):** the app's `style-src 'self'` refuses the marks' injected stylesheet, so recordings open their context with `bypass_csp`. Screenshots keep the app's policy, so a CSP error still fails a capture.
+- **Ready selectors:** each step names what shows once its start view has loaded (`READY`: the match list, History's rows and chart canvas, the anomaly queue, Live CAN's bus panels). A recording starts there, after the `#app > .notice` loading notice is gone.
 - **Too-short flows:** `replay-first-match` has a single click. If its paced clip is still under 6 s, its steps gain a hover over the match list before the click. That's a pacing change, not a change to what the flow shows.
 
 *Alternative:* `page.screencast` / CDP frame capture from the ready point. Rejected: more code than one trim, and Playwright's recorder is already proven in CI.
@@ -54,7 +57,7 @@ Each of Replay, History and Anomalies (beta) becomes a short paragraph naming th
 ### D4. Zoom: a small theme script, not GLightbox
 - `docs/overrides/assets/javascripts/zoom.js` and `assets/stylesheets/zoom.css` are added through `extra_javascript` and `extra_css`.
 - On load, the script marks each `img` and `video` in `.md-content` that isn't inside a link or an icon: `tabindex="0"`, `role="button"`, and an `aria-label` from the alt text.
-- **Open:** a click, Enter or Space opens a single shared `<dialog>` with `showModal()`. It holds a clone of the element: an image at `max-width: 100vw; max-height: 100vh; object-fit: contain`, or a video with `autoplay loop muted playsinline`. The alt text is the caption.
+- **Open:** a click, Enter or Space opens a single shared `<dialog>` with `showModal()`. It holds a clone of the element: an image filling the window with `object-fit: contain` (width and height 100 %, not `max-*`, so a small image, and CI's 1×1 placeholders, fill it too), or a video with `autoplay loop muted playsinline`. The alt text (a video's `aria-label`) is the caption, on a row below the image. The backdrop is opaque, so the page doesn't show through in the light palette.
 - **Close:** a click anywhere in the dialog, the close button, or Esc (the dialog's native cancel). Focus goes back to the source element. A modal dialog doesn't scroll the page, so the scroll position holds.
 
 *Alternative:* the theme's GLightbox. Rejected: it loads from unpkg (vendoring it is a second pinned file), its video slides need Plyr from another CDN, and by default clicking the opened image zooms it rather than closing it, which fails "and vice versa".

@@ -3,6 +3,7 @@
 - Status: Proposed
 - Date: 2026-11-20
 - Refs: change `mvp-documentation` (design D-a, D-c; task 1.1 has the spike results); issue #82
+- Amended: 2026-11-23, the feature subset gains the `mermaid` fence, `extra_css`/`extra_javascript` and a `scripts` block override (change `docs-visual-polish`, design D5; issue #116)
 
 ## Context
 The MVP needs a published, versioned docs site built from `docs/guide/` (`https://igniterobotics.github.io/flashpoint/<version>/`), with a strict link check in CI. The usual Python choice, MkDocs + Material for MkDocs, is ending:
@@ -19,9 +20,10 @@ Facts checked 2026-11-20 on PyPI, GitHub and Material's README.
 - Versions are deployed to `gh-pages` with the **Zensical mike fork**, installed from `git+https://github.com/squidfunk/mike.git` pinned to a commit (`2d4ad799442f4592db8ad53b179bfb33db8c69ac`, 2026-04-17). Dependabot doesn't bump git dependencies, so a bump is a deliberate PR.
 - Config stays in `mkdocs.yml`. **Feature-subset rule:** it uses only features that both Zensical and Material 9.8 support, so the fallback is a dependency swap, not a rewrite:
   - theme features `navigation.tabs`, `navigation.sections`, `navigation.top`, `search`, `content.code.copy`, `content.tabs.link`, and the palette toggle;
-  - Markdown extensions `admonition`, `pymdownx.details`, `pymdownx.superfences`, `pymdownx.tabbed`, `attr_list`, `md_in_html`, `tables`, and `toc` with permalinks;
+  - Markdown extensions `admonition`, `pymdownx.details`, `pymdownx.superfences` (one custom fence, `mermaid`, added 2026-11-23), `pymdownx.tabbed`, `attr_list`, `md_in_html`, `tables`, and `toc` with permalinks;
   - `extra.version.provider: mike`;
-  - `INHERIT` overlays (`mkdocs.dev.yml` for the unreleased banner) and a `theme.custom_dir` override of the `announce` block. A template override is allowed; plugins are not.
+  - `extra_css` and `extra_javascript` naming files in `theme.custom_dir` (added 2026-11-23, for click to zoom);
+  - `INHERIT` overlays (`mkdocs.dev.yml` for the unreleased banner) and `theme.custom_dir` overrides of the `announce` block and (added 2026-11-23) the `scripts` block, which loads the site's own Mermaid on pages with a diagram. A template override is allowed; plugins are not.
 - CI runs `zensical build --strict` as its own step before any deploy. mike's deploy builds without `--strict`, so the strict build is what fails a broken link or anchor.
 
 **Fallback trigger.** Switch the `docs` group to `mkdocs==1.6.1`, `mkdocs-material==9.8.*` (latest patch, pinned) and `mike==2.*` from PyPI, with the same `mkdocs.yml` and `mkdocs build --strict`, if any of these stops being true on a Zensical or fork upgrade:
@@ -39,6 +41,7 @@ The 2026-11-20 spike checked all four on Zensical 0.1.3 and the fork at the comm
 - Today's guide doesn't pass the strict build: 24 links point to files outside `docs_dir` (`docs/rewrite/`, `docs/adr/`, `notebooks/`, `deploy/`, `config/`). They become `https://github.com/IgniteRobotics/flashpoint/blob/main/...` links before the strict build becomes a CI gate (`mvp-documentation` D-b, group 2).
 - Zensical's strict failure ends with a Python traceback after the issue list. It's noise, not a second failure.
 - Zensical's strict build doesn't check images or video: a missing `assets/media/` file builds clean (found 2026-11-20, after the spike). `tools/docs-media.py check-site` runs after the strict build and fails on any image or video a built page shows whose file isn't in the site, and the unit link check requires every `assets/media/` link to name a file the media manifest produces.
+- The theme loads Mermaid and its lightbox from unpkg.com, which the offline archive can't reach (found 2026-11-23). The site serves its own Mermaid instead, pinned by version and SHA-256 and fetched by `tools/docs-media.py vendor` before the build; `check-site` fails a diagram with no renderer. The lightbox isn't used: a small script in `theme.custom_dir` does click to zoom (`docs-visual-polish` D2, D4).
 
 ## Alternatives considered
 - **MkDocs 1.6.1 + Material 9.8 + PyPI mike now:** stable and known, but fixes end 2027-05-05, four months after the announce. It's the fallback, not the plan.
