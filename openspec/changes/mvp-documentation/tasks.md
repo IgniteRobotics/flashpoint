@@ -324,7 +324,8 @@
 
   Verify: `gh repo view --json description,homepageUrl,repositoryTopics` shows them.
   Done 2026-11-21 at Josh's request. Description: "FRC robot telemetry: import WPILib .wpilog and CTRE .hoot logs, and track every motor's health across your robot's life. Runs offline on a pit laptop." (13.2 writes the README pitch to match). Homepage https://igniterobotics.github.io/flashpoint/ (live after the first deploy, 3.3/3.4). Topics: frc, wpilib, ctre, phoenix6, telemetry, datalog. `gh repo view` shows all three.
-- [ ] 13.8 [HUMAN] Josh reviews `why.md`, `README.md` and `index.md` for tone and honesty (his "why Flashpoint kicks ass" bar). Verify: the review comments are resolved, and recorded on the PR.
+- [x] 13.8 [HUMAN] Josh reviews `why.md`, `README.md` and `index.md` for tone and honesty (his "why Flashpoint kicks ass" bar). Verify: the review comments are resolved, and recorded on the PR.
+  Done 2026-11-23: Josh approved the README ("Readme looks good") and ticked 13.8 on it. `why.md` and `index.md` went live with the first `dev` deploy without a separate review comment.
 
 ## 14. Maturity labels (M3)
 
