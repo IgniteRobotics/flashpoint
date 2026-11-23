@@ -1,0 +1,3475 @@
+
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://igniterobotics.github.io/flashpoint/dev/user-guide/">
+      
+      
+      
+      
+        <link rel="prev" href="../demo/">
+      
+      
+        <link rel="next" href="../install/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.1.3">
+    
+    
+      
+        <title>User guide - Flashpoint</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e2cf241e.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+            
+    <strong>Unreleased:</strong> these pages describe the development branch, which may not match any release.
+    <a href="https://igniterobotics.github.io/flashpoint/latest/">Read the docs for the latest release</a>.
+
+          </div>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Flashpoint" class="md-header__button md-logo" aria-label="Flashpoint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Flashpoint
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              User guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/IgniteRobotics/flashpoint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="./.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../why/" class="md-tabs__link">
+        
+  
+  Why Flashpoint
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../quickstart/" class="md-tabs__link">
+          
+  
+  Quickstart
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../install/" class="md-tabs__link">
+          
+  
+  Install
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/first-event/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../how-to/set-up-a-robot-file/" class="md-tabs__link">
+          
+  
+  How-to guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../robot-side/" class="md-tabs__link">
+          
+  
+  Robot side
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/cli/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../support-matrix/" class="md-tabs__link">
+        
+  
+  Support matrix
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../troubleshooting/" class="md-tabs__link">
+          
+  
+  Troubleshooting and FAQ
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../under-the-hood/how-it-works/" class="md-tabs__link">
+          
+  
+  Under the hood
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Flashpoint" class="md-nav__button md-logo" aria-label="Flashpoint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Flashpoint
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/IgniteRobotics/flashpoint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../why/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Why Flashpoint
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Quickstart
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Demo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  User guide
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  User guide
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-flashpoint-is-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What Flashpoint is for
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Install
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Install">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#updating" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-without-internet" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Installing without internet
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-from-a-checkout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Installing from a checkout
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#before-an-event-get-ready-offline" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Before an event: get ready offline
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-your-data-lives-the-lake" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where your data lives: the lake
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import-logs-by-hand" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Import logs by hand
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Import logs by hand">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-matches-are-identified" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How matches are identified
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#look-at-the-data-flashpoint-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Look at the data: <code>flashpoint serve</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Look at the data: flashpoint serve">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#showing-other-people-on-the-pit-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Showing other people on the pit network
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#take-replay-on-a-usb-stick" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Take Replay on a USB stick
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#team-name-and-colours" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Team name and colours
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#describe-a-robot" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Describe a robot
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#starting-a-new-season" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Starting a new season
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#check-the-setup-flashpoint-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Check the setup: <code>flashpoint doctor</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event-day-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Event-day checklist
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Install
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/macos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install on macOS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install on Linux
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/windows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install on Windows
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tutorials
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tutorials
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/first-event/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Your first event
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/team-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Setting up Flashpoint for your team
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How-to guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  How-to guides
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/set-up-a-robot-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Set up a robot file
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/import-from-usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Import logs from a USB stick
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/auto-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Import logs from the robot automatically
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/back-up-the-lake/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Back up the lake
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/move-to-another-laptop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Move Flashpoint to another laptop
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/start-a-new-season/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start a new season
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/replay-on-a-usb-stick/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Take Replay on a USB stick
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/share-on-the-pit-network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Show the app on the pit network
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/live-can-health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Live CAN health
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/triage-an-anomaly/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Triage an anomaly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/open-in-advantagescope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Open a match in AdvantageScope
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/share-logs-privately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Share logs privately for a bug report
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/update-flashpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Update Flashpoint
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/install-offline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install without internet
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/team-name-and-colours/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Set the team name and colours
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Robot side
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Robot side
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Robot side: what to log
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/signal-logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Signal logging (hoots)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/datalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The WPILib DataLog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/signal-rates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Signal rates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/pro-and-temperature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Phoenix Pro and temperature
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/build-info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Build info
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/can-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CAN inventory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/bus-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CAN bus status
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/battery-and-pdh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Battery voltage and the PDH
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/disk-space/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Disk space
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../robot-side/advantagekit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  AdvantageKit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Config files
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Config files
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/acquire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  acquire.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/theme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  theme.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  report.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/anomaly/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  anomaly.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/anomaly-causes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  anomaly-causes.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/failure-labels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  failure-labels.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/seasons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Season files (seasons/*.toml)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/robots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Robot files (robots/*.toml)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The motor list (units/units-seed.csv)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Views
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Views
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/views/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Replay
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/views/history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: History
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/views/anomalies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Anomalies
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/views/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Setup
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/views/live-can/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Live CAN
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../privacy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Privacy and network
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../support-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Support matrix
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting and FAQ
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Troubleshooting and FAQ
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  FAQ
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Under the hood
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_11">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Under the hood
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../under-the-hood/how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How Flashpoint works
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../under-the-hood/developer-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Developer guide
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Contributing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-flashpoint-is-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What Flashpoint is for
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Install
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Install">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#updating" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-without-internet" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Installing without internet
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-from-a-checkout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Installing from a checkout
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#before-an-event-get-ready-offline" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Before an event: get ready offline
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-your-data-lives-the-lake" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where your data lives: the lake
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#import-logs-by-hand" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Import logs by hand
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Import logs by hand">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-matches-are-identified" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How matches are identified
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#look-at-the-data-flashpoint-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Look at the data: <code>flashpoint serve</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Look at the data: flashpoint serve">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#showing-other-people-on-the-pit-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Showing other people on the pit network
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#take-replay-on-a-usb-stick" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Take Replay on a USB stick
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#team-name-and-colours" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Team name and colours
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#describe-a-robot" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Describe a robot
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#starting-a-new-season" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Starting a new season
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#check-the-setup-flashpoint-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Check the setup: <code>flashpoint doctor</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event-day-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Event-day checklist
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="user-guide">User guide<a class="headerlink" href="#user-guide" title="Permanent link">&para;</a></h1>
+<p>For students and mentors who run Flashpoint: at the pit, after an event, or on the team laptop. You don't need to know Python. If you want to change the code, read the <a href="../under-the-hood/developer-guide/">developer guide</a> instead.</p>
+<h2 id="what-flashpoint-is-for">What Flashpoint is for<a class="headerlink" href="#what-flashpoint-is-for" title="Permanent link">&para;</a></h2>
+<p>Flashpoint keeps every robot log the team records and tracks the health of each motor over the robot's whole life. It reads:
+- <strong>WPILib DataLogs</strong> (<code>.wpilog</code>), which the roboRIO writes every time the robot runs;
+- <strong>CTRE Phoenix 6 signal logs</strong> (<code>.hoot</code>), one per CAN bus, with motor current, voltage, temperature, and CAN health.</p>
+<p>From those it answers questions like:
+- Which motor ran hottest in Q7, and when?
+- Is the front-left drive motor drawing more current than it did last month?
+- Did we brown out, and which part of the match was it?
+- Which motor keeps losing CAN frames when its neighbours don't?</p>
+<p>It flags problems (anomalies) before they cost a match, and it follows each physical motor by its serial number, so a motor's history stays with it when it moves to another slot or robot.</p>
+<p>Everything runs on one laptop with no internet.</p>
+<p><strong>What it isn't:</strong>
+- It isn't a live dashboard; it reads logs after the robot is off.
+- It isn't a replacement for AdvantageScope. For a deep look at one log (every signal, field view, odometry), Flashpoint opens the log in AdvantageScope for you.</p>
+<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<p>You need a computer running one of:
+- macOS 13 or later;
+- Linux with glibc 2.35 or later (Ubuntu 22.04 or later);
+- Windows on an x86-64 PC (not Windows on ARM).</p>
+<p>Flashpoint runs on Python 3.11 to 3.14 (not 3.15 yet). You don't have to install that Python yourself: <a href="https://docs.astral.sh/uv/">uv</a> downloads one for Flashpoint if your computer doesn't have a suitable one.</p>
+<ol>
+<li>Install uv, once. On macOS, <code>brew install uv</code>. On Windows, <code>winget install --id=astral-sh.uv -e</code>. On Linux (or any of them), use <a href="https://docs.astral.sh/uv/getting-started/installation/">uv's installer</a>. Open a new terminal afterwards.</li>
+<li>Install Flashpoint and create your configuration:</li>
+</ol>
+<p><div class="highlight"><pre><span></span><code>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.13<span class="w"> </span>flashpoint
+flashpoint<span class="w"> </span>init<span class="w"> </span>--team<span class="w"> </span><span class="m">1234</span>
+</code></pre></div>
+3. Import one match's logs, then look at them:</p>
+<div class="highlight"><pre><span></span><code>flashpoint<span class="w"> </span>ingest<span class="w"> </span>path/to/one-match/
+flashpoint<span class="w"> </span>serve
+</code></pre></div>
+<p>If <code>flashpoint</code> isn't found after the install, run <code>uv tool update-shell</code> and open a new terminal.</p>
+<p><strong>With pipx instead.</strong> If you already use <a href="https://pipx.pypa.io/">pipx</a>, it works too, but it needs a Python 3.11 to 3.14 already installed:
+- macOS and Linux: <code>pipx install --python python3.13 flashpoint</code> (any of <code>python3.11</code> to <code>python3.14</code> that you have).
+- Windows: in the python.org installer, tick "py launcher". Then <code>py -3.13 -m pip install --user pipx</code>, and <code>py -3.13 -m pipx install flashpoint</code>.</p>
+<p><code>flashpoint init</code> creates your <strong>config folder</strong> (<code>~/.config/flashpoint</code>, or <code>%APPDATA%\flashpoint</code> on Windows) with your team number, your lake folder, your team name and colours (<code>theme.toml</code>), and copies of the default settings. Anything you leave out (<code>--team</code>, <code>--lake</code>, <code>--team-name</code>, <code>--palette</code>) it asks for in a terminal; leave the name blank for none. See <a href="../reference/cli/#flashpoint-init"><code>flashpoint init</code></a> for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.</p>
+<p><strong>Your first import drafts your robot.</strong> When the lake has logs from a season that has no robot file yet, <code>ingest</code> drafts one from them (<code>robots/2026-comp.toml</code>, from the match with the most CAN devices) and says so. Replay shows that match's data right away. Open <strong>Setup &gt; Robots</strong> and fill in each slot's subsystem and role; keep the drafted slot ids, which already name each device's model and CAN id. Logs with hoots but no wpilog, or an import with <code>--no-robot-draft</code>, draft nothing: use <strong>Setup &gt; Draft robot</strong> for those (<a href="../reference/views/setup/">Setup</a>).</p>
+<p><code>flashpoint doctor</code> lists the setup checks. Right after <code>init</code>, the robot check is a warning: the lake has no logs from this season yet. Once you import this season's logs it is a problem only while no robot is configured. A drafted robot whose slots have no subsystem yet is a warning, not a problem.</p>
+<h3 id="updating">Updating<a class="headerlink" href="#updating" title="Permanent link">&para;</a></h3>
+<p>See <a href="../how-to/update-flashpoint/">Update Flashpoint</a>.</p>
+<h3 id="installing-without-internet">Installing without internet<a class="headerlink" href="#installing-without-internet" title="Permanent link">&para;</a></h3>
+<p>See <a href="../how-to/install-offline/">Install without internet</a>.</p>
+<h3 id="installing-from-a-checkout">Installing from a checkout<a class="headerlink" href="#installing-from-a-checkout" title="Permanent link">&para;</a></h3>
+<p>For Ignite's own laptops, or to try changes that aren't released yet, install from the repository:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/IgniteRobotics/flashpoint.git
+<span class="nb">cd</span><span class="w"> </span>flashpoint
+uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.13<span class="w"> </span>.
+</code></pre></div>
+<p>Ignite's configuration (robots, units, failure labels) is the checkout's <code>config/</code> folder. Point Flashpoint at it in your shell profile (<code>~/.zshrc</code> or <code>~/.bashrc</code>), or copy it to <code>~/.config/flashpoint</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">FLASHPOINT_CONFIG</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/flashpoint/config"</span>
+</code></pre></div>
+<p>On Windows, set it once with <code>setx FLASHPOINT_CONFIG "%USERPROFILE%\flashpoint\config"</code>, then open a new terminal. To update a checkout install: <code>git pull</code>, then <code>uv tool install --force --python 3.13 .</code>.</p>
+<h2 id="before-an-event-get-ready-offline">Before an event: get ready offline<a class="headerlink" href="#before-an-event-get-ready-offline" title="Permanent link">&para;</a></h2>
+<p>Hoot files are converted with CTRE's <code>owlet</code> tool. Flashpoint downloads the right owlet version the first time it sees a hoot of that format, so <strong>ingest one recent hoot while you still have internet</strong>:</p>
+<div class="highlight"><pre><span></span><code>flashpoint<span class="w"> </span>ingest<span class="w"> </span>path/to/a/recent.hoot
+flashpoint<span class="w"> </span>doctor
+</code></pre></div>
+<p><code>doctor</code> checks owlet for each hoot format in your lake: each must say <code>downloaded, verified</code>. With no hoots yet, it checks the newest owlet this version of Flashpoint knows. In the Setup view, <strong>Download owlet</strong> does the same without a hoot.</p>
+<p>That newest owlet may be last season's. If CTRE changes the hoot format for a new season, only a Flashpoint update can read the new hoots, and <code>doctor</code> can't tell until it sees one. So ingest a hoot from <strong>this season's</strong> robot code before an event (see <a href="#starting-a-new-season">Starting a new season</a>).</p>
+<h2 id="where-your-data-lives-the-lake">Where your data lives: the lake<a class="headerlink" href="#where-your-data-lives-the-lake" title="Permanent link">&para;</a></h2>
+<p>Flashpoint keeps everything in one folder, the <strong>lake</strong>, at <code>~/flashpoint-lake</code> by default. To use another folder, such as a bigger drive, use one of these. When more than one is set, the first in this list wins:
+1. <code>--lake PATH</code> on any command;
+2. <code>FLASHPOINT_LAKE</code> in your shell profile;
+3. <code>lake</code> in <code>acquire.toml</code> in your config folder (<code>flashpoint init --lake PATH</code> does this).</p>
+<p>A leftover <code>FLASHPOINT_LAKE</code> hides what <code>acquire.toml</code> says. <code>flashpoint doctor</code> shows the lake in use.</p>
+<p>The lake keeps an untouched copy of every log, so you can delete the copies you imported from. Don't edit files inside the lake by hand. <a href="../under-the-hood/how-it-works/#the-lake">How it works</a> explains what each folder holds.</p>
+<h2 id="import-logs-by-hand">Import logs by hand<a class="headerlink" href="#import-logs-by-hand" title="Permanent link">&para;</a></h2>
+<p>Copy logs off the robot or a USB stick into any folder, then:</p>
+<div class="highlight"><pre><span></span><code>flashpoint<span class="w"> </span>ingest<span class="w"> </span>path/to/logs/
+</code></pre></div>
+<p>You can pass files or folders, and folders are searched all the way down. A file that's already in the lake is skipped, so running it twice is fine.</p>
+<p>At the end, <code>ingest</code> prints a summary like this:</p>
+<div class="highlight"><pre><span></span><code>  WARNING     GACMP_E10_rio_2026-04-11_19-29-15.hoot: incomplete-read
+  QUARANTINED GADAL_Q11_..._2026-03-06_17-52-51.hoot: empty-file
+  FAILED      GACMP_Q7_rio_2026-04-09_21-51-06.hoot: failed (owlet-download-failed), will retry
+13 ingested, 0 skipped, 1 failed, 1 quarantined, 0 quarantined earlier in 13.1s
+</code></pre></div>
+<ul>
+<li><strong>Ingested</strong> files are in the lake.</li>
+<li><strong>WARNING</strong> means the file was read but something was off. <code>incomplete-read</code> means the end of the file is missing, usually because the robot lost power while writing it. The rest of the data is still used.</li>
+<li><strong>QUARANTINED</strong> means the file is bad: it's empty, corrupt, or in a format Flashpoint can't read. It's kept in the lake but not used, and later runs don't try it again. They list it as <code>quarantined earlier</code>.</li>
+<li><strong>FAILED</strong> means the laptop failed, not the file. Usually there was no internet to download owlet, the tool that reads <code>.hoot</code> files. Run <code>flashpoint ingest</code> again once you're online, or let automatic import retry it. If owlet crashes on the same file 3 times, the file is quarantined.</li>
+<li>To retry quarantined files, for example after updating Flashpoint, run <code>flashpoint rebuild --quarantined</code>. It works from the lake's own copies, so you don't need the original logs.</li>
+<li><strong>"declared signal(s) not written"</strong> lines mean the robot config expects a NetworkTables entry that the log doesn't have, which is normal for older code. It only matters if you were looking for that signal.</li>
+<li><strong>"session(s) with hoots but no wpilog"</strong> means some hoots had no <code>.wpilog</code> from the same time to align to. Their motors get no history: no Replay charts, usage or match features. Motor history needs both files, the hoots from Phoenix 6 and a wpilog from WPILib data logging (<code>DataLogManager.start()</code> in <code>robotInit()</code>). One such session among many is usually the hoot logger restarting mid-event, and is safe to ignore. When every session of a season is like this, <code>doctor</code>'s "Hoots without a wpilog" check warns too: the robot code isn't writing wpilogs.</li>
+</ul>
+<p>Ingest then works out matches, aligns the logs, runs anomaly detection, and updates Replay, all on its own.</p>
+<h3 id="how-matches-are-identified">How matches are identified<a class="headerlink" href="#how-matches-are-identified" title="Permanent link">&para;</a></h3>
+<p>Replay lists competition matches only. Flashpoint knows a log is from a match when:
+1. the wpilog holds FMS data (<code>FMSInfo</code>), which the robot gets from the field at an event; or
+2. the wpilog's file name has the match in it, the way the Driver Station names match logs: <code>FRC_yyyyMMdd_HHmmss_EVENT_Q7.wpilog</code> (<code>P</code> for practice, <code>Q</code> for qualification, <code>E</code> for elimination matches).</p>
+<p>Logs from the shop, the practice field or the pit have neither, so they get no Replay entry. They still count in History: every motor's usage, temperatures and anomalies include them. When Replay is empty but the lake has logs, it says how many sessions it found that aren't matches.</p>
+<p>To have logs pulled from the robot and USB sticks without doing this by hand, set up <a href="../how-to/auto-import/">automatic import</a>.</p>
+<h2 id="look-at-the-data-flashpoint-serve">Look at the data: <code>flashpoint serve</code><a class="headerlink" href="#look-at-the-data-flashpoint-serve" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>flashpoint<span class="w"> </span>serve
+</code></pre></div>
+<p>Open <a href="http://127.0.0.1:8000/">http://127.0.0.1:8000/</a> in a browser. Stop the server with Ctrl-C. The app has these views.</p>
+<p>Each view has its own reference page, with every control, marker and badge:</p>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../reference/views/replay/">Replay</a></td>
+<td>One match: tracks, markers, a readout of every motor, and the raw logs</td>
+</tr>
+<tr>
+<td><a href="../reference/views/history/">History</a></td>
+<td>Every motor over time, one point per match</td>
+</tr>
+<tr>
+<td><a href="../reference/views/anomalies/">Anomalies</a> (beta)</td>
+<td>What detection flagged, with evidence, likely causes and triage</td>
+</tr>
+<tr>
+<td><a href="../reference/views/setup/">Setup</a></td>
+<td>The <code>doctor</code> checks, your whole configuration, and Draft robot</td>
+</tr>
+<tr>
+<td><a href="../reference/views/live-can/">Live CAN</a> (experimental)</td>
+<td>CAN dropouts while you shake-test or drive-test</td>
+</tr>
+</tbody>
+</table>
+<h3 id="showing-other-people-on-the-pit-network">Showing other people on the pit network<a class="headerlink" href="#showing-other-people-on-the-pit-network" title="Permanent link">&para;</a></h3>
+<p>See <a href="../how-to/share-on-the-pit-network/">Show the app on the pit network</a>. There's no password, and the app is read-only over the network.</p>
+<h2 id="take-replay-on-a-usb-stick">Take Replay on a USB stick<a class="headerlink" href="#take-replay-on-a-usb-stick" title="Permanent link">&para;</a></h2>
+<p>See <a href="../how-to/replay-on-a-usb-stick/">Take Replay on a USB stick</a>.</p>
+<h2 id="team-name-and-colours">Team name and colours<a class="headerlink" href="#team-name-and-colours" title="Permanent link">&para;</a></h2>
+<p>The app header shows your team name and number, and the app uses your team's colours. Both live in <code>theme.toml</code>: see <a href="../how-to/team-name-and-colours/">Set the team name and colours</a> and the <a href="../reference/config/theme/"><code>theme.toml</code> reference</a>.</p>
+<h2 id="describe-a-robot">Describe a robot<a class="headerlink" href="#describe-a-robot" title="Permanent link">&para;</a></h2>
+<p>Flashpoint needs to know which motor is which. Each robot has a file in the <code>robots/</code> folder of your config folder. The quickest start is <strong>Draft robot</strong> in the <a href="../reference/views/setup/">Setup view</a>. Every key, NetworkTables signals, sibling groups, the battery proxy, swap dates and which robot file a log uses are in the <a href="../reference/config/robots/">robot file reference</a>.</p>
+<p>The other settings files (<code>report.toml</code>, <code>anomaly.toml</code>, <code>anomaly-causes.toml</code>, <code>failure-labels.toml</code>, <code>seasons/</code>, <code>units/units-seed.csv</code>) each have a page under <a href="../reference/config/robots/">Reference: config files</a>. A file missing from your config folder uses the default that ships with Flashpoint.</p>
+<h2 id="starting-a-new-season">Starting a new season<a class="headerlink" href="#starting-a-new-season" title="Permanent link">&para;</a></h2>
+<p>See <a href="../how-to/start-a-new-season/">Start a new season</a>.</p>
+<h2 id="check-the-setup-flashpoint-doctor">Check the setup: <code>flashpoint doctor</code><a class="headerlink" href="#check-the-setup-flashpoint-doctor" title="Permanent link">&para;</a></h2>
+<p>Run <code>flashpoint doctor</code> whenever something looks wrong. It changes nothing.</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>What to look for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lake</code></td>
+<td>The folder you expect, and how many files are at each stage. "N file(s) from an older pipeline version" means a Flashpoint update needs <code>flashpoint rebuild</code></td>
+</tr>
+<tr>
+<td><code>config</code></td>
+<td>The config folder in use. "missing" means run <code>flashpoint init</code> (or set <code>FLASHPOINT_CONFIG</code> for a checkout's <code>config/</code>)</td>
+</tr>
+<tr>
+<td><code>defaults</code></td>
+<td>Settings files that come from the defaults shipped with Flashpoint, because your config folder has no copy</td>
+</tr>
+<tr>
+<td><code>seasons</code>, <code>robots</code></td>
+<td>Each season's roots and each robot. An empty robot list means no robot file was added yet</td>
+</tr>
+<tr>
+<td><code>checks</code></td>
+<td>One line per setup check. <code>PROBLEM</code> lines say what's wrong and the fix under them; <code>doctor</code> then exits <code>1</code>. See the <a href="../reference/cli/#flashpoint-doctor">CLI reference</a></td>
+</tr>
+<tr>
+<td><code>owlet cache</code></td>
+<td>Where owlet is kept. The owlet check says whether each version your logs need is downloaded; if not, you can't convert hoots offline</td>
+</tr>
+<tr>
+<td><code>acquire</code></td>
+<td>The last automatic import and backup (<a href="../how-to/auto-import/#check-the-status">automatic import</a>)</td>
+</tr>
+<tr>
+<td><code>AdvantageScope</code></td>
+<td>Which install "Open in AdvantageScope" uses</td>
+</tr>
+</tbody>
+</table>
+<h2 id="event-day-checklist">Event-day checklist<a class="headerlink" href="#event-day-checklist" title="Permanent link">&para;</a></h2>
+<p><strong>The week before:</strong>
+- [ ] First event of a season? Do <a href="#starting-a-new-season">Starting a new season</a> first.
+- [ ] Update Flashpoint (<a href="#updating">Updating</a>) while you have internet, and run <code>flashpoint doctor</code>.
+- [ ] Make sure this season's owlet is downloaded: <strong>Download owlet</strong> in Setup, or ingest a recent hoot.
+- [ ] Confirm the robot in Setup matches the robot: CAN IDs, swaps since last event.
+- [ ] If you use <a href="../how-to/auto-import/">automatic import</a>, run <code>flashpoint acquire --dry-run</code> with the robot on.</p>
+<p><strong>At the event:</strong>
+- [ ] After each match, pull logs: automatic import, or copy them and run <code>flashpoint ingest</code>.
+- [ ] <code>flashpoint serve</code> and check Replay for FAULT markers, and Anomalies for anything new.
+- [ ] Triage what you looked at, so the queue stays meaningful.</p>
+<p><strong>After the event:</strong>
+- [ ] Back up the lake (<a href="../how-to/back-up-the-lake/">backup</a>).
+- [ ] Add any real failures to <code>failure-labels.toml</code> in your config folder.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.tabs","navigation.sections","navigation.top","search","content.code.copy","content.tabs.link"],"redirect":null,"search":"../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      
+      
+    
+  </body>
+</html>

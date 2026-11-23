@@ -1,0 +1,3591 @@
+
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://igniterobotics.github.io/flashpoint/dev/under-the-hood/developer-guide/">
+      
+      
+      
+      
+        <link rel="prev" href="../how-it-works/">
+      
+      
+        <link rel="next" href="../../contributing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.1.3">
+    
+    
+      
+        <title>Developer guide - Flashpoint</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+            
+    <strong>Unreleased:</strong> these pages describe the development branch, which may not match any release.
+    <a href="https://igniterobotics.github.io/flashpoint/latest/">Read the docs for the latest release</a>.
+
+          </div>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Flashpoint" class="md-header__button md-logo" aria-label="Flashpoint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Flashpoint
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Developer guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/IgniteRobotics/flashpoint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../why/" class="md-tabs__link">
+        
+  
+  Why Flashpoint
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../quickstart/" class="md-tabs__link">
+          
+  
+  Quickstart
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../install/" class="md-tabs__link">
+          
+  
+  Install
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/first-event/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/set-up-a-robot-file/" class="md-tabs__link">
+          
+  
+  How-to guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../robot-side/" class="md-tabs__link">
+          
+  
+  Robot side
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/cli/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../support-matrix/" class="md-tabs__link">
+        
+  
+  Support matrix
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../troubleshooting/" class="md-tabs__link">
+          
+  
+  Troubleshooting and FAQ
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../how-it-works/" class="md-tabs__link">
+          
+  
+  Under the hood
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Flashpoint" class="md-nav__button md-logo" aria-label="Flashpoint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Flashpoint
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/IgniteRobotics/flashpoint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../why/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Why Flashpoint
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Quickstart
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Demo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  User guide
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Install
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/macos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install on macOS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install on Linux
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/windows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install on Windows
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tutorials
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tutorials
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-event/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Your first event
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/team-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Setting up Flashpoint for your team
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How-to guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  How-to guides
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/set-up-a-robot-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Set up a robot file
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/import-from-usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Import logs from a USB stick
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/auto-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Import logs from the robot automatically
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/back-up-the-lake/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Back up the lake
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/move-to-another-laptop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Move Flashpoint to another laptop
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/start-a-new-season/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start a new season
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-on-a-usb-stick/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Take Replay on a USB stick
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/share-on-the-pit-network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Show the app on the pit network
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/live-can-health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Live CAN health
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/triage-an-anomaly/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Triage an anomaly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/open-in-advantagescope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Open a match in AdvantageScope
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/share-logs-privately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Share logs privately for a bug report
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/update-flashpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Update Flashpoint
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/install-offline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install without internet
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/team-name-and-colours/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Set the team name and colours
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Robot side
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Robot side
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Robot side: what to log
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/signal-logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Signal logging (hoots)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/datalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The WPILib DataLog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/signal-rates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Signal rates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/pro-and-temperature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Phoenix Pro and temperature
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/build-info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Build info
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/can-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CAN inventory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/bus-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CAN bus status
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/battery-and-pdh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Battery voltage and the PDH
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/disk-space/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Disk space
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robot-side/advantagekit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  AdvantageKit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Config files
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Config files
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/acquire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  acquire.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/theme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  theme.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  report.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/anomaly/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  anomaly.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/anomaly-causes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  anomaly-causes.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/failure-labels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  failure-labels.toml
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/seasons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Season files (seasons/*.toml)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/robots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Robot files (robots/*.toml)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The motor list (units/units-seed.csv)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Views
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Views
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/views/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Replay
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/views/history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: History
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/views/anomalies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Anomalies
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/views/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Setup
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/views/live-can/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  View: Live CAN
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../privacy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Privacy and network
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../support-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Support matrix
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting and FAQ
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Troubleshooting and FAQ
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  FAQ
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Under the hood
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_11">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Under the hood
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How Flashpoint works
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Developer guide
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Developer guide
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-run-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Build and run from source
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Build and run from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ubuntu-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ubuntu notes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Code layout
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code layout">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-browser-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The browser app
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checks-and-coding-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checks and coding standards
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Checks and coding standards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coding-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Coding standards
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tests
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-golden-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The golden corpus
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CI
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-changes-are-made" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How changes are made
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How changes are made">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#branching" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Branching
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releasing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Releasing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-decisions-and-research-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where decisions and research live
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-owlet" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating owlet
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Contributing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-run-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Build and run from source
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Build and run from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ubuntu-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ubuntu notes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Code layout
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code layout">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-browser-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The browser app
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checks-and-coding-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checks and coding standards
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Checks and coding standards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coding-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Coding standards
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tests
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-golden-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The golden corpus
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CI
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-changes-are-made" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How changes are made
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How changes are made">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#branching" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Branching
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releasing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Releasing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-decisions-and-research-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where decisions and research live
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-owlet" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating owlet
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="developer-guide">Developer guide<a class="headerlink" href="#developer-guide" title="Permanent link">&para;</a></h1>
+<p>For people who change Flashpoint's code. Read <a href="../how-it-works/">How it works</a> first for the pipeline, the lake, and the identity model. To run Flashpoint without changing it, see the <a href="../../user-guide/">user guide</a>.</p>
+<h2 id="build-and-run-from-source">Build and run from source<a class="headerlink" href="#build-and-run-from-source" title="Permanent link">&para;</a></h2>
+<p>You need:
+- Python 3.11, 3.12, or 3.13 (<code>requires-python = "&gt;=3.11,&lt;3.14"</code>). <a href="https://github.com/pyenv/pyenv">pyenv</a> is the easy way to get one;
+- <a href="https://python-poetry.org/">Poetry</a> 2;
+- optionally, the <a href="https://cli.github.com/">GitHub CLI</a>: <code>tools/fetch-corpus.py</code> uses it when it is installed.</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/IgniteRobotics/flashpoint.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>flashpoint
+poetry<span class="w"> </span>install
+poetry<span class="w"> </span>run<span class="w"> </span>flashpoint<span class="w"> </span>doctor
+</code></pre></div>
+<p><code>poetry install</code> installs the package in editable mode, along with the dev tools (pytest, ruff, mypy, Playwright, robotpy-wpiutil). The repo's <code>config/</code> folder is Ignite's team configuration and the tests' fixture. Flashpoint doesn't find it on its own: set <code>export FLASHPOINT_CONFIG=config</code> (from the repo root) in a checkout, or <code>flashpoint</code> uses your per-user folder instead. The tests set it themselves (<code>tests/conftest.py</code>). The shared defaults every team starts from live in <code>src/flashpoint/defaults/</code> and ship in the package. Optional extras:</p>
+<div class="highlight"><pre><span></span><code>poetry<span class="w"> </span>install<span class="w"> </span>--extras<span class="w"> </span>ml<span class="w">        </span><span class="c1"># scikit-learn, for the optional MODEL anomaly detector</span>
+</code></pre></div>
+<p>Use a scratch lake while developing, so you don't mix test data into your real one:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">FLASHPOINT_LAKE</span><span class="o">=</span>/tmp/fp-lake
+poetry<span class="w"> </span>run<span class="w"> </span>flashpoint<span class="w"> </span>ingest<span class="w"> </span>~/.cache/flashpoint/corpus/corpus-v1/
+poetry<span class="w"> </span>run<span class="w"> </span>flashpoint<span class="w"> </span>serve
+</code></pre></div>
+<h3 id="ubuntu-notes">Ubuntu notes<a class="headerlink" href="#ubuntu-notes" title="Permanent link">&para;</a></h3>
+<p>Ubuntu sets up a few traps for a fresh install:</p>
+<ul>
+<li><strong>Poetry 1.x from apt.</strong> <code>apt install python3-poetry</code> gives you Poetry 1.8. It can't read the <code>[project]</code> table in <code>pyproject.toml</code>, so <code>poetry install</code> fails with "the Poetry configuration is invalid" and complains that <code>name</code>, <code>version</code>, <code>description</code>, and <code>authors</code> are missing. Remove it (<code>sudo apt remove python3-poetry</code>) and install Poetry 2 with pipx: <code>sudo apt install pipx &amp;&amp; pipx ensurepath</code>, open a new shell, then <code>pipx install poetry</code>.</li>
+<li><strong>pyenv shims exit with status 127.</strong> That means the selected Python doesn't have the command Poetry ran. If you use pyenv, make a virtualenv and select it in the checkout: <code>pyenv install 3.12</code>, <code>pyenv virtualenv 3.12 flashpoint</code>, <code>pyenv local flashpoint</code> (or <code>pyenv activate flashpoint</code> for one shell). With <code>pyenv global system</code>, the failing command is <code>python</code>: Ubuntu only ships <code>python3</code>. Run <code>poetry env use python3</code>, or <code>sudo apt install python-is-python3</code>.</li>
+<li><strong>No <code>venv</code> in the system Python.</strong> If Poetry builds its venv from Ubuntu's own Python and fails with an <code>ensurepip</code> error, run <code>sudo apt install python3-venv</code> and try again.</li>
+</ul>
+<h2 id="code-layout">Code layout<a class="headerlink" href="#code-layout" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What's there</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/flashpoint/cli.py</code></td>
+<td>The <code>flashpoint</code> command; one handler per subcommand</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/readers/</code></td>
+<td>wpilog reading and hoot conversion (the owlet registry)</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/lake/</code></td>
+<td>Lake paths, the ledger, Parquet writing, DuckDB views</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/ingest.py</code></td>
+<td><code>ingest</code> and <code>rebuild</code></td>
+</tr>
+<tr>
+<td><code>src/flashpoint/semantics/</code></td>
+<td><code>derive</code>: sessions, alignment, match identity, framing, device identity, physics, silver, gold, CAN health</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/anomaly/</code></td>
+<td><code>detect</code> and <code>backtest</code></td>
+</tr>
+<tr>
+<td><code>src/flashpoint/report/</code></td>
+<td>Replay data and the static export</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/setup/</code></td>
+<td><code>init</code>, the setup checks behind <code>doctor</code>, the config editor and API, fix actions, and robot drafts: the backend of the Setup view</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/theme.py</code></td>
+<td><code>theme.toml</code>: the palette presets, contrast rules, and the colour maths that turns a palette into every colour token</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/web/branding.py</code></td>
+<td>Builds <code>theme.css</code> and the team name for the page. The server and the static export both use it</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/config.py</code>, <code>src/flashpoint/defaults/</code></td>
+<td>Finding and loading configuration; the bundled defaults used when a file is missing</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/views/</code>, <code>src/flashpoint/web/</code></td>
+<td>History and Anomalies queries, the HTTP server, the browser app, the AdvantageScope launcher</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/acquire/</code></td>
+<td>Robot and USB pulls, the watch loop, backup and restore</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/live/</code></td>
+<td>Live CAN: the NetworkTables contract, the detector, the robot connection, and the fake robot (<code>python -m flashpoint.live.fake_robot</code>)</td>
+</tr>
+<tr>
+<td><code>src/flashpoint/meta/</code>, <code>src/flashpoint/deploy/</code></td>
+<td>The meta Parquet snapshots; the systemd and Windows service files</td>
+</tr>
+<tr>
+<td><code>config/</code></td>
+<td>Ignite's own configuration: <code>acquire.toml</code>, robots, seasons, units, failure labels. A file that isn't here (thresholds in <code>anomaly.toml</code>, <code>report.toml</code>, <code>theme.toml</code>) comes from the bundled defaults in <code>src/flashpoint/defaults/</code></td>
+</tr>
+<tr>
+<td><code>tools/</code></td>
+<td><code>fetch-corpus.py</code>, <code>update-owlet-manifest.py</code>, <code>migrate-legacy-config.py</code></td>
+</tr>
+<tr>
+<td><code>examples/robot-java/</code></td>
+<td>The robot-side samples, as a minimal GradleRIO project (<code>./gradlew compileJava</code> with JDK 17; not built in CI)</td>
+</tr>
+<tr>
+<td><code>tests/</code></td>
+<td>The test suite, mirroring <code>src/flashpoint/</code></td>
+</tr>
+</tbody>
+</table>
+<p>The code conventions are the <a href="#coding-standards">coding standards</a> below.</p>
+<p>The domain rules (long format at rest, as-of joins with explicit tolerance, never trust filenames over FMS data, offline first, never delete robot logs) are in <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/openspec/config.yaml"><code>openspec/config.yaml</code></a>.</p>
+<h3 id="the-browser-app">The browser app<a class="headerlink" href="#the-browser-app" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A new view needs three things: a file in <code>src/flashpoint/web/static/views/</code>, an <code>FP.view({ id, label, needsApi, mount, unmount })</code> call in it, and a <code>&lt;script src="static/views/NAME.js"&gt;</code> tag in <code>web/static/index.html</code>. Without the tag the file never loads. If the view needs the server, add <code>data-needs-api</code> to the tag and set <code>needsApi: true</code>. The static export then leaves the file out and the shell hides the view.</li>
+<li>Colours come from the role-named tokens in <code>web/static/tokens.css</code>: <code>--accent</code>, <code>--accent-hi</code>, <code>--accent-mid</code>, <code>--accent-dim</code>, <code>--accent-muted</code>, <code>--warn</code>, <code>--on-accent</code>, <code>--prose</code>, the <code>-rgb</code> channel forms (<code>--accent-rgb</code>, <code>--warn-rgb</code>, <code>--bg-rgb</code>), and the colours built from them (<code>--glow-NN</code>, <code>--grid-line</code>). <code>theme.css</code> loads after <code>tokens.css</code> and overrides them with the team's palette; <code>flashpoint.theme</code> derives that map from <code>theme.toml</code>. Never write a colour by hand. <code>tests/web/test_static_lint.py</code> fails on an <code>rgb()</code> or <code>rgba()</code> colour other than black outside <code>tokens.css</code>, on a hex colour in a <code>.css</code> file, and on the old amber names (<code>--amber*</code>, <code>--on-amber</code>, <code>--hot</code>). A hex colour in a <code>.js</code> file is not caught, so check those yourself.</li>
+<li>Charts can't read CSS variables. Get colours from <code>FP.tokens()</code> (<code>accent</code>, <code>accentHi</code>, <code>accentMid</code>, <code>accentDim</code>, <code>accentMuted</code>, <code>line</code>, <code>lineSoft</code>, <code>lineStrong</code>, <code>warn</code>, <code>accentRgb</code>, <code>surface1</code>, <code>font</code>). They're read once and cached until the page reloads.</li>
+</ul>
+<h2 id="checks-and-coding-standards">Checks and coding standards<a class="headerlink" href="#checks-and-coding-standards" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>poetry<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>run<span class="w"> </span>--all-files<span class="w">   </span><span class="c1"># every formatter and linter, at CI's versions</span>
+poetry<span class="w"> </span>run<span class="w"> </span>mypy<span class="w"> </span>src<span class="w"> </span>tests<span class="w"> </span>tools
+</code></pre></div>
+<p>The first command runs ruff (format and lint), Biome (the app's JS and CSS), and a few file-hygiene hooks, using the versions pinned in <code>.pre-commit-config.yaml</code>. CI runs the same file, so if it passes for you it passes in CI. It fixes what it can and leaves the rest for you. Biome needs Node.js on your <code>PATH</code>; if pre-commit can't set it up, <code>npx @biomejs/biome@2.6.7 check</code> runs the same check. <code>poetry run pre-commit install</code> makes it run on every commit, which is optional.</p>
+<p>The JS and CSS were reformatted in one commit when Biome was adopted. Run <code>git config blame.ignoreRevsFile .git-blame-ignore-revs</code> once so <code>git blame</code> skips it (GitHub's blame view already does).</p>
+<p>Coverage is measured on the unit run, with Numba's compiler off so coverage can see the reader kernels:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">NUMBA_DISABLE_JIT</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>poetry<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>--cov
+</code></pre></div>
+<p>It fails below 93% overall. CI also fails if <code>readers/</code>, <code>lake/</code>, or <code>semantics/physics.py</code> drops below 85%. Floors go up, never down; lowering one needs a mentor's approval in the pull request.</p>
+<h3 id="coding-standards">Coding standards<a class="headerlink" href="#coding-standards" title="Permanent link">&para;</a></h3>
+<p>These rules are also the <a href="https://igniterobotics.github.io/ignition-labs/programming/coding-standards/#flashpoint-python-and-javascript">Flashpoint section of the team coding standards</a>. That page is the source: when the two differ, it's right and this section gets fixed. <strong>Check</strong> rules fail the required CI check. <strong>Review</strong> rules are a reviewer's job.</p>
+<p><strong>Python: formatting, naming, and types</strong></p>
+<ul>
+<li>Formatting and import order come from <code>ruff format</code> and <code>ruff check</code>. <em>(Check)</em></li>
+<li><code>snake_case</code> functions and variables, <code>PascalCase</code> classes, <code>SCREAMING_SNAKE_CASE</code> constants, <code>kebab-case</code> file and folder names outside the Python package. <em>(Check, except filenames: Review)</em></li>
+<li>Type hints on everything; <code>mypy --strict</code> passes. <em>(Check)</em></li>
+</ul>
+<p>Why: one style means a diff shows only what changed, and strict types catch a class of bug before the code runs.</p>
+<p><strong>Python: suppressions name the rule and the reason</strong></p>
+<ul>
+<li><code># noqa: S608 - table name from the ledger schema</code>, and <code># type: ignore[arg-type]  # fixture dict is untyped</code>. A bare <code># noqa</code>, a type ignore with no code or no reason, or a suppression for a rule that isn't firing fails the check. <em>(Check)</em></li>
+</ul>
+<p>Why: a suppression claims someone looked at this line. Without a rule it hides every future problem on the line; without a reason nobody can tell if they were right.</p>
+<p><strong>Python: processes, shells, and SQL</strong></p>
+<ul>
+<li>Only the command-line entry point (<code>cli.py</code>, <code>__main__.py</code>) and <code>tools/</code> exit the process or print. <em>(Check)</em></li>
+<li>Subprocesses take an argument list, never a shell string. <code>shell=True</code>, <code>os.system</code>, and <code>os.popen</code> are never allowed, even with a suppression. Each subprocess call says where its arguments come from. <em>(Check)</em></li>
+<li>SQL is built only from internal identifiers (lake paths, fixed column and view names); values go in as bound parameters. A line that builds SQL from strings says which identifiers it fills in. <em>(Check)</em></li>
+</ul>
+<p>Why: one bad log calling <code>sys.exit</code> mid-batch stops every log after it (#57). A shell string with a filename in it breaks on a space and can run what the name smuggled in (#54). SQL built from data is the same bug.</p>
+<p><strong>Python: errors, time, and complexity</strong></p>
+<ul>
+<li>No catch-all <code>except</code> except at a boundary that records the error and carries on (a per-file ingest loop, a request handler, a service loop); the suppression names the boundary. A handler that logs the exception passes on its own. <em>(Check)</em></li>
+<li>Date-times are timezone-aware. <em>(Check)</em></li>
+<li>Functions stay at cyclomatic complexity 12 or under. The nine that were over when this was adopted carry <code># noqa: C901 - grandfathered (code-quality-gates)</code> and must not get worse. <em>(Check for new code; Review for grandfathered functions)</em></li>
+</ul>
+<p>Why: a catch-all in the wrong place turns a visible crash into silently wrong numbers. Robot logs come from different clocks, and a naive date-time is off by hours without saying so.</p>
+<p><strong>Python: tests</strong></p>
+<ul>
+<li>Every change comes with tests. Unit tests use synthetic fixtures; tests that need real logs are marked <code>corpus</code>. <em>(Review)</em></li>
+<li>Coverage stays at or above the floors above. <em>(Check)</em></li>
+<li>Once implementation of a change starts, nobody edits its tests to make them pass. <em>(Review)</em></li>
+<li>Tests are exempt from a few rules on purpose (asserts, local servers and subprocesses, fixture arguments, compound asserts); see <code>[tool.ruff.lint.per-file-ignores]</code> in <code>pyproject.toml</code>.</li>
+</ul>
+<p><strong>Browser app</strong></p>
+<ul>
+<li>Classic scripts only: no <code>import</code>/<code>export</code>, no build step. Each file runs in strict mode and touches only the <code>FP</code> namespace, <code>FP_MODE</code>, and <code>uPlot</code>. <em>(Check)</em></li>
+<li>Views build the page only through <code>h()</code>. No <code>innerHTML</code>, inline handlers, <code>eval</code>, or <code>new Function</code> (#56). <em>(Check)</em></li>
+<li>No remote hosts, and colours only from the role-named tokens (see <a href="#the-browser-app">the browser app</a>). <em>(Check)</em></li>
+<li>JS and CSS pass Biome's recommended rules with warnings as errors, and match its formatter. A <code>biome-ignore</code> comment carries a reason. Vendored files are never edited. <em>(Check)</em></li>
+</ul>
+<p>Why: the Replay export opens by double-click from a pit laptop with no network, and browsers refuse ES modules from <code>file://</code>. Log data includes names from robot code, so anything that turns strings into HTML is an injection waiting for the wrong match name.</p>
+<p><code>tests/test_quality.py</code> keeps the gates honest: a deliberately bad file for each check rule (in <code>tests/fixtures/quality/</code>) must fail it, and the suppression and workflow rules are checked there too.</p>
+<h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>poetry<span class="w"> </span>run<span class="w"> </span>pytest<span class="w">                     </span><span class="c1"># unit tests: fast, no data, no network</span>
+</code></pre></div>
+<p>The default run excludes three markers. Each needs something extra:</p>
+<table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>Needs</th>
+<th>Run with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>corpus</code></td>
+<td>The golden log corpus (below)</td>
+<td><code>poetry run pytest -m "corpus and not perf and not browser"</code></td>
+</tr>
+<tr>
+<td><code>browser</code></td>
+<td>The corpus plus Chromium (<code>poetry run playwright install chromium</code>, once)</td>
+<td><code>poetry run pytest -m "browser and not perf"</code></td>
+</tr>
+<tr>
+<td><code>perf</code></td>
+<td>The corpus. Checks time and memory budgets</td>
+<td><code>poetry run pytest -m perf -s</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>--strict-markers</code> is on, so a typo in a marker name is an error. Every test has a 300 s timeout. A hang dumps every thread's stack.</p>
+<p>The unit suite includes <code>tests/test_docs.py</code>. It fails when a relative link in <code>deploy/README.md</code> or <code>docs/guide/</code> points at a missing file, when the README has any relative link (the README is also the PyPI page, so every link there must be a full <code>https://github.com/IgniteRobotics/flashpoint/blob/main/...</code> URL to a file that exists), when a <code>flashpoint</code> subcommand has no section in the <a href="../../reference/cli/">CLI reference</a>, or when the contract table in <a href="../../how-to/live-can-health/">Live CAN health</a> doesn't match the code. If you add a subcommand, document it there.</p>
+<h3 id="the-golden-corpus">The golden corpus<a class="headerlink" href="#the-golden-corpus" title="Permanent link">&para;</a></h3>
+<p>About 180 MB of real robot logs (release <code>corpus-v1</code>), described with sizes and hashes in <code>tests/corpus/manifest.toml</code>:</p>
+<div class="highlight"><pre><span></span><code>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>tools/fetch-corpus.py
+</code></pre></div>
+<p>It downloads with <code>gh release download</code> if the GitHub CLI is installed (run <code>gh auth login</code> first), otherwise over plain HTTPS, checks every hash, and stores the files in <code>~/.cache/flashpoint/corpus/corpus-v1/</code>. Set <code>FLASHPOINT_CORPUS_DIR</code> to put them elsewhere, or <code>--from DIR</code> to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release. Create it with <code>gh release create corpus-vN --latest=false ...</code>: a corpus release must never be the repository's latest release, which belongs to the newest package version. Check with <code>gh release list --json tagName,isLatest</code>: only the newest package version says <code>true</code>.</p>
+<h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
+<p><code>.github/workflows/ci.yml</code> runs on every pull request and on pushes to <code>main</code> and <code>development</code>. A first <code>changes</code> job checks which files changed. When they're all docs (<code>docs/</code>, <code>openspec/</code>, <code>media/</code>, <code>.claude/</code>, and Markdown outside <code>src/</code> and <code>tests/</code>), only the <code>docs</code> job runs; otherwise everything does.</p>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>Runs</th>
+<th>Blocks merge</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs</code></td>
+<td>Docs-only changes: <code>tests/test_docs.py</code> (links, CLI reference)</td>
+<td>Through <code>ci-ok</code></td>
+</tr>
+<tr>
+<td><code>lint-test (py3.11)</code> to <code>lint-test (py3.14)</code></td>
+<td>Every Python the package declares: pre-commit (ruff, Biome, hygiene hooks), mypy, unit tests, <code>systemd-analyze verify</code> on the service unit. py3.12 adds the <code>ml</code> extra and runs the unit tests with coverage and the floors</td>
+<td>Through <code>ci-ok</code></td>
+</tr>
+<tr>
+<td><code>windows (py3.12)</code></td>
+<td>pre-commit, mypy, unit tests on Windows</td>
+<td>No, but fix it</td>
+</tr>
+<tr>
+<td><code>clean install (&lt;os&gt;, &lt;python&gt;)</code></td>
+<td>The built wheel in an empty venv on each OS, with Python 3.11, 3.13 (the documented default) and 3.14: <code>--version</code>, and <code>doctor</code> with no configuration</td>
+<td>Through <code>ci-ok</code></td>
+</tr>
+<tr>
+<td><code>corpus</code></td>
+<td>The corpus tests, including the rclone restore drill</td>
+<td>Through <code>ci-ok</code></td>
+</tr>
+<tr>
+<td><code>browser (Chromium)</code></td>
+<td>The web app in Chromium, served and from <code>file://</code></td>
+<td>Through <code>ci-ok</code></td>
+</tr>
+<tr>
+<td><code>perf (budgets, non-blocking)</code></td>
+<td>Time and memory budgets, on pushes to <code>main</code> and <code>development</code>. Allowed to fail; read it when it does</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>first-run-smoke</code> (separate workflow)</td>
+<td>A team's first hour on Linux, macOS and Windows, run by <code>tools/first-run-smoke.py</code>: <code>uv tool install --python 3.13</code> of the wheel, <code>init --team 9999</code>, one corpus match ingested with a real owlet download, Replay must have aligned data, and <code>serve</code> must answer. Nightly, and on PRs that change <code>src/</code>, packaging or the smoke itself; docs-only PRs skip it. Each step names itself when it fails. Run it locally with <code>python tools/first-run-smoke.py</code> (needs uv)</td>
+<td>No: it gates releases, not merges. A tag's <code>release</code> run calls it on the wheel it built, and PyPI publishing waits for it on all three platforms</td>
+</tr>
+<tr>
+<td><code>fresh-install</code> (separate, started by hand)</td>
+<td>The documented <code>uv tool install --python 3.13</code> from PyPI (or TestPyPI) with no suitable Python: a clean <code>ubuntu:24.04</code> container (it also records apt's pipx version), and macOS and Windows runners with uv limited to Pythons it downloads. Then <code>--version</code> and <code>init</code>. Evidence for fresh-machine checks; a hosted runner isn't a fresh laptop</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>smoke-report</code> (separate, started by hand)</td>
+<td>The nightly first-run smoke's pass rate per OS over the last N days, with each failure linked (<code>tools/smoke-pass-rate.py</code>); can post it on #71</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>codeql</code> (separate workflow)</td>
+<td>Code scanning for Python and JavaScript, on PRs, pushes, and weekly. A high or critical alert blocks the merge through the ruleset</td>
+<td>Yes, through the ruleset</td>
+</tr>
+<tr>
+<td><code>ci-ok</code></td>
+<td>Passes when <code>changes</code> passed, <code>docs</code> or <code>lint-test</code> ran, and none of <code>docs</code>, <code>lint-test</code>, <code>corpus</code>, <code>browser</code>, or <code>clean install</code> failed. The required check</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>The corpus jobs fetch through <code>gh</code> using the workflow's <code>GH_TOKEN</code>, and cache the corpus and owlet between runs. Every workflow runs with a read-only token unless a job needs more, and actions are pinned to a commit; Dependabot opens one grouped update PR a month for Python packages and one for actions, against <code>development</code>.</p>
+<h2 id="how-changes-are-made">How changes are made<a class="headerlink" href="#how-changes-are-made" title="Permanent link">&para;</a></h2>
+<p>Work is planned with <a href="https://github.com/Fission-AI/OpenSpec">OpenSpec</a>, which keeps the plan for each change next to the code:</p>
+<ul>
+<li><code>openspec/specs/&lt;capability&gt;/spec.md</code> is the current behavior: requirements, each with WHEN/THEN scenarios.</li>
+<li><code>openspec/changes/&lt;change&gt;/</code> holds a change in progress:</li>
+<li><code>proposal.md</code>: why;</li>
+<li><code>specs/</code>: the requirements it adds or changes;</li>
+<li><code>design.md</code>: how;</li>
+<li><code>tasks.md</code>: the checklist.</li>
+<li><code>openspec/changes/archive/</code> holds finished changes.</li>
+</ul>
+<p>The flow, using the <code>/opsx:*</code> commands in Claude Code (<code>.claude/commands/</code>) or the <code>openspec</code> CLI:
+1. <strong>Propose</strong> (<code>/opsx:propose</code>). Write the proposal, specs, design, and tasks, and validate them with <code>openspec validate &lt;change&gt; --strict</code>.
+2. <strong>Apply</strong> (<code>/opsx:apply</code>). Work through <code>tasks.md</code>, tests first, ticking each task as it's done.
+3. <strong>Archive</strong> (<code>/opsx:archive</code>). Merge the change's specs into <code>openspec/specs/</code> and move the change to the archive.</p>
+<p>Tasks marked <code>[HUMAN]</code> need a person: a pit check, a field test. They stay open until someone does them.</p>
+<h3 id="branching">Branching<a class="headerlink" href="#branching" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>development</code></strong> is the integration branch. Each change gets a <code>feature/&lt;name&gt;</code> branch cut from <code>development</code>, and merges back through a pull request with CI.</li>
+<li><strong><code>main</code></strong> gets changes only through a pull request from <code>development</code>. Release tags (<code>v*</code>) are cut from <code>main</code>.</li>
+<li>Both branches are protected the same way: the <code>ci-ok</code> check must pass, a pull request needs one approving review, and only org admins and the <code>code-reviewers</code> team can merge. Nobody can force-push or delete them. Never push to either directly.</li>
+<li>The rewrite was built on a separate <code>rewrite</code> branch and merged into <code>main</code> on 2026-10-22. The pre-rewrite tree is kept at the <code>legacy-2025</code> tag.</li>
+</ul>
+<h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
+<p>A <code>v*</code> tag on <code>main</code> does the publishing: <code>.github/workflows/release.yml</code> takes the version's section from <code>CHANGELOG.md</code> (and stops, naming the version, if there isn't one), checks the package page for moving or wrong-version documentation links (<code>tools/check-release-links.py</code>), builds, runs the first-run smoke on the built wheel on Linux, macOS and Windows, publishes to PyPI once the smoke has passed everywhere and the <code>pypi</code> environment is approved, and then creates the GitHub Release with that section as its notes. A final version (<code>X.Y.Z</code>) is marked latest; a pre-release (<code>X.Y.Zrc1</code>) is marked as a pre-release and leaves latest alone. A manual run of the workflow publishes to TestPyPI only and creates no GitHub Release.</p>
+<p>Follow these steps for every release, in order:</p>
+<ol>
+<li><strong>Promote.</strong> Move the <code>Unreleased</code> entries in <code>CHANGELOG.md</code> into a <code>## X.Y.Z - YYYY-MM-DD</code> section, then open a pull request from <code>development</code> to <code>main</code>.</li>
+<li><strong>TestPyPI dry run.</strong> Run the <code>release</code> workflow by hand from <code>main</code> with an unused <code>X.Y.Z.devN</code> (TestPyPI never takes a version twice, so check which numbers are gone), then install it in a clean venv: <code>pipx install --index-url https://test.pypi.org/simple/ --pip-args="--extra-index-url https://pypi.org/simple/" flashpoint==X.Y.Z.devN</code>.</li>
+<li><strong>Smoke on the tag.</strong> The cross-platform first-run smoke runs on macOS, Linux and Windows for the commit you're about to tag, and runs again on the tag, where the PyPI publish waits for it. Don't tag over a red smoke.</li>
+<li><strong>Clean installs</strong> of the dry-run version on macOS, Linux and Windows: <code>flashpoint --version</code>, <code>init</code>, ingest one corpus match, <code>report</code>, and open Replay.</li>
+<li><strong>Tag, then approve.</strong> <code>git tag vX.Y.Z</code> on <code>main</code> and push it. When the build job passes, approve the <code>pypi</code> environment.</li>
+<li><strong>Check the GitHub Release and the latest marker.</strong> <code>gh release list</code> shows <code>vX.Y.Z</code> with its changelog section, marked Latest for a final version, and <code>corpus-v*</code> never Latest. If the release job failed after PyPI published, create it by hand: <code>python3 tools/changelog-section.py X.Y.Z &gt; notes.md</code>, then <code>gh release create vX.Y.Z --verify-tag --notes-file notes.md --latest</code>.</li>
+<li><strong>Yank policy.</strong> Yank a published version only when installing it gives wrong results or breaks. The reason names the version to install instead, for example 0.1.0: "uncapped duckdb/polars; install 0.2.0".</li>
+<li><strong>Documentation deploy.</strong> Deploy the documentation for the version, so the docs site serves <code>/X.Y/</code> and <code>latest</code> points at it. A docs-only fix can redeploy the current minor's docs without a package release.</li>
+</ol>
+<p>Release-preparation pull requests (the promote PR, changelog moves) reference the release issue as <code>Refs #N</code> and never with a closing keyword. The default branch is <code>development</code>, so a closing keyword there closes the issue as soon as the preparation PR merges, before anything ships. That is how #61 closed early. Close the release issue by hand once the package index shows the version. Feature pull requests keep their closing keyword.</p>
+<p><strong>Next patch release:</strong> 0.3.1, owner Josh, target 2027-01-16.</p>
+<h2 id="where-decisions-and-research-live">Where decisions and research live<a class="headerlink" href="#where-decisions-and-research-live" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md"><code>docs/adr/</code></a></td>
+<td>Architecture decision records. Add one when you make or change a decision</td>
+</tr>
+<tr>
+<td><a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/README.md"><code>docs/rewrite/</code></a></td>
+<td>The research behind the rewrite: the <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/05-target-architecture.md">target architecture</a>, the <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/06-roadmap.md">roadmap</a>, and the <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/03-pitfalls-and-performance.md">pitfalls list</a> (cited as <code>#N</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/IgniteRobotics/flashpoint/tree/main/docs/UX/"><code>docs/UX/</code></a></td>
+<td>The UI design canvas</td>
+</tr>
+<tr>
+<td><a href="https://github.com/IgniteRobotics/flashpoint/blob/main/notebooks/README.md"><code>notebooks/</code></a></td>
+<td>marimo notebooks for questions the app doesn't answer yet</td>
+</tr>
+<tr>
+<td><a href="https://github.com/IgniteRobotics/flashpoint/tree/main/openspec/"><code>openspec/</code></a></td>
+<td>Specs and changes (above)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="updating-owlet">Updating owlet<a class="headerlink" href="#updating-owlet" title="Permanent link">&para;</a></h2>
+<p>CTRE releases new owlet builds for new hoot format versions. The versions and checksums are pinned in <code>src/flashpoint/readers/owlet-manifest.toml</code>. <code>poetry run python tools/update-owlet-manifest.py</code> rewrites that file from CTRE's download index: the newest stable owlet for each format version, on every platform, with checksums computed by downloading each binary. It takes no options besides <code>--help</code> and starts as soon as you run it, so expect several minutes of downloads, and review the diff before committing.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.sections","navigation.top","search","content.code.copy","content.tabs.link"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      
+      
+    
+  </body>
+</html>
