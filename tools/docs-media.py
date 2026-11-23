@@ -2,13 +2,16 @@
 """Docs screenshots and animations from `docs/media-manifest.toml` (mvp-documentation, D-f).
 
     python tools/docs-media.py placeholders [--out DIR]
+    python tools/docs-media.py vendor [--out DIR]
     python tools/docs-media.py check-site SITE_DIR
     python tools/docs-media.py capture [--out DIR] [--corpus-dir DIR] [--work DIR]
 
 `placeholders` writes a tiny valid file for every manifest entry (a PNG per screenshot, a WebM
-and a GIF per animation) so the docs site builds without the corpus. `check-site` fails when a
-built page shows an image or video whose file isn't in the built site: Zensical's strict build
-doesn't check media (ADR-0019). `capture` makes the real images: it checks corpus-v1 (exit 2
+and a GIF per animation) so the docs site builds without the corpus. `vendor` fetches the pinned
+Mermaid build (checked against its SHA-256) that the site serves itself, so diagrams render
+offline. `check-site` fails when a built page shows an image or video whose file isn't in the
+built site, or a diagram when the site has no renderer: Zensical's strict build checks neither
+(ADR-0019). `capture` makes the real images: it checks corpus-v1 (exit 2
 naming the first missing file), fetches GACMP Q73 and Q89 from the samples-v1 release (checked
 against their SHA-256), builds a sample lake from five corpus groups and those two matches with
 the real CLI, and shoots each entry. Only `capture` needs Flashpoint and the docs group installed.
@@ -169,6 +172,53 @@ WEBM = bytes.fromhex(
 
 
 MEDIA_SRC = re.compile(r"<(?:img|video|source)\b[^>]*?\ssrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
+
+
+# --- vendor: the diagram renderer, served by the docs site itself (docs-visual-polish, D2) ---
+
+VENDOR = REPO / "docs" / "guide" / "assets" / "vendor"  # gitignored; written by `vendor`
+# The release the theme's own loader asks unpkg for (`mermaid@12`), pinned. Bump by a deliberate
+# PR: change both lines, and check How Flashpoint works renders.
+MERMAID_VERSION = "12.3.0"
+VENDORED = {
+    "mermaid.min.js": (
+        f"https://unpkg.com/mermaid@{MERMAID_VERSION}/dist",
+        "336df803d87a38b70a01e736e666c8f7601d2ce42f5e47c8fafe5d721074b9a3",
+    ),
+}
+DIAGRAM = re.compile(r"<pre\b[^>]*\sclass=[\"'](?:[^\"']*\s)?mermaid[\s\"']", re.IGNORECASE)
+
+
+def vendor(out: Path = VENDOR) -> list[Path]:
+    """Fetch each pinned file unless it's already there with the right SHA-256; a download that
+    doesn't match its pin is refused, naming the file and both sums, and nothing is written."""
+    fetch = _fetch_corpus()
+    written: list[Path] = []
+    for name, (url, digest) in VENDORED.items():
+        target = out / name
+        if not target.is_file() or fetch.sha256_of(target) != digest:
+            out.mkdir(parents=True, exist_ok=True)
+            part = out / f"{name}.part"
+            fetch.download(name, url, part)
+            got = fetch.sha256_of(part)
+            if got != digest:
+                part.unlink()
+                raise SystemExit(f"vendor {name}: SHA-256 {got} doesn't match the pinned {digest}")
+            part.replace(target)
+        written.append(target)
+    return written
+
+
+def missing_renderer(site: Path) -> list[str]:
+    """Each built page that shows a diagram when the site has no copy of the renderer."""
+    if (site / "assets" / "vendor" / "mermaid.min.js").is_file():
+        return []
+    return [
+        f"{page.relative_to(site).as_posix()}: shows a diagram, and the site has no"
+        " assets/vendor/mermaid.min.js"
+        for page in sorted(site.rglob("*.html"))
+        if DIAGRAM.search(page.read_text(encoding="utf-8"))
+    ]
 
 
 def missing_media(site: Path) -> list[str]:
@@ -822,6 +872,8 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     holders = commands.add_parser("placeholders", help="write a tiny stand-in for every entry")
     holders.add_argument("--out", type=Path, default=MEDIA, help=f"default: {MEDIA}")
+    pinned = commands.add_parser("vendor", help="fetch the pinned diagram renderer by SHA-256")
+    pinned.add_argument("--out", type=Path, default=VENDOR, help=f"default: {VENDOR}")
     check = commands.add_parser("check-site", help="fail on media a built page shows but lacks")
     check.add_argument("site", type=Path, help="the built site folder")
     shoot = commands.add_parser("capture", help="build the sample lake and capture every entry")
@@ -849,12 +901,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "capture":
         return capture(args.out, args.corpus_dir, args.work)
+    if args.command == "vendor":
+        for path in vendor(args.out):
+            print(f"vendored {path}")
+        return 0
     if args.command == "check-site":
-        problems = missing_media(args.site)
-        for problem in problems:
+        media = missing_media(args.site)
+        renderer = missing_renderer(args.site)
+        for problem in media + renderer:
             print(problem, file=sys.stderr)
-        print(f"{len(problems)} missing media files in {args.site}")
-        return 1 if problems else 0
+        print(f"{len(media)} missing media files, {len(renderer)} diagrams without a renderer"
+              f" in {args.site}")  # fmt: skip
+        return 1 if media or renderer else 0
     written = placeholders(args.out)
     if not (DEMO_SITE / "index.html").is_file():
         DEMO_SITE.mkdir(parents=True, exist_ok=True)

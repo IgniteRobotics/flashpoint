@@ -26,11 +26,12 @@ Each of Replay, History and Anomalies (beta) becomes a short paragraph naming th
 *Alternative:* an HTML `<img width=…>` grid. Rejected: GitHub and PyPI both render plain Markdown images full width, and HTML would need `pin-readme-media.py` to keep handling the `<img>` form.
 
 ### D2. Mermaid: the fence plus a pinned local renderer
-- Add `custom_fences: [{name: mermaid, class: mermaid, format: !!python/name:pymdownx.superfences.fence_code_format}]` to `mkdocs.yml`, Material's documented form, which Zensical also reads.
+- Add `custom_fences: [{name: mermaid, class: mermaid}]` to `mkdocs.yml`. pymdownx's default `format` is `fence_code_format`, so this is the same fence as Material's documented form under both themes. The `!!python/name:` tag is left out because the docs tests read `mkdocs.yml` with `yaml.safe_load`, which refuses it (found in apply).
 - A new `tools/docs-media.py vendor` step downloads one exact Mermaid release's `mermaid.min.js` (version and SHA-256 pinned in the tool, like the samples-v1 zips) into `docs/guide/assets/vendor/`, which is gitignored. It exits non-zero on a checksum mismatch, naming the file and both sums.
 - `docs/overrides/main.html` overrides the `scripts` block: when the page's HTML contains `class="mermaid"`, it emits a `<script>` for the local copy before `{{ super() }}`. The theme then finds `mermaid` defined and never calls unpkg. If the template engine can't test `page.content`, the fallback is a front-matter flag (`diagram: true`) on the pages that have one.
 - `check-site` gains a check: a built page with a `mermaid` block and no `assets/vendor/mermaid.min.js` in the site fails the build. This is how "can't provide the renderer" fails before deploy.
-- The `docs-site` CI job and `docs.yml`'s build job run `vendor` before the build.
+- The `docs-site` CI job and `docs.yml`'s build job run `vendor` before the build. In `docs.yml` it runs just after the first strict build (a link check that doesn't need the renderer, and that the workflow tests require to be the first step), before the builds that publish. `docs/guide/assets/vendor/` goes into the `docs-inputs` artifact with the media, so the deploy job's mike build serves it too.
+- Pinned: Mermaid 12.3.0, the release unpkg's `mermaid@12` resolved to on 2026-11-23 (5.5 MB, the same bytes from unpkg and jsDelivr).
 
 *Alternatives:*
 - **Let the theme load unpkg.** Rejected: the offline archive shows the diagram as source, and the site depends on a third-party host.
