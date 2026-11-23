@@ -1,67 +1,61 @@
-# Flashpoint Robot Telemetry Platform
+# Flashpoint
 
-> ## flashpoint
-> *also flash point.*
-> ### noun
-> 1: Also Physical Chemistry. the lowest temperature at which a liquid in a specified apparatus will give off sufficient vapor to ignite momentarily on application of a flame.
->
-> 2: a critical point or stage at which something or someone suddenly causes or creates some significant action:
+FRC robot telemetry: import WPILib .wpilog and CTRE .hoot logs, and track every motor's health across your robot's life. Runs offline on a pit laptop.
 
-Flashpoint is Ignite Robotics' robot telemetry platform. It reads the logs an FRC robot records, WPILib DataLogs (`.wpilog`) and CTRE Phoenix 6 signal logs (`.hoot`), and tracks the health of every motor across the robot's whole life:
-- temperature, current, energy, and stall time;
-- brownouts;
-- CAN dropouts and reboots.
+![From the match list to one match in Replay: tracks, markers and the readout](https://igniterobotics.github.io/flashpoint/latest/assets/media/flow-ingest-to-replay.gif)
 
-It follows each physical motor by its serial number through swaps and rebuilds. It flags anomalies before they cost a match, with the goal of predicting failures before they happen. Everything runs offline on a pit laptop.
+| Replay | History | Anomalies (beta) |
+|---|---|---|
+| ![Replay view: one match's motor currents, temperatures and battery voltage on a shared timeline](https://igniterobotics.github.io/flashpoint/latest/assets/media/replay.png) | ![History view: one motor's temperature and current across every match of the season](https://igniterobotics.github.io/flashpoint/latest/assets/media/history.png) | ![Anomalies view: flagged motors with their evidence and triage state](https://igniterobotics.github.io/flashpoint/latest/assets/media/anomalies.png) |
 
-You see the results in a local web app:
-- **Replay**: one match, with markers for heat, brownouts, stalls, and CAN faults;
-- **History**: every motor across matches, events, and seasons;
-- **Anomalies**: what Flashpoint flagged, with evidence and triage;
-- **[Live CAN](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-to/live-can-health.md)**: which device dropped out, rebooted, or faulted while you shake-test or drive-test the robot.
+Point Flashpoint at the logs your robot already writes, and a local web app shows:
+- **Replay**: one match on a timeline, with markers for heat, brownouts, stalls and CAN dropouts.
+- **History**: each motor across every match, event and season. It follows the physical motor by serial number through swaps, when the robot logs its CAN inventory.
+- **Anomalies (beta)**: what looks wrong, with the evidence, for the team to triage.
+- **Live CAN (experimental)**: which device drops out or reboots while you shake-test the robot.
 
-For a deep dive into a single log, it opens AdvantageScope.
+For a deep dive into one log, it opens the match in AdvantageScope. It needs no account and sends no telemetry, and it's free and open source.
+
+## Works with / needs
+
+- **Robot:** CTRE Phoenix 6 devices with signal logging on (`.hoot` files), and the WPILib DataLog (`.wpilog`). Motor temperature needs Phoenix Pro on the device. REV and Phoenix 5 devices aren't supported yet.
+- **Laptop:** macOS, Linux or Windows. The first `.hoot` needs internet once, to download CTRE's converter.
+- **What's tested:** the [support matrix](https://igniterobotics.github.io/flashpoint/latest/support-matrix/) lists each device, log setup and platform, and how it was tested.
 
 ## Quickstart
-
-Needs [uv](https://docs.astral.sh/uv/), which brings its own Python (pipx works too; see the user guide).
 
 ```sh
 uv tool install --python 3.13 flashpoint
 flashpoint init --team <your team number>
-flashpoint ingest path/to/logs/
-flashpoint serve                   # open http://127.0.0.1:8000/
+flashpoint ingest <your logs folder>
+flashpoint serve
 ```
 
-Then open **Setup** in the app: it checks the install, and drafts your robot's configuration from a log. The [user guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md#install) has the details, including installing without internet.
+Then open <http://127.0.0.1:8000/> and pick a match in Replay. The install needs [uv](https://docs.astral.sh/uv/), which brings its own Python; [Install](https://igniterobotics.github.io/flashpoint/latest/install/) has the steps for each computer, pipx, and installing without internet.
 
-**From source** (needs [Poetry](https://python-poetry.org/) 2; see the [developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/developer-guide.md)):
+## Try it
 
-```sh
-git clone https://github.com/IgniteRobotics/flashpoint.git
-cd flashpoint
-poetry install
-export FLASHPOINT_CONFIG=config    # the repo's config/ is Ignite's configuration
-poetry run flashpoint doctor
-```
+- **No install:** the [hosted demo](https://igniterobotics.github.io/flashpoint/latest/demo/) is Replay in your browser, on real matches from team 6829's robots.
+- **On your laptop:** the [sample logs](https://igniterobotics.github.io/flashpoint/latest/quickstart/#try-it-with-sample-logs) are one full match to ingest and serve, with two anomalies (beta) to look at.
 
 ## Documentation
 
-- [User guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/user-guide.md): install, import logs, and use Replay, History, Anomalies, and Live CAN.
-- [Team setup](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/tutorials/team-setup.md): set Flashpoint up for a new team, start to finish.
-- [Automatic import](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/how-to/auto-import.md): pull logs from the robot and USB sticks on their own, and back up the lake.
-- [Robot-side logging](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/robot-side/index.md): what to log in robot code, with Java samples.
-- [CLI reference](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/reference/cli.md): every `flashpoint` command.
-- [How it works](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/how-it-works.md): the pipeline, the lake, matches, motors, and detection.
-- [Developer guide](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/guide/under-the-hood/developer-guide.md): build, test, CI, and how changes are made.
+The docs are at <https://igniterobotics.github.io/flashpoint/>:
+- [Why Flashpoint](https://igniterobotics.github.io/flashpoint/latest/why/): what it does for a team, and what it doesn't do yet.
+- [Quickstart](https://igniterobotics.github.io/flashpoint/latest/quickstart/) and [your first event](https://igniterobotics.github.io/flashpoint/latest/tutorials/first-event/).
+- [Robot side](https://igniterobotics.github.io/flashpoint/latest/robot-side/): what to log in robot code, with Java samples.
+- [Support matrix and known limits](https://igniterobotics.github.io/flashpoint/latest/support-matrix/).
+- [Troubleshooting](https://igniterobotics.github.io/flashpoint/latest/troubleshooting/), when something in the first 30 minutes doesn't work.
+- [CLI reference](https://igniterobotics.github.io/flashpoint/latest/reference/cli/) and [how it works](https://igniterobotics.github.io/flashpoint/latest/under-the-hood/how-it-works/).
 
 **Getting help:** ask questions in [Q&A discussions](https://github.com/IgniteRobotics/flashpoint/discussions/categories/q-a), and report bugs with the [issue forms](https://github.com/IgniteRobotics/flashpoint/issues/new/choose). Don't attach match logs to a public issue.
 
 ## Project
 
-- **Code:** the `flashpoint` package in `src/flashpoint/`.
+Flashpoint is built by FRC team 6829, Ignite Robotics.
+- **Contributing:** the [developer guide](https://igniterobotics.github.io/flashpoint/latest/under-the-hood/developer-guide/) covers building from source and running the tests; [contributing](https://igniterobotics.github.io/flashpoint/latest/contributing/) covers how changes are made.
 - **Specs and changes:** [`openspec/`](https://github.com/IgniteRobotics/flashpoint/tree/main/openspec/). Current behavior is in `openspec/specs/`; work in progress is in `openspec/changes/`.
-- **Decisions:** [`docs/adr/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md). **Research and roadmap:** [`docs/rewrite/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/README.md).
+- **Decisions:** [`docs/adr/`](https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md).
 - **Legacy:** the pre-rewrite code is kept at the `legacy-2025` tag.
 
 ## License

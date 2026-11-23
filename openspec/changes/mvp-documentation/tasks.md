@@ -178,7 +178,7 @@
 ## 8. Generated screenshots and animations (M2; final capture in M3)
 
 - [x] 8.1 [HUMAN] Josh decides design open question 2: publish more 2026 matches as `samples-v1` assets, or capture from corpus-v1 only. If more, add them to the bundle tool's sample-lake list and to `samples-v1` (6.2). Verify: the decision is recorded here.
-  Decided 2026-11-21 (Josh): publish two more matches. GACMP Q73 and Q89 (the full, high-alignment 2026 matches with the most FAULT markers; same event as Q7) are on `samples-v1` as `flashpoint-sample-2026gacmp_qm73.zip` (107.3 MB, sha256 `f8c8e698…33a1`) and `flashpoint-sample-2026gacmp_qm89.zip` (77.7 MB, sha256 `ff0502ca…7e3d`). Each holds `logs/` (wpilog and two hoots) and `SHA256SUMS`, packed from the lake's raw store with fixed timestamps. Both ingest with the bundle's config as `ok` matches with no warnings. **Still to do:** add them to `docs-media.py`'s sample lake and the demo, fetching from `samples-v1` with their checksums, since they aren't corpus files.
+  Decided 2026-11-21 (Josh): publish two more matches. GACMP Q73 and Q89 (the full, high-alignment 2026 matches with the most FAULT markers; same event as Q7) are on `samples-v1` as `flashpoint-sample-2026gacmp_qm73.zip` (107.3 MB, sha256 `f8c8e698…33a1`) and `flashpoint-sample-2026gacmp_qm89.zip` (77.7 MB, sha256 `ff0502ca…7e3d`). Each holds `logs/` (wpilog and two hoots) and `SHA256SUMS`, packed from the lake's raw store with fixed timestamps. Both ingest with the bundle's config as `ok` matches with no warnings. Wired in 2026-11-21: `docs-media.py` fetches both zips (gh, else https) into `~/.cache/flashpoint/samples-v1/` (or `FLASHPOINT_SAMPLES_DIR`), refuses a zip whose SHA-256 differs or a log that doesn't match its `SHA256SUMS`, and adds the logs to the sample lake; `DEMO_MATCHES` lists both. The demo is 7 matches, 4.3 MB; History's shots now span three full matches. The tutorial lake stays Q7 alone. Tests: `tests/tools/test_docs_media_samples.py` (new file).
 - [x] 8.2 Test first:
   - every view in `web/static/views/*.js` must have a screenshot entry;
   - every entry must have non-empty `alt`, a known `kind` and a `steps` name that the script defines;
@@ -294,7 +294,7 @@
 
 ## 13. README, Why Flashpoint, home page and metadata (M2 draft, M3 final; 13.3 and 13.6, with 13.1's pin-tool case, by 2026-12-05, before `0.3.0rc1`, because `mvp-public-release` 4.4's link check fails the rc build without them)
 
-- [ ] 13.1 Test first:
+- [x] 13.1 Test first:
   - every README image must be an absolute URL under `https://igniterobotics.github.io/flashpoint/latest/assets/media/`, naming a manifest file;
   - a relative image must fail, naming the line;
   - the README quickstart block must have four commands or fewer, starting with an install;
@@ -302,11 +302,15 @@
 
   Verify: the tests fail on today's README (expected).
   Partly done 2026-11-21: the pin-tool case (`tests/tools/test_pin_readme_media.py`, fixtures in `tests/fixtures/pin-readme/`) is in, because 13.3 needed it by 12-05. The three README-content cases come with 13.2, since today's README would fail them and the README's images don't exist until group 8.
-- [ ] 13.2 Rewrite `README.md` (design D-j): pitch, hero GIF, three screenshots, "Works with / needs", the quickstart, "Try it" (demo and sample logs), docs links, the "Getting help" line (Discussions and issue forms; keep `mvp-public-release` 6.3's line if it landed first), project and license. Run `audience-style:de-slop`. Verify: the 13.1 README tests and the existing PyPI link test pass.
+  Done 2026-11-21 in `tests/test_docs_readme.py` (new file; fixtures in `tests/fixtures/readme/`), committed before 13.2 and failing on the old README. It also checks that the first paragraph is the repository description word for word, the Works with block, the docs entry-page links and no phase headings.
+- [x] 13.2 Rewrite `README.md` (design D-j): pitch, hero GIF, three screenshots, "Works with / needs", the quickstart, "Try it" (demo and sample logs), docs links, the "Getting help" line (Discussions and issue forms; keep `mvp-public-release` 6.3's line if it landed first), project and license. Run `audience-style:de-slop`. Verify: the 13.1 README tests and the existing PyPI link test pass.
+  Done 2026-11-21 on the branch stacked on #106. From-source steps left the README for the developer guide link; the dictionary definition is gone (spec). de-slop and vale clean. Pinned for `0.3.0rc1` on a scratch copy, it passes `check-release-links.py`.
 - [ ] 13.3 Add `tools/pin-readme-media.py` to the release workflow's build step, before `poetry build` and before `mvp-public-release`'s release-build link check (its task 4.4), and add `.png`, `.gif`, `.webm` and `.mp4` to its no-media assertion. Extend `tests/test_package.py` with the same no-media assertion for the wheel and sdist. Coordinate with #80, which owns `release.yml`. Verify: `pytest tests/test_package.py` passes, and a TestPyPI dry run's long description shows `/X.Y/` image URLs, tag-pinned repository links, and passes the link check.
   Implemented 2026-11-21: `release.yml`'s build job runs `tools/pin-readme-media.py` before `poetry build` (the README is read at build time) and before the link check, and its wheel assertion refuses `.png`, `.gif`, `.webm` and `.mp4`; #80 had left a placeholder comment for this step. `tests/test_package.py` asserts no media in the wheel or the sdist, building the sdist while the placeholders exist. Rehearsed on a scratch copy for `0.3.0rc1`: today's README has 14 moving-branch links; after pinning the built wheel passes the link check. Not ticked until a TestPyPI dry run (Josh: it publishes).
 - [ ] 13.4 Write `why.md` (spec: Why Flashpoint page). Cover the FRC problems, then each differentiator followed by its manifest image or page link, then "What it doesn't do (yet)" linking the support matrix and known limits, then the demo and Quickstart links. Check every claim against the matrix. Run de-slop. Verify: the link check passes, and a reviewer confirms that no claim goes beyond the matrix (13.8).
-- [ ] 13.5 Write `index.md` (the home): pitch, three images, demo link, and "start here" cards for Quickstart, Install, Tutorial and Robot side. Verify: the strict build passes.
+  Written 2026-11-21; strict build, check-site and the 14.1 label test pass. Claims checked against how-it-works and the views reference (detection as SPEC, DRIFT, STEP and SIBLING; brownouts on the battery proxy). Not ticked until Josh's 13.8 review.
+- [x] 13.5 Write `index.md` (the home): pitch, three images, demo link, and "start here" cards for Quickstart, Install, Tutorial and Robot side. Verify: the strict build passes.
+  Done 2026-11-21: Material-style grid cards (`attr_list`, `md_in_html` were already on); the old doc map's "Elsewhere in the repository" list stays below them.
 - [x] 13.6 Point `pyproject.toml` `Documentation` and `Homepage` at the site, and add a test that the built wheel's metadata `Project-URL: Documentation` is the site URL. Verify: the test passes.
   Done 2026-11-21. Both point at `https://igniterobotics.github.io/flashpoint/`; the repository stays on the PyPI page as `Source`. `tests/test_package.py` checks the built wheel's `Project-URL` lines.
 - [x] 13.7 [HUMAN] A repo admin runs `gh repo edit IgniteRobotics/flashpoint` with:
@@ -321,6 +325,7 @@
 ## 14. Maturity labels (M3)
 
 - [ ] 14.1 Test first: `docs/guide/maturity.toml` lists each labelled feature with its label and its pages. Every listed page must show the label in its first 10 lines. The README and `why.md` must show the label wherever they name the feature. Fill it from the release's labels: robot pull beta (#74; drop it if `mvp-install-and-first-run` 8.5 removed the label after the robot session), Live CAN experimental (`mvp-public-release` 5.x), Anomalies beta (#77). Verify: the test passes, and a manual check confirms that the app shows the same labels on the release candidate.
+  Test in 2026-11-21 (`tests/test_docs_maturity.py`, new file; `docs/guide/maturity.toml`); it passes. Robot pull's label must equal `ROBOT_PULL_LABEL`, and the entry must go when the app drops it. Image alt text is skipped (it comes from the media manifest). Not ticked: the app shows only robot pull's label today; Anomalies beta and Live CAN experimental in the app come with `mvp-public-release` 5.x and #77, checked on the rc.
 
 ## 15. Release candidate, beta feedback and polish (M3 by 2026-12-19, M4 by 2027-01-04)
 
