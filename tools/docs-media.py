@@ -651,7 +651,7 @@ def first_frame_uniformity(video: Path) -> float:
     counts = grey.histogram()
     commonest = max(range(256), key=counts.__getitem__)
     near = sum(counts[max(0, commonest - FLAT_LEVELS) : commonest + FLAT_LEVELS + 1])
-    return near / (grey.width * grey.height)
+    return float(near / (grey.width * grey.height))
 
 
 def check_animation(name: str, webm: Path, gif: Path) -> None:

@@ -6,6 +6,7 @@ blocked."""
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -27,6 +28,10 @@ def site_url(sites: tuple[Path, Path]) -> Iterator[str]:
         yield url
 
 
+def _unpkg(url: str) -> bool:
+    return urlsplit(url).hostname == "unpkg.com"
+
+
 def _diagram_problems(page: Any, watch: Watch) -> list[str]:
     svg = page.locator("div.mermaid svg")
     svg.first.wait_for(state="visible", timeout=15_000)
@@ -40,7 +45,7 @@ def _diagram_problems(page: Any, watch: Watch) -> list[str]:
         problems.append(f"the diagram's source ({SOURCE!r}) is shown on the page")
     if not any(url.endswith(RENDERER) for url in watch.requests):
         problems.append(f"the page didn't load the site's own {RENDERER}")
-    problems += [f"asked unpkg.com: {url}" for url in watch.blocked if "unpkg.com" in url]
+    problems += [f"asked unpkg.com: {url}" for url in watch.blocked if _unpkg(url)]
     return problems + watch.console_problems()
 
 
@@ -72,7 +77,7 @@ def test_a_page_without_a_diagram_doesnt_load_the_renderer(browser: Any, site_ur
     finally:
         page.context.close()
     assert [u for u in watch.requests if "mermaid" in u] == []
-    assert [u for u in watch.blocked if "unpkg.com" in u] == []
+    assert [u for u in watch.blocked if _unpkg(u)] == []
 
 
 def test_only_pages_with_a_diagram_reference_the_renderer(sites: tuple[Path, Path]) -> None:
