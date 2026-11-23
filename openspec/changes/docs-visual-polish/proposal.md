@@ -6,7 +6,7 @@ Roadmap: the "MVP public release" section of `docs/rewrite/06-roadmap.md` (#68),
 
 ## What Changes
 
-- **README screenshots:** one per row, full width, each under a line naming the view and what it shows, in place of the three-column table.
+- **README and docs home screenshots:** one per row, full width, each under a line naming the view and what it shows, in place of the README's three-column table and the home page's grid. (The home page was added after the first `dev` deploy of this change showed its grid tiling them 2 + 1.)
 - **Diagrams:** the `mermaid` fence is turned on, and a Mermaid diagram renders as a picture on the site and in the offline archive. The Mermaid library is served from the docs site itself (fetched by checksum at build), not from unpkg.com, and only on pages that have a diagram.
 - **Paced animations:** each flow is recorded at a human pace. The clip starts with the view already loaded, holds on the starting screen, outlines each element just before it's clicked, pauses after each step, and holds on the result. Each animation runs 6 to 20 seconds. The capture rejects a clip that is too short, or whose first frame is the loading screen.
 - **Image zoom:** on every docs page, clicking a screenshot, GIF or animation opens it at the full size of the browser window. Clicking again, pressing Esc, or the close button returns to the page. A small script and stylesheet in the docs theme do this, with no third-party library, so it works in the offline archive too.

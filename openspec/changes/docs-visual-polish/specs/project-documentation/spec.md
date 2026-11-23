@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
-### Requirement: README screenshots, one per row
-The README's screenshots of the app's views SHALL appear one per row at the full width of the page, never side by side in a table. Each screenshot SHALL come directly after a line that names its view and says what that view shows, and any label the view carries (such as "beta") SHALL be in that line. The images keep the rules of "README is an overview and entry point": absolute URLs under the docs site's `latest` media path, naming files from the media manifest.
+### Requirement: README and docs home screenshots, one per row
+The screenshots of the app's views in the README and on the docs home page SHALL appear one per row at the full width of the page, never side by side in a table or a grid. No docs page SHALL put an image in a table or a grid. Each screenshot SHALL come directly after a line that names its view and says what that view shows, and any label the view carries (such as "beta") SHALL be in that line. The README's images keep the rules of "README is an overview and entry point": absolute URLs under the docs site's `latest` media path, naming files from the media manifest.
 
 #### Scenario: One screenshot per row
 - **WHEN** the README is checked
@@ -14,6 +14,14 @@ The README's screenshots of the app's views SHALL appear one per row at the full
 #### Scenario: Images side by side are refused
 - **WHEN** a README puts two screenshots in one table row
 - **THEN** the unit test run fails and names the README line
+
+#### Scenario: Docs home, one screenshot per row
+- **WHEN** the docs home page's Replay, History and Anomalies screenshots are listed with the line before each
+- **THEN** none is inside a grid or a table, each sits alone in its paragraph, and each line names its view, the Anomalies line with "beta"
+
+#### Scenario: Images in a grid are refused
+- **WHEN** a docs page puts an image inside a `grid` block or a table row
+- **THEN** the unit test run fails and names the page and the line
 
 ### Requirement: Diagrams render as pictures
 A diagram written as a `mermaid` code block on a docs page SHALL render as a picture, both on the published site and in the offline archive opened from disk with no network. Rendering SHALL need no host other than the docs site itself. A page with no diagram SHALL NOT load the diagram renderer. A docs build that can't provide the renderer it was pinned to SHALL fail rather than publish pages whose diagrams show as source.

@@ -22,6 +22,11 @@
 - [x] 4.1 Browser test first, in a new file: on the built home page, clicking the Replay screenshot opens a dialog whose image fills the viewport (whole frame visible), and clicking it closes the dialog at the same scroll position. Enter opens and Esc closes, with focus back on the image. The Why page's animation opens and keeps playing (`currentTime` advances). The logo and linked images don't open. From the offline archive with the network blocked, zoom works and makes no outside request. Verify: it fails before 4.2.
 - [x] 4.2 Add `zoom.js` and `zoom.css` under `docs/overrides/assets/` through `extra_javascript` and `extra_css`. Verify: 4.1 passes, the strict build and `check-site` pass, and the page works in the dark palette (screenshot check).
 
+## 6. Docs home screenshots, one per row (found at the 5.3 check)
+
+- [x] 6.1 Test first, in a new file (`tests/test_docs_page_layout.py`, fixtures in `tests/fixtures/docs-layout/`): an image in a `grid` block or a table row on any docs page fails, naming the page and line; the docs home's Replay, History and Anomalies screenshots each sit alone after a line naming the view, Anomalies with "beta". Verify: the fixture cases pass, and the home page fails today.
+- [x] 6.2 Rewrite the docs home's screenshot grid and summary sentence as three captioned rows (the README's wording). Verify: 6.1 passes, the strict build and `check-site` pass, the zoom and diagram browser tests pass, and a screenshot of the built home page shows one screenshot per row.
+
 ## 5. Decision docs and wrap-up
 
 - [x] 5.1 Amend ADR-0019's feature subset with the `mermaid` custom fence, `extra_javascript`/`extra_css` and the `scripts` override (dated), and update the `docs/rewrite/` toolchain table if it lists the subset. Verify: the link check passes, and a mentor confirms the amendment. Confirmed by Josh (mentor), 2026-11-23.
