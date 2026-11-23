@@ -2,29 +2,17 @@
  * A SUGGESTION, NOT A LIBRARY. Copy this into your robot project and adapt it.
  *
  * Publishes Flashpoint's live CAN health contract, version 1, over NetworkTables under
- * /Flashpoint/Live/CANHealth/ (see docs/guide/live-can-health.md for the full table).
- * Written for Phoenix 6 2026 and WPILib 2026. CI does not compile it (that needs Gradle and
- * WPILib), so check it against your Phoenix 6 version before an event, and check your loop
- * timing with it running.
+ * /Flashpoint/Live/CANHealth/. The full table:
+ * https://igniterobotics.github.io/flashpoint/latest/how-to/live-can-health/
+ * Tested with WPILib 2026.2.1, Phoenix 6 26.3.0. Check it against your Phoenix 6 version before an
+ * event, and check your loop timing with it running.
  *
  * Robot code counts; Flashpoint only compares totals between updates. A dropout is a loop in
  * which a device's watched status signal is older than 2.5 times its update period: watch a
  * signal updated at 50 Hz or faster (position or velocity on motors, position on encoders, yaw
  * on a Pigeon 2).
  *
- * Usage, in Robot.java:
- *
- *   private final CanHealthPublisher canHealth = new CanHealthPublisher("Robot-2026");
- *
- *   public void robotInit() {
- *     canHealth.add("DriveTrain", drivetrain.getModule(0).getDriveMotor(), ...);  // and so on
- *     canHealth.addBus("rio");
- *     canHealth.addBus("DriveTrain");
- *   }
- *
- *   public void robotPeriodic() {
- *     canHealth.periodic();
- *   }
+ * Usage: frc/robot/Robot.java in this project wires it up.
  *
  * Don't move these topics under /Flashpoint/CANBus/: the wpilog copy of NetworkTables topics is
  * "NT:/Flashpoint/Live/...", which Flashpoint's season root /Flashpoint/ must not match.

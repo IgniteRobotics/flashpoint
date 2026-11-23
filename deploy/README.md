@@ -1,13 +1,13 @@
 # Service files
 
-Files for running `flashpoint acquire --watch` as a per-user background service. Setup, `acquire.toml`, backup, status, and troubleshooting are in the [automatic import guide](../docs/guide/auto-import.md).
+Files for running `flashpoint acquire --watch` as a per-user background service. Setup, `acquire.toml`, backup, status, and troubleshooting are in the [automatic import guide](../docs/guide/how-to/auto-import.md).
 
 | File | For | Runs |
 |---|---|---|
 | [`src/flashpoint/deploy/systemd/flashpoint-acquire.service`](../src/flashpoint/deploy/systemd/flashpoint-acquire.service) | Linux, systemd user unit | `%h/.local/bin/flashpoint acquire --watch`, restarted on failure; environment from `~/.config/flashpoint/env` |
 | [`src/flashpoint/deploy/windows/flashpoint-acquire.xml`](../src/flashpoint/deploy/windows/flashpoint-acquire.xml) | Windows, Task Scheduler | `%USERPROFILE%\.local\bin\flashpoint.exe acquire --watch` at logon, restarted up to 3 times |
 
-macOS has no service file yet; see [Automatic import: macOS](../docs/guide/auto-import.md#macos).
+macOS has no service file yet; see [Automatic import: macOS](../docs/guide/how-to/auto-import.md#macos).
 
 Both files expect the `uv tool install` (or pipx) location, `~/.local/bin`. Install Flashpoint, then clone the repository to get the service files (the commands below use paths inside it):
 

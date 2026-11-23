@@ -258,7 +258,10 @@ flashpoint/
     cli.py        argparse: acquire | backup | restore | ingest | derive | rebuild | report | serve | doctor
   tests/          unit/, golden/ (real small logs + expected parquet), e2e/
   notebooks/      README + example marimo notebook over views/queries.py (optional)
-  tools/          fetch-corpus.py, update-owlet-manifest.py (owlet binaries are never in git)
+  tools/          fetch-corpus.py, update-owlet-manifest.py (owlet binaries are never in git);
+                  docs tooling: docs-media.py (screenshots and animations), gen-cli-reference.py,
+                  gen-support-matrix.py, docs-version.py (tag to docs version and alias)
+  docs/guide/     the docs site's source (Zensical, mkdocs.yml at the root; ADR-0019)
 ```
 
 ## 6. Key decisions

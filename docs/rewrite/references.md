@@ -18,6 +18,8 @@ CTR Electronics. (n.d.-g). *phoenix6.hardware.traits.common_device*. Phoenix 6 P
 
 CTR Electronics. (n.d.-h). *Prepare the robot controller* (Phoenix 5 documentation, ch. 6) [Source documentation]. GitHub. Retrieved October 4, 2026, from https://github.com/CrossTheRoadElec/Phoenix-Documentation/blob/master/source/ch06_PrepRobot.rst — **P** (Phoenix 5 era; verify against Phoenix 6)
 
+Donath, M. (2026). *mkdocs-material* (Version 9.8.2) [Source code; README end-of-life notice]. GitHub. Retrieved November 20, 2026, from https://github.com/squidfunk/mkdocs-material — **P**
+
 DuckDB Foundation. (n.d.-a). *SQL on pandas*. DuckDB Documentation. Retrieved October 4, 2026, from https://duckdb.org/docs/current/guides/python/sql_on_pandas.html — **P**
 
 DuckDB Foundation. (n.d.-b). *Reading and writing Parquet files*. DuckDB Documentation. Retrieved October 4, 2026, from https://duckdb.org/docs/current/data/parquet/overview.html — **P**
@@ -87,6 +89,10 @@ WPILib Developers. (2023, June 8). *WPILib packed struct serialization specifica
 WPILib Developers. (2026a). *DriverStation.java* (Version 2026.2.2) [Source code]. GitHub. https://github.com/wpilibsuite/allwpilib/blob/v2026.2.2/wpilibj/src/main/java/edu/wpi/first/wpilibj/DriverStation.java — **P**
 
 WPILib Developers. (2026b). *DataLogManager.java* (Version 2026.2.2) [Source code]. GitHub. https://github.com/wpilibsuite/allwpilib/blob/v2026.2.2/wpilibj/src/main/java/edu/wpi/first/wpilibj/DataLogManager.java — **P**
+
+Zensical. (2026a). *zensical* (Version 0.1.3) [Computer software]. PyPI. Retrieved November 20, 2026, from https://pypi.org/project/zensical/ — **P**
+
+Zensical. (2026b). *mike* (Zensical fork, commit 2d4ad79) [Source code]. GitHub. Retrieved November 20, 2026, from https://github.com/squidfunk/mike — **P**
 
 Zhao, Y., Nasrullah, Z., & Li, Z. (n.d.). *PyOD documentation* (Version 3.6.6). Retrieved October 4, 2026, from https://pyod.readthedocs.io/en/latest/ — **P**
 

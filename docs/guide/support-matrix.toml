@@ -1,0 +1,240 @@
+# The support matrix (mvp-documentation design D-e). `python tools/gen-support-matrix.py` renders
+# it into support-matrix.md; tests/test_docs_support_matrix.py checks the rules and that the
+# page is current.
+#
+# A cell is one of: "supported", "supported (needs Phoenix Pro)", "rough", "not tested on real
+# logs", "not tested", "not supported".
+# - supported: `evidence` names a corpus group (tests/corpus/manifest.toml), a path under tests/,
+#   or "outside:<yyyy-mm>" with an `issue`. Outside teams are never named.
+# - rough: give `workaround` and `issue`.
+# - not supported: give an `issue`, on the cell or the row.
+# - not tested on real logs: only synthetic fixtures cover it.
+# Optional `note` is shown under the value.
+
+# --- devices ------------------------------------------------------------------------------
+
+[[table]]
+id = "devices"
+title = "Device families"
+row_title = "Device"
+columns = [
+  { id = "replay", title = "Replay tracks" },
+  { id = "history", title = "History and motor health" },
+  { id = "temperature", title = "Temperature" },
+  { id = "can_health", title = "CAN health" },
+  { id = "draft", title = "Draft robot" },
+  { id = "live", title = "Live CAN" },
+]
+
+[[table.row]]
+name = "Talon FX (Falcon 500, Kraken)"
+cells.replay = { value = "supported", evidence = ["2026-gacmp-q7", "2026-gacmp-e10"] }
+cells.history = { value = "supported", evidence = ["2026-gacmp-q7", "2026-gacmp-e10"] }
+cells.temperature = { value = "supported (needs Phoenix Pro)", evidence = "2026-gacmp-q7" }
+cells.can_health = { value = "supported", evidence = "2026-gacmp-q7" }
+cells.draft = { value = "supported", evidence = "2026-gacmp-q7" }
+cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
+
+[[table.row]]
+name = "Talon FXS"
+cells.replay = { value = "not tested" }
+cells.history = { value = "not tested" }
+cells.temperature = { value = "not tested" }
+cells.can_health = { value = "not tested" }
+cells.draft = { value = "not tested" }
+cells.live = { value = "not tested", note = "the sample publisher has no Talon FXS overload" }
+
+[[table.row]]
+name = "Pigeon 2"
+cells.replay = { value = "supported", evidence = "2026-gacmp-q7", note = "voltage and CAN timing; it's Ignite's battery proxy" }
+cells.history = { value = "supported", evidence = "2026-gacmp-q7", note = "CAN gaps and voltage" }
+cells.temperature = { value = "not supported", issue = 75, note = "no temperature signal" }
+cells.can_health = { value = "supported", evidence = "2026-gacmp-q7" }
+cells.draft = { value = "supported", evidence = "2026-gacmp-q7" }
+cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
+
+[[table.row]]
+name = "CANcoder"
+cells.replay = { value = "supported", evidence = "2026-gacmp-q7", note = "CAN timing" }
+cells.history = { value = "supported", evidence = "2026-gacmp-q7", note = "CAN gaps" }
+cells.temperature = { value = "not supported", issue = 75, note = "no temperature signal" }
+cells.can_health = { value = "supported", evidence = "2026-gacmp-q7" }
+cells.draft = { value = "supported", evidence = "2026-gacmp-q7" }
+cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
+
+[[table.row]]
+name = "CANrange"
+cells.replay = { value = "not tested" }
+cells.history = { value = "not tested" }
+cells.temperature = { value = "not tested" }
+cells.can_health = { value = "not tested" }
+cells.draft = { value = "not tested" }
+cells.live = { value = "not tested", note = "the sample publisher has no CANrange overload" }
+
+[[table.row]]
+name = "CANdi"
+cells.replay = { value = "not tested" }
+cells.history = { value = "not tested" }
+cells.temperature = { value = "not tested" }
+cells.can_health = { value = "not tested" }
+cells.draft = { value = "not tested" }
+cells.live = { value = "not tested", note = "the sample publisher has no CANdi overload" }
+
+[[table.row]]
+name = "CANivore"
+cells.replay = { value = "supported", evidence = "2026-gacmp-q7", note = "the devices on it" }
+cells.history = { value = "supported", evidence = "2026-gacmp-q7", note = "the devices on it" }
+cells.temperature = { value = "supported (needs Phoenix Pro)", evidence = "2026-gacmp-q7", note = "the devices on it" }
+cells.can_health = { value = "supported", evidence = "2026-gacmp-q7", note = "bus status needs the robot-side logger" }
+cells.draft = { value = "supported", evidence = "2026-gacmp-q7", note = "bus names come from bus status, when logged" }
+cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
+
+[[table.row]]
+name = "Phoenix 5 devices"
+issue = 109
+cells.replay = { value = "not supported", note = "they don't write hoots" }
+cells.history = { value = "not supported" }
+cells.temperature = { value = "not supported" }
+cells.can_health = { value = "not supported" }
+cells.draft = { value = "not supported" }
+cells.live = { value = "not supported" }
+
+[[table.row]]
+name = "REV Spark MAX and Spark Flex"
+issue = 108
+cells.replay = { value = "not supported" }
+cells.history = { value = "not supported" }
+cells.temperature = { value = "not supported" }
+cells.can_health = { value = "not supported" }
+cells.draft = { value = "not supported" }
+cells.live = { value = "not supported" }
+
+[[table.row]]
+name = "REV PDH"
+issue = 6
+cells.replay = { value = "not supported", note = "Replay uses a battery proxy" }
+cells.history = { value = "not supported" }
+cells.temperature = { value = "not supported" }
+cells.can_health = { value = "not supported" }
+cells.draft = { value = "not supported" }
+cells.live = { value = "not supported" }
+
+[[table.row]]
+name = "CTRE PDP"
+issue = 6
+cells.replay = { value = "not supported", note = "Replay uses a battery proxy" }
+cells.history = { value = "not supported" }
+cells.temperature = { value = "not supported" }
+cells.can_health = { value = "not supported" }
+cells.draft = { value = "not supported" }
+cells.live = { value = "not supported" }
+
+# --- log setups ---------------------------------------------------------------------------
+
+[[table]]
+id = "log-setups"
+title = "Log setups"
+row_title = "Logs"
+columns = [
+  { id = "identity", title = "Match identity" },
+  { id = "alignment", title = "Clock alignment" },
+  { id = "tracks", title = "Motor tracks" },
+  { id = "temperature", title = "Temperature" },
+  { id = "anomalies", title = "Anomalies" },
+  { id = "draft", title = "Draft robot" },
+]
+
+[[table.row]]
+name = "Pro hoots with wpilog"
+cells.identity = { value = "supported", evidence = "2026-gacmp-q7", note = "FMS info in the log" }
+cells.alignment = { value = "supported", evidence = "2026-gacmp-q7", note = "payload match; enable edges as the fallback" }
+cells.tracks = { value = "supported", evidence = ["2026-gacmp-q7", "2026-gacmp-e10"] }
+cells.temperature = { value = "supported (needs Phoenix Pro)", evidence = "2026-gacmp-q7" }
+cells.anomalies = { value = "supported", evidence = ["2026-gacmp-q7", "tests/anomaly/test_detect_corpus.py"], note = "beta" }
+cells.draft = { value = "supported", evidence = "2026-gacmp-q7" }
+
+[[table.row]]
+name = "non-Pro hoots with wpilog"
+cells.identity = { value = "not tested" }
+cells.alignment = { value = "not tested" }
+cells.tracks = { value = "not tested" }
+cells.temperature = { value = "not supported", issue = 75, note = "free hoots carry no temperature" }
+cells.anomalies = { value = "not tested" }
+cells.draft = { value = "not tested" }
+
+[[table.row]]
+name = "wpilog only"
+cells.identity = { value = "supported", evidence = ["2026-gacmp-p2", "2025-gadal-q30", "2025-nofms"], note = "a log with no FMS info or match in its name is a non-match session" }
+cells.alignment = { value = "supported", evidence = "2026-gacmp-p2", note = "the wpilog's own clock; no hoots to align" }
+cells.tracks = { value = "not supported", issue = 109, note = "motor data comes from hoots" }
+cells.temperature = { value = "not supported", issue = 109 }
+cells.anomalies = { value = "not supported", issue = 109 }
+cells.draft = { value = "not supported", issue = 109, note = "drafts read the hoots' devices" }
+
+[[table.row]]
+name = "hoots only"
+issue = 8
+cells.identity = { value = "supported", evidence = "2025-gacmp-q19", note = "from the hoot file names" }
+cells.alignment = { value = "not supported", note = "no wpilog clock" }
+cells.tracks = { value = "not supported", note = "ingest warns: no aligned samples" }
+cells.temperature = { value = "not supported" }
+cells.anomalies = { value = "not supported" }
+cells.draft = { value = "not tested on real logs" }
+
+[[table.row]]
+name = "AdvantageKit wpilog with hoots"
+cells.identity = { value = "not tested", note = "#76 adds AdvantageKit's FMS fields" }
+cells.alignment = { value = "not tested" }
+cells.tracks = { value = "not tested" }
+cells.temperature = { value = "not tested" }
+cells.anomalies = { value = "not tested" }
+cells.draft = { value = "not tested" }
+
+[[table.row]]
+name = "rio bus only"
+cells.identity = { value = "not tested" }
+cells.alignment = { value = "not tested" }
+cells.tracks = { value = "not tested" }
+cells.temperature = { value = "not tested" }
+cells.anomalies = { value = "not tested" }
+cells.draft = { value = "not tested" }
+
+# --- platforms ----------------------------------------------------------------------------
+# Install, ingest and serve run in CI's first-run smoke (tools/first-run-smoke.py) on each OS:
+# the documented uv install, a real owlet download, and corpus E10.
+
+[[table]]
+id = "platforms"
+title = "Platforms"
+row_title = "Computer"
+columns = [
+  { id = "install", title = "Install" },
+  { id = "ingest", title = "Ingest" },
+  { id = "serve", title = "Serve" },
+  { id = "service", title = "Automatic import service" },
+  { id = "live", title = "Live CAN" },
+]
+
+[[table.row]]
+name = "macOS"
+cells.install = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.ingest = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.serve = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.service = { value = "not supported", issue = 111, note = "run the watch in a terminal" }
+cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
+
+[[table.row]]
+name = "Linux"
+cells.install = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.ingest = { value = "supported", evidence = ["2026-gacmp-e10", "2026-gacmp-q7"], note = "first-run smoke and corpus tests in CI" }
+cells.serve = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.service = { value = "not tested on real logs", note = "systemd user service; robot pull is beta" }
+cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
+
+[[table.row]]
+name = "Windows"
+cells.install = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.ingest = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.serve = { value = "supported", evidence = "2026-gacmp-e10", note = "first-run smoke in CI" }
+cells.service = { value = "not tested on real logs", note = "scheduled task; robot pull is beta" }
+cells.live = { value = "not tested" }

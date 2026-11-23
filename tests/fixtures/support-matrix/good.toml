@@ -1,0 +1,21 @@
+[[table]]
+id = "devices"
+title = "Device families"
+row_title = "Device"
+columns = [{ id = "replay", title = "Replay tracks" }, { id = "temp", title = "Temperature" }]
+
+[[table.row]]
+name = "Talon FX"
+cells.replay = { value = "supported", evidence = ["q7", "tests/test_widget.py"] }
+cells.temp = { value = "supported (needs Phoenix Pro)", evidence = "outside:2026-11", issue = 78 }
+
+[[table.row]]
+name = "Spark MAX"
+issue = 12
+cells.replay = { value = "not supported" }
+cells.temp = { value = "rough", workaround = "convert by hand", issue = 13 }
+
+[[table.row]]
+name = "CANrange"
+cells.replay = { value = "not tested on real logs" }
+cells.temp = { value = "not tested", note = "no temperature signal" }

@@ -1,0 +1,155 @@
+# Docs screenshots and animations (mvp-documentation design D-f). `tools/docs-media.py capture`
+# makes them from the corpus; `placeholders` writes tiny stand-ins so the site builds without it.
+# A screenshot is <id>.png; an animation is <id>.webm (site) and <id>.gif (README).
+# Output goes to docs/guide/assets/media/ (gitignored); pages link assets/media/<file>.
+
+[[shot]]
+id = "replay"
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "none"
+expect = "nav.tabs a[data-view='replay'][aria-current='page']"
+alt = "Replay view: one match's motor currents, temperatures and battery voltage on a shared timeline"
+
+[[shot]]
+id = "history"
+kind = "screenshot"
+view = "history"
+route = "#view=history"
+steps = "none"
+expect = "nav.tabs a[data-view='history'][aria-current='page']"
+alt = "History view: one motor's temperature and current across every match of the season"
+
+[[shot]]
+id = "anomalies"
+kind = "screenshot"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "none"
+expect = "nav.tabs a[data-view='anomalies'][aria-current='page']"
+alt = "Anomalies view: flagged motors with their evidence and triage state"
+
+[[shot]]
+id = "setup"
+kind = "screenshot"
+view = "setup"
+route = "#view=setup"
+steps = "none"
+expect = "nav.tabs a[data-view='setup'][aria-current='page']"
+alt = "Setup view: install checks and the robot drafted from a log"
+
+[[shot]]
+id = "live-can"
+kind = "screenshot"
+view = "live"
+route = "#view=live"
+steps = "live-can-shake"
+expect = ".live-event[data-event='dropout']"
+alt = "Live CAN view: CAN devices with dropouts, reboots and faults during a shake test"
+
+# --- the first-event tutorial (task 8.2). Selectors are proven by `capture` (task 8.4). -------
+
+[[shot]]
+id = "tutorial-replay-match"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "replay-first-match"
+expect = ".match-btn[aria-current='page']"
+alt = "Replay with a match open: its tracks, markers and the match list on the left"
+
+[[shot]]
+id = "tutorial-replay-hottest"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "replay-hottest-motor"
+expect = "#readout tr"
+alt = "Replay's readout listing each motor's maximum temperature for the match, hottest first"
+
+[[shot]]
+id = "tutorial-history-motor"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+target = "intake-extension"  # the hottest motor, which also has the stall finding
+kind = "screenshot"
+view = "history"
+route = "#view=history"
+steps = "history-pick-motor"
+expect = "#unit-matches"
+alt = "History with one motor selected: its line highlighted, and its matches listed"
+
+[[shot]]
+id = "tutorial-anomaly"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+target = "Stall time reached 21.5 s"  # the hottest motor\'s finding (intake-extension)
+kind = "screenshot"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "anomaly-open-first"
+expect = "#causes"
+alt = "An anomaly opened in the Anomalies view: its evidence, severity and likely causes"
+
+[[shot]]
+id = "tutorial-triage"
+lake = "tutorial"  # the sample bundle's match alone, as the tutorial reader has it
+target = "Stall time reached 21.5 s"  # the hottest motor\'s finding (intake-extension)
+kind = "screenshot"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "anomaly-triage"
+expect = "#causes"
+alt = "The same anomaly after INVESTIGATE: its triage state and the next actions"
+
+# --- troubleshooting -------------------------------------------------------------------------
+
+[[shot]]
+id = "replay-quarantined"
+kind = "screenshot"
+view = "replay"
+route = "#view=replay"
+steps = "none"
+lake = "quarantine"  # a lake holding only the corpus's empty hoot
+expect = "#replay-empty-quarantined"
+alt = "Replay's empty state on a lake whose only file was quarantined, pointing at flashpoint doctor"
+
+# --- animations (WebM for the site, GIF for the README; at most 20 s and 3 MB each) ----------
+
+[[shot]]
+id = "flow-ingest-to-replay"
+kind = "animation"
+view = "replay"
+route = "#view=replay"
+steps = "replay-first-match"
+expect = ".match-btn[aria-current='page']"
+alt = "From the match list to one match in Replay: tracks, markers and the readout"
+
+[[shot]]
+id = "flow-history-motor"
+kind = "animation"
+view = "history"
+route = "#view=history"
+steps = "history-pick-motor"
+expect = "#unit-matches"
+alt = "Picking a motor in History and following it across matches"
+
+[[shot]]
+id = "flow-anomaly-triage"
+kind = "animation"
+view = "anomalies"
+route = "#view=anomalies"
+steps = "anomaly-triage"
+lake = "triage"  # a copy of the sample lake: tutorial-triage already triaged its anomaly
+expect = "#causes"
+alt = "Opening an anomaly, reading its evidence, and marking it INVESTIGATE"
+
+[[shot]]
+id = "flow-live-can"
+kind = "animation"
+view = "live"
+route = "#view=live"
+steps = "live-can-shake"
+expect = ".live-event[data-event='dropout']"
+alt = "Live CAN during a shake test: devices dropping out as their harness is wiggled"

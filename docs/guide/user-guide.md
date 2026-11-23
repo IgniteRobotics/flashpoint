@@ -1,6 +1,6 @@
 # User guide
 
-For students and mentors who run Flashpoint: at the pit, after an event, or on the team laptop. You don't need to know Python. If you want to change the code, read the [developer guide](developer-guide.md) instead.
+For students and mentors who run Flashpoint: at the pit, after an event, or on the team laptop. You don't need to know Python. If you want to change the code, read the [developer guide](under-the-hood/developer-guide.md) instead.
 
 ## What Flashpoint is for
 
@@ -51,25 +51,19 @@ If `flashpoint` isn't found after the install, run `uv tool update-shell` and op
 - macOS and Linux: `pipx install --python python3.13 flashpoint` (any of `python3.11` to `python3.14` that you have).
 - Windows: in the python.org installer, tick "py launcher". Then `py -3.13 -m pip install --user pipx`, and `py -3.13 -m pipx install flashpoint`.
 
-`flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, your team name and colours (`theme.toml`), and copies of the default settings. Anything you leave out (`--team`, `--lake`, `--team-name`, `--palette`) it asks for in a terminal; leave the name blank for none. See [`flashpoint init`](cli-reference.md#flashpoint-init) for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
+`flashpoint init` creates your **config folder** (`~/.config/flashpoint`, or `%APPDATA%\flashpoint` on Windows) with your team number, your lake folder, your team name and colours (`theme.toml`), and copies of the default settings. Anything you leave out (`--team`, `--lake`, `--team-name`, `--palette`) it asks for in a terminal; leave the name blank for none. See [`flashpoint init`](reference/cli.md#flashpoint-init) for the options. It never overwrites a file, so running it again is safe. The robot addresses Flashpoint tries come from the team number.
 
-**Your first import drafts your robot.** When the lake has logs from a season that has no robot file yet, `ingest` drafts one from them (`robots/2026-comp.toml`, from the match with the most CAN devices) and says so. Replay shows that match's data right away. Open **Setup > Robots** and fill in each slot's subsystem and role; keep the drafted slot ids, which already name each device's model and CAN id. Logs with hoots but no wpilog, or an import with `--no-robot-draft`, draft nothing: use **Setup > Draft robot** for those ([Setup](#setup-checks-and-configuration)).
+**Your first import drafts your robot.** When the lake has logs from a season that has no robot file yet, `ingest` drafts one from them (`robots/2026-comp.toml`, from the match with the most CAN devices) and says so. Replay shows that match's data right away. Open **Setup > Robots** and fill in each slot's subsystem and role; keep the drafted slot ids, which already name each device's model and CAN id. Logs with hoots but no wpilog, or an import with `--no-robot-draft`, draft nothing: use **Setup > Draft robot** for those ([Setup](reference/views/setup.md)).
 
 `flashpoint doctor` lists the setup checks. Right after `init`, the robot check is a warning: the lake has no logs from this season yet. Once you import this season's logs it is a problem only while no robot is configured. A drafted robot whose slots have no subsystem yet is a warning, not a problem.
 
 ### Updating
 
-```sh
-uv tool upgrade flashpoint
-```
-
-If you installed with pipx, run `pipx upgrade flashpoint` instead. Your config folder and lake are kept either way.
-
-**Switching from pipx to uv** is optional. Run `pipx uninstall flashpoint`, then `uv tool install --python 3.13 flashpoint`. Your config folder and lake aren't touched.
+See [Update Flashpoint](how-to/update-flashpoint.md).
 
 ### Installing without internet
 
-On a computer with internet, download the package: `python3 -m pip download --no-deps flashpoint -d flashpoint-wheel`. Copy the `.whl` file to a USB stick, then on the pit laptop run `uv tool install --python 3.13 /Volumes/USB/flashpoint-<version>-py3-none-any.whl` (use the file name you downloaded, or `E:\...` on Windows). The install still needs Flashpoint's dependencies and a Python, so do this on a laptop that has installed it once before, or bring their wheels too.
+See [Install without internet](how-to/install-offline.md).
 
 ### Installing from a checkout
 
@@ -111,7 +105,7 @@ Flashpoint keeps everything in one folder, the **lake**, at `~/flashpoint-lake` 
 
 A leftover `FLASHPOINT_LAKE` hides what `acquire.toml` says. `flashpoint doctor` shows the lake in use.
 
-The lake keeps an untouched copy of every log, so you can delete the copies you imported from. Don't edit files inside the lake by hand. [How it works](how-it-works.md#the-lake) explains what each folder holds.
+The lake keeps an untouched copy of every log, so you can delete the copies you imported from. Don't edit files inside the lake by hand. [How it works](under-the-hood/how-it-works.md#the-lake) explains what each folder holds.
 
 ## Import logs by hand
 
@@ -150,7 +144,7 @@ Replay lists competition matches only. Flashpoint knows a log is from a match wh
 
 Logs from the shop, the practice field or the pit have neither, so they get no Replay entry. They still count in History: every motor's usage, temperatures and anomalies include them. When Replay is empty but the lake has logs, it says how many sessions it found that aren't matches.
 
-To have logs pulled from the robot and USB sticks without doing this by hand, set up [automatic import](auto-import.md).
+To have logs pulled from the robot and USB sticks without doing this by hand, set up [automatic import](how-to/auto-import.md).
 
 ## Look at the data: `flashpoint serve`
 
@@ -160,217 +154,37 @@ flashpoint serve
 
 Open <http://127.0.0.1:8000/> in a browser. Stop the server with Ctrl-C. The app has these views.
 
-### Replay: one match
+Each view has its own reference page, with every control, marker and badge:
 
-Pick a match from the list on the left; matches are grouped by event. You'll see:
-- **Tracks** over the match: battery voltage, total current, the hottest motor's temperature, and the highest-current motor. Auto and teleop are shaded. You can swap any track for any motor and metric.
-- **Markers** on the timeline. A WARN or FAULT marker is a fact, such as "temperature reached 65 °C", "battery dropped below 6.75 V", "stall", "device rebooted", or "CAN frames stopped". Markers don't guess at a cause. Click one to jump to it.
-- A **readout** of every motor at the cursor. With no cursor placed, it lists each motor's maximum for the match, hottest first.
-- **Open in AdvantageScope** opens the match's logs in AdvantageScope, on the machine running `serve` only. There's also a link to download the raw logs. Flashpoint uses the newest WPILib install of AdvantageScope unless `report.toml` in your config folder names another (`path` under `[advantagescope]`). The Setup view's **Set AdvantageScope path** button sets it for you.
-
-"Not logged" means the data isn't there, which is not the same as zero. A match whose hoots didn't record temperature says so in its header.
-
-### History: every motor over time
-
-Pick a metric (maximum temperature, lowest voltage under load, energy, stall time, current, reboots, CAN gaps) to see one point per match:
-- By default there is one line per **unit**, the physical motor, followed by serial number across slots and robots. You can switch to one line per **slot**, the position on the robot.
-- Point at a line to see which motor it is.
-- Dashed lines mark where each competition starts, labelled with the event (for example GACMP); the line above the chart lists the competitions and their match counts.
-- Select a motor to highlight it, see its totals, and jump to its matches in Replay.
-
-### Anomalies: what Flashpoint flagged
-
-A queue of everything detection found. Each anomaly comes with its evidence (the matches and values), a severity (HIGH, MED, or LOW), and likely causes to check.
-
-| Kind | Meaning |
+| View | For |
 |---|---|
-| SPEC | Broke a fixed limit |
-| DRIFT | Slowly moving away from this motor's own normal |
-| STEP | Jumped and stayed there |
-| SIBLING | Different from the motors doing the same job |
-
-The count badge in the navigation always counts the whole lake, whatever the filters. A new motor needs about 5 matches of history before DRIFT and STEP can fire; until then it shows as "building baseline". GROUP DEVICE groups the queue by motor, with a robot's brownouts under its battery.
-
-**Triage** records what the team did about an anomaly:
-- **INVESTIGATE**: someone is looking into it.
-- **MARK RESOLVED**: fixed. Write what you did.
-- **DISMISS AS EXPECTED**: not a problem, for example after a gearbox change. Write why. You can also restart the motor's baseline from that match.
-- **REOPEN**: undo either of the last two.
-
-Triage is saved in the lake and kept in the backup. It only works in a browser on the laptop running `serve`. Anyone viewing over the network can look but can't change anything.
-
-### Filters
-
-The bar under the header filters by season, robot, event, and unit. A filter set in one view stays set in the others, and it's in the address, so a copied link keeps it. CLEAR FILTERS clears them everywhere. History's own filters (metric type, phase, subsystem, slot) come after the divider and affect History only. Replay ignores the unit filter, because its match list doesn't record which units played each match.
-
-On a wide screen each column scrolls on its own, and the ◂ / ▸ control on a side rail shrinks it to a strip. This laptop remembers that per view.
-
-### Setup: checks and configuration
-
-The **Setup** tab shows what `flashpoint doctor` checks, and your whole configuration, and lets you change it without editing files.
-
-- **Checks:** one line per check, marked ✓, `!` (warning) or ✕ (problem). Known problems have a button: **Create configuration** (as `flashpoint init`), **Download owlet**, **Set AdvantageScope path**, **Install** or **Start the acquire service** (Linux and Windows). The checks run again after each fix. Anything else shows the command to run.
-- **Configuration:** your team number and robot addresses, each robot's slots, buses and signals, the report and anomaly thresholds, the units list, and **Appearance** (team name and colours, with a live preview; see [Team name and colours](#team-name-and-colours)), each with the file it comes from. `DEFAULT` marks a file that ships with Flashpoint; saving it writes your own copy. Each section has its own **SAVE**:
-  - a save is checked with the same rules as loading the file, and refused with the same message if something is wrong (two slots with the same CAN id, a signal under a root the season doesn't have);
-  - a save is refused if someone changed the file by hand since you opened it: reload and redo the edit;
-  - comments and the order of everything you didn't change are kept, and the previous version goes to `.backups/` in the config folder (the last 20 of each file);
-  - after a save, the view says what to run: `flashpoint derive` after a robot change, `flashpoint detect` after an anomaly threshold, `flashpoint report` after a report threshold, and a page reload after a team name or colour change. Saving never changes the lake.
-- **Draft robot:** your first import usually drafts the robot for you (see [Install](#install)); use this tab for another robot, for hoot-only logs, or after `--no-robot-draft`. Pick an imported log and press **DRAFT FROM THIS LOG**. Every CAN device on its hoots becomes a slot, with its serial number if the log has a CAN inventory, and bus names if the robot code logs bus status ([robot-side logging](robot-side.md)). Fill in each slot's subsystem and role now or later (slots without a subsystem are marked UNNAMED), then **SAVE ROBOT**. Saving rebuilds the lake in the background; reload Replay when it finishes. A log with no hoots can't be drafted from. On an empty lake the tab shows the import command for this lake.
-
-Fixes and saves only run on the computer running `flashpoint serve`. Opened from another computer, or with `--host 0.0.0.0`, Setup is read-only and shows commands instead of buttons.
-
-### Live CAN: dropouts while you test
-
-The **Live CAN** tab reads the robot while you shake-test it (disabled, wiggling each harness) or drive-test it (enabled): which device dropped out, rebooted or faulted, and whether it was one device or the whole bus, with marks ("now wiggling: FL module") on the events that follow. It needs a small addition to robot code and records nothing. See [Live CAN health](live-can-health.md).
+| [Replay](reference/views/replay.md) | One match: tracks, markers, a readout of every motor, and the raw logs |
+| [History](reference/views/history.md) | Every motor over time, one point per match |
+| [Anomalies](reference/views/anomalies.md) (beta) | What detection flagged, with evidence, likely causes and triage |
+| [Setup](reference/views/setup.md) | The `doctor` checks, your whole configuration, and Draft robot |
+| [Live CAN](reference/views/live-can.md) (experimental) | CAN dropouts while you shake-test or drive-test |
 
 ### Showing other people on the pit network
 
-```sh
-flashpoint serve --host 0.0.0.0
-```
-
-Other devices on the same network can then open `http://<this laptop's IP>:8000/`. There's no password, so only do this on a network you trust. Over the network, the app is read-only.
+See [Show the app on the pit network](how-to/share-on-the-pit-network.md). There's no password, and the app is read-only over the network.
 
 ## Take Replay on a USB stick
 
-```sh
-flashpoint report --static /Volumes/USB/flashpoint
-```
-
-This writes a folder that opens by double-clicking `index.html`, on any computer with no install and no network. Only Replay is included; History and Anomalies need `serve`. Add `--no-raw` to leave the raw logs out if the stick is small. It uses your team name and colours as they are when you write it. After changing them, run the command again to update the stick.
+See [Take Replay on a USB stick](how-to/replay-on-a-usb-stick.md).
 
 ## Team name and colours
 
-The app header shows your team name and number, such as "Robo Rams · 1234", and the app uses your team's colours. Both live in `theme.toml` in your config folder ([default](../../src/flashpoint/defaults/theme.toml)). With no name, the header reads "telemetry".
-
-```toml
-team_name = "Robo Rams"    # optional, at most 40 characters
-# team_number = 1234       # optional, display only; defaults to `team` in acquire.toml
-palette = "custom"         # amber, green, blue, red, white, or "custom"
-
-[custom]                   # only with palette = "custom"
-primary = "#00A3E0"        # #RRGGBB
-# background = "#0A0806"   # optional
-# warning = "#FF5A1F"      # optional; picked for you when left out
-```
-
-- The **palette** is a preset (`amber`, the default, `green`, `blue`, `red` or `white`, all on a dark background) or `custom`. With `custom` you give a primary colour, and optionally a background and a warning colour. Flashpoint works out every other shade from them.
-- `flashpoint init --team-name "Robo Rams" --palette blue` sets the name and a preset when you first set up. For custom colours, use the Setup view or edit the file.
-
-**In the Setup view:** open **Setup**, then **Appearance** under the configuration. Type the name, pick a preset under **COLOURS**, or **custom colours** to enter your own. The preview shows a header, a small chart and a warning in the new colours; the rest of the app keeps the saved colours until you save. Press **SAVE**, then reload the page.
-
-**Readable by rule.** Flashpoint refuses a palette that's hard to read:
-- every text shade needs at least 4.5:1 contrast on every background shade;
-- boundary lines need at least 3:1 on the background;
-- the warning colour needs 4.5:1 too, and must stand apart from the primary: at least 35° apart in hue, or 25% apart in lightness.
-
-When a palette fails, the preview lists each failing colour and its contrast, and suggests the nearest primary (or warning) that passes. With custom colours, a **USE** button puts the suggestion in for you. A refused palette can't be saved, and `theme.toml` stays as it was.
-
-If you edit `theme.toml` by hand and it has a mistake, the app still starts, with the default amber and no name, and `flashpoint doctor` shows a `PROBLEM` on `theme.toml` with the reason. [Setting up Flashpoint for your team](team-setup.md#8-team-name-and-colours) walks through this for a new team.
+The app header shows your team name and number, and the app uses your team's colours. Both live in `theme.toml`: see [Set the team name and colours](how-to/team-name-and-colours.md) and the [`theme.toml` reference](reference/config/theme.md).
 
 ## Describe a robot
 
-Flashpoint needs to know which motor is which. Each robot has a file in the `robots/` folder of your config folder, such as Ignite's [`2026-comp.toml`](../../config/robots/2026-comp.toml). The quickest start is **Draft robot** in the [Setup view](#setup-checks-and-configuration); you can also edit the file by hand. Each motor is a slot:
+Flashpoint needs to know which motor is which. Each robot has a file in the `robots/` folder of your config folder. The quickest start is **Draft robot** in the [Setup view](reference/views/setup.md). Every key, NetworkTables signals, sibling groups, the battery proxy, swap dates and which robot file a log uses are in the [robot file reference](reference/config/robots.md).
 
-```toml
-[[slot]]
-id = "drive-fl"
-bus = "canivore"          # "rio" or "canivore"
-model = "TalonFX"
-can_id = 11
-subsystem = "drivetrain"
-role = "front-left drive"
-gear_ratio = 6.746031746031747
-```
-
-A whole robot file, with most slots left out (the sibling group names three drive slots that aren't shown):
-
-```toml
-robot = "2026-comp"        # keep it the same as the file name: robots/2026-comp.toml
-season = 2026
-project = "Robot-2026"     # the robot code's project name (see below)
-battery_proxy = "gyro"     # optional: a slot id
-
-[[slot]]
-id = "drive-fl"
-bus = "canivore"
-model = "TalonFX"
-can_id = 11
-subsystem = "drivetrain"
-role = "front-left drive"
-swaps = [2026-03-02]       # optional: dates this motor was replaced, for logs with no CAN inventory
-
-[[slot]]
-id = "gyro"
-bus = "canivore"
-model = "Pigeon2"
-can_id = 1
-subsystem = "drivetrain"
-role = "gyro"
-
-[[bus]]                    # optional: the robot code's name for a bus, tied to its hoot bus
-name = "DriveTrain"
-hoot = "canivore"
-
-[[siblings]]               # optional: slots that do the same job, compared with each other
-name = "drive"
-slots = ["drive-fl", "drive-fr", "drive-bl", "drive-br"]
-```
-
-- `bus` is `rio`, `canivore` (any CANivore), or a CANivore's 32-character hex id when the robot has more than one.
-- The **battery proxy** is a low-current device on the main power bus, like the gyro, whose voltage stands in for the battery. A motor is a bad choice: its own wiring drop under load reads as a brownout.
-- A **sibling group** needs at least two slots, and a slot can be in only one group.
-- **Swap dates** split a slot's history for logs that have no [CAN inventory](robot-side.md#can-inventory). With an inventory, Flashpoint follows serial numbers and doesn't need them.
-
-**Which robot file a log uses.** A log's season is the calendar year it was recorded in. Flashpoint takes the robot files for that season. If there's only one, that's the one. If there are several (a practice bot and a comp bot), it picks the one whose `project` matches the project name the robot code wrote into the log ([build info](robot-side.md#build-info)). With no match, the log's matches show robot "unknown" and their motors stay unmapped. Logs from December testing of next season's robot count as this season, so give that robot a file for this season too, or wait until January.
-
-### NetworkTables signals
-
-To bring a NetworkTables value (subsystem state, PhotonVision) into Flashpoint, add a `[[signal]]` table to the robot file. `root` names an entry in the season file, `seasons/2026.toml` in your config folder, and `entry` is the rest of the name. The season file that ships with Flashpoint has the roots every WPILib robot shares; add your robot code's own root as `robot` (Ignite's is in [`config/seasons/2026.toml`](../../config/seasons/2026.toml)):
-
-```toml
-[[signal]]
-id = "intake-at-extension-setpoint"
-root = "robot"                      # NT:Robot/m_robotContainer/
-entry = "Intake/At Extension Setpoint"
-subsystem = "intake"
-metric = "at_setpoint"
-```
-
-Numbers are stored as numbers, and true/false as 1/0. A declared entry that a log doesn't have, or that isn't a number, is listed as a warning when `derive` runs; `flashpoint doctor` shows how many signals each robot declares.
-
-After editing a robot file, run:
-
-```sh
-flashpoint derive --all
-```
-
-You don't need to re-ingest.
-
-### Thresholds and the motor list
-
-You probably won't need to change these, but they're all team-editable (in the Setup view or by hand, in your config folder) and checked when Flashpoint loads them. A file missing from your config folder uses the default that ships with Flashpoint:
-
-| File | Controls |
-|---|---|
-| `report.toml` ([default](../../src/flashpoint/defaults/report.toml)) | Replay marker and History limits: temperatures, brownout and sag voltages, CAN gap lengths. Also an optional AdvantageScope path |
-| `anomaly.toml` ([default](../../src/flashpoint/defaults/anomaly.toml)) | Anomaly thresholds. After editing, run `flashpoint detect` |
-| `anomaly-causes.toml` ([default](../../src/flashpoint/defaults/anomaly-causes.toml)) | The "likely causes" text on each anomaly |
-| `theme.toml` ([default](../../src/flashpoint/defaults/theme.toml)) | Team name and colours in the app header and charts. See [Team name and colours](#team-name-and-colours) |
-| `failure-labels.toml` (Ignite's: [config/](../../config/failure-labels.toml)) | Real failures, used by `flashpoint backtest` to check detection. No default |
-| `units/units-seed.csv` ([how to fill it in](../../config/units/README.md)) | The list of every physical motor the team owns, by serial number, with its label |
+The other settings files (`report.toml`, `anomaly.toml`, `anomaly-causes.toml`, `failure-labels.toml`, `seasons/`, `units/units-seed.csv`) each have a page under [Reference: config files](reference/config/robots.md). A file missing from your config folder uses the default that ships with Flashpoint.
 
 ## Starting a new season
 
-Flashpoint doesn't need to be reinstalled each year, but a new season needs a few things before its first event. Do them after kickoff, when the new robot code first runs:
-
-1. **Update Flashpoint** (`uv tool upgrade flashpoint`, or `pipx upgrade flashpoint` if you installed with pipx). A new season's CTRE hoot format needs a Flashpoint that knows its owlet; an older one says the lake "has C*N* hoots, which this Flashpoint can't read".
-2. **Check the season file.** Flashpoint ships a season file for each year it knows: this version ships 2025, 2026 and 2027. `flashpoint init` copies only the current season and earlier ones into your config folder, so a later year (2027, for a configuration made in 2026) is read from Flashpoint itself, and a fix to it in a Flashpoint update reaches you. To change a root (for example to add your robot code's `robot` root), copy that year's file into `seasons/` in your config folder; your copy then wins, and later fixes to the bundled file no longer reach it. For a year Flashpoint doesn't ship yet, copy `seasons/<last year>.toml` to `seasons/<this year>.toml` and change `season =`. Without a season file, a robot file that declares signals doesn't load; `doctor` names the file to create.
-3. **Add the robot file.** Ingest a log from the new robot (with internet, so owlet downloads). Since the new season has no robot file yet, the import drafts one, `robots/<year>-comp.toml` (then `<year>-practice` for a second robot-code project), with this season's year and project name. Name its slots in **Setup > Robots**, or use **Draft robot** in the Setup view for hoot-only logs. Last season's robot file stays, so its logs keep their mapping.
-4. **Check the robot code still writes** the [CAN inventory, bus status and build info](robot-side.md) entries. A new robot project is easy to start without them.
-5. **Run `flashpoint doctor`.** From January 1 it checks for a robot for the new year. Until the lake has logs from the new year, "Robot for *year*" is a warning that says so, not a problem; once it has, it's a problem until a robot is configured. After your first import it should say ok, or warn about unnamed slots, and the owlet check should name the format your new hoots use.
-
-The motor list (`units/units-seed.csv`) carries over. Add the new season's motors, and don't remove or relabel old ones: a motor reused on the new robot keeps its history by serial number.
+See [Start a new season](how-to/start-a-new-season.md).
 
 ## Check the setup: `flashpoint doctor`
 
@@ -382,9 +196,9 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 | `config` | The config folder in use. "missing" means run `flashpoint init` (or set `FLASHPOINT_CONFIG` for a checkout's `config/`) |
 | `defaults` | Settings files that come from the defaults shipped with Flashpoint, because your config folder has no copy |
 | `seasons`, `robots` | Each season's roots and each robot. An empty robot list means no robot file was added yet |
-| `checks` | One line per setup check. `PROBLEM` lines say what's wrong and the fix under them; `doctor` then exits `1`. See the [CLI reference](cli-reference.md#flashpoint-doctor) |
+| `checks` | One line per setup check. `PROBLEM` lines say what's wrong and the fix under them; `doctor` then exits `1`. See the [CLI reference](reference/cli.md#flashpoint-doctor) |
 | `owlet cache` | Where owlet is kept. The owlet check says whether each version your logs need is downloaded; if not, you can't convert hoots offline |
-| `acquire` | The last automatic import and backup ([automatic import](auto-import.md#check-the-status)) |
+| `acquire` | The last automatic import and backup ([automatic import](how-to/auto-import.md#check-the-status)) |
 | `AdvantageScope` | Which install "Open in AdvantageScope" uses |
 
 ## Event-day checklist
@@ -394,7 +208,7 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 - [ ] Update Flashpoint ([Updating](#updating)) while you have internet, and run `flashpoint doctor`.
 - [ ] Make sure this season's owlet is downloaded: **Download owlet** in Setup, or ingest a recent hoot.
 - [ ] Confirm the robot in Setup matches the robot: CAN IDs, swaps since last event.
-- [ ] If you use [automatic import](auto-import.md), run `flashpoint acquire --dry-run` with the robot on.
+- [ ] If you use [automatic import](how-to/auto-import.md), run `flashpoint acquire --dry-run` with the robot on.
 
 **At the event:**
 - [ ] After each match, pull logs: automatic import, or copy them and run `flashpoint ingest`.
@@ -402,5 +216,5 @@ Run `flashpoint doctor` whenever something looks wrong. It changes nothing.
 - [ ] Triage what you looked at, so the queue stays meaningful.
 
 **After the event:**
-- [ ] Back up the lake ([backup](auto-import.md#backup-and-restore)).
+- [ ] Back up the lake ([backup](how-to/back-up-the-lake.md)).
 - [ ] Add any real failures to `failure-labels.toml` in your config folder.

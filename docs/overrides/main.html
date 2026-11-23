@@ -1,0 +1,9 @@
+{#- Theme override (ADR-0019 allows template overrides, not plugins): the version banner. The
+    mkdocs.dev.yml and mkdocs.pre.yml overlays set extra.banner; a final release sets none. -#}
+{% extends "base.html" %}
+{% block announce %}
+  {%- if config.extra.banner %}
+    <strong>{{ config.extra.banner.label }}:</strong> {{ config.extra.banner.text }}
+    <a href="{{ config.extra.banner.link }}">Read the docs for the latest release</a>.
+  {%- endif %}
+{% endblock %}

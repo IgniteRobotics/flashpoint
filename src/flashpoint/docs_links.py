@@ -26,10 +26,10 @@ class Page:
 
 PAGES: dict[str, Page] = {
     "user-guide": Page("user-guide", "User guide"),
-    "team-setup": Page("team-setup", "Setting up Flashpoint for your team"),
-    "auto-import": Page("auto-import", "Automatic import guide"),
-    "live-can-health": Page("live-can-health", "Live CAN health guide"),
-    "cli-reference": Page("cli-reference", "CLI reference"),
+    "team-setup": Page("tutorials/team-setup", "Setting up Flashpoint for your team"),
+    "auto-import": Page("how-to/auto-import", "Automatic import guide"),
+    "live-can-health": Page("how-to/live-can-health", "Live CAN health guide"),
+    "cli-reference": Page("reference/cli", "CLI reference"),
     "robot-side": Page("robot-side", "Robot-side guide"),
 }
 # Named links the app's views use, as (page id, section anchor). /api/docs serves them.

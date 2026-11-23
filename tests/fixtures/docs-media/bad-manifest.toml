@@ -1,0 +1,16 @@
+[[shot]]
+id = "dial"
+kind = "screenshot"
+view = "dial"
+route = "#view=dial"
+steps = "none"
+expect = "main"
+alt = "The dial view"
+
+[[shot]]
+id = "spin"
+kind = "movie"
+view = "dial"
+route = "view=dial"
+steps = "twirl"
+alt = " "

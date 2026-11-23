@@ -1,0 +1,80 @@
+// Flashpoint's robot-side samples as a minimal robot project, so they compile as shipped.
+// The WPILib 2026 Java template, trimmed. `./gradlew compileJava` needs JDK 17 and, the first
+// time, network access (or the WPILib installer's ~/wpilib/2026/maven).
+plugins {
+    id "java"
+    id "edu.wpi.first.GradleRIO" version "2026.2.1"
+    id "com.peterabeles.gversion" version "1.10.3"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+def ROBOT_MAIN_CLASS = "frc.robot.Main"
+
+// gversion writes BuildConstants (project name, git branch, dirty flag) for BuildInfo. Here it
+// goes under build/, so the generated file is never committed.
+gversion {
+    srcDir       = "build/generated/gversion/"
+    classPackage = "frc.robot"
+    className    = "BuildConstants"
+    dateFormat   = "yyyy-MM-dd HH:mm:ss z"
+    timeZone     = "UTC"
+    indent       = "  "
+}
+sourceSets.main.java.srcDir "build/generated/gversion"
+project.compileJava.dependsOn(createVersionFile)
+
+deploy {
+    targets {
+        roborio(getTargetTypeClass('RoboRIO')) {
+            team = project.frc.getTeamNumber()
+            debug = project.frc.getDebugOrDefault(false)
+
+            artifacts {
+                frcJava(getArtifactTypeClass('FRCJavaArtifact')) {
+                }
+            }
+        }
+    }
+}
+
+def deployArtifact = deploy.targets.roborio.artifacts.frcJava
+
+wpi.java.debugJni = false
+
+dependencies {
+    annotationProcessor wpi.java.deps.wpilibAnnotations()
+    implementation wpi.java.deps.wpilib()
+    implementation wpi.java.vendor.java()
+
+    roborioDebug wpi.java.deps.wpilibJniDebug(wpi.platforms.roborio)
+    roborioDebug wpi.java.vendor.jniDebug(wpi.platforms.roborio)
+
+    roborioRelease wpi.java.deps.wpilibJniRelease(wpi.platforms.roborio)
+    roborioRelease wpi.java.vendor.jniRelease(wpi.platforms.roborio)
+
+    nativeDebug wpi.java.deps.wpilibJniDebug(wpi.platforms.desktop)
+    nativeDebug wpi.java.vendor.jniDebug(wpi.platforms.desktop)
+    simulationDebug wpi.sim.enableDebug()
+
+    nativeRelease wpi.java.deps.wpilibJniRelease(wpi.platforms.desktop)
+    nativeRelease wpi.java.vendor.jniRelease(wpi.platforms.desktop)
+    simulationRelease wpi.sim.enableRelease()
+}
+
+jar {
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    manifest edu.wpi.first.gradlerio.GradleRIOPlugin.javaManifest(ROBOT_MAIN_CLASS)
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+deployArtifact.jarTask = jar
+wpi.java.configureExecutableTasks(jar)
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add '-XDstringConcat=inline'
+    options.compilerArgs.add '-Xlint:deprecation'
+}

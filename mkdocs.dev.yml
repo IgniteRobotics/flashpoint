@@ -1,0 +1,7 @@
+# The `dev` docs (built from `development`): the base config plus the "unreleased" banner.
+INHERIT: mkdocs.yml
+extra:
+  banner:
+    label: Unreleased
+    text: these pages describe the development branch, which may not match any release.
+    link: https://igniterobotics.github.io/flashpoint/latest/

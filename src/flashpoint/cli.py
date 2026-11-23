@@ -64,12 +64,16 @@ def _parser() -> argparse.ArgumentParser:
     init = sub.add_parser(
         "init", help="create your configuration (team number, lake folder, default settings)"
     )
-    init.add_argument("--team", metavar="NUMBER", help="your FRC team number (asked if omitted)")
+    init.add_argument(
+        "--team", metavar="NUMBER", help="your FRC team number, 1 to 99999 (asked if omitted)"
+    )
     init.add_argument(
         "--lake", type=Path, help="lake folder for your logs (asked if omitted; ~/flashpoint-lake)"
     )
     init.add_argument(
-        "--team-name", metavar="NAME", help="name shown in the app header (asked if omitted)"
+        "--team-name",
+        metavar="NAME",
+        help="name shown in the app header, at most 40 characters (asked if omitted)",
     )
     init.add_argument(
         "--palette",
@@ -78,15 +82,29 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     ingest = sub.add_parser("ingest", help="ingest .wpilog/.hoot files or directories")
-    ingest.add_argument("paths", nargs="+", type=Path)
-    ingest.add_argument("--profile", choices=hoot.PROFILES, default="health")
-    ingest.add_argument("--jobs", type=int, help="parallel hoot conversions")
+    ingest.add_argument(
+        "paths",
+        nargs="+",
+        type=Path,
+        metavar="PATH",
+        help=".wpilog and .hoot files, or folders (searched recursively)",
+    )
+    profile_help = "hoot signals: health (what Flashpoint uses; default) or all (about 3x larger)"
+    ingest.add_argument("--profile", choices=hoot.PROFILES, default="health", help=profile_help)
+    ingest.add_argument(
+        "--jobs",
+        type=int,
+        metavar="N",
+        help="hoot files converted in parallel (default: half your CPU cores)",
+    )
     lake_arg(ingest)
 
     ingest.add_argument(
-        "--no-derive", action="store_true", help="skip deriving silver/gold (and the Replay build)"
+        "--no-derive",
+        action="store_true",
+        help="skip the automatic derive, and so the Replay build too",
     )
-    no_report_help = "skip the incremental Replay build after derive"
+    no_report_help = "skip the automatic Replay build after derive"
     ingest.add_argument("--no-report", action="store_true", help=no_report_help)
     no_draft_help = "don't draft a robot file for a season that has none (see Setup > Draft robot)"
     ingest.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
@@ -94,11 +112,11 @@ def _parser() -> argparse.ArgumentParser:
     rebuild = sub.add_parser(
         "rebuild", help="reprocess files from an older pipeline version, and failed files"
     )
-    rebuild.add_argument("--profile", choices=hoot.PROFILES, default="health")
+    rebuild.add_argument("--profile", choices=hoot.PROFILES, default="health", help=profile_help)
     rebuild.add_argument(
         "--quarantined",
         action="store_true",
-        help="reprocess only quarantined files, from their raw copies",
+        help="reprocess only quarantined files, from their raw copies, with a fresh 3 tries",
     )
     rebuild.add_argument("--no-report", action="store_true", help=no_report_help)
     rebuild.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
@@ -108,7 +126,9 @@ def _parser() -> argparse.ArgumentParser:
         "derive", help="sessions, alignment, identity, silver, and gold from bronze"
     )
     derive.add_argument(
-        "--all", action="store_true", help="rebuild every session, not only changed ones"
+        "--all",
+        action="store_true",
+        help="rebuild every session, not only changed ones (after editing a robot file)",
     )
     derive.add_argument("--no-robot-draft", action="store_true", help=no_draft_help)
     derive.add_argument(
@@ -134,17 +154,26 @@ def _parser() -> argparse.ArgumentParser:
         "report", help="build per-match Replay data (incremental); --static exports a folder"
     )
     report.add_argument(
-        "--event", action="append", metavar="EVENT", help="only this event, e.g. 2026gacmp"
+        "--event",
+        action="append",
+        metavar="EVENT",
+        help="only this event, e.g. 2026gacmp (repeatable)",
     )
     report.add_argument(
-        "--match", action="append", metavar="KEY", help="only this match key, e.g. 2026gacmp_qm7"
+        "--match",
+        action="append",
+        metavar="KEY",
+        help="only this match key, e.g. 2026gacmp_qm7 (repeatable)",
     )
     report.add_argument("--all", action="store_true", help="rebuild even unchanged matches")
     report.add_argument(
-        "--static", type=Path, metavar="OUT", help="also export Replay to a folder for file://"
+        "--static",
+        type=Path,
+        metavar="OUT",
+        help="also write a Replay folder that opens from index.html with no server",
     )
     report.add_argument(
-        "--no-raw", action="store_true", help="with --static: leave the raw logs out"
+        "--no-raw", action="store_true", help="with --static: leave the raw logs out (much smaller)"
     )
     lake_arg(report)
 
@@ -153,8 +182,15 @@ def _parser() -> argparse.ArgumentParser:
         help="serve Replay, History, Anomalies, Setup and Live CAN (read-only but for triage"
         " and setup)",
     )
-    serve.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
-    serve.add_argument("--port", type=int, default=8000, help="port (default 8000; 0 = any)")
+    serve.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="bind address (default %(default)s); 0.0.0.0 shares the app, read-only, on the pit"
+        " network",
+    )
+    serve.add_argument(
+        "--port", type=int, default=8000, help="port (default %(default)s; 0 = any free port)"
+    )
     serve.add_argument(
         "--robot-host",
         action="append",
@@ -162,7 +198,7 @@ def _parser() -> argparse.ArgumentParser:
         help="robot address for the Live CAN view (repeatable; default: the acquire hosts)",
     )
     serve.add_argument(
-        "--no-build", action="store_true", help="skip the incremental report build on start"
+        "--no-build", action="store_true", help="start without building Replay data first"
     )
     lake_arg(serve)
 
@@ -184,15 +220,19 @@ def _parser() -> argparse.ArgumentParser:
         nargs="+",
         action="extend",
         metavar="H",
-        help="robot address(es) to try, replacing the configured hosts",
+        help="robot addresses to try instead of the configured ones",
     )
     acquire.add_argument(
-        "--include-active", action="store_true", help="also pull logs still being written"
+        "--include-active",
+        action="store_true",
+        help="also pull logs still being written (tagged incomplete)",
     )
     acquire.add_argument(
-        "--dry-run", action="store_true", help="list what would be copied; change nothing"
+        "--dry-run",
+        action="store_true",
+        help="list what would be copied and change nothing (not with --watch)",
     )
-    acquire.add_argument("--no-usb", action="store_true", help="do not scan removable volumes")
+    acquire.add_argument("--no-usb", action="store_true", help="don't scan removable drives")
     lake_arg(acquire)
 
     backup = sub.add_parser(
@@ -204,7 +244,9 @@ def _parser() -> argparse.ArgumentParser:
         "restore", help="copy raw files and metadata from the backup remote into a new lake"
     )
     restore_cmd.add_argument(
-        "--force", action="store_true", help="restore over a lake that already has a ledger"
+        "--force",
+        action="store_true",
+        help="restore into a lake that already has data (avoid; use a new lake)",
     )
     restore_cmd.add_argument(
         "--remote", help="rclone remote:path to restore from (default: backup.remote)"

@@ -110,3 +110,19 @@ def test_no_github_release_on_a_dry_run() -> None:
             continue
         assert job.get("if") == "github.event_name == 'push'", name
     assert "github-release" not in str(jobs["testpypi"])
+
+
+def test_build_pins_the_readme_before_building_and_checking() -> None:
+    """mvp-documentation design D-g: the PyPI page shows this release's images and files."""
+    steps = _jobs()["build"]["steps"]
+    pin = _step_index(steps, lambda s: "tools/pin-readme-media.py" in s.get("run", ""))
+    build = _step_index(steps, lambda s: s.get("run", "").strip() == "poetry build")
+    check = _step_index(steps, lambda s: "tools/check-release-links.py" in s.get("run", ""))
+    assert pin < build < check
+
+
+def test_build_refuses_media_in_the_wheel() -> None:
+    steps = _jobs()["build"]["steps"]
+    script = "\n".join(step.get("run", "") for step in steps)
+    for suffix in (".png", ".gif", ".webm", ".mp4"):
+        assert f'"{suffix}"' in script, suffix
