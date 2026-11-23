@@ -9,7 +9,7 @@
 - [x] 2.2 Add the `vendor` subcommand (pick the exact Mermaid 12 release the theme expects, and pin its version and SHA-256), gitignore `docs/guide/assets/vendor/`, and extend `check-site`. Verify: 2.1 passes.
 - [x] 2.3 Add the `mermaid` custom fence to `mkdocs.yml`, and the `scripts` block override in `docs/overrides/main.html` that loads the local copy only on pages with a diagram (front-matter fallback if `page.content` isn't testable). Verify: the strict build passes, and only `how-it-works` HTML references `assets/vendor/mermaid.min.js`.
 - [x] 2.4 Browser test (new file, `browser` marker): build the site and the offline archive, then open How Flashpoint works over loopback and from `file://` with every other host blocked. The pipeline diagram is an SVG, its source text isn't visible, the console is clean, and no request goes to unpkg.com. A page without a diagram doesn't request the renderer. Verify: it passes.
-- [ ] 2.5 Run `vendor` in the `docs-site` CI job and in `docs.yml`'s build job, before the build. Verify: the workflow tests pass, and a `docs.yml` dry run on the PR builds with the diagram.
+- [x] 2.5 Run `vendor` in the `docs-site` CI job and in `docs.yml`'s build job, before the build. Verify: the workflow tests pass, and a `docs.yml` dry run on the PR builds with the diagram. Done: #117's dry run (run 45259899070) vendored the renderer, made 15 of 15 entries, and `check-site` found 0 diagrams without a renderer.
 
 ## 3. Paced animations (design D3)
 
