@@ -45,3 +45,4 @@ Ship with the version bump. The next `flashpoint derive` (manual, the watch cycl
 ## Open Questions
 
 - Why the rio bus reads only 74 % enabled in Q7 `auto`: enable latency at the auto start edge, or devices that really were disabled. This doesn't affect this change, because the threshold is per session and both buses together sit at about 99 %. It is the first thing a follow-up that uses per-device enabled time should look at.
+  - Partly answered on the main lake (2026-11-24): it is not latency. `indexer-accelerator` and `indexer-main` report disabled for all of Q7 `auto` (0.0), and `intake-roller` for about a third of it (0.633). Every other rio-bus slot reads 1.0. Why those devices report disabled while the robot is enabled is still open, for example whether Phoenix reports a device with no control request as disabled.

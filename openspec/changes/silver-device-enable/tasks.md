@@ -1,6 +1,6 @@
 ## 1. Baseline (before any code change)
 
-- [ ] 1.1 On the reference laptop, with the corpus fetched, run `PYENV_VERSION=flashpoint poetry run pytest -m perf tests/test_ingest_perf.py` and record Q7 wall time, peak RSS, and the Q7 silver size on disk (`du -sh` of its `session_id=` folder). Verify: the three numbers are written into the PR description under "Before".
+- [x] 1.1 On the reference laptop, with the corpus fetched, run `PYENV_VERSION=flashpoint poetry run pytest -m perf tests/test_ingest_perf.py` and record Q7 wall time, peak RSS, and the Q7 silver size on disk (`du -sh` of its `session_id=` folder). Verify: the three numbers are written into the PR description under "Before".
 
 ## 2. Silver decodes the enable string (design D1, D2)
 
@@ -24,6 +24,6 @@
 ## 6. Records and wrap-up
 
 - [x] 6.1 In `docs/rewrite/05-target-architecture.md` §4 (data model), note on the silver samples line that `device_enable` is decoded from Phoenix 6's `Enabled`/`Disabled` text and that unknown text is dropped. Verify: `openspec validate silver-device-enable --strict` and the docs link check pass.
-- [ ] 6.2 Run the full gate: `ruff check .`, `mypy`, `pytest`, `pytest -m corpus`, and `openspec validate silver-device-enable --strict`. Verify: all pass, and CI `ci-ok` is green on the PR (into `development`, body says `Closes #5`).
-- [ ] 6.3 [HUMAN] On the main lake, run `flashpoint derive` and open one GACMP qualification match in DuckDB or Replay data. Verify: `device_enable` exists for TalonFX slots and the derive reports every session rebuilt. Josh's OK is recorded on the PR.
+- [x] 6.2 Run the full gate: `ruff check .`, `mypy`, `pytest`, `pytest -m corpus`, and `openspec validate silver-device-enable --strict`. Verify: all pass, and CI `ci-ok` is green on the PR (into `development`, body says `Closes #5`).
+- [x] 6.3 [HUMAN] On the main lake, run `flashpoint derive` and open one GACMP qualification match in DuckDB or Replay data. Verify: `device_enable` exists for TalonFX slots and the derive reports every session rebuilt. Josh's OK is recorded on the PR.
 - [ ] 6.4 Run `openspec archive silver-device-enable` as the PR's last commit. Verify: `openspec validate --all` passes.
