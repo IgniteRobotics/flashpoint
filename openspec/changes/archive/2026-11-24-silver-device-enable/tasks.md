@@ -26,4 +26,4 @@
 - [x] 6.1 In `docs/rewrite/05-target-architecture.md` §4 (data model), note on the silver samples line that `device_enable` is decoded from Phoenix 6's `Enabled`/`Disabled` text and that unknown text is dropped. Verify: `openspec validate silver-device-enable --strict` and the docs link check pass.
 - [x] 6.2 Run the full gate: `ruff check .`, `mypy`, `pytest`, `pytest -m corpus`, and `openspec validate silver-device-enable --strict`. Verify: all pass, and CI `ci-ok` is green on the PR (into `development`, body says `Closes #5`).
 - [x] 6.3 [HUMAN] On the main lake, run `flashpoint derive` and open one GACMP qualification match in DuckDB or Replay data. Verify: `device_enable` exists for TalonFX slots and the derive reports every session rebuilt. Josh's OK is recorded on the PR.
-- [ ] 6.4 Run `openspec archive silver-device-enable` as the PR's last commit. Verify: `openspec validate --all` passes.
+- [x] 6.4 Run `openspec archive silver-device-enable` as the PR's last commit. Verify: `openspec validate --all` passes.
