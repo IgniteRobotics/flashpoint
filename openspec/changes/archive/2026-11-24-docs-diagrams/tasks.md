@@ -33,5 +33,5 @@
 ## 5. Gate and wrap-up
 
 - [x] 5.1 Run the full gate: `ruff`, `mypy src tests tools`, `pytest`, `-m browser`, the strict build of both configs, `check-site`, and `openspec validate docs-diagrams --strict`. Verify: all pass.
-- [ ] 5.2 [HUMAN] After the next `dev` deploy, Josh opens How Flashpoint works on a phone and a laptop, in both palettes, and opens each diagram full-frame. Verify: his OK is recorded on the PR.
-- [ ] 5.3 Run `openspec archive docs-diagrams` as the PR's last commit. Verify: `openspec validate --all` passes.
+- [x] 5.2 [HUMAN] After the next `dev` deploy, Josh opens How Flashpoint works on a phone and a laptop, in both palettes, and opens each diagram full-frame. Verify: his OK is recorded on the PR.
+- [x] 5.3 Run `openspec archive docs-diagrams` as the PR's last commit. Verify: `openspec validate --all` passes.
