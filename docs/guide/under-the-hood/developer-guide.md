@@ -170,6 +170,43 @@ poetry run python tools/fetch-corpus.py
 
 It downloads with `gh release download` if the GitHub CLI is installed (run `gh auth login` first), otherwise over plain HTTPS, checks every hash, and stores the files in `~/.cache/flashpoint/corpus/corpus-v1/`. Set `FLASHPOINT_CORPUS_DIR` to put them elsewhere, or `--from DIR` to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release. Create it with `gh release create corpus-vN --latest=false ...`: a corpus release must never be the repository's latest release, which belongs to the newest package version. Check with `gh release list --json tagName,isLatest`: only the newest package version says `true`.
 
+## Diagrams
+
+Diagrams are Mermaid: a fenced code block whose language is `mermaid`. The docs site draws them with its own copy of Mermaid, and GitHub draws the ones in `docs/rewrite/`.
+
+A docs diagram must be drawn at 80 % of its natural size or more in the content column of a 1280 px wide window, or its labels shrink below reading size. The pipeline on [How Flashpoint works](how-it-works.md) is the example: run left to right, it was 1909 px wide and drew at 36 %, with labels about 5 px high. Run top to bottom, it draws at 100 %. To stay inside the limit:
+- Run flows top to bottom (`flowchart TB`).
+- Put at most about four boxes side by side.
+- Break long labels yourself with `<br>`. The docs only wrap a label past 480 px.
+- Split a diagram that's still too wide into two.
+
+The diagrams in `docs/rewrite/` follow the same layout rules when they're next edited.
+
+Boxes are coloured by kind, never in the diagram's source. Tag each box with one of these classes (`class A,B data`, or `A:::data`):
+
+| Class | For | Drawn as |
+|---|---|---|
+| `step` | A step Flashpoint runs | The theme's primary colour |
+| `data` | Data Flashpoint keeps | Green; draw it as a cylinder, `[(name)]` |
+| `robot` | The robot, or something on it | Grey |
+| `outside` | Something outside Flashpoint, or optional | A dashed outline. Declare `classDef outside stroke-dasharray:5 4` in the diagram, so GitHub dashes it too |
+| `error` | An error state, in a state diagram | Red |
+
+The colours come from the docs theme and follow its light/dark toggle. GitHub ignores them and draws the boxes in Mermaid's default colours. A diagram that uses kinds needs a legend right below it, naming each kind it uses and no others:
+
+```html
+<div class="fp-legend">
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--data"></span>data Flashpoint keeps</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--error"></span>an error state</span>
+</div>
+```
+
+Two test files enforce this. `tests/test_docs_diagram_scale.py` draws every built docs page that holds a diagram and fails on any diagram under 80 %, naming the page, which diagram on it and its size. `tests/test_docs_diagram_notation.py` checks the classes and legends in each page's source, and, in the browser, the colours in both palettes and that every label is plain text inside its box. The source checks run with the unit tests. The browser checks need Chromium:
+
+```sh
+poetry run pytest -m browser tests/test_docs_diagram_scale.py tests/test_docs_diagram_notation.py
+```
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main` and `development`. A first `changes` job checks which files changed. When they're all docs (`docs/`, `openspec/`, `media/`, `.claude/`, and Markdown outside `src/` and `tests/`), only the `docs` job runs; otherwise everything does.

@@ -88,6 +88,17 @@ The published, versioned docs site (`mvp-documentation`, [ADR-0019](../adr/0019-
 | MkDocs 1.6.1 + Material for MkDocs 9.8 | Material "reaches end of life on May 5, 2027", with critical fixes until then (Donath, 2026). MkDocs 2.0 drops Material's plugin and template system | ⚠️ The fallback, same `mkdocs.yml` (the ADR's feature-subset rule) |
 | Sphinx + Furo + MyST | Every page converted to MyST and toctrees; versioning tools stale | ❌ Second toolchain next to ignition-labs |
 
+#### Diagrams
+
+Decided 2026-11-24 (`docs-diagrams`, #120), after the left-to-right pipeline on How Flashpoint works drew at 36 % in the docs column, with labels about 5 px high. Diagrams must draw at 80 % of their natural size or more in the content column of a 1280 px window; a browser test checks every built page. The rules that keep them there (top to bottom, about four boxes across, split big ones) are in the [developer guide](../guide/under-the-hood/developer-guide.md#diagrams).
+
+| Option | Evidence | Fit |
+|---|---|---|
+| **Mermaid** | The theme draws a `mermaid` block with no plugin; the site serves its own pinned copy (12.3.0), so it works offline. GitHub draws the same source in `docs/rewrite/` | ✅ **Chosen**. Kinds are coloured from the docs palette by a small script that adds to the theme's Mermaid settings, so they follow the light/dark toggle |
+| D2 | Better automatic layout, and a hand-drawn mode. A Go binary in the docs build; GitHub doesn't draw it; its dark theme follows the computer's setting, not the docs toggle | ❌ For the docs. Fine for a one-off picture checked in as an image |
+| LikeC4 | Architecture models with several views of one model. A Node toolchain in the build, and nothing on GitHub | ❌ Too much machinery for a handful of diagrams |
+| Graphviz | Mature layout. A native binary in the build, and GitHub doesn't draw `dot` | ❌ Same toolchain cost as D2, older look |
+
 ## 4. Anomaly detection and predictive maintenance
 
 | Library | What it gives you | Use for |

@@ -5,17 +5,29 @@ This page explains what happens to a log between the robot and the screen. It's 
 ## The pipeline
 
 ```mermaid
-flowchart LR
-    R[roboRIO and USB stick] -->|acquire| I[(inbox)]
-    M[logs you copied by hand] -->|ingest| RAW
+flowchart TB
+    classDef outside stroke-dasharray:5 4
+    R[roboRIO and<br>USB stick] -->|acquire| I[(inbox)]
+    M[logs you copied<br>by hand] -->|ingest| RAW
     I -->|ingest| RAW[(raw)]
     RAW --> B[(bronze)]
     B -->|derive| S[(silver)]
     S --> G[(gold)]
     G -->|detect| A[(anomalies)]
-    G -->|report| RP[Replay data]
-    G & A & RP -->|serve| APP[Replay, History, Anomalies, Setup, Live CAN]
+    G -->|report| RP[(Replay data)]
+    G & A & RP -->|serve| APP[Replay, History, Anomalies,<br>Setup, Live CAN]
+    class R robot
+    class M outside
+    class I,RAW,B,S,G,A,RP data
+    class APP step
 ```
+
+<div class="fp-legend">
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--robot"></span>the robot</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--data"></span>data Flashpoint keeps</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--step"></span>a step Flashpoint runs</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--outside"></span>outside Flashpoint</span>
+</div>
 
 | Step | Command | What it does |
 |---|---|---|
@@ -32,8 +44,27 @@ Each step only redoes work whose inputs changed. Re-running any of them is safe 
 
 ### What happens to a `.hoot` file
 
+```mermaid
+stateDiagram-v2
+    direction TB
+    [*] --> raw: ingest stores it
+    raw --> converted: owlet converts it
+    converted --> bronze: every sample read
+    raw --> quarantined: the file is bad
+    raw --> failed: the machine failed
+    failed --> converted: the next run retries
+    failed --> quarantined: 3rd crash or timeout
+    class raw, converted, bronze data
+    class failed, quarantined error
+```
+
+<div class="fp-legend">
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--data"></span>data Flashpoint keeps</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--error"></span>an error state</span>
+</div>
+
 1. **Raw:** ingest hashes the file. If the ledger has seen that hash, the file is skipped. Otherwise it is copied to `raw/<first two hex characters>/<sha256>.hoot` (for example `raw/3f/3f9a….hoot`) and recorded in the ledger (`meta/flashpoint.sqlite`). Raw files are never changed.
-2. **Convert:** byte 70 of the file gives its format version. Flashpoint picks the matching owlet build from a versioned registry, downloads it on first use into `~/.cache/flashpoint/owlet/`, and converts the hoot. By default it keeps the health signals only (`--profile health`); `--profile all` keeps everything. A file owlet can't read is **quarantined** with a reason instead of stopping the run. When the machine is at fault (owlet can't be downloaded, or it crashes or times out), the file is marked **failed** instead and retried by the next run; one that crashes owlet 3 times is quarantined.
+2. **Convert:** byte 70 of the file gives its format version. Flashpoint picks the matching owlet build from a versioned registry, downloads it on first use into `~/.cache/flashpoint/owlet/`, and converts the hoot. By default it keeps the health signals only (`--profile health`); `--profile all` keeps everything. A file that doesn't convert never stops the run. When the file is at fault, it's **quarantined** with a reason. When the machine is (owlet can't be downloaded, or it crashes or times out), the file is marked **failed** and the next run retries it. A file that crashes owlet or times out 3 times is quarantined.
 3. **Bronze:** every sample becomes a row in `bronze/samples/` (long format: one row per signal per timestamp). The file's metadata goes to `meta/`.
 4. **Silver:** `derive` puts the hoot in a session with its wpilog, shifts its timestamps onto the wpilog's clock, and maps each `Phoenix6/TalonFX-11/...` signal to a robot slot and a physical unit. The result goes to `silver/samples/`.
 5. **Gold:** `derive` summarizes each motor for each match phase (energy, current percentiles, temperature, stall time, model residual) into `gold/match_features/`, one row per match × phase × slot × unit. CAN reboots, dropouts, and bus gaps go to `gold/can_health/`, `gold/can_bus_health/`, and `gold/can_events/`. Each unit's usage in every session, pit and practice included, goes to `gold/unit_usage/`.
