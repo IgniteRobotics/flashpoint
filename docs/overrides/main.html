@@ -2,7 +2,8 @@
     mkdocs.dev.yml and mkdocs.pre.yml overlays set extra.banner; a final release sets none. The
     diagram renderer: a page with a `mermaid` block loads the site's own copy (written by
     `tools/docs-media.py vendor`) before the theme's bundle, so the theme finds `mermaid` defined
-    and never asks unpkg.com for it. Pages with no diagram don't load it. -#}
+    and never asks unpkg.com for it. diagrams.js, right after it, adds the diagram notation to the
+    theme's settings (docs-diagrams D2). Pages with no diagram load neither. -#}
 {% extends "base.html" %}
 {% block announce %}
   {%- if config.extra.banner %}
@@ -13,6 +14,7 @@
 {% block scripts %}
   {%- if page and page.content and 'class="mermaid"' in page.content %}
     <script src="{{ 'assets/vendor/mermaid.min.js' | url }}"></script>
+    <script src="{{ 'assets/javascripts/diagrams.js' | url }}"></script>
   {%- endif %}
   {{ super() }}
 {% endblock %}

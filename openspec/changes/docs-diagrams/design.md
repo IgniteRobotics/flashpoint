@@ -48,10 +48,9 @@ See proposal.md for why, and the delta spec for the three requirements. The cons
 - Authors tag boxes with five classes: `step`, `data`, `robot`, `outside` (the dashed outline) and, in state diagrams, `error`.
 - Each diagram's source declares `classDef outside stroke-dasharray:5 4`, so GitHub shows the dashed outline too. No colour goes in the source.
 - `docs/overrides/assets/stylesheets/diagrams.css` (through `extra_css`) defines `--fp-diagram-*` from Material's palette variables:
-  - the box fill is `color-mix()` of `--md-primary-fg-color` or `--md-accent-fg-color` into `--md-default-bg-color`;
-  - the outline is the full colour;
-  - the robot kind uses the neutral `--md-default-fg-color--light`;
-  - `error` uses the theme's failure red, the one colour the palette doesn't name.
+  - each kind has a base colour from the palette: `step` the primary colour, `data` the code-highlight green (`--md-code-hl-string-color`), `robot` and `outside` the neutral `--md-default-fg-color--light`, `error` the code-highlight red (`--md-code-hl-number-color`). Primary and accent are both indigo in the default palette (`#4051b5`, `#526cfe`), too close to tell two kinds apart, so `data` doesn't use the accent (found while applying, 2026-11-24);
+  - the box fill is `color-mix()` of the base colour into `--md-default-bg-color`; `outside` has no fill;
+  - the outline is the full colour.
 
   The theme redefines those variables when the toggle changes, and they reach into the shadow root, so the diagram follows the toggle without a redraw.
 - **Legends:** an `md_in_html` block (`<div class="fp-legend" markdown>`) right below the diagram, with one swatch per kind, styled from the same variables. A unit test reads each page's Markdown and checks that every kind class the diagram uses is named in its legend.
@@ -59,7 +58,8 @@ See proposal.md for why, and the delta spec for the three requirements. The cons
 
 ### D4. Zoom redraws the diagram from its source
 - `diagrams.js` runs before the theme touches the page. It wraps each `pre.mermaid` in a `<div class="fp-diagram">` that keeps the source text and takes focus, `role="button"` and a label.
-- `zoom.js` treats `.fp-diagram` as zoomable. On open it calls `mermaid.render()` on the kept source into the dialog, sized to fit the window.
+- `zoom.js` treats `.fp-diagram` as zoomable. On open it calls `mermaid.render()` on the kept source into the dialog, sized to fit the window whole, on a card in the page's background colour (the backdrop is near-black in both palettes, and light-palette labels are dark).
+- Whole beats larger: the top-to-bottom pipeline (430 × 1244 px) fits an 800 px window only at 57 %, so it opens as an overview. A diagram that fits, like the file lifecycle, opens larger than on the page. The spec says so (amended 2026-11-24, Josh's call).
 - The redrawn SVG lives in the page, not a shadow root, and takes its colours from the same variables, so it matches the palette.
 - Closing works as for images.
 - *Alternatives:*

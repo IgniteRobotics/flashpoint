@@ -1,5 +1,7 @@
 /* Click to zoom (docs-visual-polish D4): see assets/javascripts/zoom.js. The dialog is dark in
-   both palettes, so it doesn't use the theme's colour tokens. */
+   both palettes, so it doesn't use the theme's colour tokens. An opened diagram is the exception:
+   it sits on a card in the page's own background, so its colours match the page (docs-diagrams
+   D4). */
 .md-content .fp-zoomable {
   cursor: zoom-in;
 }
@@ -42,6 +44,18 @@ dialog.fp-zoom::backdrop {
   height: 100%;
   min-height: 0;
   object-fit: contain;
+}
+
+.fp-zoom__diagram {
+  place-self: center;
+  min-height: 0;
+  padding: 0.75rem;
+  border-radius: 0.4rem;
+  background: var(--md-default-bg-color);
+}
+
+.fp-zoom__diagram > svg {
+  display: block;
 }
 
 .fp-zoom__caption {

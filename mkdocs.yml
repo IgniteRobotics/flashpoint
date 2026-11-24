@@ -130,6 +130,8 @@ markdown_extensions:
 # ship with every build, the offline archive too.
 extra_css:
   - assets/stylesheets/zoom.css
+  # Diagram kind colours and legends (docs-diagrams D3); diagrams.js is loaded by main.html.
+  - assets/stylesheets/diagrams.css
 extra_javascript:
   - assets/javascripts/zoom.js
 

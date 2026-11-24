@@ -1,0 +1,10 @@
+flowchart LR
+    R[roboRIO and USB stick] -->|acquire| I[(inbox)]
+    M[logs you copied by hand] -->|ingest| RAW
+    I -->|ingest| RAW[(raw)]
+    RAW --> B[(bronze)]
+    B -->|derive| S[(silver)]
+    S --> G[(gold)]
+    G -->|detect| A[(anomalies)]
+    G -->|report| RP[Replay data]
+    G & A & RP -->|serve| APP[Replay, History, Anomalies, Setup, Live CAN]

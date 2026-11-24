@@ -16,11 +16,15 @@ Every diagram on a docs page SHALL be drawn at 80 % of its natural size or more 
 - **THEN** it states the 80 % limit, the top-to-bottom and four-across rules, and splitting, with the pipeline as the example
 
 ### Requirement: Diagrams open full-frame
-On every docs page, a diagram SHALL open at the full size of the browser window when clicked or activated from the keyboard, drawn sharp at that size, on the same backdrop as an opened image. It SHALL close the same way an opened image does (click, Esc or the close button), returning to the page at the same scroll position with focus back on the diagram. Diagram zoom SHALL work in the offline archive and SHALL need no host other than the docs site.
+On every docs page, a diagram SHALL open full-frame when clicked or activated from the keyboard, on the same backdrop as an opened image. It SHALL be drawn sharp, whole inside the browser window and as large as the window allows: larger than on the page whenever the window has room for that. A diagram too tall for the window to show larger opens whole, as an overview. It SHALL close the same way an opened image does (click, Esc or the close button), returning to the page at the same scroll position with focus back on the diagram. Diagram zoom SHALL work in the offline archive and SHALL need no host other than the docs site.
 
 #### Scenario: Open and close the pipeline
 - **WHEN** a reader clicks the pipeline diagram on "How Flashpoint works", then presses Esc
-- **THEN** the diagram first fills the window with all of it visible, drawn larger than on the page, then the page returns at the same scroll position with focus on the diagram
+- **THEN** the diagram first fills the window's height with all of it visible, then the page returns at the same scroll position with focus on the diagram
+
+#### Scenario: A diagram that fits opens larger
+- **WHEN** a reader opens the file-lifecycle diagram on "How Flashpoint works" in a 1280 × 800 window
+- **THEN** all of it is visible, drawn larger than on the page
 
 #### Scenario: Keyboard
 - **WHEN** a reader moves focus to a diagram and presses Enter
