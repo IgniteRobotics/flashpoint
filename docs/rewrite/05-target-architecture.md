@@ -81,6 +81,8 @@ lake/
   raw/<sha256>.{wpilog,hoot}                       # immutable originals
   bronze/samples/season=2026/log_id=<sha>/part-0.parquet   # sorted per row group (P1)
   silver/samples/season=2026/session_id=<id>/part-*.parquet          # P2: one per hoot in the session
+                                                                     # device_enable: 1/0 from Phoenix 6
+                                                                     # Enabled/Disabled text, other text dropped
   silver/signals/season=2026/session_id=<id>/part-0.parquet          # declared NT signals (wpilog only)
   gold/match_features/season=2026/session_id=<id>/part-0.parquet      # P2
   gold/can_health/season=2026/session_id=<id>/part-0.parquet         # CAN health per (match, phase, slot, unit)

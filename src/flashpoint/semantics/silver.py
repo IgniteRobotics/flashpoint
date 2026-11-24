@@ -116,7 +116,13 @@ def write_session(
                     ) AS can_id,
                     regexp_extract(signal::VARCHAR, '{DEVICE_SIGNAL}', 3) AS sig,
                     ts_us + {int(hoot.offset_us)} AS t_us,
-                    COALESCE(v_f64, CAST(v_bool AS DOUBLE), CAST(v_i64 AS DOUBLE)) AS value
+                    COALESCE(
+                        v_f64, CAST(v_bool AS DOUBLE), CAST(v_i64 AS DOUBLE),
+                        -- hoots log DeviceEnable as text; any other text is dropped
+                        CASE WHEN sig = 'DeviceEnable' THEN
+                            CASE v_str WHEN 'Enabled' THEN 1.0 WHEN 'Disabled' THEN 0.0 END
+                        END
+                    ) AS value
                 FROM samples
                 WHERE log_id = '{hoot.log_id}' AND signal::VARCHAR LIKE 'Phoenix6/%'
             )

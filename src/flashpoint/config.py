@@ -8,7 +8,9 @@ from pathlib import Path
 PIPELINE_VERSION = 2  # v2: health profile adds DriveState/Pose, RotorVelocity, motor constants
 # Bump whenever silver or gold output changes; `flashpoint derive` recomputes every session
 # (bronze is untouched, so no re-ingest).
-DERIVE_VERSION = 5  # v5: supply path resistance; v4: gold/can_*; v3: silver/signals; v2: usage
+# v6: silver device_enable; v5: supply path resistance; v4: gold/can_*; v3: silver/signals;
+# v2: usage
+DERIVE_VERSION = 6
 # CAN-health gaps shorter than this are counted in gold but not kept as events, so no marker
 # threshold may be lower.
 CAN_EVENT_FLOOR_S = 0.1
