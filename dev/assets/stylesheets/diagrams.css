@@ -1,0 +1,63 @@
+/* Diagram kinds (spec project-documentation, "One diagram notation"; docs-diagrams D3): see
+   assets/javascripts/diagrams.js, which colours the drawn boxes from these properties. Every
+   colour comes from the docs theme's palette, so it follows the light/dark toggle. They're set on
+   the element that carries the palette (body), not :root, so they resolve against the palette in
+   force. A browser without color-mix() gets the flat fills below. */
+[data-md-color-scheme] {
+  --fp-diagram-step: var(--md-primary-fg-color, #4051b5);
+  --fp-diagram-data: var(--md-code-hl-string-color, #1c7d4d);
+  --fp-diagram-robot: var(--md-default-fg-color--light, #0000008c);
+  --fp-diagram-outside: var(--md-default-fg-color--light, #0000008c);
+  --fp-diagram-error: var(--md-code-hl-number-color, #d52a2a);
+  --fp-diagram-step-fill: #e2e5f4;
+  --fp-diagram-data-fill: #dcefe5;
+  --fp-diagram-robot-fill: #ececec;
+  --fp-diagram-outside-fill: transparent;
+  --fp-diagram-error-fill: #f8dfdf;
+}
+
+[data-md-color-scheme="slate"] {
+  --fp-diagram-step-fill: #1d2236;
+  --fp-diagram-data-fill: #14291f;
+  --fp-diagram-robot-fill: #26282d;
+  --fp-diagram-error-fill: #331b1a;
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  [data-md-color-scheme] {
+    --fp-diagram-step-fill: color-mix(in srgb, var(--fp-diagram-step) 18%, var(--md-default-bg-color));
+    --fp-diagram-data-fill: color-mix(in srgb, var(--fp-diagram-data) 18%, var(--md-default-bg-color));
+    --fp-diagram-robot-fill: color-mix(in srgb, var(--fp-diagram-robot) 22%, var(--md-default-bg-color));
+    --fp-diagram-error-fill: color-mix(in srgb, var(--fp-diagram-error) 18%, var(--md-default-bg-color));
+  }
+}
+
+/* The legend right below a diagram: one swatch per kind, drawn like the kind's boxes. */
+.md-typeset .fp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.2rem;
+  margin: -0.4em 0 1.2em;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.7rem;
+}
+
+.md-typeset .fp-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+}
+
+.md-typeset .fp-swatch {
+  display: inline-block;
+  width: 1.4em;
+  height: 0.9em;
+  border: 1.5px solid;
+  border-radius: 2px;
+}
+
+.md-typeset .fp-swatch--step { background: var(--fp-diagram-step-fill); border-color: var(--fp-diagram-step); }
+.md-typeset .fp-swatch--data { background: var(--fp-diagram-data-fill); border-color: var(--fp-diagram-data); border-radius: 50% / 30%; }
+.md-typeset .fp-swatch--robot { background: var(--fp-diagram-robot-fill); border-color: var(--fp-diagram-robot); }
+.md-typeset .fp-swatch--outside { background: var(--fp-diagram-outside-fill); border-color: var(--fp-diagram-outside); border-style: dashed; }
+.md-typeset .fp-swatch--error { background: var(--fp-diagram-error-fill); border-color: var(--fp-diagram-error); border-radius: 0.45em; }

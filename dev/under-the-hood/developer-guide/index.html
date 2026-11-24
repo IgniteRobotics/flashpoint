@@ -63,6 +63,8 @@
     
       <link rel="stylesheet" href="../../assets/stylesheets/zoom.css">
     
+      <link rel="stylesheet" href="../../assets/stylesheets/diagrams.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -2804,6 +2806,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagrams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Diagrams
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ci" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3067,6 +3080,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagrams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Diagrams
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -3374,6 +3398,60 @@ poetry<span class="w"> </span>run<span class="w"> </span>mypy<span class="w"> </
 <div class="highlight"><pre><span></span><code>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>tools/fetch-corpus.py
 </code></pre></div>
 <p>It downloads with <code>gh release download</code> if the GitHub CLI is installed (run <code>gh auth login</code> first), otherwise over plain HTTPS, checks every hash, and stores the files in <code>~/.cache/flashpoint/corpus/corpus-v1/</code>. Set <code>FLASHPOINT_CORPUS_DIR</code> to put them elsewhere, or <code>--from DIR</code> to copy from a local folder. Never replace a corpus file in place; bump the version and publish a new release. Create it with <code>gh release create corpus-vN --latest=false ...</code>: a corpus release must never be the repository's latest release, which belongs to the newest package version. Check with <code>gh release list --json tagName,isLatest</code>: only the newest package version says <code>true</code>.</p>
+<h2 id="diagrams">Diagrams<a class="headerlink" href="#diagrams" title="Permanent link">&para;</a></h2>
+<p>Diagrams are Mermaid: a fenced code block whose language is <code>mermaid</code>. The docs site draws them with its own copy of Mermaid, and GitHub draws the ones in <code>docs/rewrite/</code>.</p>
+<p>A docs diagram must be drawn at 80 % of its natural size or more in the content column of a 1280 px wide window, or its labels shrink below reading size. The pipeline on <a href="../how-it-works/">How Flashpoint works</a> is the example: run left to right, it was 1909 px wide and drew at 36 %, with labels about 5 px high. Run top to bottom, it draws at 100 %. To stay inside the limit:
+- Run flows top to bottom (<code>flowchart TB</code>).
+- Put at most about four boxes side by side.
+- Break long labels yourself with <code>&lt;br&gt;</code>. The docs only wrap a label past 480 px.
+- Split a diagram that's still too wide into two.</p>
+<p>The diagrams in <code>docs/rewrite/</code> follow the same layout rules when they're next edited.</p>
+<p>Boxes are coloured by kind, never in the diagram's source. Tag each box with one of these classes (<code>class A,B data</code>, or <code>A:::data</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>For</th>
+<th>Drawn as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>step</code></td>
+<td>A step Flashpoint runs</td>
+<td>The theme's primary colour</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>Data Flashpoint keeps</td>
+<td>Green; draw it as a cylinder, <code>[(name)]</code></td>
+</tr>
+<tr>
+<td><code>robot</code></td>
+<td>The robot, or something on it</td>
+<td>Grey</td>
+</tr>
+<tr>
+<td><code>outside</code></td>
+<td>Something outside Flashpoint, or optional</td>
+<td>A dashed outline. Declare <code>classDef outside stroke-dasharray:5 4</code> in the diagram, so GitHub dashes it too</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>An error state, in a state diagram</td>
+<td>Red</td>
+</tr>
+</tbody>
+</table>
+<p>The colours come from the docs theme and follow its light/dark toggle. GitHub ignores them and draws the boxes in Mermaid's default colours. A diagram that uses kinds needs a legend right below it, naming each kind it uses and no others:</p>
+<div class="highlight"><pre><span></span><code><span class="p">&lt;</span><span class="nt">div</span> <span class="na">class</span><span class="o">=</span><span class="s">"fp-legend"</span><span class="p">&gt;</span>
+  <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"fp-legend__item"</span><span class="p">&gt;&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"fp-swatch fp-swatch--data"</span><span class="p">&gt;&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>data Flashpoint keeps<span class="p">&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>
+  <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"fp-legend__item"</span><span class="p">&gt;&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"fp-swatch fp-swatch--error"</span><span class="p">&gt;&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>an error state<span class="p">&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+</code></pre></div>
+<p>Two test files enforce this. <code>tests/test_docs_diagram_scale.py</code> draws every built docs page that holds a diagram and fails on any diagram under 80 %, naming the page, which diagram on it and its size. <code>tests/test_docs_diagram_notation.py</code> checks the classes and legends in each page's source, and, in the browser, the colours in both palettes and that every label is plain text inside its box. The source checks run with the unit tests. The browser checks need Chromium:</p>
+<div class="highlight"><pre><span></span><code>poetry<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span>browser<span class="w"> </span>tests/test_docs_diagram_scale.py<span class="w"> </span>tests/test_docs_diagram_notation.py
+</code></pre></div>
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
 <p><code>.github/workflows/ci.yml</code> runs on every pull request and on pushes to <code>main</code> and <code>development</code>. A first <code>changes</code> job checks which files changed. When they're all docs (<code>docs/</code>, <code>openspec/</code>, <code>media/</code>, <code>.claude/</code>, and Markdown outside <code>src/</code> and <code>tests/</code>), only the <code>docs</code> job runs; otherwise everything does.</p>
 <table>

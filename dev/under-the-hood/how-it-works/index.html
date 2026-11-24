@@ -63,6 +63,8 @@
     
       <link rel="stylesheet" href="../../assets/stylesheets/zoom.css">
     
+      <link rel="stylesheet" href="../../assets/stylesheets/diagrams.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -3007,16 +3009,28 @@
 <h1 id="how-flashpoint-works">How Flashpoint works<a class="headerlink" href="#how-flashpoint-works" title="Permanent link">&para;</a></h1>
 <p>This page explains what happens to a log between the robot and the screen. It's written for developers, but nothing here needs code. For the design reasoning and the trade-offs, see the <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/rewrite/05-target-architecture.md">target architecture</a> and the <a href="https://github.com/IgniteRobotics/flashpoint/blob/main/docs/adr/README.md">decision records</a>.</p>
 <h2 id="the-pipeline">The pipeline<a class="headerlink" href="#the-pipeline" title="Permanent link">&para;</a></h2>
-<pre class="mermaid"><code>flowchart LR
-    R[roboRIO and USB stick] --&gt;|acquire| I[(inbox)]
-    M[logs you copied by hand] --&gt;|ingest| RAW
+<pre class="mermaid"><code>flowchart TB
+    classDef outside stroke-dasharray:5 4
+    R[roboRIO and&lt;br&gt;USB stick] --&gt;|acquire| I[(inbox)]
+    M[logs you copied&lt;br&gt;by hand] --&gt;|ingest| RAW
     I --&gt;|ingest| RAW[(raw)]
     RAW --&gt; B[(bronze)]
     B --&gt;|derive| S[(silver)]
     S --&gt; G[(gold)]
     G --&gt;|detect| A[(anomalies)]
-    G --&gt;|report| RP[Replay data]
-    G &amp; A &amp; RP --&gt;|serve| APP[Replay, History, Anomalies, Setup, Live CAN]</code></pre>
+    G --&gt;|report| RP[(Replay data)]
+    G &amp; A &amp; RP --&gt;|serve| APP[Replay, History, Anomalies,&lt;br&gt;Setup, Live CAN]
+    class R robot
+    class M outside
+    class I,RAW,B,S,G,A,RP data
+    class APP step</code></pre>
+<div class="fp-legend">
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--robot"></span>the robot</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--data"></span>data Flashpoint keeps</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--step"></span>a step Flashpoint runs</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--outside"></span>outside Flashpoint</span>
+</div>
+
 <table>
 <thead>
 <tr>
@@ -3061,9 +3075,25 @@
 <p>Each step only redoes work whose inputs changed. Re-running any of them is safe and quick.</p>
 <p><code>ingest</code> and <code>rebuild</code> run derive and then the Replay build, each in its own process. <code>--no-derive</code> (on <code>ingest</code>) and <code>--no-report</code> skip them. The <code>acquire</code> watch cycle does the same.</p>
 <h3 id="what-happens-to-a-hoot-file">What happens to a <code>.hoot</code> file<a class="headerlink" href="#what-happens-to-a-hoot-file" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>stateDiagram-v2
+    direction TB
+    [*] --&gt; raw: ingest stores it
+    raw --&gt; converted: owlet converts it
+    converted --&gt; bronze: every sample read
+    raw --&gt; quarantined: the file is bad
+    raw --&gt; failed: the machine failed
+    failed --&gt; converted: the next run retries
+    failed --&gt; quarantined: 3rd crash or timeout
+    class raw, converted, bronze data
+    class failed, quarantined error</code></pre>
+<div class="fp-legend">
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--data"></span>data Flashpoint keeps</span>
+  <span class="fp-legend__item"><span class="fp-swatch fp-swatch--error"></span>an error state</span>
+</div>
+
 <ol>
 <li><strong>Raw:</strong> ingest hashes the file. If the ledger has seen that hash, the file is skipped. Otherwise it is copied to <code>raw/&lt;first two hex characters&gt;/&lt;sha256&gt;.hoot</code> (for example <code>raw/3f/3f9a….hoot</code>) and recorded in the ledger (<code>meta/flashpoint.sqlite</code>). Raw files are never changed.</li>
-<li><strong>Convert:</strong> byte 70 of the file gives its format version. Flashpoint picks the matching owlet build from a versioned registry, downloads it on first use into <code>~/.cache/flashpoint/owlet/</code>, and converts the hoot. By default it keeps the health signals only (<code>--profile health</code>); <code>--profile all</code> keeps everything. A file owlet can't read is <strong>quarantined</strong> with a reason instead of stopping the run. When the machine is at fault (owlet can't be downloaded, or it crashes or times out), the file is marked <strong>failed</strong> instead and retried by the next run; one that crashes owlet 3 times is quarantined.</li>
+<li><strong>Convert:</strong> byte 70 of the file gives its format version. Flashpoint picks the matching owlet build from a versioned registry, downloads it on first use into <code>~/.cache/flashpoint/owlet/</code>, and converts the hoot. By default it keeps the health signals only (<code>--profile health</code>); <code>--profile all</code> keeps everything. A file that doesn't convert never stops the run. When the file is at fault, it's <strong>quarantined</strong> with a reason. When the machine is (owlet can't be downloaded, or it crashes or times out), the file is marked <strong>failed</strong> and the next run retries it. A file that crashes owlet or times out 3 times is quarantined.</li>
 <li><strong>Bronze:</strong> every sample becomes a row in <code>bronze/samples/</code> (long format: one row per signal per timestamp). The file's metadata goes to <code>meta/</code>.</li>
 <li><strong>Silver:</strong> <code>derive</code> puts the hoot in a session with its wpilog, shifts its timestamps onto the wpilog's clock, and maps each <code>Phoenix6/TalonFX-11/...</code> signal to a robot slot and a physical unit. The result goes to <code>silver/samples/</code>.</li>
 <li><strong>Gold:</strong> <code>derive</code> summarizes each motor for each match phase (energy, current percentiles, temperature, stall time, model residual) into <code>gold/match_features/</code>, one row per match × phase × slot × unit. CAN reboots, dropouts, and bus gaps go to <code>gold/can_health/</code>, <code>gold/can_bus_health/</code>, and <code>gold/can_events/</code>. Each unit's usage in every session, pit and practice included, goes to <code>gold/unit_usage/</code>.</li>
@@ -3304,6 +3334,7 @@
     
     
     <script src="../../assets/vendor/mermaid.min.js"></script>
+    <script src="../../assets/javascripts/diagrams.js"></script>
   
       <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
       
