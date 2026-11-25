@@ -192,6 +192,7 @@
         values,
         points,
         missing: !points,
+        missingText: points ? null : tempMissingText(d, slot),
         refs: [{ value: limits.temp_warn_c, label: 'WARN ' + limits.temp_warn_c }],
       };
     }
@@ -225,6 +226,16 @@
     });
   }
 
+  /* Why a slot has no temperature (match-reports, "Temperature on non-Pro hoots"). */
+  const TEMP_REASON = {
+    'needs-pro': 'not logged (needs Phoenix Pro)',
+    'not-tracked': 'temperature not tracked',
+  };
+  const tempReasonOf = (d, slot) => (d.slots || []).find((s) => s.id === slot)?.temp_reason;
+  const tempMissingText = (d, slot) => TEMP_REASON[tempReasonOf(d, slot)] || 'not logged';
+  // A slot with a reason has no temperature, even when not_logged doesn't list it (a sensor).
+  const tempLogged = (d, slot) => !notLogged(d, slot, 'temp_c') && !tempReasonOf(d, slot);
+
   function defaultTracks(d) {
     const maxima = Object.entries(d.maxima || {});
     const hottest = maxima
@@ -234,12 +245,36 @@
       .filter(([, m]) => m.supply_current_max != null)
       .sort((a, b) => b[1].supply_current_max - a[1].supply_current_max)[0];
     const first = slotIds(d)[0];
+    // With no temperature anywhere, show a slot that could have one (not a gyro or encoder).
+    const capable = (d.slots || []).find((s) => s.temp_reason && s.temp_reason !== 'not-tracked');
     return [
       'battery',
       'total',
-      'temp_c:' + (hottest ? hottest[0] : first),
+      'temp_c:' + (hottest ? hottest[0] : capable ? capable.id : first),
       'supply_current:' + (busiest ? busiest[0] : first),
     ];
+  }
+
+  /* The header names each bus without temperature; nothing when every bus has it. */
+  function temperatureNote(d) {
+    const t = d.temperature;
+    if (!t) return null;
+    const buses = (t.missing_by_bus || []).map((b) => b.name);
+    if (buses.length)
+      return h(
+        'p',
+        { class: 'callout', id: 'temperature-note' },
+        'Temperature not logged on ' +
+          buses.join(', ') +
+          ': temperature needs a Phoenix Pro-licensed device on that bus.',
+      );
+    return t.available
+      ? null
+      : h(
+          'p',
+          { class: 'callout', id: 'temperature-note' },
+          'Temperature not logged. ' + (t.reason || ''),
+        );
   }
 
   /* ---------- rendering ---------- */
@@ -777,9 +812,7 @@
               '): hoot and wpilog times may disagree. Check events against AdvantageScope.',
           )
         : null,
-      d.temperature && !d.temperature.available
-        ? h('p', { class: 'callout' }, 'Temperature not logged. ' + (d.temperature.reason || ''))
-        : null,
+      temperatureNote(d),
       (d.notes || []).map((n) => h('p', { class: 'callout callout--quiet' }, n)),
     );
     const markers = h('section', {
@@ -1040,8 +1073,9 @@
       container.appendChild(h('div', { class: 'track' }, label, plot));
       const entry = { spec, td, now, plot, range: label.querySelector('[data-range]') };
       if (td.missing || !td.values) {
-        FP.fill(plot, h('p', { class: 'notlogged notice' }, 'not logged'));
-        entry.range.textContent = 'not logged';
+        const text = td.missingText || 'not logged';
+        FP.fill(plot, h('p', { class: 'notlogged notice' }, text));
+        entry.range.textContent = text;
       } else {
         const series = [
           { label: td.label, values: td.values, stroke: tokens.accent, width: 1.5, band: td.band },
@@ -1110,7 +1144,7 @@
                   ? o.maxima[slot]?.supply_current_max
                   : valueAt(o, 'supply_current:' + slot, t),
               temp: t == null ? o.maxima[slot]?.temp_max_c : valueAt(o, 'temp_c:' + slot, t),
-              tempLogged: !notLogged(o, slot, 'temp_c'),
+              tempLogged: tempLogged(o, slot),
             }
           : null;
       }
@@ -1118,14 +1152,21 @@
         slot,
         amps,
         temp,
-        tempLogged: !notLogged(d, slot, 'temp_c'),
+        tempLogged: tempLogged(d, slot),
+        tempText: tempMissingText(d, slot),
         ampsLogged: !notLogged(d, slot, 'supply_current'),
         other,
         present: !o || other != null,
       };
     });
+    // No cursor: slots with temperature first, hottest first; then the rest by current.
     if (t == null)
-      rows.sort((a, b) => (b.temp == null ? -1 : b.temp) - (a.temp == null ? -1 : a.temp));
+      rows.sort(
+        (a, b) =>
+          (b.temp != null) - (a.temp != null) ||
+          (b.temp ?? 0) - (a.temp ?? 0) ||
+          (b.amps ?? -1) - (a.amps ?? -1),
+      );
     return { rows, limits };
   }
 
@@ -1210,8 +1251,8 @@
     );
   }
 
-  function cell(value, digits, logged) {
-    if (!logged) return h('td', { class: 'num notlogged' }, 'not logged');
+  function cell(value, digits, logged, missingText) {
+    if (!logged) return h('td', { class: 'num notlogged' }, missingText || 'not logged');
     return h('td', { class: 'num' }, FP.fmt(value, digits));
   }
 
@@ -1233,7 +1274,9 @@
     const covered = ui.detail && t != null && t >= ui.detail.from && t < ui.detail.to;
     for (const track of ui.tracks) {
       const v = t == null ? null : valueAt(covered ? ui.detail.merged : d, track.spec, t);
-      track.now.textContent = track.td.missing ? 'not logged' : FP.fmt(v, track.td.digits);
+      track.now.textContent = track.td.missing
+        ? track.td.missingText || 'not logged'
+        : FP.fmt(v, track.td.digits);
       if (track.chart) track.chart.redraw();
     }
     const heading = document.getElementById('readout-label');
@@ -1254,7 +1297,7 @@
             { class: level === 'fault' ? 'is-low' : null, dataset: { slot: r.slot } },
             h('td', { class: 'v wrap-anywhere' }, slotLabel(d, r.slot)),
             cell(r.amps, 1, r.ampsLogged),
-            cell(r.temp, 0, r.tempLogged),
+            cell(r.temp, 0, r.tempLogged, r.tempText),
             h('td', null, level ? FP.status(level) : null),
             ui.overlay
               ? r.other
