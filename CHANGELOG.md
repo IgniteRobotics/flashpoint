@@ -2,8 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Non-Pro hoots are expected input. History reads **NEEDS PRO** for a motor whose hoots aren't Phoenix Pro-licensed, and **N/A** for a gyro or CANcoder, where it used to read NO DATA. Replay names each bus without temperature. Detection skips missing temperature and counts what it skipped. `flashpoint doctor` and the Setup view report Phoenix Pro coverage, as information only. (#75, #10)
+- AdvantageKit logs: `/DriverStation/` FMS fields, `akit_…` filenames and the epoch-time entry are read, so an AdvantageKit wpilog gets its match identity and pairs with its hoots. When a wpilog has no identity, the hoots' filenames give it. (#76)
+- The Anomalies view shows a BETA tag and a note linking its guide page. (#77)
+
 ### Changed
 
+- CAN-gap DRIFT, STEP and SIBLING floors scale with a device's frame rate above 125 frames/s, so normal timing jitter on a 250 Hz CANivore no longer raises findings. roboRIO-rate devices are unchanged. A brownout judged on the median fallback (no `battery_proxy`) is at most MED. The first `derive` after upgrading rebuilds every session, and Replay data is rebuilt. (#77)
+- The missing-`ml`-extra warning gives the pipx, uv, pip and Poetry commands. (#77)
 - When the derive that `flashpoint ingest` or `flashpoint rebuild` runs afterwards fails, the command now says Replay data was not built, names `flashpoint derive --report` as the retry, and exits 1, even if every file imported. It used to exit 0. Scripts that call `ingest` may see the new exit code. (#107)
 
 ### Fixed

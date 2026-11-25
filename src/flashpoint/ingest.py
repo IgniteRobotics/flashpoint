@@ -30,18 +30,6 @@ from flashpoint.readers.wpilog import CatalogEntry, WpilogError, WpilogReader
 
 SUFFIX_KIND = {".wpilog": "wpilog", ".hoot": "hoot"}
 SHORT_COVERAGE_RATIO = 0.8  # a hoot covering < 80% of its longest session sibling is flagged
-_EMPTY_METADATA_FRAME = pl.DataFrame(
-    schema={
-        "signal": pl.String,
-        "type": pl.String,
-        "ts_us": pl.Int64,
-        "v_f64": pl.Float64,
-        "v_i64": pl.Int64,
-        "v_bool": pl.Boolean,
-        "v_str": pl.String,
-        "v_bytes": pl.Binary,
-    }
-)
 
 
 @dataclass(frozen=True)
@@ -292,7 +280,7 @@ class Ingestor:
                 truncated_bytes=reader.truncated_bytes,
                 orphan_records=reader.orphan_records,
                 catalog=reader.catalog,
-                metadata_frame=pl.concat(frames) if frames else _EMPTY_METADATA_FRAME,
+                metadata_frame=pl.concat(frames) if frames else extract.EMPTY_METADATA_FRAME,
             )
             streamed.append(result)
             return season_of(result)
@@ -321,17 +309,7 @@ class Ingestor:
         span = streamed.span
         logs_row = {
             "log_id": sha, "kind": "wpilog", "season": meta.season, "filename": name,
-            "fms_event": meta.fms_event, "fms_match_type": meta.fms_match_type,
-            "fms_match_number": meta.fms_match_number, "fms_replay": meta.fms_replay,
-            "fms_red_alliance": meta.fms_red_alliance, "fms_station": meta.fms_station,
-            "file_event": meta.file.event, "file_match_type": meta.file.match_type,
-            "file_match_number": meta.file.match_number, "project": meta.project,
-            "build_date": meta.build.get("Build Date"),
-            "commit_hash": meta.build.get("Commit Hash"),
-            "git_branch": meta.git_branch, "git_dirty": meta.git_dirty,
-            "utc_start": meta.utc_start.isoformat() if meta.utc_start else None,
-            "utc_end": meta.utc_end.isoformat() if meta.utc_end else None,
-            "anchor_source": meta.anchor_source, "utc_offset_us": meta.utc_offset_us,
+            **extract.logs_columns(meta),
             "first_ts_us": span[0] if span else None, "last_ts_us": span[1] if span else None,
             "record_count": streamed.records, "truncated_bytes": streamed.truncated_bytes,
             "orphan_records": streamed.orphan_records, "inventory": meta.inventory_status,
@@ -372,6 +350,7 @@ class Ingestor:
                 "profile": conversion.profile, "signal_count": conversion.signal_count,
                 "read_status": "incomplete" if conversion.warnings else "complete",
                 "integrity": "unchecked",
+                "dropped_signals": ",".join(conversion.dropped_signals) or None,
             }  # fmt: skip
             self.ledger.replace_metadata(
                 sha,

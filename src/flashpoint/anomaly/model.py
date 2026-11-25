@@ -13,12 +13,15 @@ import polars as pl
 
 from flashpoint.anomaly.baseline import judge
 from flashpoint.anomaly.findings import Finding, Flags
+from flashpoint.anomaly.floors import floors
 from flashpoint.anomaly.frame import Frame
 from flashpoint.anomaly.settings import BASELINE_METRICS, METRIC_INFO, MODEL_METRIC, AnomalyConfig
 
 MISSING = (
-    "the model detector is enabled in anomaly.toml, but scikit-learn is not installed:"
-    " install the `ml` extra (poetry install --extras ml); MODEL was skipped"
+    "the model detector is enabled in anomaly.toml, but scikit-learn is not installed, so MODEL"
+    " was skipped. Install the `ml` extra the way you installed Flashpoint:"
+    ' pipx install --force "flashpoint[ml]", uv tool install "flashpoint[ml]",'
+    ' pip install "flashpoint[ml]", or in a development checkout poetry install -E ml'
 )
 FEATURES = BASELINE_METRICS
 N_ESTIMATORS = 100
@@ -52,8 +55,10 @@ def _scaled(frame: Frame, cfg: AnomalyConfig) -> tuple[pl.DataFrame, np.ndarray]
         for f, metric in enumerate(FEATURES):
             values = rows.get_column(metric).cast(pl.Float64).fill_null(np.nan).to_numpy()
             present = np.flatnonzero(~np.isnan(values))
-            judged = judge(values[present], cfg.baseline.window, cfg.baseline.floors[metric],
-                           cfg.baseline.min_baseline)  # fmt: skip
+            rates = rows.get_column("frame_rate_hz").cast(pl.Float64).fill_null(np.nan)
+            floor = floors(metric, cfg.baseline.floors[metric], rates.to_numpy()[present],
+                           cfg.baseline.window)  # fmt: skip
+            judged = judge(values[present], cfg.baseline.window, floor, cfg.baseline.min_baseline)
             z[present, f] = judged.z
         valid = ~np.isnan(z).all(axis=1)
         parts.append(rows.filter(pl.Series(valid)))

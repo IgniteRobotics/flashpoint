@@ -6,13 +6,12 @@
 
 ## What beta means today
 
-Shipped now: the view, its findings, triage, and the `why` text of each anomaly, which names the battery proxy a brownout was judged on.
+Detection has been tuned on one team's robots, so treat every finding as something to check, not a fault you already know about. What the app does about that ([#77](https://github.com/IgniteRobotics/flashpoint/issues/77)):
 
-Planned under [#77](https://github.com/IgniteRobotics/flashpoint/issues/77), and not in the app yet:
-
-- a **BETA** tag and a one-line note in the view's header, saying that detection is tuned on one team's robots and that findings are suggestions to check against the evidence, with a link to this page. It will show whatever the counts, including when nothing is flagged;
-- brownouts found on the median fallback (no `battery_proxy` declared) capped at MED, with a `why` that says the fallback can read wiring drops as brownouts;
-- CAN-gap floors that scale with a device's frame rate. Until then, a CANivore device at 250 Hz can get DRIFT, STEP or SIBLING findings on isolated CAN gaps or CAN frames missed per minute from normal timing jitter. Check the evidence before acting on one, or raise `floors` in [anomaly.toml](../config/anomaly.md#baseline-drift-and-step).
+- The view's header shows a **BETA** tag and a one-line note that says this, with a link to this page. It's there whatever the counts, including when nothing is flagged.
+- A brownout found on the median fallback (no `battery_proxy` declared) is at most MED. Its `why` says the fallback can read wiring drops as brownouts, and that declaring a battery-proxy slot makes the finding trustworthy.
+- The spread floors for isolated CAN gaps and CAN frames missed per minute scale with a device's frame rate. A device at 125 frames per second or slower, which covers roboRIO-bus rates, keeps the configured floors. Above that, each floor is multiplied by the rate ÷ 50, so a 250 Hz CANivore device gets five times the floor. Normal timing jitter on a CANivore then stays inside the band, and a real dropout still stands out. The SPEC limit on the longest gap doesn't scale. The `why` of a CAN-gap DRIFT, STEP or SIBLING finding states the device's frame rate and the floor it was judged with. To make CAN-gap findings rarer, raise `floors` in [anomaly.toml](../config/anomaly.md#baseline-drift-and-step).
+- Temperature that isn't logged never raises a finding. On hoots without Phoenix Pro, detection skips temperature and judges current and CAN as usual; see [Phoenix Pro and temperature](../../robot-side/pro-and-temperature.md).
 
 ## Make findings trustworthy
 

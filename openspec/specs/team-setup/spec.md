@@ -6,7 +6,6 @@ Let any FRC team install Flashpoint from a public package, create its own config
 
 ## Requirements
 
-
 ### Requirement: Installable public package
 Flashpoint SHALL be published as a package that installs with `pipx install flashpoint` on macOS, Windows and Linux, with Python 3.11 to 3.13. The installed package SHALL include the default configuration (season roots that every WPILib robot shares, report and anomaly thresholds, anomaly cause text) and SHALL NOT include any team's robot files, units list or logs. Each release SHALL publish its version, and `flashpoint --version` SHALL print it.
 
@@ -88,3 +87,27 @@ The Setup view SHALL offer a fix button for these problems: create the configura
 #### Scenario: Request without the guard
 - **WHEN** a fix request arrives without the `X-Flashpoint` header
 - **THEN** it is refused and nothing runs
+
+### Requirement: Phoenix Pro coverage check
+The setup checks SHALL include a Phoenix Pro coverage check, shown by `flashpoint doctor` and the Setup view. It SHALL report how many hoots in the lake are Pro-licensed, out of how many, and for each bus with non-Pro hoots, how many there are. It SHALL always be ok, because a team can't clear it without buying Phoenix Pro. It is informational:
+- when every hoot is Pro-licensed, the message says so;
+- when any hoot is not, the message says temperature trends and temperature anomalies need a Phoenix Pro-licensed device on that bus, and links the documentation page on Phoenix Pro and temperature;
+- when the lake holds no hoots, the message is "no hoots yet".
+
+It SHALL never be a warning or a problem, so it never makes `doctor` exit non-zero and never adds to the Setup view's warning count. It SHALL have no fix action. It SHALL read only the ledger, never the raw hoots. Hoots whose Pro flag is unknown (for example quarantined before conversion) SHALL be counted as unknown, not as non-Pro.
+
+#### Scenario: All Pro
+- **WHEN** `doctor` runs on a lake built from corpus-v1
+- **THEN** the Pro coverage check is ok and reports every converted corpus hoot as Pro-licensed, with the empty quarantined hoot counted as unknown
+
+#### Scenario: Mixed lake
+- **WHEN** `doctor` runs on a synthetic lake with 4 Pro CANivore hoots and 4 non-Pro rio hoots
+- **THEN** the check is ok with the message 4 of 8 hoots Pro-licensed with 4 non-Pro on `rio`, it links the Phoenix Pro and temperature page, and `doctor` exits 0 if nothing else is a problem
+
+#### Scenario: Empty lake
+- **WHEN** `doctor` runs on a lake with no hoots
+- **THEN** the check is ok with "no hoots yet"
+
+#### Scenario: Shown in the Setup view
+- **WHEN** the Setup view's Checks tab is opened on the mixed synthetic lake
+- **THEN** it shows the check as ok with the same message as `doctor`, no fix button, and the Setup warning count is unchanged

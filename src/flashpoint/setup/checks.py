@@ -512,6 +512,53 @@ def _hoot_only(ctx: CheckContext) -> CheckResult:
     return CheckResult(check_id, title, "ok", "every session with hoots has a wpilog")
 
 
+def _pro_coverage(ctx: CheckContext) -> CheckResult:
+    """How many hoots are Phoenix Pro-licensed, from the ledger only. Always ok: a team can't
+    clear it without buying Pro, so it informs and never warns (team-setup)."""
+    check_id, title = "pro-coverage", "Phoenix Pro coverage"
+    rows: list[dict[str, Any]] = []
+    if ctx.lake.ledger.is_file():
+        try:
+            ledger = Ledger(ctx.lake.ledger)
+            try:
+                rows = ledger.query(
+                    "SELECT h.bus, h.pro_licensed, count(*) AS n FROM files f"
+                    " LEFT JOIN hoot_logs h ON h.log_id = f.sha256 WHERE f.kind = 'hoot'"
+                    " GROUP BY h.bus, h.pro_licensed"
+                )
+            finally:
+                ledger.close()
+        except sqlite3.Error:
+            pass  # the backup check reports an unreadable ledger
+    if not rows:
+        return CheckResult(check_id, title, "ok", "no hoots yet")
+    # A hoot quarantined before conversion has no Pro flag: unknown, not non-Pro.
+    unknown = sum(r["n"] for r in rows if r["pro_licensed"] is None)
+    pro = sum(r["n"] for r in rows if r["pro_licensed"])
+    non_pro: dict[str, int] = {}
+    for r in rows:
+        if r["pro_licensed"] is not None and not r["pro_licensed"]:
+            non_pro[r["bus"] or "unknown bus"] = non_pro.get(r["bus"] or "unknown bus", 0) + r["n"]
+    converted = pro + sum(non_pro.values())
+    more = f"; {unknown} more not converted (unknown)" if unknown else ""
+    if not non_pro:
+        if not converted:
+            return CheckResult(check_id, title, "ok", f"no converted hoots yet{more}")
+        return CheckResult(
+            check_id, title, "ok",
+            f"every converted hoot is Pro-licensed ({pro} of {converted}){more}",
+        )  # fmt: skip
+    buses = ", ".join(f"{n} non-Pro on `{bus}`" for bus, n in sorted(non_pro.items()))
+    return CheckResult(
+        check_id,
+        title,
+        "ok",
+        f"{pro} of {converted} hoots Pro-licensed, with {buses}{more}. On those buses"
+        " temperature trends and temperature anomalies need a Phoenix Pro-licensed device",
+        command=f"see {docs_url('pro-and-temperature')}",
+    )
+
+
 def _advantagescope(ctx: CheckContext) -> CheckResult:
     title = "AdvantageScope"
     install, problem = ctx.find_advantagescope(ctx.config_root)
@@ -633,6 +680,7 @@ def run_checks(ctx: CheckContext) -> list[CheckResult]:
         _backup(ctx, acquire),
         *_owlet(ctx),
         _hoot_only(ctx),
+        _pro_coverage(ctx),
         _advantagescope(ctx),
         _service(ctx),
         _python(ctx),

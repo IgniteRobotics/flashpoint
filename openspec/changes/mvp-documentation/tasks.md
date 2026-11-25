@@ -175,6 +175,7 @@
 - [x] 7.9 Test first: a synthetic wpilog (`tests/wpilog_builder.py`) whose `/Flashpoint/CANInventory` holds `{"schema": 1, "error": "…"}`. Ingest and derive it, and check that the error is recorded and that history uses swap dates, as `can-inventory.md` says. Verify: the test passes. If behaviour differs from the page, fix the page.
   `tests/semantics/test_inventory_error_flow.py`: ingest and derive through the CLI with a fake-converted rio hoot in the same session. The error lands in the ledger's `inventory.error`, and the slot gets `legacy:bot:hood:1` (one swap date before the log). The page needed no change. A valid inventory in the same test fails it (checked by mutation).
 - [ ] 7.10 After #76 merges, write `robot-side/advantagekit.md`: what AdvantageKit logs get (identity per #76), what they don't (full alignment and framing), and "not tested on real logs" until 12.8 says otherwise. Verify: the link check passes, and the page matches the support matrix row.
+  - 2026-11-25: `mvp-outside-team-logs` 7.1 wrote the page content (branch `feature/75-mvp-outside-team-logs`). Once that merges, this task is the matrix check.
 - [ ] 7.11 [HUMAN] By 2026-12-12 (the `mvp-public-release` M2 gate), a mentor other than the author reviews the Robot side section and its samples against a real robot project. Verify: the review is recorded on #83, and each finding is fixed or filed.
 
 ## 8. Generated screenshots and animations (M2; final capture in M3)

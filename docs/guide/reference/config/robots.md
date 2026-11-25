@@ -105,11 +105,34 @@ Numbers are stored as numbers, and true/false as 1/0. A declared entry that a lo
 | `name` | The group's name, unique in the file |
 | `slots` | Two or more slot ids. A slot can be in only one group |
 
-The SIBLING anomaly method compares each slot with the median of its group, so put motors that do the same job together: the four drive motors, or a shooter's two flywheels.
+The SIBLING anomaly method compares each slot with the median of its group, so put motors that do the same job together: the four drive motors, or a shooter's two flywheels. With no groups, there are no SIBLING findings.
 
 ## The battery proxy
 
-`battery_proxy` names a low-current device on the main power bus, such as the gyro, whose supply voltage stands in for the battery: Replay's battery track, brownout markers and brownout findings use it. A motor is a bad choice, because its own wiring drop under load reads as a brownout. With no proxy, Flashpoint uses the median supply voltage across devices. See [Battery voltage and the PDH](../../robot-side/battery-and-pdh.md).
+`battery_proxy` names a low-current device on the main power bus, such as the gyro, whose supply voltage stands in for the battery: Replay's battery track, brownout markers and brownout findings use it. A motor is a bad choice, because its own wiring drop under load reads as a brownout. With no proxy, Flashpoint uses the median supply voltage across devices, and a brownout found that way is at most MED. See [Battery voltage and the PDH](../../robot-side/battery-and-pdh.md).
+
+## Adding both to a drafted file
+
+A drafted robot file (from **Draft robot**, or your first import) has neither a battery proxy nor sibling groups, because a log can't tell Flashpoint which devices do the same job. Add them by hand: `battery_proxy` at the top level, and one `[[siblings]]` block per group, using the slot ids the draft wrote (the model and CAN id, such as `talonfx-11`). You can rename the slots first; use whatever ids the file has.
+
+```toml
+robot = "2026-comp"
+season = 2026
+project = "Robot-2026"
+battery_proxy = "pigeon2-10"   # added: the drafted gyro slot
+
+# ... the drafted [[slot]] blocks stay as they are ...
+
+[[siblings]]                   # added: the four drive motors
+name = "drive"
+slots = ["talonfx-11", "talonfx-21", "talonfx-31", "talonfx-41"]
+
+[[siblings]]                   # added: the shooter's two flywheels
+name = "flywheel"
+slots = ["talonfx-5", "talonfx-6"]
+```
+
+Then run `flashpoint derive --all`. The [Anomalies view](../views/anomalies.md#make-findings-trustworthy) says why both make findings more trustworthy.
 
 ## Which robot file a log uses
 

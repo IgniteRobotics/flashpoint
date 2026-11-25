@@ -295,3 +295,23 @@ def test_hoot_without_reset_count(tmp_path: Path) -> None:
     )  # fmt: skip
     assert result.slots and all(r["reset_count_logged"] is False for r in result.slots)
     assert _row(result, "motor-2", "teleop")["reboots"] == 1
+
+
+# --- nominal frame rate (mvp-outside-team-logs 4.1) ----------------------------------------
+
+
+def test_frame_rate_is_the_inverse_of_the_nominal_period(tmp_path: Path) -> None:
+    devices = [b.Device(f"TalonFX-{i}", period_ms=4.0) for i in range(1, 11)]
+    hoot = b.Hoot(devices, duration_s=30.0, enabled=[(10.0, 28.0)])
+    result = _run(tmp_path, hoot, _framing((10, 13), (13, 28)))
+    assert result.slots
+    assert all(r["frame_rate_hz"] == pytest.approx(250.0) for r in result.slots)
+
+
+def test_no_frames_while_enabled_has_no_frame_rate(tmp_path: Path) -> None:
+    devices = [b.Device(f"TalonFX-{i}") for i in range(1, 11)]
+    devices[0].stop_s = 5.0  # only frames while disabled
+    hoot = b.Hoot(devices, duration_s=30.0, enabled=[(10.0, 28.0)])
+    result = _run(tmp_path, hoot, _framing((10, 13), (13, 28)))
+    assert _row(result, "motor-1", "match")["frame_rate_hz"] is None
+    assert _row(result, "motor-2", "match")["frame_rate_hz"] == pytest.approx(125.0)

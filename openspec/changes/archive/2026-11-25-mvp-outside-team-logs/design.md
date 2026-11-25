@@ -77,12 +77,20 @@ Alternatives:
 
 They live in one constant block in `meta/extract.py`. A real log that differs is fixed there, and the spec scenarios still hold.
 
+**Checked 2026-11-25 against AdvantageKit v26.0.2's source** (`LoggedDriverStation`, `LoggedSystemStats`, `WPILOGWriter`, `LogTable` on GitHub; no outside log or simulation log yet, task 2.1):
+- The root table prefix is `/`, so the entries are `/DriverStation/<field>` and `/SystemStats/<field>`. Confirmed.
+- `EventName` is a string (trimmed). `MatchNumber`, `ReplayNumber`, `MatchType` and `AllianceStation` are integers (`int64` in the wpilog). `MatchType` is 0 none, 1 practice, 2 qualification, 3 elimination. `AllianceStation` is the HAL's 1–3 red, 4–6 blue, 0 unknown, so it maps to the alliance and station fields. The names `Practice`/`Qualification`/`Elimination` are still accepted, but v26 doesn't write them.
+- The epoch entry is `/SystemStats/EpochTimeMicros` (int64). `/SystemStats/SystemTimeValid` exists too; the >2020 filter does the same job.
+- Filename: `akit_` + `yy-MM-dd_HH-mm-ss` (else a random hex id until the DS attaches with a valid clock) + `_<event>` **lower-cased** + `_<p|q|e><n>`. Each part is optional. Extraction upper-cases the event. The time is `LocalDateTime.now()`, the JVM's local zone: UTC on a roboRIO (not confirmed on a real log), the laptop's zone in simulation.
+- Not confirmed: real epoch values and the UTC filename rule (both need a real log), and the on-disk types (the source says int64; a sim or real log would show it).
+- **Correction to task 2.4's check:** on the corpus, only `2025-nofms` is read again. `2026-gacmp-p2` is an FMS practice match with a match number and a UTC end, so the rule skips it.
+
 **MatchType:** accept 1/2/3 and the names `Practice`/`Qualification`/`Elimination` (case-insensitive). Anything else is absent.
 
 ### 2. AdvantageKit wall-clock anchor
 `_anchor()` tries `systemTime`, then the AdvantageKit epoch entry, then the filename. It uses the same >2020 plausibility filter and the median offset. With an offset, `utc_end` exists, and `group_sessions()` pairs the log with its hoots unchanged.
 
-Alignment then falls to `wall-clock` (very low). AdvantageKit's CTRE swerve template doesn't publish `DriveState/Pose` to NetworkTables, and enable edges read `DS:enabled`. Framing still works, because it prefers hoot `RobotMode` (`framing_for`). Replay shows the existing low-alignment warning. That is honest for M2. The `/DriverStation/Enabled` alias for enable edges (size S) comes into M2 only if a real AdvantageKit log arrives by 2026-11-28 (Josh, 2026-11-15): it lifts AdvantageKit alignment from very low to low. The `session-grouping` delta carries it; task 2.5 drops that delta if no real log arrives, and the alias goes to a post-MVP issue.
+Alignment then falls to `wall-clock` (very low). AdvantageKit's CTRE swerve template doesn't publish `DriveState/Pose` to NetworkTables, and enable edges read `DS:enabled`. Framing still works, because it prefers hoot `RobotMode` (`framing_for`). Replay shows the existing low-alignment warning. That is honest for M2. The `/DriverStation/Enabled` alias for enable edges (size S) comes into M2 only if a real AdvantageKit log arrives by 2026-11-28 (Josh, 2026-11-15): it lifts AdvantageKit alignment from very low to low. The `session-grouping` delta carries it; task 2.5 drops that delta if no real log arrives, and the alias goes to a post-MVP issue. **Decided 2026-11-25 (Josh):** dropped before the archive, filed as #129.
 
 Alternative: estimate a filename-anchored `utc_end` as the start plus the log span. Rejected: AdvantageKit renames its file when the clock syncs, not at log start, so the window would be wrong by an unknown amount.
 
@@ -108,6 +116,11 @@ Consumers:
 - **Detection** already skips missing values. It counts `needs-pro` skips separately in its summary.
 - **Replay** reads silver and the ledger, not gold, so it applies the same rule per bus through a shared helper, `semantics/temperature.py`. Its payload gains `temperature.missing_by_bus` and a per-slot `temp_reason`.
 
+**Applied 2026-11-25 (task 6.2):**
+- `NO_TEMPERATURE_MODELS` is CANcoder and Pigeon2 only. No Ignite or corpus hoot has a CANrange, CANdi or CANdle, so there was nothing to `owlet --scan`, and CTRE's signal list was not checked. They stay temperature-capable: an outside log with one reads NEEDS PRO or NO DATA until a scan says otherwise.
+- `temp_status` is written to `match_features` (motors) **and** `can_health` (every mapped device). Sensors never get a `match_features` row, because gold features need stator current. History lists the gyro and CANcoders only on CAN metrics, so it reads their status from `can_health`. A `can_health` row takes its motor's status from the session's gold row. A sensor's status comes from its model and its bus's Pro flag.
+- A slot's Pro flag is its bus's (`pro_by_bus` over the session's hoots): Pro if any hoot on that bus is, non-Pro if every known one isn't, unknown otherwise. Unknown reads as `missing`, never `needs-pro`.
+
 Alternative: work it out in each view from the ledger. Rejected: three copies of one rule drift, and History would need a ledger join per refresh.
 
 **Fault_DeviceTemp** is in the free set and could give non-Pro teams an over-temperature marker. It is out of scope (Non-goals) and gets a follow-up issue.
@@ -130,6 +143,23 @@ Alternative: hide fallback brownouts below normal sensitivity. Rejected: a real 
   - This is a constant, not a config key: one fewer knob for new teams. A team can still raise `floors` in `anomaly.toml`.
 - **Expected effect on rio-rate devices (≤ 125 Hz):** none; floors and findings are unchanged, including the CANivore CANcoders at ~105 Hz. Task 4.4 checks that their jitter doesn't add findings.
 - **Expected effect on a 250 Hz device:** floors become 12.5 gaps and 5 missed/min. The jitter case (9 gaps, 3.7/min) is z < 1. Ignite's 41 CANivore findings scale from |z| ≤ 8.5 to about ≤ 1.7, which is below every normal threshold. Only an occasional strict DRIFT (1.5) remains possible, and task 4.4 counts it. A 1 s dropout per match is ~100 missed/min, z ≈ 20, so still a HIGH STEP. The SPEC gap limit (250 ms / 1 s) is untouched, so a single real dropout is still caught.
+- **Corpus Q7 rates, checked 2026-11-25 (task 4.1):** CANivore Talon FX 250.4 Hz, Pigeon 2 251.2 Hz, CANcoders 100.8–104.9 Hz; rio Talon FX 100.0–111.1 Hz. This matches the lake review above. Q7's isolated-gap counts per slot are unchanged by recording the rate. The truncated E10 copy (`2026-gacmp-e10-truncated`) ends before the robot is enabled, so its devices have no nominal period and an empty rate, as "No frames while enabled" says.
+- **Ignite lake recount, 2026-11-25 (task 4.4).** Run on an APFS clone of `~/flashpoint-lake` (74 sessions, 38 matches), with the repo `config/`. "Before" is `development` (3892985); "after" is this branch (a full re-derive for `DERIVE_VERSION` 7, then detect). The lake itself was not touched.
+
+  | CAN-gap anomalies | HIGH | MED | LOW | Total |
+  |---|---|---|---|---|
+  | CANivore, before | 4 | 12 | 25 | 41 |
+  | CANivore, after | 0 | 0 | 1 | 1 |
+  | rio, before | 11 | 2 | 12 | 25 |
+  | rio, after | 11 | 2 | 12 | 25 |
+
+  - Before, the CANivore findings were DRIFT (2 normal, 13 relaxed, 8 strict), SIBLING (16 strict) and STEP (2 strict). After, one strict LOW DRIFT remains, on the gyro's frames missed (onset `2026gacmp_qm46`). It is the "occasional strict DRIFT" expected above.
+  - No CANivore Talon FX or Pigeon 2 DRIFT, STEP or SIBLING remains at normal or relaxed sensitivity.
+  - Every rio CAN-gap finding is identical: same id, method, severity, sensitivity and onset.
+  - CANivore CANcoders: 0 findings before and after.
+  - The baseline was 66 CAN-gap anomalies, not 65: the extra one is a rio SPEC finding on the longest gap. Anomalies overall went from 289 to 249.
+  - Devices between 110 and 150 Hz: the ten rio Talon FX slots at 111.1 Hz (flywheels, hood, indexers, intake). All are below 125 Hz, so they are unscaled. No CANivore device is in that range.
+- **Versions:** `DERIVE_VERSION` was already 6 when this change was applied (silver-device-enable took 5 → 6), so this change takes it to 7.
 - **Alternatives:**
   - A minimum gap length in derive (ignore gaps under ~25 ms). Rejected: it changes the measurement, the Replay markers and the can-health spec. Ignite's starved-rio stalls of 20–50 ms are real.
   - A "% frames missed" metric. Rejected: it means a new metric, History mapping and display, for the same effect.
@@ -167,6 +197,21 @@ The reference laptop, as in the other specs. Measured by task 9.1 and written he
 | History refresh | < 2 s | Reads `temp_status` from gold; no ledger join |
 | Replay build per match | 5 s / 500 MB | Per-bus reason: one ledger read |
 | Setup checks total | < 2 s | One grouped ledger query: < 50 ms |
+
+**Measured 2026-11-25 (task 9.1)**, `pytest -m perf -s` on Josh's development MacBook, on the branch head. Every budget held, and the run exited 0:
+
+| Step | Measured | Budget |
+|---|---|---|
+| Ingest Q7 + derive + detect | 19.1 s, 816 MB (children 695 MB) | 30 s / 1 GB |
+| Detect season | 1.83 s, 233 MB | 5 s / 400 MB |
+| Backtest | 3.58 s, 267 MB | (P5 budget) |
+| CAN-health step | 0.38 s, 71 MB | +3 s / 150 MB |
+| Replay build (Q7) | 0.62 s, 410 MB | 5 s / 500 MB |
+| Usage step | 1.13 s, 677 MB | (P2 budget) |
+| History refresh (season) | under 2 s (`test_season_queries_under_two_seconds`) | < 2 s |
+| Setup checks (corpus lake) | under 2 s (`test_checks_are_fast_on_the_corpus_lake`) | < 2 s |
+
+The CI perf job's numbers (a slower runner) are its own; this table is the laptop.
 
 AdvantageKit wpilogs are often larger than ours, because they log every input at 50 Hz. Their ingest time is recorded in task 8.3 as an observation, not a gate. A real log over the Q7 budget becomes a filed issue.
 

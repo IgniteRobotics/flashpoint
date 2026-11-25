@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from flashpoint.anomaly.floors import Floor, floor_at
+
 MAD_SCALE = 1.4826  # MAD -> standard deviation for normal data
 
 
@@ -19,16 +21,17 @@ class Baseline:
 
 
 def baseline_at(
-    x: np.ndarray, i: int, window: int, floor: float, start: int = 0
+    x: np.ndarray, i: int, window: int, floor: Floor, start: int = 0
 ) -> Baseline | None:
     """The baseline for index i: up to `window` values before i, none before `start` (a
-    restart) once i has reached it; indices before a restart keep their full history."""
+    restart) once i has reached it; indices before a restart keep their full history. A floor per
+    index (CAN-gap metrics scaled by frame rate) applies the one at i."""
     lo = start if i >= start else 0
     prior = x[max(lo, i - window) : i]
     if prior.size == 0:
         return None
     center = float(np.median(prior))
-    spread = max(MAD_SCALE * float(np.median(np.abs(prior - center))), floor)
+    spread = max(MAD_SCALE * float(np.median(np.abs(prior - center))), floor_at(floor, i))
     return Baseline(center, spread, int(prior.size))
 
 
@@ -42,7 +45,7 @@ class Judged:
     z: np.ndarray
 
 
-def judge(x: np.ndarray, window: int, floor: float, min_baseline: int, start: int = 0) -> Judged:
+def judge(x: np.ndarray, window: int, floor: Floor, min_baseline: int, start: int = 0) -> Judged:
     size = x.size
     center, spread = np.full(size, np.nan), np.full(size, np.nan)
     n, z = np.zeros(size, dtype=np.int64), np.full(size, np.nan)

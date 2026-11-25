@@ -77,6 +77,7 @@ class MatchLake:
         start_utc: str = "2026-04-09T21:50:34+00:00",
         pro_licensed: int = 1,
         fingerprint: str = "fp-1",
+        pro_by_bus: dict[str, int] | None = None,  # per hoot bus; overrides pro_licensed
         hoot_buses: tuple[str, ...] = ("rio", "6E9415C3394C485320202050101C18FF"),
         with_wpilog: bool = True,
         season: str = "2026",
@@ -97,7 +98,11 @@ class MatchLake:
                 f"GACMP_{session_id}_{bus}.hoot", f"hoot {session_id} {bus}".encode(), "hoot"
             )
             self.tables["hoot_logs"].append(
-                {"log_id": sha, "bus": bus, "pro_licensed": pro_licensed}
+                {
+                    "log_id": sha,
+                    "bus": bus,
+                    "pro_licensed": (pro_by_bus or {}).get(bus, pro_licensed),
+                }
             )
             self.tables["session_hoots"].append(
                 {"log_id": sha, "session_id": session_id, "hoot_group": "g", "bus": bus,

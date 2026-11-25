@@ -97,7 +97,11 @@ def test_payload_shape(q7: MatchLake) -> None:
         "temp_max_c": 45.0, "supply_current_max": 12.0, "stator_current_max": 22.0,
     }  # fmt: skip
     assert data["not_logged"] == {slot: [] for slot in COMP_SLOTS}
-    assert data["markers"] == [] and data["temperature"] == {"available": True, "reason": None}
+    assert data["markers"] == [] and data["temperature"] == {
+        "available": True,
+        "reason": None,
+        "missing_by_bus": [],
+    }
     assert {s["part"] for s in data["sources"]} == {
         "wpilog", "rio", "6E9415C3394C485320202050101C18FF",
     }  # fmt: skip
@@ -389,7 +393,7 @@ def test_index_entry_carries_session_season(tmp_path: Path) -> None:
     lake.add_match("2025gaalb_qm3", "q3", quiet_rows(), robot="2025-comp", season="2025")
     _build(lake)
     index = _load(data_dir(lake.lake) / "matches.js", "FP.index")
-    assert index["version"] == 4
+    assert index["version"] == 5
     assert {m["key"]: m["season"] for m in index["matches"]} == {
         "2026gacmp_qm7": "2026", "2025gaalb_qm3": "2025",
     }  # fmt: skip
@@ -400,7 +404,7 @@ def test_payload_carries_absolute_window_start(q7: MatchLake) -> None:
     data = _load(data_dir(q7.lake) / "2026gacmp_qm7.js")
     # t0_us is the lake time of window.t0, so the match start (auto at T=10 s) is t0_us - t0
     assert data["t0_us"] - round(data["window"]["t0"] * S) == 10 * S
-    assert data["version"] == 4
+    assert data["version"] == 5
 
 
 def test_version_1_state_rebuilds_every_match(q7: MatchLake) -> None:
@@ -423,7 +427,9 @@ def test_version_1_state_rebuilds_every_match(q7: MatchLake) -> None:
 # can-health: only "version" changed (2 -> 3); built with version 2 the bytes still give 5d70ddd...
 # battery-proxy: only "version" (3 -> 4) and the added "battery_proxy" changed; without them the
 # bytes still give c692890... (the synthetic match's devices all sit at 12 V).
-Q7_DIGEST = "599aaddf5d9de8516aecaa396b40f57e829a73975b1dc5d19813510d8c750f9f"
+# mvp-outside-team-logs: only "version" (4 -> 5), temperature.missing_by_bus and each slot's
+# temp_reason changed; without them the bytes still give 599aadd... (checked 2026-11-25).
+Q7_DIGEST = "1ea9bd1323a212b99f770e301ba2539025ceb75a15fbac8e16fe052c01d953d8"
 
 
 def test_synthetic_q7_bytes_unchanged(q7: MatchLake) -> None:

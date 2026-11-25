@@ -20,6 +20,7 @@ from flashpoint.anomaly.catalogue import CatalogueError, load_causes
 from flashpoint.anomaly.episodes import episodes
 from flashpoint.anomaly.explain import Context, describe
 from flashpoint.anomaly.findings import Finding
+from flashpoint.anomaly.floors import RATE_SCALED_METRICS
 from flashpoint.anomaly.frame import Frame, load_frame
 from flashpoint.anomaly.restarts import restart_pending as restart_pending
 from flashpoint.anomaly.restarts import restarts as restarts_of
@@ -33,6 +34,7 @@ from flashpoint.anomaly.shapes import Rule, unit_findings
 from flashpoint.anomaly.siblings import Member, sibling_findings
 from flashpoint.anomaly.spec_rules import spec_finding
 from flashpoint.lake.paths import LakePaths
+from flashpoint.report import proxy
 from flashpoint.report.settings import ReportConfig, ReportConfigError, load_report_config
 from flashpoint.semantics.robot_config import ConfigError, RobotConfig, load_robots
 
@@ -159,11 +161,13 @@ def compute(  # noqa: C901 - grandfathered (code-quality-gates)
             findings.append(
                 spec_finding(unit, metric, keys, _column(unit_rows, metric), cfg.spec, enabled)
             )
+        rates = _column(unit_rows, "frame_rate_hz")
         for metric in cfg.baseline.metrics:
             normal, strict = _rules(cfg, metric)
             step, drift, z = unit_findings(
                 unit, metric, keys, _column(unit_rows, metric), normal, strict,
                 restart_at.get((unit, metric)),
+                rates if metric in RATE_SCALED_METRICS else None,
             )  # fmt: skip
             findings += [step, drift]
             own_z.setdefault(metric, {})[unit] = {
@@ -177,10 +181,12 @@ def compute(  # noqa: C901 - grandfathered (code-quality-gates)
             if group is None:
                 continue
             slot_keys = slot_rows.get_column("match_key").to_list()
+            slot_rates = _column(slot_rows, "frame_rate_hz")
             for metric in cfg.baseline.metrics:
                 members.setdefault((robot.robot, group.name, metric), []).append(
-                    Member(str(slot_id), unit, slot_keys, _column(slot_rows, metric))
-                )
+                    Member(str(slot_id), unit, slot_keys, _column(slot_rows, metric),
+                           slot_rates if metric in RATE_SCALED_METRICS else None)
+                )  # fmt: skip
     for (robot_name, group_name, metric), group_members in sorted(members.items()):
         order = frame.matches.get(robot_name, [])
         slots = next(g.slots for g in robots[robot_name].siblings if g.name == group_name)
@@ -209,7 +215,10 @@ def compute(  # noqa: C901 - grandfathered (code-quality-gates)
         ctx = Context(robot=robot_name, season=_season(frame, robot_name), slot_id=POWER,
                       role=None, subsystem=POWER, model=None, cfg=cfg,
                       low_alignment=frozenset(low), proxies=proxies)  # fmt: skip
-        finding = spec_finding(f"{POWER}:{robot_name}", "brownouts", keys, values, cfg.spec)
+        fallback = np.array([proxies.get(k, "").startswith(proxy.FALLBACK_PREFIX) for k in keys])
+        finding = spec_finding(
+            f"{POWER}:{robot_name}", "brownouts", keys, values, cfg.spec, capped=fallback
+        )
         rows += _describe([finding], ctx)
     for row in rows:
         row["last_start"] = frame.starts.get(row["last_match_key"])
@@ -305,9 +314,32 @@ def summarize(computed: Computed, fp: str) -> dict[str, Any]:
         "building_baseline": {"count": len(computed.building), "units": computed.building},
         "skipped": dict(sorted(frame.skipped.items())),
         "missing": dict(sorted(frame.missing.items())),
+        "can_rows_without_frame_rate": _without_rate(frame),
+        "temperature_needs_pro": {
+            "label": "not logged (needs Phoenix Pro)",
+            "rows": _needs_pro(frame),
+        },
         "restart_seq": computed.restart_seq,
         "notes": computed.notes,
     }
+
+
+def _needs_pro(frame: Frame) -> int:
+    """Unit-match rows whose temperature was skipped because their hoots were not Pro-licensed,
+    counted apart from other missing values (anomaly-detection)."""
+    if not frame.rows.height:
+        return 0
+    return frame.rows.filter(pl.col("temp_status") == "needs-pro").height
+
+
+def _without_rate(frame: Frame) -> int:
+    """Unit-match rows with CAN-gap values but no frame rate: judged with the configured floors
+    (CAN-health derived before rates were recorded)."""
+    rows = frame.rows
+    if not rows.height:
+        return 0
+    judged = pl.any_horizontal(pl.col(m).is_not_null() for m in RATE_SCALED_METRICS)
+    return rows.filter(judged & pl.col("frame_rate_hz").is_null()).height
 
 
 def write(lake: LakePaths, computed: Computed, summary: dict[str, Any]) -> None:

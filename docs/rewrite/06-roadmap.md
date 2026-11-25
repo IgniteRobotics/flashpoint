@@ -320,7 +320,7 @@ gitGraph
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| ~~Logs are not Pro, so no hoot temperature~~ | Retired | — | P0 confirmed the logs are Pro-licensed (ADR-0005). `doctor` flags any log that isn't |
+| Outside teams' logs are not Pro, so no hoot temperature | High (outside teams) | Medium | Ignite's own logs are Pro (P0, ADR-0005). Many outside teams' aren't: temperature reads NEEDS PRO or "not logged (needs Phoenix Pro)" per bus, and detection skips it. `doctor` reports Pro coverage as information, never a warning, because only buying Pro clears it (`mvp-outside-team-logs`, 2026-11-25; this row said `doctor` flagged it, which it didn't) |
 | owlet / Phoenix format changes mid-season | Medium | High | Registry plus `doctor`. Pin the robot's Phoenix version during events |
 | Logs rotate out before they're pulled | Medium | High | P3 free-space alerts. A USB drive on the robot |
 | Student turnover leaves the code unmaintained | High | Medium | Small core, typed, tested, ADRs, marimo notebooks as the on-ramp |

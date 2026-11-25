@@ -61,6 +61,12 @@ def test_e10_restart_after_wpilog_end_is_separate(derived: dict[str, Any]) -> No
     assert restart and all(h["session_id"].startswith("hoot-") for h in restart)
     restart_session = derived["sessions"][restart[0]["session_id"]]
     assert restart_session["match_key"] == "2026gacmp_e10"  # from the hoot filename
+    assert restart_session["match_source"] == "hoot-filename"
+
+
+def test_wpilog_identity_wins_over_the_hoot_label(derived: dict[str, Any]) -> None:
+    q7 = _session_for(derived, "FRC_20260409_215113_GACMP_Q7.wpilog")
+    assert (q7["match_source"], q7["warnings"]) == ("fms", None)
 
 
 def test_practice_and_2025_sessions(derived: dict[str, Any]) -> None:
@@ -220,3 +226,22 @@ def test_q7_drive_motor_supply_path_resistance(derived_corpus_lake: Any) -> None
     assert [r[0] for r in rows] == ["drive-bl", "drive-br", "drive-fl", "drive-fr"]
     for slot, mohm, flag in rows:
         assert flag is None and 5.0 <= mohm <= 40.0, (slot, mohm, flag)
+
+
+def test_older_corpus_lake_re_reads_only_logs_missing_identity_or_anchor(
+    corpus_lake: Any,
+) -> None:
+    """An earlier version's lake: only wpilogs with no match number or UTC end are read again."""
+    deriver = Deriver(corpus_lake, config.config_root())
+    try:
+        before = deriver.ledger.query("SELECT * FROM logs WHERE kind = 'wpilog' ORDER BY log_id")
+        deriver.ledger.execute("UPDATE logs SET meta_version = NULL")
+        deriver.refresh_metadata()
+        names = {r["log_id"]: r["filename"] for r in deriver.ledger.query("SELECT * FROM logs")}
+        after = deriver.ledger.query("SELECT * FROM logs WHERE kind = 'wpilog' ORDER BY log_id")
+    finally:
+        deriver.close()
+    # P2 is an FMS practice match: it has a match number and a UTC end, so it isn't read again.
+    assert sorted(names[i] for i in deriver.reread) == ["FRC_20250404_221544.wpilog"]
+    assert deriver.warnings == []
+    assert after == before  # the re-read finds what ingest found

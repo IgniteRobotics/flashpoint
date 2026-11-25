@@ -9,8 +9,10 @@ import json
 import re
 import shutil
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -21,8 +23,10 @@ from flashpoint import config as fp_config
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.query import connect
-from flashpoint.meta.extract import parse_hoot_filename
-from flashpoint.semantics import can_health, gold, signals, usage
+from flashpoint.lake.raw import raw_path
+from flashpoint.meta.extract import META_VERSION, logs_columns, parse_hoot_filename, read_metadata
+from flashpoint.readers.wpilog import WpilogError
+from flashpoint.semantics import can_health, gold, signals, temperature, usage
 from flashpoint.semantics.alignment import (
     HOOT_ENABLE,
     WPILOG_ENABLE,
@@ -77,6 +81,8 @@ class Deriver:
         )
         self._con: duckdb.DuckDBPyConnection | None = None
         self.hoot_only: list[str] = []
+        self.warnings: list[str] = []
+        self.reread: list[str] = []  # wpilogs whose metadata this run read again
 
     @property
     def con(self) -> duckdb.DuckDBPyConnection:
@@ -97,6 +103,39 @@ class Deriver:
         self.ledger.close()
 
     # --- loading -------------------------------------------------------------------------
+
+    def refresh_metadata(self) -> None:
+        """Read metadata again, once, for wpilogs an earlier version ingested with no match
+        number or no UTC end: it may now find AdvantageKit's fields and anchor (log-metadata).
+
+        A missing or unreadable raw file keeps the earlier metadata, with one warning. The
+        version is recorded either way, so no log is tried again on the next derive. The season
+        stays as ingested: bronze is partitioned by it."""
+        rows = self.ledger.query(
+            "SELECT l.log_id, l.filename, l.fms_match_number, l.utc_end FROM logs l"
+            " JOIN files f ON f.sha256 = l.log_id WHERE f.stage = 'success'"
+            " AND l.kind = 'wpilog' AND (l.meta_version IS NULL OR l.meta_version < ?)",
+            (META_VERSION,),
+        )
+        for row in rows:
+            columns: dict[str, Any] = {"meta_version": META_VERSION}
+            if row["fms_match_number"] is None or row["utc_end"] is None:
+                path = raw_path(self.lake, row["log_id"], ".wpilog")
+                name = row["filename"] or path.name
+                try:
+                    columns = logs_columns(read_metadata(path, name))
+                except (OSError, WpilogError) as exc:
+                    self.warnings.append(
+                        f"kept the earlier metadata of {name}: its stored copy can't be read"
+                        f" ({exc})"
+                    )
+                else:
+                    self.reread.append(row["log_id"])
+            assignments = ", ".join(f"{column} = ?" for column in columns)
+            self.ledger.execute(
+                f"UPDATE logs SET {assignments} WHERE log_id = ?",  # noqa: S608 - columns from logs_columns
+                (*columns.values(), row["log_id"]),
+            )
 
     def _logs(self) -> tuple[list[WpilogLog], list[HootLog], dict[str, dict[str, Any]]]:
         rows = self.ledger.query(
@@ -210,6 +249,7 @@ class Deriver:
                 else (session.hoot_groups[0].stamp[:4] if session.hoot_groups else "unknown")
             )
             robot = select_robot(self.robots, w["project"] if w else None, season)
+            label = _hoot_label(session.hoot_groups)
             if w:
                 ident = identify(
                     season,
@@ -220,16 +260,10 @@ class Deriver:
                     w["file_event"],
                     w["file_match_type"],
                     w["file_match_number"],
+                    *label,
                 )
             else:
-                group = session.hoot_groups[0]
-                label = group.match or ""
-                ident = identify(
-                    season,
-                    file_event=group.event,
-                    file_match_type=label[:1] or None,
-                    file_match_number=int(label[1:]) if label[1:].isdigit() else None,
-                )
+                ident = identify(season, None, None, None, None, None, None, None, *label)
             session_rows.append(
                 {
                     "session_id": session.session_id,
@@ -507,7 +541,9 @@ class Deriver:
         alignment: str,
         sources: str,
         run_id: str,
+        status_of: Callable[[str, str], str] | None = None,
     ) -> None:
+        """`status_of(slot, unit)`: each row's `temp_status` (from the session's gold)."""
         sid = session["session_id"]
         hoots = [
             can_health.HootInput(h["log_id"], h["bus"], h["offset_us"])
@@ -526,12 +562,32 @@ class Deriver:
         result = can_health.session_can_health(
             self.con, self.lake, session, framing, robot, hoots, observations, alignment, sources
         )
+        if status_of is not None:
+            for row in result.slots:
+                row["temp_status"] = status_of(row["slot_id"], row["unit_id"])
         for table, schema, rows in (
             (can_health.TABLE, can_health.SCHEMA, result.slots),
             (can_health.BUS_TABLE, can_health.BUS_SCHEMA, result.buses),
             (can_health.EVENTS_TABLE, can_health.EVENTS_SCHEMA, result.events),
         ):
             gold.write_session(self.lake, session["season"], sid, rows, run_id, table, schema)
+
+    def _slot_pro(self, session_id: str, robot: RobotConfig) -> dict[str, bool | None]:
+        """Whether each slot's hoots in the session were Phoenix Pro-licensed (by its bus)."""
+        by_bus = temperature.pro_by_bus(
+            (r["bus"], r["pro_licensed"])
+            for r in self.ledger.query(
+                "SELECT sh.bus, h.pro_licensed FROM session_hoots sh"
+                " LEFT JOIN hoot_logs h USING (log_id) WHERE sh.session_id = ?",
+                (session_id,),
+            )
+        )
+        out: dict[str, bool | None] = {}
+        for sighting in self._sightings(session_id):
+            slot = robot.slot_for(sighting.bus, sighting.model, sighting.can_id)
+            if slot is not None and sighting.bus in by_bus:
+                out[slot.id] = by_bus[sighting.bus]
+        return out
 
     def _session_start(self, wpilog_id: str | None) -> str | None:
         rows = self.ledger.query("SELECT utc_start FROM logs WHERE log_id = ?", (wpilog_id,))
@@ -543,6 +599,7 @@ class Deriver:
         Afterwards `hoot_only` lists the rebuilt sessions with hoots but no wpilog (match key,
         else the hoots' start stamp): they get no aligned samples (session-grouping)."""
         run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-derive"
+        self.refresh_metadata()
         self.derive_sessions()
         self.derive_identity()
         framings = self.derive_framing()
@@ -584,13 +641,15 @@ class Deriver:
                     + ([session["wpilog_id"]] if session["wpilog_id"] else [])
                 )
             )
+            slot_pro = self._slot_pro(sid, robot) if robot is not None else {}
             rows = (
                 gold.session_features(
-                    self.con, self.lake, session, framings[sid], robot, alignment or "none", sources
+                    self.con, self.lake, session, framings[sid], robot, alignment or "none",
+                    sources, slot_pro,
                 )
                 if robot is not None and session["match_key"]
                 else []
-            )
+            )  # fmt: skip
             gold.write_session(self.lake, session["season"], sid, rows, run_id)
             usage_rows = (
                 usage.session_usage(
@@ -608,9 +667,16 @@ class Deriver:
             gold.write_session(
                 self.lake, session["season"], sid, usage_rows, run_id, usage.TABLE, usage.SCHEMA
             )
+            statuses = {
+                (r["slot_id"], r["unit_id"]): r["temp_status"]
+                for r in rows
+                if r["phase"] == "match"
+            }
+            models = {s.id: s.model for s in robot.slots} if robot is not None else {}
             self._write_can_health(
-                session, framings[sid], robot, alignment or "none", sources, run_id
-            )
+                session, framings[sid], robot, alignment or "none", sources, run_id,
+                partial(_can_temp_status, statuses, models, slot_pro),
+            )  # fmt: skip
             state[sid] = {
                 "session_id": sid,
                 "fingerprint": current[sid],
@@ -629,6 +695,31 @@ class Deriver:
 
 
 _DEVICE = re.compile(r"^Phoenix6/(?P<model>[A-Za-z0-9]+)-(?P<id>\d+)/")
+
+
+def _can_temp_status(
+    statuses: dict[tuple[str, str], str],
+    models: dict[str, str],
+    slot_pro: dict[str, bool | None],
+    slot: str,
+    unit: str,
+) -> str:
+    """A CAN-health row's `temp_status`: a motor's from its gold row; a sensor has no gold row
+    (no stator current), so it comes from its model and Pro flag."""
+    found = statuses.get((slot, unit))
+    return found or temperature.temp_status(models.get(slot), slot_pro.get(slot), False)
+
+
+def _hoot_label(groups: list[HootGroup]) -> tuple[str | None, str | None, int | None, bool]:
+    """The earliest labelled hoot group's event and match (match-identity rank 3), and whether
+    the session's labelled groups disagree."""
+    labels = [(g.event, g.match or "") for g in sorted(groups, key=lambda g: g.stamp) if g.event]
+    if not labels:
+        return None, None, None, False
+    event, match = labels[0]
+    conflict = len({(e.lower(), m.upper()) for e, m in labels}) > 1
+    number = int(match[1:]) if match[1:].isdigit() else None
+    return event, match[:1] or None, number, conflict
 
 
 def _session_day(session: dict[str, Any]) -> date:

@@ -142,6 +142,28 @@ def test_nothing_open(page: Any, tmp_path: Path) -> None:
         _stop(server)
 
 
+def test_beta_tag_with_nothing_flagged(page: Any, tmp_path: Path) -> None:
+    from tests.anomaly.gold_builder import GoldLake
+
+    lake = GoldLake(tmp_path / "lake", matches=3, slots=["hood"]).write()
+    detect.detect(lake, config.config_root())
+    server = FlashpointServer(("127.0.0.1", 0), lake, HistoryQueries(lake))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        watch = _anomalies(page, f"http://127.0.0.1:{server.server_address[1]}/")
+        assert "Nothing is flagged" in page.inner_text("#queue-empty")
+        assert page.inner_text("#beta-tag") == "BETA"
+        assert "tuned on one team" in page.inner_text("#beta-note")
+        above = page.evaluate(
+            "() => document.querySelector('#beta').getBoundingClientRect().bottom"
+            " <= document.querySelector('#queue-empty').getBoundingClientRect().top"
+        )
+        assert above
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
+
+
 def test_link_keeps_the_selection(page: Any, site: dict[str, Any], browser: Any) -> None:
     drift = site["ids"]["drift"]
     _anomalies(page, site["url"])
@@ -323,6 +345,25 @@ def test_queue_from_the_corpus(page: Any, derived_corpus_lake: Any, brownout_con
         assert page.inner_text("#why").startswith("SPEC:")
         page.wait_for_function("() => FP.anomalyChart() != null")  # drawn just after the text
         assert page.evaluate("() => FP.anomalyChart()")["flagged"][-1] is not None
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
+
+
+@pytest.mark.corpus
+def test_beta_tag_on_open(page: Any, derived_corpus_lake: Any) -> None:
+    from flashpoint.docs_links import docs_url
+
+    detect.detect(derived_corpus_lake, config.config_root(), force=True)
+    server = FlashpointServer(("127.0.0.1", 0), derived_corpus_lake,
+                              HistoryQueries(derived_corpus_lake))  # fmt: skip
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        watch = _anomalies(page, f"http://127.0.0.1:{server.server_address[1]}/")
+        assert page.inner_text("#beta-tag") == "BETA"
+        note = page.inner_text("#beta-note")
+        assert "tuned on one team" in note and "suggestion to check against its evidence" in note
+        assert page.get_attribute("#beta-guide", "href") == docs_url("anomalies")
         assert watch.clean(), watch
     finally:
         _stop(server)

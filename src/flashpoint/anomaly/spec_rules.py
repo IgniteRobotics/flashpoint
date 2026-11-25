@@ -40,7 +40,10 @@ def spec_finding(
     values: np.ndarray,
     limits: SpecLimits,
     reboots_enabled: np.ndarray | None = None,
+    capped: np.ndarray | None = None,
 ) -> Finding:
+    """`capped` (per match): at most MED there. Brownouts on the median-fallback battery proxy
+    are capped, because the fallback can read wiring drops as brownouts."""
     levels = []
     for i, value in enumerate(values):
         level = ""
@@ -54,6 +57,8 @@ def spec_finding(
             if high is not None and value >= high:
                 level = "HIGH"
             elif med is not None and value >= med:
+                level = "MED"
+            if level == "HIGH" and capped is not None and capped[i]:
                 level = "MED"
         levels.append(level)
     flags = Flags.empty(len(keys))

@@ -101,3 +101,31 @@ def test_training_uses_only_earlier_events(tmp_path: Path, monkeypatch: pytest.M
     assert fits, "events 3 and 4 have enough training rows"
     for event, trained_on in fits:
         assert all(e < event for e in trained_on)
+
+
+INSTALL_COMMANDS = (
+    'pipx install --force "flashpoint[ml]"',
+    'uv tool install "flashpoint[ml]"',
+    'pip install "flashpoint[ml]"',
+    "poetry install -E ml",
+)
+
+
+def test_missing_extra_warning_names_every_install_method() -> None:
+    assert "`ml` extra" in model.MISSING
+    for command in INSTALL_COMMANDS:
+        assert command in model.MISSING, command
+
+
+def test_shipped_model_comment_names_every_install_method() -> None:
+    from importlib.resources import files
+
+    text = files("flashpoint.defaults").joinpath("anomaly.toml").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    at = next(i for i, line in enumerate(lines) if line.startswith("[model]"))
+    start = at
+    while start and lines[start - 1].startswith("#"):
+        start -= 1
+    block = "\n".join(lines[start : at + 1])  # the comment above the switch's section
+    for command in INSTALL_COMMANDS:
+        assert command in block, command

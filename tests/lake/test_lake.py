@@ -153,6 +153,33 @@ def test_opening_an_old_lake_twice_is_a_noop(lake: LakePaths) -> None:
     assert first == second
 
 
+_PRE_OUTSIDE_LOGS = """
+CREATE TABLE files (
+    sha256 TEXT PRIMARY KEY, kind TEXT NOT NULL, size INTEGER NOT NULL,
+    stage TEXT NOT NULL, reason TEXT, warnings TEXT, pipeline_version INTEGER,
+    first_seen TEXT NOT NULL, updated TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE logs (log_id TEXT PRIMARY KEY, kind TEXT NOT NULL, season TEXT NOT NULL);
+CREATE TABLE hoot_logs (log_id TEXT PRIMARY KEY, bus TEXT, pro_licensed INTEGER);
+"""
+
+
+def test_lake_with_attempts_still_gains_the_outside_logs_columns(lake: LakePaths) -> None:
+    """`attempts` already exists, so `_migrate()` must not stop before the newer columns."""
+    db = sqlite3.connect(lake.ledger)
+    db.executescript(_PRE_OUTSIDE_LOGS)
+    db.execute("INSERT INTO logs VALUES ('w', 'wpilog', '2026')")
+    db.commit()
+    db.close()
+
+    ledger = Ledger(lake.ledger)
+    ledger.close()
+    ledger = Ledger(lake.ledger)  # a second open is a no-op
+    row = ledger.query("SELECT fms_origin, meta_version FROM logs")[0]
+    assert row == {"fms_origin": None, "meta_version": None}
+    assert ledger.query("SELECT dropped_signals FROM hoot_logs") == []
+
+
 def test_reopening_keeps_a_quarantine_after_three_failures(lake: LakePaths) -> None:
     ledger = Ledger(lake.ledger)
     ledger.register("abc", "hoot", 10, Path("a.hoot"))

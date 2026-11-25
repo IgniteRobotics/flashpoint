@@ -222,19 +222,21 @@ Replay shows **No Replay data** with one of three explanations.
 
 ### No temperature
 
-**What you see:** Replay has no temperature track, and says why:
+**What you see:** Replay's header names the buses without temperature:
+
+**Message:** `Temperature not logged on <buses>: the hoots are not Pro-licensed, and temperature needs a Phoenix Pro-licensed device on that bus.`
+
+and those buses' temperature cells read `not logged (needs Phoenix Pro)`. A gyro or CANcoder reads `temperature not tracked`, Pro or not. When no bus has temperature and every hoot was Pro-licensed, the header says instead:
 
 **Message:** `Temperature not logged. <reason>`
 
 with the reason:
 
-**Message:** `The hoots are not Pro-licensed, so they carry no temperature.`
-
 **Message:** `No temperature was logged for this match.`
 
-**Why:** a hoot exports motor temperature only when the log has a Phoenix Pro-licensed device. The second reason means the hoots had Pro but no temperature signal was recorded.
+**Why:** a hoot exports motor temperature only when that bus's log has a Phoenix Pro-licensed device. The second message means the hoots had Pro but no temperature signal was recorded.
 
-**Fix:** see [Phoenix Pro and temperature](robot-side/pro-and-temperature.md). Everything except temperature works without Pro.
+**Fix:** see [Phoenix Pro and temperature](robot-side/pro-and-temperature.md). Everything except temperature works without Pro. `flashpoint doctor` shows how many of your hoots are Pro-licensed.
 
 ### A file was quarantined
 

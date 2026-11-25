@@ -11,18 +11,19 @@
 Flags are per index, with the score (z) that flagged it and the index at which it became known.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
 from flashpoint.anomaly.baseline import Baseline, baseline_at, judge
 from flashpoint.anomaly.findings import Finding, Flags
+from flashpoint.anomaly.floors import Floor, floors
 
 
 @dataclass(frozen=True)
 class Rule:
     window: int
-    floor: float
+    floor: Floor
     min_baseline: int
     step_z: float
     persist: int
@@ -87,17 +88,23 @@ def unit_findings(
     normal: Rule,
     strict: Rule,
     start_key: str | None = None,
+    rates: np.ndarray | None = None,
 ) -> tuple[Finding, Finding, np.ndarray]:
     """STEP and DRIFT findings for one unit's metric, plus its z per match (for the sibling
     pair rule). Missing values are left out of the series and never flagged; the baseline
-    restarts at `start_key` when given."""
+    restarts at `start_key` when given. `rates` (per match, NaN: not recorded) scales the
+    CAN-gap floors."""
     present = np.flatnonzero(~np.isnan(values))
     x = values[present]
+    assert not isinstance(normal.floor, np.ndarray)
+    floor = floors(metric, normal.floor, None if rates is None else rates[present], normal.window)
+    normal, strict = replace(normal, floor=floor), replace(strict, floor=floor)
     # the first present value at or after the restart match
     start = int(np.searchsorted(present, keys.index(start_key))) if start_key in keys else 0
     judged = judge(x, normal.window, normal.floor, normal.min_baseline, start)
     has_band = judged.n >= normal.min_baseline
     size = len(keys)
+    floor_used, rate_hz = _floor_fields(size, present, floor, rates)
     out = []
     for method in ("STEP", "DRIFT"):
         results = {}
@@ -116,9 +123,20 @@ def unit_findings(
                 normal=_scatter(size, present, results["normal"]),
                 lo=_full(size, present, lo), hi=_full(size, present, hi),
                 baseline_n=_full(size, present, judged.n.astype(float), 0).astype(np.int64),
+                floor=floor_used, rate_hz=rate_hz,
             )
         )  # fmt: skip
     return out[0], out[1], _full(size, present, judged.z)
+
+
+def _floor_fields(
+    size: int, present: np.ndarray, floor: Floor, rates: np.ndarray | None
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """The floor and frame rate per match, for the "why" text; None when not rate-scaled."""
+    if rates is None:
+        return None, None
+    per_index = np.broadcast_to(np.asarray(floor, dtype=float), present.shape)
+    return _full(size, present, per_index), rates
 
 
 def _full(size: int, index: np.ndarray, values: np.ndarray, fill: float = np.nan) -> np.ndarray:

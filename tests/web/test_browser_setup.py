@@ -396,3 +396,30 @@ def test_draft_save_rebuilds_q7(
     finally:
         _stop(server)
     assert status() == "ok"
+
+
+# --- Phoenix Pro coverage (team-setup "Phoenix Pro coverage check": "Shown in the Setup view") ----
+
+
+def test_pro_coverage_shown_in_the_setup_view(page: Any, tmp_path: Path) -> None:
+    from tests.setup.test_pro_coverage import mixed_lake
+
+    lake = mixed_lake(tmp_path / "lake")
+    server, _ = _site(tmp_path, lake)
+    try:
+        watch = _setup(page, f"http://127.0.0.1:{server.server_address[1]}/")
+        row = page.locator("[data-check='pro-coverage']")
+        assert row.get_attribute("data-status") == "ok"
+        expected = server.check_context()
+        from flashpoint.setup.checks import run_checks
+
+        results = {r.id: r for r in run_checks(expected)}
+        assert results["pro-coverage"].message in row.inner_text()
+        assert row.locator("button").count() == 0  # no fix
+        # The count names only the other checks' warnings: this one never adds to it.
+        warnings = sum(1 for r in results.values() if r.status == "warning")
+        summary = page.inner_text("#checks-summary")
+        assert (f"{warnings} warning" in summary) if warnings else ("warning" not in summary)
+        assert watch.clean(), watch
+    finally:
+        _stop(server)
