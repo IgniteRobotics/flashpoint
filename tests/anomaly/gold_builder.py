@@ -71,6 +71,7 @@ class GoldLake:
     absent: set[tuple[str, int]] = field(default_factory=set)
     no_can: set[int] = field(default_factory=set)
     low_alignment: set[int] = field(default_factory=set)
+    non_pro: set[int] = field(default_factory=set)  # matches whose hoots are not Pro-licensed
     keys: list[str] | None = None
 
     @property
@@ -128,11 +129,14 @@ class GoldLake:
                           "source_logs": f"w-{sid}"}  # fmt: skip
                 for phase in ("auto", "match"):
                     scale = 1.0 if phase == "match" else 0.2
-                    features.append(
-                        {**common, "phase": phase, "flags": "",
-                         **{m: _scaled(self.value(slot_id, m, i), scale)
-                            for m in FEATURE_METRICS}}
+                    values = {m: _scaled(self.value(slot_id, m, i), scale) for m in FEATURE_METRICS}
+                    status = (
+                        "logged" if values["temp_max_c"] is not None
+                        else "needs-pro" if i in self.non_pro else "missing"
                     )  # fmt: skip
+                    features.append(
+                        {**common, "phase": phase, "flags": "", "temp_status": status, **values}
+                    )
                     if i not in self.no_can:
                         cans.append(
                             {**common, "phase": phase, "bus": slot.bus,
@@ -160,7 +164,7 @@ _FEATURE_SCHEMA: dict[str, Any] = {
     "match_key": pl.String(), "session_id": pl.String(), "season": pl.String(),
     "robot": pl.String(), "phase": pl.String(), "slot_id": pl.String(), "unit_id": pl.String(),
     "subsystem": pl.String(), "role": pl.String(), "alignment": pl.String(),
-    "source_logs": pl.String(), "flags": pl.String(),
+    "source_logs": pl.String(), "flags": pl.String(), "temp_status": pl.String(),
     **{m: pl.Float64() for m in FEATURE_METRICS},
 }  # fmt: skip
 

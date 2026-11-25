@@ -13,6 +13,7 @@ from flashpoint.semantics.gold import gold_dir
 
 KEYS = ("match_key", "session_id", "season", "robot", "slot_id", "unit_id")
 DESCRIPTIVE = ("subsystem", "role", "alignment")
+STATUS = "temp_status"  # why temperature is missing (semantics/temperature.py); NULL in old gold
 FEATURE_COLUMNS = (
     "temp_max_c",
     "temp_mean_c",
@@ -46,7 +47,7 @@ class Frame:
 
 
 def _schema() -> dict[str, pl.DataType]:
-    columns: dict[str, pl.DataType] = {k: pl.String() for k in (*KEYS, *DESCRIPTIVE)}
+    columns: dict[str, pl.DataType] = {k: pl.String() for k in (*KEYS, *DESCRIPTIVE, STATUS)}
     columns |= {m: pl.Float64() for m in FEATURE_COLUMNS}
     columns |= {m: can_health.SCHEMA[m] for m in CAN_COLUMNS}
     return {**columns, "session_start": pl.String()}
@@ -97,8 +98,8 @@ def load_frame(lake: LakePaths) -> Frame:
     try:
         con.execute(f"SET threads = {DUCKDB_THREADS}")
         features = _read(
-            con, _glob(lake, "match_features"), (*KEYS, *DESCRIPTIVE, *FEATURE_COLUMNS),
-            "phase = 'match'",
+            con, _glob(lake, "match_features"),
+            (*KEYS, *DESCRIPTIVE, STATUS, *FEATURE_COLUMNS), "phase = 'match'",
         )  # fmt: skip
         cans = _read(
             con, _glob(lake, can_health.TABLE), (*KEYS, *DESCRIPTIVE, *CAN_COLUMNS),

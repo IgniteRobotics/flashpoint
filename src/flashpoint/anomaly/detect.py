@@ -315,9 +315,21 @@ def summarize(computed: Computed, fp: str) -> dict[str, Any]:
         "skipped": dict(sorted(frame.skipped.items())),
         "missing": dict(sorted(frame.missing.items())),
         "can_rows_without_frame_rate": _without_rate(frame),
+        "temperature_needs_pro": {
+            "label": "not logged (needs Phoenix Pro)",
+            "rows": _needs_pro(frame),
+        },
         "restart_seq": computed.restart_seq,
         "notes": computed.notes,
     }
+
+
+def _needs_pro(frame: Frame) -> int:
+    """Unit-match rows whose temperature was skipped because their hoots were not Pro-licensed,
+    counted apart from other missing values (anomaly-detection)."""
+    if not frame.rows.height:
+        return 0
+    return frame.rows.filter(pl.col("temp_status") == "needs-pro").height
 
 
 def _without_rate(frame: Frame) -> int:
