@@ -43,7 +43,7 @@
 
 ## 7. Docs and decisions
 
-- [ ] 7.1 Write the page content #77 and #75 need, onto `mvp-documentation`'s pages (design §9). If a page hasn't landed yet, put it in today's `docs/guide/user-guide.md` and note the move in `mvp-documentation`'s tasks:
+- [x] 7.1 Write the page content #77 and #75 need, onto `mvp-documentation`'s pages (design §9). If a page hasn't landed yet, put it in today's `docs/guide/user-guide.md` and note the move in `mvp-documentation`'s tasks:
   - `reference/views/anomalies.md`: the beta label at the top, and "make findings trustworthy" (declare a battery-proxy slot, declare sibling groups, let units build a baseline);
   - `reference/config/robots.md`: `battery_proxy` and `[[siblings]]` subsections, with an example from a drafted robot file (a drafted file has neither);
   - `robot-side/pro-and-temperature.md`: what a non-Pro team gets and loses, why one Pro device on a bus unlocks that bus's whole hoot, and the N/A and NEEDS PRO meanings;
