@@ -198,7 +198,7 @@ The reference laptop, as in the other specs. Measured by task 9.1 and written he
 | Replay build per match | 5 s / 500 MB | Per-bus reason: one ledger read |
 | Setup checks total | < 2 s | One grouped ledger query: < 50 ms |
 
-**Measured 2026-11-25 (task 9.1)**, `pytest -m perf -s` on Josh's MacBook (the reference laptop class), on the branch head. Every budget held, and the run exited 0:
+**Measured 2026-11-25 (task 9.1)**, `pytest -m perf -s` on Josh's development MacBook, on the branch head. Every budget held, and the run exited 0:
 
 | Step | Measured | Budget |
 |---|---|---|
