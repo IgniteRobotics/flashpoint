@@ -48,7 +48,7 @@ cells.live = { value = "not tested", note = "the sample publisher has no Talon F
 name = "Pigeon 2"
 cells.replay = { value = "supported", evidence = "2026-gacmp-q7", note = "voltage and CAN timing; it's Ignite's battery proxy" }
 cells.history = { value = "supported", evidence = "2026-gacmp-q7", note = "CAN gaps and voltage" }
-cells.temperature = { value = "not supported", issue = 75, note = "no temperature signal" }
+cells.temperature = { value = "not supported", issue = 75, note = "not tracked: its IMU temperature isn't exported; History reads N/A" }
 cells.can_health = { value = "supported", evidence = "2026-gacmp-q7" }
 cells.draft = { value = "supported", evidence = "2026-gacmp-q7" }
 cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
@@ -57,7 +57,7 @@ cells.live = { value = "not tested on real logs", note = "fake robot only; exper
 name = "CANcoder"
 cells.replay = { value = "supported", evidence = "2026-gacmp-q7", note = "CAN timing" }
 cells.history = { value = "supported", evidence = "2026-gacmp-q7", note = "CAN gaps" }
-cells.temperature = { value = "not supported", issue = 75, note = "no temperature signal" }
+cells.temperature = { value = "not supported", issue = 75, note = "not tracked: no temperature signal; History reads N/A" }
 cells.can_health = { value = "supported", evidence = "2026-gacmp-q7" }
 cells.draft = { value = "supported", evidence = "2026-gacmp-q7" }
 cells.live = { value = "not tested on real logs", note = "fake robot only; experimental" }
@@ -155,12 +155,12 @@ cells.draft = { value = "supported", evidence = "2026-gacmp-q7" }
 
 [[table.row]]
 name = "non-Pro hoots with wpilog"
-cells.identity = { value = "not tested" }
-cells.alignment = { value = "not tested" }
-cells.tracks = { value = "not tested" }
-cells.temperature = { value = "not supported", issue = 75, note = "free hoots carry no temperature" }
-cells.anomalies = { value = "not tested" }
-cells.draft = { value = "not tested" }
+cells.identity = { value = "not tested on real logs", note = "the same paths as Pro logs" }
+cells.alignment = { value = "not tested on real logs", note = "the same paths as Pro logs" }
+cells.tracks = { value = "not tested on real logs", note = "the free signal set: current, voltage, position, velocity" }
+cells.temperature = { value = "not supported", issue = 75, note = "free hoots carry no temperature: NEEDS PRO per bus" }
+cells.anomalies = { value = "not tested on real logs", note = "beta; temperature is skipped, never flagged" }
+cells.draft = { value = "not tested on real logs" }
 
 [[table.row]]
 name = "wpilog only"
@@ -183,12 +183,12 @@ cells.draft = { value = "not tested on real logs" }
 
 [[table.row]]
 name = "AdvantageKit wpilog with hoots"
-cells.identity = { value = "not tested", note = "#76 adds AdvantageKit's FMS fields" }
-cells.alignment = { value = "not tested" }
-cells.tracks = { value = "not tested" }
-cells.temperature = { value = "not tested" }
-cells.anomalies = { value = "not tested" }
-cells.draft = { value = "not tested" }
+cells.identity = { value = "not tested on real logs", note = "/DriverStation fields, akit_ names, then the hoots' names" }
+cells.alignment = { value = "not tested on real logs", note = "wall-clock only: very low confidence" }
+cells.tracks = { value = "not tested on real logs", note = "from the hoots" }
+cells.temperature = { value = "not tested on real logs", note = "from the hoots; needs Phoenix Pro" }
+cells.anomalies = { value = "not tested on real logs", note = "beta" }
+cells.draft = { value = "not tested on real logs" }
 
 [[table.row]]
 name = "rio bus only"
@@ -196,7 +196,7 @@ cells.identity = { value = "not tested" }
 cells.alignment = { value = "not tested" }
 cells.tracks = { value = "not tested" }
 cells.temperature = { value = "not tested" }
-cells.anomalies = { value = "not tested" }
+cells.anomalies = { value = "not tested on real logs", note = "beta; rio rates keep the configured CAN-gap floors" }
 cells.draft = { value = "not tested" }
 
 # --- platforms ----------------------------------------------------------------------------

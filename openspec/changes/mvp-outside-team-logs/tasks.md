@@ -58,6 +58,7 @@
 
   Verify that `pytest tests/test_docs.py` and `openspec validate --all` pass
 - [ ] 7.3 Write the support-matrix cells for the "non-Pro hoots with wpilog", "AdvantageKit wpilog with hoots" and "rio bus only" log setups, and the Pigeon 2 and CANcoder temperature cells ("not supported": not tracked). Use `mvp-documentation`'s values ("supported", "supported (needs Phoenix Pro)", "rough", "not supported", "not tested", "not tested on real logs") and its evidence rule (a corpus group, a `tests/` path, or `outside:<yyyy-mm>` with an issue link, never a team name), based on section 8's results. Put them in `docs/guide/support-matrix.toml` (#84), or hand them to `mvp-documentation` 12.8 if that file hasn't landed. Verify that the support-matrix test passes and the rows render
+  - 2026-11-25: cells written from the synthetic and corpus tests (the "No logs" column: "not tested on real logs"). Left open until section 8's results confirm or correct them.
 
 ## 8. Outside logs: validation and beta
 
