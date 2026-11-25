@@ -67,7 +67,7 @@ requires = ["poetry-core>=2.2.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers -q -m \"not corpus and not perf and not browser\""
+addopts = "--strict-markers -q -m \"not corpus and not perf and not browser and not outside\""
 testpaths = ["tests"]
 # A hang dumps every thread's stack and aborts the whole run (the "thread" method cannot fail
 # just the one test); it also works on Windows.
@@ -77,6 +77,7 @@ markers = [
     "corpus: tests that need the golden log corpus (run tools/fetch-corpus.py first)",
     "perf: timing/memory budget tests (need the corpus; run on demand or in the perf CI job)",
     "browser: Chromium tests of the web app (playwright install chromium; the browser CI job)",
+    "outside: outside teams' private logs (set FLASHPOINT_OUTSIDE_LOGS); skipped without them",
 ]
 
 [tool.ruff]
