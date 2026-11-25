@@ -51,7 +51,6 @@ MVP work under `docs/rewrite/06-roadmap.md` "MVP public release", after P2, P5 a
 - `anomaly-review`: beta label.
 - `can-health`: nominal frame rate per device.
 - `team-setup`: Pro coverage check.
-- `session-grouping`: AdvantageKit enable entry for enable-edge alignment, only if a real AdvantageKit log arrives (task 2.5).
 
 ## Non-goals
 
@@ -68,7 +67,7 @@ MVP work under `docs/rewrite/06-roadmap.md` "MVP public release", after P2, P5 a
   - `meta/extract.py`, `semantics/match_identity.py`, `semantics/derive.py`, `semantics/can_health.py`;
   - `anomaly/` (settings, detect, siblings, spec rules, model);
   - `views/queries.py`, `report/build.py`, `setup/checks.py`;
-  - `semantics/alignment.py` (if task 2.5 adopts the alias); `history.js`, `anomalies.js`, `defaults/anomaly.toml`.
+  - `history.js`, `anomalies.js`, `defaults/anomaly.toml`.
 - **Versions:** `DERIVE_VERSION` +1 and `REPORT_VERSION` +1, so one re-derive and a Replay rebuild.
 - **Docs:** content for `mvp-documentation`'s Anomalies, robot-config, non-Pro and AdvantageKit pages and matrix rows; ADR-0005 and ADR-0010 amendments; the roadmap's false "doctor flags non-Pro" row corrected.
 - **Tests:** synthetic no-temperature, mixed-Pro, AdvantageKit and 250 Hz CAN fixtures; an opt-in `outside` marker.
