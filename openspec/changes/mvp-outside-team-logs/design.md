@@ -77,6 +77,14 @@ Alternatives:
 
 They live in one constant block in `meta/extract.py`. A real log that differs is fixed there, and the spec scenarios still hold.
 
+**Checked 2026-11-25 against AdvantageKit v26.0.2's source** (`LoggedDriverStation`, `LoggedSystemStats`, `WPILOGWriter`, `LogTable` on GitHub; no outside log or simulation log yet, task 2.1):
+- The root table prefix is `/`, so the entries are `/DriverStation/<field>` and `/SystemStats/<field>`. Confirmed.
+- `EventName` is a string (trimmed). `MatchNumber`, `ReplayNumber`, `MatchType` and `AllianceStation` are integers (`int64` in the wpilog). `MatchType` is 0 none, 1 practice, 2 qualification, 3 elimination. `AllianceStation` is the HAL's 1–3 red, 4–6 blue, 0 unknown, so it maps to the alliance and station fields. The names `Practice`/`Qualification`/`Elimination` are still accepted, but v26 doesn't write them.
+- The epoch entry is `/SystemStats/EpochTimeMicros` (int64). `/SystemStats/SystemTimeValid` exists too; the >2020 filter does the same job.
+- Filename: `akit_` + `yy-MM-dd_HH-mm-ss` (else a random hex id until the DS attaches with a valid clock) + `_<event>` **lower-cased** + `_<p|q|e><n>`. Each part is optional. Extraction upper-cases the event. The time is `LocalDateTime.now()`, the JVM's local zone: UTC on a roboRIO (not confirmed on a real log), the laptop's zone in simulation.
+- Not confirmed: real epoch values and the UTC filename rule (both need a real log), and the on-disk types (the source says int64; a sim or real log would show it).
+- **Correction to task 2.4's check:** on the corpus, only `2025-nofms` is read again. `2026-gacmp-p2` is an FMS practice match with a match number and a UTC end, so the rule skips it.
+
 **MatchType:** accept 1/2/3 and the names `Practice`/`Qualification`/`Elimination` (case-insensitive). Anything else is absent.
 
 ### 2. AdvantageKit wall-clock anchor

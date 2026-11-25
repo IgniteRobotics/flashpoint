@@ -21,7 +21,9 @@ from flashpoint import config as fp_config
 from flashpoint.lake.ledger import Ledger
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.query import connect
-from flashpoint.meta.extract import parse_hoot_filename
+from flashpoint.lake.raw import raw_path
+from flashpoint.meta.extract import META_VERSION, logs_columns, parse_hoot_filename, read_metadata
+from flashpoint.readers.wpilog import WpilogError
 from flashpoint.semantics import can_health, gold, signals, usage
 from flashpoint.semantics.alignment import (
     HOOT_ENABLE,
@@ -77,6 +79,8 @@ class Deriver:
         )
         self._con: duckdb.DuckDBPyConnection | None = None
         self.hoot_only: list[str] = []
+        self.warnings: list[str] = []
+        self.reread: list[str] = []  # wpilogs whose metadata this run read again
 
     @property
     def con(self) -> duckdb.DuckDBPyConnection:
@@ -97,6 +101,39 @@ class Deriver:
         self.ledger.close()
 
     # --- loading -------------------------------------------------------------------------
+
+    def refresh_metadata(self) -> None:
+        """Read metadata again, once, for wpilogs an earlier version ingested with no match
+        number or no UTC end: it may now find AdvantageKit's fields and anchor (log-metadata).
+
+        A missing or unreadable raw file keeps the earlier metadata, with one warning. The
+        version is recorded either way, so no log is tried again on the next derive. The season
+        stays as ingested: bronze is partitioned by it."""
+        rows = self.ledger.query(
+            "SELECT l.log_id, l.filename, l.fms_match_number, l.utc_end FROM logs l"
+            " JOIN files f ON f.sha256 = l.log_id WHERE f.stage = 'success'"
+            " AND l.kind = 'wpilog' AND (l.meta_version IS NULL OR l.meta_version < ?)",
+            (META_VERSION,),
+        )
+        for row in rows:
+            columns: dict[str, Any] = {"meta_version": META_VERSION}
+            if row["fms_match_number"] is None or row["utc_end"] is None:
+                path = raw_path(self.lake, row["log_id"], ".wpilog")
+                name = row["filename"] or path.name
+                try:
+                    columns = logs_columns(read_metadata(path, name))
+                except (OSError, WpilogError) as exc:
+                    self.warnings.append(
+                        f"kept the earlier metadata of {name}: its stored copy can't be read"
+                        f" ({exc})"
+                    )
+                else:
+                    self.reread.append(row["log_id"])
+            assignments = ", ".join(f"{column} = ?" for column in columns)
+            self.ledger.execute(
+                f"UPDATE logs SET {assignments} WHERE log_id = ?",  # noqa: S608 - columns from logs_columns
+                (*columns.values(), row["log_id"]),
+            )
 
     def _logs(self) -> tuple[list[WpilogLog], list[HootLog], dict[str, dict[str, Any]]]:
         rows = self.ledger.query(
@@ -543,6 +580,7 @@ class Deriver:
         Afterwards `hoot_only` lists the rebuilt sessions with hoots but no wpilog (match key,
         else the hoots' start stamp): they get no aligned samples (session-grouping)."""
         run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-derive"
+        self.refresh_metadata()
         self.derive_sessions()
         self.derive_identity()
         framings = self.derive_framing()

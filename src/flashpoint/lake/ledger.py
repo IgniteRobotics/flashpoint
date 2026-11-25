@@ -34,12 +34,13 @@ CREATE TABLE IF NOT EXISTS logs (
     project TEXT, build_date TEXT, commit_hash TEXT, git_branch TEXT, git_dirty TEXT,
     utc_start TEXT, utc_end TEXT, anchor_source TEXT, utc_offset_us INTEGER,
     first_ts_us INTEGER, last_ts_us INTEGER, record_count INTEGER,
-    truncated_bytes INTEGER, orphan_records INTEGER, inventory TEXT
+    truncated_bytes INTEGER, orphan_records INTEGER, inventory TEXT,
+    fms_origin TEXT, meta_version INTEGER
 );
 CREATE TABLE IF NOT EXISTS hoot_logs (
     log_id TEXT PRIMARY KEY, bus TEXT, bus_description TEXT, session_stamp TEXT,
     compliancy INTEGER, owlet_version TEXT, pro_licensed INTEGER, profile TEXT,
-    signal_count INTEGER, read_status TEXT, integrity TEXT
+    signal_count INTEGER, read_status TEXT, integrity TEXT, dropped_signals TEXT
 );
 CREATE TABLE IF NOT EXISTS entries (
     log_id TEXT NOT NULL, idx INTEGER NOT NULL, entry_id INTEGER NOT NULL, name TEXT NOT NULL,
@@ -111,6 +112,13 @@ DERIVED_TABLES = (
     "derived_state",
 )
 
+# Columns added after a lake's first version, as (table, column, declaration); NULL in old rows.
+ADDED_COLUMNS = (
+    ("logs", "fms_origin", "TEXT"),
+    ("logs", "meta_version", "INTEGER"),
+    ("hoot_logs", "dropped_signals", "TEXT"),
+)
+
 
 class Stage(StrEnum):
     RECEIVED = "received"
@@ -136,6 +144,11 @@ class Ledger:
 
     def _migrate(self) -> None:
         """Bring a lake from an earlier version up to date; a no-op once done."""
+        # Each later column gets its own check: the `attempts` step below returns early.
+        for table, column, decl in ADDED_COLUMNS:
+            existing = {r[1] for r in self._db.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                self._db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
         columns = {r[1] for r in self._db.execute("PRAGMA table_info(files)")}
         if "attempts" in columns:
             return

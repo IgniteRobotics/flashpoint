@@ -220,3 +220,22 @@ def test_q7_drive_motor_supply_path_resistance(derived_corpus_lake: Any) -> None
     assert [r[0] for r in rows] == ["drive-bl", "drive-br", "drive-fl", "drive-fr"]
     for slot, mohm, flag in rows:
         assert flag is None and 5.0 <= mohm <= 40.0, (slot, mohm, flag)
+
+
+def test_older_corpus_lake_re_reads_only_logs_missing_identity_or_anchor(
+    corpus_lake: Any,
+) -> None:
+    """An earlier version's lake: only wpilogs with no match number or UTC end are read again."""
+    deriver = Deriver(corpus_lake, config.config_root())
+    try:
+        before = deriver.ledger.query("SELECT * FROM logs WHERE kind = 'wpilog' ORDER BY log_id")
+        deriver.ledger.execute("UPDATE logs SET meta_version = NULL")
+        deriver.refresh_metadata()
+        names = {r["log_id"]: r["filename"] for r in deriver.ledger.query("SELECT * FROM logs")}
+        after = deriver.ledger.query("SELECT * FROM logs WHERE kind = 'wpilog' ORDER BY log_id")
+    finally:
+        deriver.close()
+    # P2 is an FMS practice match: it has a match number and a UTC end, so it isn't read again.
+    assert sorted(names[i] for i in deriver.reread) == ["FRC_20250404_221544.wpilog"]
+    assert deriver.warnings == []
+    assert after == before  # the re-read finds what ingest found

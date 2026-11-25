@@ -433,6 +433,8 @@ def _derive(lake: LakePaths, force: bool, robot_draft: bool = True) -> int:
     finally:
         deriver.close()
     print(f"derived {result['rebuilt']} of {result['sessions']} session(s)")
+    for warning in deriver.warnings:
+        print(f"warning: {warning}", file=sys.stderr)
     _warn_hoot_only(deriver.hoot_only)
     # Detection is part of every derive; it skips itself when gold and config are unchanged.
     # Its own failure (configuration, lock) is reported but does not fail the derive.
