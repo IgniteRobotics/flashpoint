@@ -447,6 +447,7 @@ class HistoryQueries:
             row["latest"] = values[-1] if values else None
             row["change"] = values[-1] - values[0] if len(values) >= 2 else None
             row["anomalies"] = anomalies.get(row["unit_id"])
+            row["temperature"] = self._unit_health(row["unit_id"], temps, None)  # before anomalies
             row["health"] = self._unit_health(row["unit_id"], temps, row["anomalies"])
         return rows
 
@@ -581,9 +582,7 @@ class HistoryQueries:
                 "SELECT DISTINCT session_id FROM usage WHERE unit_id = ?", [unit_id]
             )
         }
-        feature_temp = self._rows(
-            "SELECT max(temp_max_c) AS t FROM features WHERE unit_id = ?", [unit_id]
-        )[0]["t"]
+        feature_temp, statuses = self._temperature(Filters(unit=unit_id)).get(unit_id, (None, []))
         latest = mine[-1] if mine else None
         info = self._slot_info(latest["robot"], latest["slot_id"]) if latest else {}
         return {
@@ -593,7 +592,7 @@ class HistoryQueries:
             "identity": "legacy" if unit_id.startswith("legacy:") else "inventory",
             "model": info.get("model"),
             "current": info,
-            "health": self._health(feature_temp),
+            "health": self._health(feature_temp, statuses),
             "totals": {k: v for k, v in totals.items() if k != "usage_rows"},
             "sessions_without_aligned_samples": len({o["session_id"] for o in mine} - aligned),
             "lifeline": self._lifeline(unit_id, observed),

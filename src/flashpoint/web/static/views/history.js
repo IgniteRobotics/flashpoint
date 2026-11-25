@@ -34,7 +34,16 @@
     WARN: ['warn', 'WARN'],
     HOT: ['fault', 'HOT'],
     'NO-DATA': ['retired', 'NO DATA'],
+    'N/A': ['na', 'N/A'],
+    'NEEDS-PRO': ['pro', 'NEEDS PRO'],
   };
+  // Why a unit has no temperature (its health before anomalies), for a temperature metric.
+  const NO_TEMPERATURE = {
+    'NEEDS-PRO': 'not logged (needs Phoenix Pro)',
+    'N/A': 'temperature not tracked',
+  };
+  const noTemperature = (r, trend) =>
+    trend.unit === '\u00b0C' && r.latest == null ? NO_TEMPERATURE[r.temperature] || null : null;
   const KIND = {
     'first-seen': 'First seen',
     moved: 'Moved',
@@ -532,7 +541,8 @@
       rows.map((r) => {
         const on = r.unit_id === selectedUnit();
         const [level, word] = HEALTH[r.health] || HEALTH['NO-DATA'];
-        const about = describe(r.spark);
+        const why = noTemperature(r, trend);
+        const about = why || describe(r.spark);
         return h(
           'tr',
           { class: on ? 'is-sel' : null },
@@ -555,7 +565,11 @@
           h('td', { class: 'd wrap-anywhere' }, r.serial),
           h('td', { class: 'd nowrap' }, FP.day(r.first_t), ' → ', FP.day(r.last_t)),
           h('td', { class: 'num' }, String(r.matches)),
-          h('td', { class: 'num' }, FP.fmt(r.latest, 1)),
+          h(
+            'td',
+            { class: why ? 'meta' : 'num', dataset: { latest: '' } },
+            why || FP.fmt(r.latest, 1),
+          ),
           h(
             'td',
             { class: 'num' },

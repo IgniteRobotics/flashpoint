@@ -807,8 +807,18 @@ body.no-scanlines::after {
 .status--retired {
   color: var(--accent-muted);
 }
+.status--na,
+.status--pro {
+  color: var(--accent-mid);
+}
 .status--ok::before {
   content: "● ";
+}
+.status--na::before {
+  content: "○ ";
+}
+.status--pro::before {
+  content: "◇ ";
 }
 .status--warn::before {
   content: "▲ ";
