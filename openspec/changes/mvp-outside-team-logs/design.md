@@ -116,6 +116,11 @@ Consumers:
 - **Detection** already skips missing values. It counts `needs-pro` skips separately in its summary.
 - **Replay** reads silver and the ledger, not gold, so it applies the same rule per bus through a shared helper, `semantics/temperature.py`. Its payload gains `temperature.missing_by_bus` and a per-slot `temp_reason`.
 
+**Applied 2026-11-25 (task 6.2):**
+- `NO_TEMPERATURE_MODELS` is CANcoder and Pigeon2 only. No Ignite or corpus hoot has a CANrange, CANdi or CANdle, so there was nothing to `owlet --scan`, and CTRE's signal list was not checked. They stay temperature-capable: an outside log with one reads NEEDS PRO or NO DATA until a scan says otherwise.
+- `temp_status` is written to `match_features` (motors) **and** `can_health` (every mapped device). Sensors never get a `match_features` row, because gold features need stator current. History lists the gyro and CANcoders only on CAN metrics, so it reads their status from `can_health`. A `can_health` row takes its motor's status from the session's gold row. A sensor's status comes from its model and its bus's Pro flag.
+- A slot's Pro flag is its bus's (`pro_by_bus` over the session's hoots): Pro if any hoot on that bus is, non-Pro if every known one isn't, unknown otherwise. Unknown reads as `missing`, never `needs-pro`.
+
 Alternative: work it out in each view from the ledger. Rejected: three copies of one rule drift, and History would need a ledger join per refresh.
 
 **Fault_DeviceTemp** is in the free set and could give non-Pro teams an over-temperature marker. It is out of scope (Non-goals) and gets a follow-up issue.

@@ -281,6 +281,7 @@ SCHEMA: dict[str, pl.DataType] = {
     "missed_per_min": pl.Float64(),
     "longest_gap_ms": pl.Float64(),
     "frame_rate_hz": pl.Float64(),
+    "temp_status": pl.String(),  # set by derive from the session's gold and Pro flags
     "reset_count_logged": pl.Boolean(),
     "alignment": pl.String(),
     "source_logs": pl.String(),
@@ -546,6 +547,7 @@ def _slot_rows(
                         "longest_gap_ms": max((g.end_us - g.start_us for g in gaps), default=0)
                         / 1000,
                         "frame_rate_hz": frame_rate_hz(health, device),
+                        "temp_status": None,
                         "reset_count_logged": health.reset_count_logged,
                         "alignment": ctx.alignment, "source_logs": ctx.source_logs,
                     }

@@ -12,6 +12,7 @@ from flashpoint.semantics.framing import Framing
 from flashpoint.semantics.physics import motor_features
 from flashpoint.semantics.robot_config import RobotConfig
 from flashpoint.semantics.silver import silver_dir
+from flashpoint.semantics.temperature import temp_status
 
 PHASES = ("auto", "teleop")
 
@@ -44,7 +45,10 @@ def session_features(
     robot: RobotConfig,
     alignment: str,
     source_logs: str,
+    slot_pro: dict[str, bool | None] | None = None,
 ) -> list[dict[str, Any]]:
+    """`slot_pro`: whether each slot's hoots were Pro-licensed (missing: unknown), for
+    `temp_status`."""
     path = silver_dir(lake) / f"season={session['season']}" / f"session_id={session['session_id']}"
     if not path.is_dir() or framing.match_start_us is None:
         return []
@@ -76,7 +80,9 @@ def session_features(
             " WHERE slot_id = ? AND unit_id = ? AND phase IN ('auto', 'teleop')",
             params=[slot_id, unit_id],
         ).pl()
+        model = slots[slot_id].model if slot_id in slots else None
         for period, (start, end) in _periods(framing).items():
+            features = motor_features(motor, start, end, breaks=breaks, proxy=proxy)
             rows.append(
                 {
                     "match_key": session["match_key"],
@@ -90,7 +96,10 @@ def session_features(
                     "role": slots[slot_id].role if slot_id in slots else None,
                     "alignment": alignment,
                     "source_logs": source_logs,
-                    **motor_features(motor, start, end, breaks=breaks, proxy=proxy),
+                    **features,
+                    "temp_status": temp_status(
+                        model, (slot_pro or {}).get(slot_id), features["temp_max_c"] is not None
+                    ),
                 }
             )
     return rows
