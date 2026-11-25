@@ -139,6 +139,21 @@ Alternative: hide fallback brownouts below normal sensitivity. Rejected: a real 
 - **Expected effect on rio-rate devices (≤ 125 Hz):** none; floors and findings are unchanged, including the CANivore CANcoders at ~105 Hz. Task 4.4 checks that their jitter doesn't add findings.
 - **Expected effect on a 250 Hz device:** floors become 12.5 gaps and 5 missed/min. The jitter case (9 gaps, 3.7/min) is z < 1. Ignite's 41 CANivore findings scale from |z| ≤ 8.5 to about ≤ 1.7, which is below every normal threshold. Only an occasional strict DRIFT (1.5) remains possible, and task 4.4 counts it. A 1 s dropout per match is ~100 missed/min, z ≈ 20, so still a HIGH STEP. The SPEC gap limit (250 ms / 1 s) is untouched, so a single real dropout is still caught.
 - **Corpus Q7 rates, checked 2026-11-25 (task 4.1):** CANivore Talon FX 250.4 Hz, Pigeon 2 251.2 Hz, CANcoders 100.8–104.9 Hz; rio Talon FX 100.0–111.1 Hz. This matches the lake review above. Q7's isolated-gap counts per slot are unchanged by recording the rate. The truncated E10 copy (`2026-gacmp-e10-truncated`) ends before the robot is enabled, so its devices have no nominal period and an empty rate, as "No frames while enabled" says.
+- **Ignite lake recount, 2026-11-25 (task 4.4).** Run on an APFS clone of `~/flashpoint-lake` (74 sessions, 38 matches), with the repo `config/`. "Before" is `development` (3892985); "after" is this branch (a full re-derive for `DERIVE_VERSION` 7, then detect). The lake itself was not touched.
+
+  | CAN-gap anomalies | HIGH | MED | LOW | Total |
+  |---|---|---|---|---|
+  | CANivore, before | 4 | 12 | 25 | 41 |
+  | CANivore, after | 0 | 0 | 1 | 1 |
+  | rio, before | 11 | 2 | 12 | 25 |
+  | rio, after | 11 | 2 | 12 | 25 |
+
+  - Before, the CANivore findings were DRIFT (2 normal, 13 relaxed, 8 strict), SIBLING (16 strict) and STEP (2 strict). After, one strict LOW DRIFT remains, on the gyro's frames missed (onset `2026gacmp_qm46`). It is the "occasional strict DRIFT" expected above.
+  - No CANivore Talon FX or Pigeon 2 DRIFT, STEP or SIBLING remains at normal or relaxed sensitivity.
+  - Every rio CAN-gap finding is identical: same id, method, severity, sensitivity and onset.
+  - CANivore CANcoders: 0 findings before and after.
+  - The baseline was 66 CAN-gap anomalies, not 65: the extra one is a rio SPEC finding on the longest gap. Anomalies overall went from 289 to 249.
+  - Devices between 110 and 150 Hz: the ten rio Talon FX slots at 111.1 Hz (flywheels, hood, indexers, intake). All are below 125 Hz, so they are unscaled. No CANivore device is in that range.
 - **Versions:** `DERIVE_VERSION` was already 6 when this change was applied (silver-device-enable took 5 → 6), so this change takes it to 7.
 - **Alternatives:**
   - A minimum gap length in derive (ignore gaps under ~25 ms). Rejected: it changes the measurement, the Replay markers and the can-health spec. Ignite's starved-rio stalls of 20–50 ms are real.
