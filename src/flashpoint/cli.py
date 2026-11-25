@@ -335,21 +335,31 @@ def _summarize(report: "IngestReport") -> None:
 REPORT_TAIL_LINES = 15
 
 
+DERIVE_FAILED = (
+    "derive failed: Replay data was not built. Fix the error above, then run:"
+    " flashpoint derive --report"
+)
+
+
 def _derive_and_report(
     lake: LakePaths, derive_all: bool, build_report: bool, robot_draft: bool = True
-) -> None:
-    """Derive, then build Replay data, each in a fresh process.
+) -> bool:
+    """Derive, then build Replay data, each in a fresh process. False when derive failed.
 
     Separate processes keep peak memory at max(ingest, derive, report) rather than their sum,
     because the allocator keeps each step's high-water mark (measured: 1155 MB vs 870 / 589 MB).
-    Neither step changes the ingest's exit code.
+    A failed derive is reported last and fails the command (#107); a failed Replay build
+    doesn't change the ingest's exit code.
     """
     base = [sys.executable, "-m", "flashpoint"]
     derive = [*base, "derive", "--lake", str(lake.root), *(["--all"] if derive_all else [])]
     derive += [] if robot_draft else ["--no-robot-draft"]
-    if subprocess.run(derive, check=False).returncode != 0 or not build_report:  # noqa: S603 - argv is our own interpreter and module
-        return
-    _report_after(lake)
+    if subprocess.run(derive, check=False).returncode != 0:  # noqa: S603 - argv is our own interpreter and module
+        print(DERIVE_FAILED, file=sys.stderr)
+        return False
+    if build_report:
+        _report_after(lake)
+    return True
 
 
 def _report_after(lake: LakePaths) -> None:
@@ -851,10 +861,12 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 - grandfathere
     _summarize(report)
     rebuild = args.command == "rebuild"
     if (rebuild or not args.no_derive) and report.count("success"):
-        _derive_and_report(
+        derived = _derive_and_report(
             lake,
             derive_all=rebuild,
             build_report=not args.no_report,
             robot_draft=not args.no_robot_draft,
         )
+        if not derived:
+            return EXIT_FAILED
     return report.exit_code

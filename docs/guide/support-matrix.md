@@ -81,4 +81,3 @@ A session with hoots but no wpilog gets no motor history: no Replay tracks, usag
 ### Known issues
 
 - **Linux owlet can crash on power-loss-truncated hoots.** On Linux, CTRE's owlet sometimes exits with an error on a hoot whose tail was cut off by a power loss (macOS doesn't). Flashpoint retries the conversion, so the file usually still imports with `incomplete-read`. If a hoot stays `failed (owlet-failed)`, run `flashpoint rebuild` once. History: [#4](https://github.com/IgniteRobotics/flashpoint/issues/4) (closed), tracked end to end in [#71](https://github.com/IgniteRobotics/flashpoint/issues/71).
-- **A relative `--lake` path crashes `detect`.** Give `--lake` an absolute path (`--lake "$PWD/lake"`). `ingest` still exits 0 in that case, with no Replay data ([#107](https://github.com/IgniteRobotics/flashpoint/issues/107)).
