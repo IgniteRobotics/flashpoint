@@ -31,4 +31,4 @@
 
 - [ ] 5.1 Run the full gate: `ruff check .`, `ruff format --check .`, `mypy src tests tools`, `pytest`, `pytest -m corpus`, and `openspec validate lake-path-and-derive-failure --strict`. Verify: all pass, and `ci-ok` is green on the PR (into `development`, body says `Closes #107`, and lists the edited `test_cli.py` case).
 - [ ] 5.2 [HUMAN] Josh reproduces the issue's steps on a clean folder: `flashpoint ingest --lake lake .` on a corpus match, then `flashpoint serve --lake lake`. Verify: Replay shows the match, and his OK is recorded on the PR.
-- [ ] 5.3 Run `openspec archive lake-path-and-derive-failure` as the PR's last commit. Verify: `openspec validate --all` passes.
+- [x] 5.3 Run `openspec archive lake-path-and-derive-failure` as the PR's last commit. Verify: `openspec validate --all` passes.
