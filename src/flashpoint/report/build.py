@@ -26,12 +26,14 @@ from flashpoint.report.names import download_name
 from flashpoint.report.paths import data_dir, file_stem, state_path
 from flashpoint.report.proxy import resolve as resolve_proxy
 from flashpoint.report.settings import ReportConfig, load_report_config
-from flashpoint.semantics import can_health
+from flashpoint.semantics import can_health, temperature
 from flashpoint.semantics.gold import gold_dir
 from flashpoint.semantics.robot_config import RobotConfig, load_robots
 from flashpoint.semantics.silver import silver_dir
 
-REPORT_VERSION = 4  # v4: battery proxy (declared device or median); v3: CAN-health markers
+# v5: temperature reasons per bus and slot; v4: battery proxy (declared device or median);
+# v3: CAN-health markers
+REPORT_VERSION = 5
 BUDGET_BYTES = 2_000_000
 MIN_BUCKETS = 100
 DUCKDB_MEMORY_LIMIT = "256MB"
@@ -436,15 +438,43 @@ class ReportBuilder:
     def _silver(self, session: dict[str, Any]) -> Path | None:
         return silver_path(self.lake, session)
 
-    def _temperature_reason(self, sessions: list[dict[str, Any]]) -> str:
-        licensed = [
-            (self.meta.one("hoot_logs", log_id=h["log_id"]) or {}).get("pro_licensed")
+    def _pro_by_bus(self, sessions: list[dict[str, Any]]) -> dict[str, bool | None]:
+        return temperature.pro_by_bus(
+            (h["bus"], (self.meta.one("hoot_logs", log_id=h["log_id"]) or {}).get("pro_licensed"))
             for s in sessions
             for h in self.meta.rows("session_hoots", session_id=s["session_id"])
-        ]
-        if licensed and not any(licensed):
-            return "The hoots are not Pro-licensed, so they carry no temperature."
+        )
+
+    @staticmethod
+    def _missing_by_bus(
+        pro: dict[str, bool | None], robot: RobotConfig | None
+    ) -> list[dict[str, str]]:
+        """Buses whose hoots are not Pro-licensed, so carry no temperature (match-reports)."""
+        out = []
+        for bus in sorted(b for b, licensed in pro.items() if licensed is False):
+            name = (robot.bus_name_for(bus) if robot else None) or (
+                "rio" if bus.lower() == "rio" else f"CANivore {bus[:8]}"
+            )
+            out.append({"bus": bus, "name": name, "reason": temperature.NEEDS_PRO})
+        return out
+
+    @staticmethod
+    def _temperature_reason(missing: list[dict[str, str]]) -> str:
+        if missing:
+            names = ", ".join(b["name"] for b in missing)
+            return (
+                f"The hoots on {names} are not Pro-licensed, so they carry no temperature:"
+                " temperature needs a Phoenix Pro-licensed device on that bus."
+            )
         return "No temperature was logged for this match."
+
+    @staticmethod
+    def _temp_reason(slot: Any, logged: bool, pro: dict[str, bool | None]) -> str | None:
+        """Why a slot has no temperature: needs-pro, not-tracked or missing; None if logged."""
+        if logged:
+            return None
+        licensed = next((p for bus, p in pro.items() if slot and slot.matches_bus(bus)), None)
+        return temperature.temp_status(slot.model if slot else None, licensed, False)
 
     def match_payload(
         self, key: str, sessions: list[dict[str, Any]]
@@ -500,6 +530,8 @@ class ReportBuilder:
         features = self._features(primary)
         temps_window = envelope.window_for(match_start, match_end, self.buckets)
         temps = envelope.temperature_points(self.con, silver, temps_window)
+        pro = self._pro_by_bus(sessions)
+        missing = self._missing_by_bus(pro, robot)
         can_events = self._can_events(primary)
         proxy_slot = robot.battery_proxy if robot else None
         proxy = resolve_proxy(self.con, silver, temps_window.t0_us, temps_window.end_us, proxy_slot)
@@ -565,6 +597,9 @@ class ReportBuilder:
                             else None,
                             "model": slot_config[slot_id].model if slot_id in slot_config else None,
                             "features": features.get(slot_id, {}),
+                            "temp_reason": self._temp_reason(
+                                slot_config.get(slot_id), slot_id in temps, pro
+                            ),
                         }
                         for slot_id, unit_ids in units
                     ],
@@ -590,8 +625,9 @@ class ReportBuilder:
                 if slow
                 else []
             )
+            payload["temperature"]["missing_by_bus"] = missing
             if not payload["temperature"]["available"]:
-                payload["temperature"]["reason"] = self._temperature_reason(sessions)
+                payload["temperature"]["reason"] = self._temperature_reason(missing)
             size = len(to_script("FP.register", payload).encode())
             if size <= self.budget_bytes or buckets <= MIN_BUCKETS:
                 payload["bytes"] = size
