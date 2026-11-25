@@ -83,7 +83,9 @@ def test_lake_ingested_by_an_earlier_version(tmp_path: Path) -> None:
 
 def test_raw_file_gone_before_the_re_read(tmp_path: Path) -> None:
     lake, ids = _older_lake(tmp_path)
-    raw_path(lake, ids[AKIT_NAME], ".wpilog").unlink()
+    raw = raw_path(lake, ids[AKIT_NAME], ".wpilog")
+    raw.chmod(0o644)  # raw copies are read-only, and Windows won't delete a read-only file
+    raw.unlink()
 
     first = derive(lake, tmp_path / "config")
     assert len(first.warnings) == 1
