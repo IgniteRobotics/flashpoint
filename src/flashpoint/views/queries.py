@@ -20,6 +20,7 @@ from flashpoint.lake.paths import LakePaths
 from flashpoint.report.names import download_name
 from flashpoint.report.settings import ReportConfig
 from flashpoint.semantics.robot_config import RobotConfig
+from flashpoint.semantics.temperature import NEEDS_PRO, NOT_TRACKED
 from flashpoint.views.anomalies import AnomalyQueries
 
 
@@ -50,6 +51,9 @@ METRICS = {
     "longest_gap_ms": Metric("longest_gap_ms", "Longest isolated CAN gap", "ms", view="can"),
 }
 PHASES = ("match", "auto", "teleop")
+# Device health, lowest first: the three no-temperature states rank below OK, so an open
+# anomaly still raises them to WARN or HOT (lifetime-trends).
+HEALTH_ORDER = ("NO-DATA", "NEEDS-PRO", "N/A", "OK", "WARN", "HOT")
 LOW_ALIGNMENT = ("low", "very-low", "none")
 
 _FEATURE_COLUMNS = {
@@ -62,6 +66,7 @@ _FEATURE_COLUMNS = {
     "subsystem": "VARCHAR",
     "role": "VARCHAR",
     "alignment": "VARCHAR",
+    "temp_status": "VARCHAR",  # semantics/temperature.py; NULL in gold derived before it
     **{m.column: "DOUBLE" for m in METRICS.values() if m.view == "features"},
 }
 _CAN_COLUMNS = {
@@ -363,8 +368,15 @@ class HistoryQueries:
             "points": points,
         }
 
-    def _health(self, temp_max: float | None) -> str:
+    def _health(self, temp_max: float | None, statuses: Iterable[str] = ()) -> str:
+        """Temperature health. With no value in range: N/A when the model's temperature isn't
+        tracked, NEEDS-PRO when every row was on non-Pro hoots, else NO-DATA."""
         if temp_max is None:
+            found = set(statuses)
+            if found and found <= {NOT_TRACKED}:
+                return "N/A"
+            if found and found <= {NEEDS_PRO}:
+                return "NEEDS-PRO"
             return "NO-DATA"
         if temp_max >= self.report.temp_fault_c:
             return "HOT"
@@ -381,18 +393,31 @@ class HistoryQueries:
         if anomaly is None:
             return health
         level = "HOT" if anomaly["severity"] == "HIGH" else "WARN"
-        order = ("NO-DATA", "OK", "WARN", "HOT")
-        return max(health, level, key=order.index)
+        return max(health, level, key=HEALTH_ORDER.index)
 
-    def _temp_max(self, filters: Filters) -> dict[str, float | None]:
-        """Each unit's highest match temperature in range: health is temperature only."""
+    def _temperature(self, filters: Filters) -> dict[str, tuple[float | None, list[str]]]:
+        """Each unit's highest match temperature in range, and its rows' temperature statuses
+        (from match_features, and from can_health for sensors, which have no feature rows)."""
         where, params = _where(filters, Filters.names(), "f")
         rows = self._rows(
-            f"SELECT f.unit_id, max(f.temp_max_c) AS temp_max_c FROM features f"  # noqa: S608 - where from fixed filter names; values bound
-            f" WHERE {where} GROUP BY f.unit_id",
-            params,
+            f"""
+            SELECT unit_id, max(temp_max_c) AS temp_max_c,
+                list(DISTINCT temp_status) FILTER (WHERE temp_status IS NOT NULL) AS statuses
+            FROM (
+                SELECT f.unit_id, f.temp_max_c, f.temp_status FROM features f WHERE {where}
+                UNION ALL
+                SELECT f.unit_id, NULL, f.temp_status FROM can f WHERE {where}
+            ) GROUP BY unit_id
+            """,  # noqa: S608 - where from fixed filter names; values bound
+            params + params,
         )
-        return {r["unit_id"]: r["temp_max_c"] for r in rows}
+        return {r["unit_id"]: (r["temp_max_c"], r["statuses"] or []) for r in rows}
+
+    def _unit_health(
+        self, unit: str, temps: dict[str, tuple[float | None, list[str]]], anomaly: Any
+    ) -> str:
+        temp_max, statuses = temps.get(unit, (None, []))
+        return self._worse(self._health(temp_max, statuses), anomaly)
 
     def devices(self, metric_name: str, filters: Filters) -> list[dict[str, Any]]:
         """One row per unit in range, by unit id."""
@@ -413,16 +438,16 @@ class HistoryQueries:
             """,  # noqa: S608 - view and column from the metric whitelist
             params,
         )
-        temps = self._temp_max(filters)
+        temps = self._temperature(filters)
         anomalies = self._open_anomalies()
         for row in rows:
-            row["temp_max_c"] = temps.get(row["unit_id"])
+            row["temp_max_c"] = temps.get(row["unit_id"], (None, []))[0]
             values = [v for v in row["spark"] if v is not None]
             row["serial"] = serial_of(row["unit_id"])
             row["latest"] = values[-1] if values else None
             row["change"] = values[-1] - values[0] if len(values) >= 2 else None
             row["anomalies"] = anomalies.get(row["unit_id"])
-            row["health"] = self._worse(self._health(row["temp_max_c"]), row["anomalies"])
+            row["health"] = self._unit_health(row["unit_id"], temps, row["anomalies"])
         return rows
 
     def summary(self, filters: Filters) -> dict[str, Any]:
@@ -441,9 +466,9 @@ class HistoryQueries:
             uparams,
         )[0]["powered_h"]
         anomalies = self._open_anomalies()
+        temps = self._temperature(filters)
         flagged = [
-            u for u, t in self._temp_max(filters).items()
-            if self._worse(self._health(t), anomalies.get(u)) in ("WARN", "HOT")
+            u for u in temps if self._unit_health(u, temps, anomalies.get(u)) in ("WARN", "HOT")
         ]  # fmt: skip
         return {
             "units": counts["units"],
