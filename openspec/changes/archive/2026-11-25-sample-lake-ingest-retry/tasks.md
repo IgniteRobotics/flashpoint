@@ -19,5 +19,5 @@
 
 - [x] 3.1 Run `poetry run python tools/docs-media.py capture --out build/docs-media` locally with a fetched corpus-v1. Verify: it completes and the quarantine lake still builds. If no owlet flake happens, the output shows no retry lines, which is expected.
 - [x] 3.2 Check `docs/rewrite/05-target-architecture.md` (docs tooling, line ~273). Verify: no D1–D11 decision or design text changes, and the docs tooling line is still accurate. No edit is expected, and no ADR.
-- [ ] 3.3 Open the PR from `feature/123-sample-lake-ingest-retry` into `development` with `Closes #123` and the AI disclosure. Verify: `ci-ok` is green, and the `docs` workflow's Media step passes on the PR or after merge.
-- [ ] 3.4 Archive (`openspec archive sample-lake-ingest-retry`) as the PR's last commit. Verify: the `project-documentation` main spec gains "Sample lake rides out a failed file".
+- [x] 3.3 Open the PR from `feature/123-sample-lake-ingest-retry` into `development` with `Closes #123` and the AI disclosure. Verify: `ci-ok` is green, and the `docs` workflow's Media step passes on the PR or after merge.
+- [x] 3.4 Archive (`openspec archive sample-lake-ingest-retry`) as the PR's last commit. Verify: the `project-documentation` main spec gains "Sample lake rides out a failed file".
