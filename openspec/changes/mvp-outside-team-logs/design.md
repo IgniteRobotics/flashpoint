@@ -198,6 +198,21 @@ The reference laptop, as in the other specs. Measured by task 9.1 and written he
 | Replay build per match | 5 s / 500 MB | Per-bus reason: one ledger read |
 | Setup checks total | < 2 s | One grouped ledger query: < 50 ms |
 
+**Measured 2026-11-25 (task 9.1)**, `pytest -m perf -s` on Josh's MacBook (the reference laptop class), on the branch head. Every budget held, and the run exited 0:
+
+| Step | Measured | Budget |
+|---|---|---|
+| Ingest Q7 + derive + detect | 19.1 s, 816 MB (children 695 MB) | 30 s / 1 GB |
+| Detect season | 1.83 s, 233 MB | 5 s / 400 MB |
+| Backtest | 3.58 s, 267 MB | (P5 budget) |
+| CAN-health step | 0.38 s, 71 MB | +3 s / 150 MB |
+| Replay build (Q7) | 0.62 s, 410 MB | 5 s / 500 MB |
+| Usage step | 1.13 s, 677 MB | (P2 budget) |
+| History refresh (season) | under 2 s (`test_season_queries_under_two_seconds`) | < 2 s |
+| Setup checks (corpus lake) | under 2 s (`test_checks_are_fast_on_the_corpus_lake`) | < 2 s |
+
+The CI perf job's numbers (a slower runner) are its own; this table is the laptop.
+
 AdvantageKit wpilogs are often larger than ours, because they log every input at 50 Hz. Their ingest time is recorded in task 8.3 as an observation, not a gate. A real log over the Q7 budget becomes a filed issue.
 
 ## If outside logs arrive vs. not

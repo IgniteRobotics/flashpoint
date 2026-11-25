@@ -70,7 +70,7 @@
 
 ## 9. Gate and field check
 
-- [ ] 9.1 Rerun the perf budgets (`pytest -m perf -s`): Q7 ingest, derive and detect within 30 s and 1 GB; season detect within 5 s and 400 MB; the CAN-health step; the Replay build. Record them in design.md Budgets. Verify that every budget in the table holds, or that an overrun is filed
+- [x] 9.1 Rerun the perf budgets (`pytest -m perf -s`): Q7 ingest, derive and detect within 30 s and 1 GB; season detect within 5 s and 400 MB; the CAN-health step; the Replay build. Record them in design.md Budgets. Verify that every budget in the table holds, or that an overrun is filed
 - [ ] 9.2 Run the full gate locally: `ruff`, `mypy`, `pytest`, `-m corpus`, `-m browser`, and `openspec validate mvp-outside-team-logs --strict`. Then open a PR into `development`, merged by the M2 date (**2026-12-12**). Its body links #75, #76 and #77 with the issue flow's closing keyword only for those whose acceptance is met. It refers to #78 without a closing keyword, because #78's human tasks (8.5 runs to 12-14) outlast the merge. The default branch is `development`, so a closing keyword fires on merge. Verify that `ci-ok` is green and #78 is still open after the merge
 - [ ] 9.3 [HUMAN] Re-derive `~/flashpoint-lake` with the merged build and check:
   - in History, the Pigeon 2 and CANcoders read N/A and nothing reads NO DATA;
