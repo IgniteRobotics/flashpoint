@@ -266,7 +266,7 @@
         { class: 'callout', id: 'temperature-note' },
         'Temperature not logged on ' +
           buses.join(', ') +
-          ': temperature needs a Phoenix Pro-licensed device on that bus.',
+          ': the hoots are not Pro-licensed, and temperature needs a Phoenix Pro-licensed device on that bus.',
       );
     return t.available
       ? null
