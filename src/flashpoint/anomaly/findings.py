@@ -44,6 +44,8 @@ class Finding:
     peer_name: str | None = None
     expected: str | None = None  # SPEC: the limit, e.g. "< 65 °C"
     reasons: list[str] | None = None  # MODEL: per match, the features furthest from baseline
+    floor: np.ndarray | None = None  # CAN-gap metrics: the spread floor used per match
+    rate_hz: np.ndarray | None = None  # CAN-gap metrics: nominal frame rate per match (NaN: none)
 
     @property
     def flagged(self) -> np.ndarray:

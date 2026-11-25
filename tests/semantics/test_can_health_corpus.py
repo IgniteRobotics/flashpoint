@@ -114,3 +114,36 @@ def test_rows_are_deterministic(derived_corpus_lake: LakePaths, tables: dict[str
     for table, rows in tables.items():
         key = sorted(rows, key=repr)
         assert sorted(_rows(derived_corpus_lake, table), key=repr) == key, table
+
+
+# Isolated gaps per Q7 slot (match phase) before frame rates were recorded (2026-11-25).
+Q7_GAPS = {
+    "drive-bl": 3, "drive-br": 4, "drive-fl": 3, "drive-fr": 3, "encoder-bl": 0,
+    "encoder-br": 0, "encoder-fl": 0, "encoder-fr": 0, "gyro": 2, "steer-bl": 1,
+    "steer-br": 3, "steer-fl": 3, "steer-fr": 2, "flywheel-left-follower": 0,
+    "flywheel-left-leader": 0, "flywheel-right": 0, "hood": 2, "indexer-accelerator": 2,
+    "indexer-main": 0, "intake-extension": 0, "intake-roller": 0, "intake-roller-follower": 1,
+}  # fmt: skip
+
+
+def test_canivore_and_rio_rates_on_q7(tables: dict[str, Any]) -> None:
+    q7 = [r for r in tables[can_health.TABLE] if r["match_key"] == Q7 and r["phase"] == "match"]
+    drive = [r for r in q7 if r["slot_id"].startswith("drive-")]
+    assert len(drive) == 4 and all(r["bus"] != "rio" for r in drive)
+    assert all(200 <= r["frame_rate_hz"] <= 300 for r in drive)
+    rio = [r for r in q7 if r["bus"] == "rio"]
+    assert rio and all(r["frame_rate_hz"] > 0 for r in rio)
+    assert {r["slot_id"]: r["isolated_gaps"] for r in q7} == Q7_GAPS
+
+
+def test_truncated_hoot_records_the_rate_of_the_frames_it_has(
+    derived_corpus_lake: LakePaths,
+) -> None:
+    (truncated,) = [i for i, name in _hoot_logs(derived_corpus_lake).items() if "truncated" in name]
+    # The 60 % copy ends before E10 is enabled, so no device has a nominal period: every rate
+    # is empty (can-health "No frames while enabled"), never zero.
+    health = can_health.analyse_hoot(duckdb.connect(), derived_corpus_lake, truncated)
+    assert health.devices
+    rates = {d: can_health.frame_rate_hz(health, d) for d in health.devices}
+    assert all(r is None or r > 0 for r in rates.values())
+    assert [d for d, r in rates.items() if r is not None] == sorted(health.nominal_us)

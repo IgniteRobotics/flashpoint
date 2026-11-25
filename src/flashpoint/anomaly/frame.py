@@ -22,7 +22,10 @@ FEATURE_COLUMNS = (
     "stall_s",
     "supply_resistance_mohm",
 )
-CAN_COLUMNS = ("reboots", "reboots_enabled", "isolated_gaps", "missed_per_min", "longest_gap_ms")
+CAN_COLUMNS = (
+    "reboots", "reboots_enabled", "isolated_gaps", "missed_per_min", "longest_gap_ms",
+    "frame_rate_hz",
+)  # fmt: skip
 DUCKDB_THREADS = 2  # per-thread buffers cost ~75 MB
 
 

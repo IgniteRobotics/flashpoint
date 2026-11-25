@@ -13,6 +13,7 @@ import numpy as np
 
 from flashpoint.anomaly.baseline import baseline_at
 from flashpoint.anomaly.findings import Finding, Flags
+from flashpoint.anomaly.floors import floor_at, floors
 from flashpoint.anomaly.settings import AnomalyConfig
 
 
@@ -22,6 +23,7 @@ class Member:
     unit: str
     keys: list[str]  # the unit's matches in this slot, in order
     values: np.ndarray  # NaN where missing
+    rates: np.ndarray | None = None  # nominal frame rate per match (CAN-gap metrics)
 
 
 @dataclass
@@ -81,7 +83,8 @@ def sibling_findings(  # noqa: C901 - grandfathered (code-quality-gates)
             series.d.append(p[1] - median)
             series.peer.append(median)
 
-    floor = cfg.baseline.floors[metric]
+    base_floor = cfg.baseline.floors[metric]
+    floor_series: dict[tuple[str, str], np.ndarray] = {}
     normal_z, strict_z = cfg.sibling.z, cfg.strict.sibling_z
     judged: dict[tuple[str, str], tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
     flagged: dict[tuple[str, str], tuple[Flags, Flags]] = {}
@@ -93,6 +96,13 @@ def sibling_findings(  # noqa: C901 - grandfathered (code-quality-gates)
             np.full(d.size, np.nan),
         )
         n = np.zeros(d.size, dtype=np.int64)
+        member = series.member
+        rates = (
+            None if member.rates is None
+            else member.rates[[member.keys.index(k) for k in series.keys]]
+        )  # fmt: skip
+        floor = floors(metric, base_floor, rates, cfg.baseline.window)
+        floor_series[ident] = np.array([floor_at(floor, k) for k in range(d.size)])
         for k in range(d.size):
             b = baseline_at(d, k, cfg.baseline.window, floor)
             if b is None:
@@ -128,6 +138,9 @@ def sibling_findings(  # noqa: C901 - grandfathered (code-quality-gates)
                 baseline_n=_scatter(size, index, n.astype(float), 0).astype(np.int64),
                 peer=_scatter(size, index, peer),
                 peer_name=others[0] if len(others) == 1 else f"median of {', '.join(others)}",
+                floor=None if member.rates is None
+                else _scatter(size, index, floor_series[ident]),
+                rate_hz=member.rates,
             )
         )  # fmt: skip
     return findings

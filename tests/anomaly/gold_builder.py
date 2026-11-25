@@ -28,8 +28,11 @@ FEATURE_METRICS = (
     "stall_s",
     "supply_resistance_mohm",
 )
-CAN_METRICS = ("reboots", "reboots_enabled", "isolated_gaps", "missed_per_min", "longest_gap_ms")
-DEFAULTS: dict[str, float] = {
+CAN_METRICS = (
+    "reboots", "reboots_enabled", "isolated_gaps", "missed_per_min", "longest_gap_ms",
+    "frame_rate_hz",
+)  # fmt: skip
+DEFAULTS: dict[str, float | None] = {
     "temp_max_c": 40.0,
     "temp_mean_c": 30.0,
     "temp_rise_c_per_min": 1.0,
@@ -42,6 +45,7 @@ DEFAULTS: dict[str, float] = {
     "isolated_gaps": 2,
     "missed_per_min": 1.0,
     "longest_gap_ms": 25.0,
+    "frame_rate_hz": None,  # as CAN health derived before rates were recorded
 }
 WOBBLE = (0.0, 1.0, -1.0, 0.5, -0.5, 0.0, 1.0, -1.0, 0.5, -0.5, 0.25)  # "± 1" around a level
 

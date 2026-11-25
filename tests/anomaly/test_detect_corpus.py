@@ -88,3 +88,60 @@ def test_no_raw_gives_identical_results(derived_corpus_lake: Any) -> None:
     finally:
         hidden.rename(raw)
     assert with_raw == without_raw
+
+
+def test_dropout_on_a_corpus_match(
+    corpus_group: Callable[[str], list[Path]], tmp_path: Path
+) -> None:
+    """anomaly-detection "Dropout on a corpus match": Q7 with drive-fl (CANivore TalonFX-11)
+    silent for 1 s while enabled; frame-rate scaling must not hide it or flag its siblings."""
+    import duckdb
+    import pyarrow.parquet as pq
+
+    from flashpoint.ingest import Ingestor
+    from flashpoint.lake.paths import LakePaths
+    from flashpoint.readers import hoot
+    from flashpoint.semantics import can_health
+    from flashpoint.semantics.derive import Deriver
+
+    lake = LakePaths(tmp_path / "lake")
+    ingestor = Ingestor(lake, hoot.default_registry(config.cache_root()))
+    try:
+        ingestor.ingest(corpus_group("2026-gacmp-q7"))
+    finally:
+        ingestor.close()
+    (canivore,) = [
+        r[0]
+        for r in duckdb.execute(
+            f"SELECT log_id FROM read_parquet('{lake.meta / 'hoot_logs.parquet'}')"
+            " WHERE bus != 'rio'"
+        ).fetchall()
+    ]
+    health = can_health.analyse_hoot(duckdb.connect(), lake, canivore)
+    start, end = max(health.counted, key=lambda w: w[1] - w[0])  # teleop
+    t0 = start + 30_000_000
+    assert t0 + 1_000_000 < end
+    part = lake.bronze / "season=2026" / f"log_id={canivore}" / "part-0.parquet"
+    table = pq.read_table(part)
+    signal = table.column("signal").cast("string").to_pylist()
+    ts = table.column("ts_us").to_pylist()
+    keep = [
+        not (s.startswith("Phoenix6/TalonFX-11/") and t0 < t < t0 + 1_000_000)
+        for s, t in zip(signal, ts, strict=True)
+    ]
+    pq.write_table(table.filter(keep), part)
+    deriver = Deriver(lake, config.config_root())
+    try:
+        deriver.run(force=True)
+    finally:
+        deriver.close()
+
+    can_metrics = ("isolated_gaps", "missed_per_min", "longest_gap_ms")
+    rows = [r for r in detect.compute(lake, SETTINGS).rows if r["metric"] in can_metrics]
+    dropped = [r for r in rows if r["slot_id"] == "drive-fl"]
+    assert [(r["method"], r["metric"], r["severity"]) for r in dropped] == [
+        ("SPEC", "longest_gap_ms", "HIGH")
+    ]
+    canivore_slots = {"drive-fr", "drive-bl", "drive-br", "steer-fl", "steer-fr", "steer-bl",
+                      "steer-br", "encoder-fl", "encoder-fr", "encoder-bl", "encoder-br", "gyro"}  # fmt: skip
+    assert [r for r in rows if r["slot_id"] in canivore_slots] == []
