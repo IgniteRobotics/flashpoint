@@ -39,7 +39,7 @@
 - [x] 6.5 Write failing Replay build tests: "Whole match non-Pro", "Mixed Pro and non-Pro buses" (payload `temperature.missing_by_bus`, per-slot `temp_reason`, hottest-slot choice) and "Non-Pro build succeeds". Then make the reasons per bus in `report/build.py` through `semantics/temperature.py`, and bump `REPORT_VERSION` to 5. Verify that `tests/report/` passes, and that the existing "not Pro-licensed" assertions are kept or updated in the same test-first commit
 - [x] 6.6 Write failing Replay browser tests: "Sensors without temperature on a Pro match", the per-bus header text, and readout ordering with no cursor. Then update the Replay view's header and readout text. Verify that `pytest -m browser -k replay` passes
 - [x] 6.7 Write failing detection tests: "Non-Pro season" and "Licence lapses mid-season". Then add the `needs-pro` skip count to the detection summary. Verify that `tests/anomaly/` passes
-- [ ] 6.8 Write failing tests for the Pro coverage check: "All Pro" (corpus), "Mixed lake", "Empty lake", "Shown in the Setup view". Then add the check to `setup/checks.py`, with its link from `docs_url()` (design §9). Verify that `tests/setup/` and `pytest -m browser -k setup` pass, and that the full check run stays under 2 s on the corpus lake
+- [x] 6.8 Write failing tests for the Pro coverage check: "All Pro" (corpus), "Mixed lake", "Empty lake", "Shown in the Setup view". Then add the check to `setup/checks.py`, with its link from `docs_url()` (design §9). Verify that `tests/setup/` and `pytest -m browser -k setup` pass, and that the full check run stays under 2 s on the corpus lake
 
 ## 7. Docs and decisions
 
