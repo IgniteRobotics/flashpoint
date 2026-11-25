@@ -31,7 +31,7 @@ import zipfile
 import zlib
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, NamedTuple, NoReturn
 from urllib.parse import unquote, urlsplit
 
 REPO = Path(__file__).resolve().parents[1]
@@ -337,18 +337,80 @@ def build_sample_lake(
     shutil.copytree(REPO / "config", config)
     (config / "theme.toml").write_text(theme, encoding="utf-8")
     env = {**os.environ, "FLASHPOINT_CONFIG": str(config), "FLASHPOINT_LAKE": str(lake)}
-    cli = [sys.executable, "-m", "flashpoint"]
     files = [str(corpus / e["name"]) for e in entries] + [str(p) for p in extra or []]
-    for args in (["ingest", "--lake", str(lake), *files], ["report", "--lake", str(lake)]):
-        started = time.monotonic()
-        done = subprocess.run([*cli, *args], env=env, check=False, capture_output=True, text=True)  # noqa: S603 - our own CLI
-        print(
-            f"{args[0]}: exit {done.returncode} in {time.monotonic() - started:.0f} s", flush=True
-        )
-        if done.returncode not in ok:
-            sys.stderr.write(done.stdout + done.stderr)
-            raise SystemExit(f"sample lake: `flashpoint {args[0]}` failed")
+    ingest = ["ingest", "--lake", str(lake), *files]
+    retried: list[str] = []
+    for run in range(1, INGEST_RUNS + 1):
+        done = _flashpoint(ingest, env)
+        found = parse_ingest_summary(done.stdout)
+        if found is not None and found.counts["quarantined"]:
+            if done.returncode not in ok:
+                _fail(done, f"`flashpoint ingest` quarantined {', '.join(found.quarantined)}")
+        elif found is not None and found.counts["failed"]:
+            if run == INGEST_RUNS:
+                _fail(done, f"still failed after {run} ingest runs: {', '.join(found.failed)}")
+            sys.stderr.write(done.stdout + done.stderr)  # the reason, for #17
+            print(
+                f"ingest: retrying {', '.join(found.failed)} (run {run + 1} of {INGEST_RUNS})",
+                flush=True,
+            )
+            retried += [name for name in found.failed if name not in retried]
+            continue
+        elif done.returncode not in ok:
+            _fail(done, "`flashpoint ingest` failed")
+        break
+    if retried:
+        print(f"ingest: retried {', '.join(retried)}; run {run} of {INGEST_RUNS} passed")
+    done = _flashpoint(["report", "--lake", str(lake)], env)
+    if done.returncode not in ok:
+        _fail(done, "`flashpoint report` failed")
     return lake
+
+
+INGEST_RUNS = 3  # an owlet crash (#17) leaves a file failed, and the next run reads it again
+INGEST_COUNTS = re.compile(
+    r"^(?P<ingested>\d+) ingested, (?P<skipped>\d+) skipped, (?P<failed>\d+) failed, "
+    r"(?P<quarantined>\d+) quarantined, (?P<quarantined_earlier>\d+) quarantined earlier\b",
+    re.MULTILINE,
+)
+INGEST_FAILED = re.compile(r"^\s*FAILED\s+(.+?): failed \(", re.MULTILINE)
+INGEST_QUARANTINED = re.compile(r"^\s*QUARANTINED\s+(.+?): ", re.MULTILINE)
+
+
+class IngestSummary(NamedTuple):
+    counts: dict[str, int]
+    failed: list[str]
+    quarantined: list[str]
+
+
+def parse_ingest_summary(stdout: str) -> IngestSummary | None:
+    """This run's counts and file names from `flashpoint ingest`'s summary; None when absent.
+
+    The count line is the last one: derive and Replay output can follow it.
+    """
+    lines = list(INGEST_COUNTS.finditer(stdout))
+    if not lines:
+        return None
+    last = lines[-1]
+    files = stdout[: last.start()]
+    return IngestSummary(
+        counts={key: int(value) for key, value in last.groupdict().items()},
+        failed=INGEST_FAILED.findall(files),
+        quarantined=INGEST_QUARANTINED.findall(files),
+    )
+
+
+def _flashpoint(args: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    started = time.monotonic()
+    cli = [sys.executable, "-m", "flashpoint", *args]
+    done = subprocess.run(cli, env=env, check=False, capture_output=True, text=True)  # noqa: S603 - our own CLI
+    print(f"{args[0]}: exit {done.returncode} in {time.monotonic() - started:.0f} s", flush=True)
+    return done
+
+
+def _fail(done: subprocess.CompletedProcess[str], message: str) -> NoReturn:
+    sys.stderr.write(done.stdout + done.stderr)
+    raise SystemExit(f"sample lake: {message}")
 
 
 # --- capture: screenshots (task 8.4) --------------------------------------------------------
