@@ -247,6 +247,7 @@ class Deriver:
                 else (session.hoot_groups[0].stamp[:4] if session.hoot_groups else "unknown")
             )
             robot = select_robot(self.robots, w["project"] if w else None, season)
+            label = _hoot_label(session.hoot_groups)
             if w:
                 ident = identify(
                     season,
@@ -257,16 +258,10 @@ class Deriver:
                     w["file_event"],
                     w["file_match_type"],
                     w["file_match_number"],
+                    *label,
                 )
             else:
-                group = session.hoot_groups[0]
-                label = group.match or ""
-                ident = identify(
-                    season,
-                    file_event=group.event,
-                    file_match_type=label[:1] or None,
-                    file_match_number=int(label[1:]) if label[1:].isdigit() else None,
-                )
+                ident = identify(season, None, None, None, None, None, None, None, *label)
             session_rows.append(
                 {
                     "session_id": session.session_id,
@@ -667,6 +662,18 @@ class Deriver:
 
 
 _DEVICE = re.compile(r"^Phoenix6/(?P<model>[A-Za-z0-9]+)-(?P<id>\d+)/")
+
+
+def _hoot_label(groups: list[HootGroup]) -> tuple[str | None, str | None, int | None, bool]:
+    """The earliest labelled hoot group's event and match (match-identity rank 3), and whether
+    the session's labelled groups disagree."""
+    labels = [(g.event, g.match or "") for g in sorted(groups, key=lambda g: g.stamp) if g.event]
+    if not labels:
+        return None, None, None, False
+    event, match = labels[0]
+    conflict = len({(e.lower(), m.upper()) for e, m in labels}) > 1
+    number = int(match[1:]) if match[1:].isdigit() else None
+    return event, match[:1] or None, number, conflict
 
 
 def _session_day(session: dict[str, Any]) -> date:

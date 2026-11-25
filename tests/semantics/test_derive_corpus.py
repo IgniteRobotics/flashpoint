@@ -61,6 +61,12 @@ def test_e10_restart_after_wpilog_end_is_separate(derived: dict[str, Any]) -> No
     assert restart and all(h["session_id"].startswith("hoot-") for h in restart)
     restart_session = derived["sessions"][restart[0]["session_id"]]
     assert restart_session["match_key"] == "2026gacmp_e10"  # from the hoot filename
+    assert restart_session["match_source"] == "hoot-filename"
+
+
+def test_wpilog_identity_wins_over_the_hoot_label(derived: dict[str, Any]) -> None:
+    q7 = _session_for(derived, "FRC_20260409_215113_GACMP_Q7.wpilog")
+    assert (q7["match_source"], q7["warnings"]) == ("fms", None)
 
 
 def test_practice_and_2025_sessions(derived: dict[str, Any]) -> None:

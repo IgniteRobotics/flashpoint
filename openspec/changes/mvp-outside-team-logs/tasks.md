@@ -13,9 +13,9 @@
 
 ## 3. Match identity fallback
 
-- [ ] 3.1 Write failing tests in `tests/semantics/test_match_identity.py`: "AdvantageKit driver-station fields" (source `fms`); "AdvantageKit filename" (lower-case levels, source `filename`); "Partial driver-station fields"; "Unknown match type". Then update `identify()` (both MatchType forms, case-insensitive file levels). Verify that the identity tests pass, including the existing `E10` filename test
-- [ ] 3.2 Write failing derive tests: "Hoot label rescues an unnamed wpilog", "Hoot groups disagree", "Wpilog identity wins over the hoot label" (corpus Q7 source `fms`), and corpus E10's second hoot group with source `hoot-filename`. Then add the fallback to `derive_sessions()`. Verify that `tests/semantics/` passes, and that the `-m corpus` derive tests pass
-- [ ] 3.3 Write a failing `-m corpus` end-to-end test: a synthetic AdvantageKit wpilog whose epoch entry and `/DriverStation` fields cover corpus Q7's time, ingested with Q7's two hoots. It should form one session `2026gacmp_qm7` with source `fms`, alignment `wall-clock`, framing `hoot-robot-mode`, and a Replay entry with the low-alignment warning. Verify that it passes
+- [x] 3.1 Write failing tests in `tests/semantics/test_match_identity.py`: "AdvantageKit driver-station fields" (source `fms`); "AdvantageKit filename" (lower-case levels, source `filename`); "Partial driver-station fields"; "Unknown match type". Then update `identify()` (both MatchType forms, case-insensitive file levels). Verify that the identity tests pass, including the existing `E10` filename test
+- [x] 3.2 Write failing derive tests: "Hoot label rescues an unnamed wpilog", "Hoot groups disagree", "Wpilog identity wins over the hoot label" (corpus Q7 source `fms`), and corpus E10's second hoot group with source `hoot-filename`. Then add the fallback to `derive_sessions()`. Verify that `tests/semantics/` passes, and that the `-m corpus` derive tests pass
+- [x] 3.3 Write a failing `-m corpus` end-to-end test: a synthetic AdvantageKit wpilog whose epoch entry and `/DriverStation` fields cover corpus Q7's time, ingested with Q7's two hoots. It should form one session `2026gacmp_qm7` with source `fms`, alignment `wall-clock`, framing `hoot-robot-mode`, and a Replay entry with the low-alignment warning. Verify that it passes
 
 ## 4. Rate-relative CAN-gap floors
 
