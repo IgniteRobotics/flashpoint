@@ -50,7 +50,7 @@
   - `robot-side/advantagekit.md`: identity yes, alignment very low, no enable-edge alignment yet, and "not tested on real logs" until 8.3 says otherwise.
 
   Write the "Docs page marked beta" docs test first. Verify that `pytest tests/test_docs.py` passes, and that the `docs_url()` drift test resolves the anchors the beta note and the Pro check link to
-- [ ] 7.2 Update the decision docs:
+- [x] 7.2 Update the decision docs:
   - a dated note in `docs/rewrite/05-target-architecture.md` §4 on the identity ranks (design §1);
   - correct the §6 risk row in `docs/rewrite/06-roadmap.md` ("doctor flags non-Pro" becomes the real Pro coverage check, and the risk is live for outside teams);
   - a dated amendment to ADR-0005 (non-Pro is an expected input; `temp_status`);

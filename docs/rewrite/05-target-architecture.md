@@ -208,6 +208,13 @@ erDiagram
 - **Gold** is small and wide: one row per (match, slot, unit). Lifetime trend queries and anomaly models read only this layer.
 - Partitioning by `season/event` gives DuckDB file and zonemap pruning (DuckDB Foundation, n.d.-b).
 
+**Match identity ranks (note, 2026-11-25, `mvp-outside-team-logs` design §1).** The order stays in-log FMS, then the filename, then TBA. Within it:
+1. **In-log FMS** is the `FMSInfo` fields when they give a match number, else AdvantageKit's `/DriverStation/` fields, as a whole set and never mixed. `logs.fms_origin` records which (`fms-info` | `driver-station`).
+2. **Filenames:** first the wpilog's (`FRC_…` or `akit_…`), then the hoot group label (`EVENT_Q7_…`), which ranks lower because a hoot group can restart mid-session. The hoot label is used only when the wpilog gives nothing. `match_source` gains `hoot-filename`, also used for hoot-only sessions, which were labelled `filename`.
+3. **TBA** is unchanged.
+
+An AdvantageKit wpilog has no `systemTime`, so it is anchored by `/SystemStats/EpochTimeMicros`. This refines the order without reordering it, so there is no ADR.
+
 ### 4a. Device identity: slot vs. unit
 
 **The problem.** Phoenix 6 gives robot code no way to read a serial number. `CommonDevice` exposes `device_id`, `device_hash`, and `network`. The hash is "a number unique for this device's hardware type and ID. This number is not unique across networks" (CTR Electronics, n.d.-g). Hoot logs key signals the same way, as `Phoenix6/TalonFX-11/...`. If a motor is swapped and the replacement keeps CAN ID 11, signals alone cannot tell the two units apart.

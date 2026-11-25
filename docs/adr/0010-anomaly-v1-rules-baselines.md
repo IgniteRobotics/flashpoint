@@ -1,8 +1,8 @@
 # 0010. Anomaly detection v1: rules + per-unit robust baselines + physics residuals
 
-- Status: Accepted with amendments (2026-10-11, 2026-10-12)
+- Status: Accepted with amendments (2026-10-11, 2026-10-12, 2026-11-25)
 - Date: 2026-10-04
-- Refs: 04 §4, D10; 06 P5; openspec changes `p5-anomaly-detection`, `battery-proxy`
+- Refs: 04 §4, D10; 06 P5; openspec changes `p5-anomaly-detection`, `battery-proxy`, `mvp-outside-team-logs`
 
 ## Context
 There are about 50–150 matches per season and few labelled failures. Students must be able to trust and explain alerts.
@@ -35,3 +35,8 @@ The lowest device supply voltage read one motor's own wiring drop under load as 
 - **No hold across logging gaps.** A low proxy sample counts until the next sample, at most `gap_limit_s` (0.1 s). The brownout hold returns to 0.02 s.
 - **Supply path resistance** is a new baseline metric (DRIFT, STEP, SIBLING): per motor and period, the slope of (proxy voltage − motor supply voltage) against the motor's supply current, in mΩ. It is absent when there is no declared proxy, too little current to fit, or a negative slope. This is the deferred battery-resistance metric, measured on each motor's connection rather than the battery.
 - A Driver Station log reader is still deferred.
+
+## Amendment (2026-11-25, mvp-outside-team-logs)
+Two refinements for robots that aren't Ignite's, and for Ignite's own CANivore:
+- **A brownout on the median fallback is at most MED.** When the robot file declares no `battery_proxy`, the fallback can read wiring drops as brownouts. Its counts, thresholds hash and anomaly ids are unchanged. Only the severity is capped, and the `why` says why and suggests declaring a battery-proxy slot.
+- **CAN-gap spread floors scale with frame rate.** For isolated CAN gaps and frames missed per enabled minute, a device sending at most 125 frames per second keeps the configured floor. Above that, the floor is the configured floor × rate ÷ 50 (constants `CAN_FLOOR_RIO_MAX_HZ`, `CAN_FLOOR_REFERENCE_HZ`). The rate is the median over the baseline window plus the judged match, from gold `can_health.frame_rate_hz`. It applies to DRIFT, STEP, SIBLING and MODEL scaling. The SPEC limit on the longest gap is untouched. On Ignite's lake this cut CANivore CAN-gap findings from 41 to 1 (a strict LOW DRIFT), with every rio finding unchanged. The `why` states the rate and the floor. Rows derived before rates were recorded keep the configured floor, and the summary counts them.
