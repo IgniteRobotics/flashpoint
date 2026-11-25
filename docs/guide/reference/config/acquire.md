@@ -25,7 +25,7 @@ overdue_h = 24
 | Key | Default | What it does |
 |---|---|---|
 | `team` | none | Your team number, 1 to 99999. Robot pull tries `10.TE.AM.2` (team 6829: `10.68.29.2`, team 254: `10.2.54.2`), then `roborio-TEAM-frc.local`, then the USB tether `172.22.11.2` |
-| `lake` | `~/flashpoint-lake` | The lake folder for every command. `--lake` and `FLASHPOINT_LAKE` override it |
+| `lake` | `~/flashpoint-lake` | The lake folder for every command. `--lake` and `FLASHPOINT_LAKE` override it. A relative path is taken from the folder the command runs in, not the config folder, so give the acquire service an absolute path: it runs from a different folder than your shell. `init` and the Setup view always write an absolute path |
 | `hosts` | `[]` (use the team's addresses) | Robot addresses to try instead, in order. `--host ADDR` replaces it for one run |
 | `user` | `lvuser` | SSH user on the roboRIO |
 | `password` | `""` (none) | SSH password, if the rio has one |

@@ -99,6 +99,8 @@ config/
                            # buses: robot-code bus name (e.g. DriveTrain) → hoot bus
 ```
 
+The lake root is `--lake`, else `FLASHPOINT_LAKE`, else `lake` in `acquire.toml`, else `~/flashpoint-lake`. `config.lake_root` turns it into an absolute folder once, for every command and the child processes they start: `~` is expanded, and a relative path from any source is taken from the current folder (`os.path.abspath`, so `..` is normalised and symlinks are kept). Nothing below `lake_root` needs to resolve the root again (#107).
+
 ```mermaid
 erDiagram
     LOG ||--o{ SIGNAL_SAMPLE : contains

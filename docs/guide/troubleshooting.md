@@ -168,6 +168,16 @@ Replay shows **No Replay data** with one of three explanations.
 
 **Fix:** `flashpoint report`. For one match the view names, `flashpoint report --match <key>`.
 
+### Ingest says derive failed
+
+**What you see:** `ingest` or `rebuild` lists the imported files, then an error from derive, then:
+
+**Message:** `derive failed: Replay data was not built. Fix the error above, then run: flashpoint derive --report`
+
+**Why:** the files were imported, but the derive that runs after the import stopped with an error, so no Replay data was built for them. The error printed just above says why; a broken robot file shows as `robot configuration error`. The command exits 1 even when every file imported. Running `ingest` again doesn't help: it skips files it already has, so derive doesn't run again.
+
+**Fix:** fix the error derive printed (for a robot file, see [A settings file doesn't load](#a-settings-file-doesnt-load)), then run `flashpoint derive --report`.
+
 ### Every log is a non-match session
 
 **What you see:** Replay lists no matches, and History shows the logs' motor usage.

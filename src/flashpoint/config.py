@@ -21,7 +21,17 @@ CACHE_ENV = "FLASHPOINT_CACHE"
 
 def lake_root(explicit: Path | None) -> Path:
     """Lake root: explicit argument, then $FLASHPOINT_LAKE, then `lake` in acquire.toml, then
-    ~/flashpoint-lake. An unreadable acquire.toml is skipped here; `doctor` reports it."""
+    ~/flashpoint-lake. An unreadable acquire.toml is skipped here; `doctor` reports it.
+
+    Always absolute: `~` is expanded and a relative path, from any source, is taken from the
+    current folder. Symlinks are kept as given (#107)."""
+    # resolve() rewrites a symlinked lake (an external drive) into a folder the user didn't
+    # type, and absolute() leaves `..` in; abspath does neither.
+    path = _lake_source(explicit).expanduser()
+    return Path(os.path.abspath(path))  # noqa: PTH100 - keep symlinks, normalise `..` (D2)
+
+
+def _lake_source(explicit: Path | None) -> Path:
     if explicit is not None:
         return explicit
     env = os.environ.get(LAKE_ENV)
@@ -33,7 +43,7 @@ def lake_root(explicit: Path | None) -> Path:
         configured = AcquireConfig.load(config_root()).lake
     except AcquireConfigError:
         configured = None
-    return configured.expanduser() if configured else Path.home() / "flashpoint-lake"
+    return configured if configured else Path.home() / "flashpoint-lake"
 
 
 def cache_root() -> Path:

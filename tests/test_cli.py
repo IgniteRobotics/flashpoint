@@ -343,12 +343,15 @@ def test_report_runs_after_successful_derive(tmp_path: Path, runs: FakeRuns) -> 
 
 
 @pytest.mark.parametrize(
-    ("flags", "derive_code"), [(["--no-report"], 0), (["--no-derive"], 0), ([], 1)]
+    ("flags", "derive_code", "code"),
+    [(["--no-report"], 0, 0), (["--no-derive"], 0, 0), ([], 1, 1)],  # a failed derive fails (#107)
 )
-def test_report_skipped(tmp_path: Path, runs: FakeRuns, flags: list[str], derive_code: int) -> None:
+def test_report_skipped(
+    tmp_path: Path, runs: FakeRuns, flags: list[str], derive_code: int, code: int
+) -> None:
     runs.codes["derive"] = derive_code
     log = _wpilog(tmp_path / "a.wpilog")
-    assert main(["ingest", *flags, "--lake", str(tmp_path / "lake"), str(log)]) == 0
+    assert main(["ingest", *flags, "--lake", str(tmp_path / "lake"), str(log)]) == code
     assert "report" not in runs.steps()
 
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- When the derive that `flashpoint ingest` or `flashpoint rebuild` runs afterwards fails, the command now says Replay data was not built, names `flashpoint derive --report` as the retry, and exits 1, even if every file imported. It used to exit 0. Scripts that call `ingest` may see the new exit code. (#107)
+
+### Fixed
+
+- A relative lake path (`--lake lake`, `FLASHPOINT_LAKE`, or `lake` in `acquire.toml`) no longer crashes detection or the Anomalies view. Every command turns the lake into an absolute folder, taken from the folder it runs in, and `~` is expanded from every source. (#107)
+
 ## 0.2.0 - 2026-11-13
 
 ### Added
