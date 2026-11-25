@@ -31,6 +31,8 @@ PAGES: dict[str, Page] = {
     "live-can-health": Page("how-to/live-can-health", "Live CAN health guide"),
     "cli-reference": Page("reference/cli", "CLI reference"),
     "robot-side": Page("robot-side", "Robot-side guide"),
+    "anomalies": Page("reference/views/anomalies", "Anomalies view guide"),
+    "pro-and-temperature": Page("robot-side/pro-and-temperature", "Phoenix Pro and temperature"),
 }
 # Named links the app's views use, as (page id, section anchor). /api/docs serves them.
 APP_LINKS: dict[str, tuple[str, str | None]] = {

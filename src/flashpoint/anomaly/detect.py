@@ -34,6 +34,7 @@ from flashpoint.anomaly.shapes import Rule, unit_findings
 from flashpoint.anomaly.siblings import Member, sibling_findings
 from flashpoint.anomaly.spec_rules import spec_finding
 from flashpoint.lake.paths import LakePaths
+from flashpoint.report import proxy
 from flashpoint.report.settings import ReportConfig, ReportConfigError, load_report_config
 from flashpoint.semantics.robot_config import ConfigError, RobotConfig, load_robots
 
@@ -214,7 +215,10 @@ def compute(  # noqa: C901 - grandfathered (code-quality-gates)
         ctx = Context(robot=robot_name, season=_season(frame, robot_name), slot_id=POWER,
                       role=None, subsystem=POWER, model=None, cfg=cfg,
                       low_alignment=frozenset(low), proxies=proxies)  # fmt: skip
-        finding = spec_finding(f"{POWER}:{robot_name}", "brownouts", keys, values, cfg.spec)
+        fallback = np.array([proxies.get(k, "").startswith(proxy.FALLBACK_PREFIX) for k in keys])
+        finding = spec_finding(
+            f"{POWER}:{robot_name}", "brownouts", keys, values, cfg.spec, capped=fallback
+        )
         rows += _describe([finding], ctx)
     for row in rows:
         row["last_start"] = frame.starts.get(row["last_match_key"])

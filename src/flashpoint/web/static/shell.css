@@ -338,6 +338,22 @@ body.no-scanlines::after {
 .badge--demo {
   color: var(--warn);
 }
+.badge--beta {
+  color: var(--warn);
+}
+/* One compact line across the top of the Anomalies band, so the band grows as little as it can. */
+.anom-beta {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: calc(-1 * var(--sp-2));
+  font-size: var(--fs-micro);
+  line-height: 1.2;
+}
+.anom-beta .badge {
+  padding: 1px 6px;
+}
 .badge--prior {
   border-style: dotted;
   font-size: 10px;

@@ -142,6 +142,30 @@ def test_dropout_on_a_corpus_match(
     assert [(r["method"], r["metric"], r["severity"]) for r in dropped] == [
         ("SPEC", "longest_gap_ms", "HIGH")
     ]
-    canivore_slots = {"drive-fr", "drive-bl", "drive-br", "steer-fl", "steer-fr", "steer-bl",
-                      "steer-br", "encoder-fl", "encoder-fr", "encoder-bl", "encoder-br", "gyro"}  # fmt: skip
+    canivore_slots = {
+        "drive-fr", "drive-bl", "drive-br", "steer-fl", "steer-fr", "steer-bl", "steer-br",
+        "encoder-fl", "encoder-fr", "encoder-bl", "encoder-br", "gyro",
+    }  # fmt: skip
     assert [r for r in rows if r["slot_id"] in canivore_slots] == []
+
+
+def test_brownout_on_the_median_fallback(derived_corpus_lake: Any, brownout_config: Path,
+                                         tmp_path: Path) -> None:  # fmt: skip
+    """The test thresholds, and a robot file with no battery proxy: at most MED."""
+    import re
+    import shutil
+
+    no_proxy = shutil.copytree(brownout_config, tmp_path / "config")
+    robot = no_proxy / "robots" / "2026-comp.toml"
+    robot.write_text(
+        re.sub(r"(?m)^battery_proxy = .*\n", "", robot.read_text(encoding="utf-8")),
+        encoding="utf-8",
+    )
+    rows = detect.compute(derived_corpus_lake, detect.load_settings(no_proxy)).rows
+    brownouts = [r for r in rows if r["metric"] == "brownouts"]
+    assert brownouts, "the fallback proxy must still find Q7's brownouts"
+    for row in brownouts:
+        assert row["severity"] == "MED"
+        assert re.search(r"median of \d+ devices", row["why"])
+        assert "declare a battery-proxy slot" in row["why"]
+        assert "wiring drops" in row["why"]

@@ -26,9 +26,9 @@
 
 ## 5. Brownout cap, ml hint, beta label
 
-- [ ] 5.1 Write the failing corpus test "Brownout on the median fallback" (Q7, the test thresholds, a robot-config copy without `battery_proxy`). Then cap fallback brownouts at MED in `spec_rules` and extend the why text. Verify that it passes, and that "Q7 brownouts" and "Queue from the corpus" still give HIGH
-- [ ] 5.2 Write a failing test for "Enabled without the dependency" (the warning names the pipx, uv and pip commands). Then fix `anomaly/model.py` and the `[model]` comment in `defaults/anomaly.toml`. Verify that the test and `test_repo_config_matches_defaults` pass
-- [ ] 5.3 Write failing browser tests: "Beta tag on open" and "Beta tag with nothing flagged". Then add the BETA tag, the note and the guide link to `anomalies.js`, with the address from `/api/docs` (`mvp-install-and-first-run` 2.4); if that hasn't merged, name the page by title (design §9). Verify that `pytest -m browser -k anomalies` passes
+- [x] 5.1 Write the failing corpus test "Brownout on the median fallback" (Q7, the test thresholds, a robot-config copy without `battery_proxy`). Then cap fallback brownouts at MED in `spec_rules` and extend the why text. Verify that it passes, and that "Q7 brownouts" and "Queue from the corpus" still give HIGH
+- [x] 5.2 Write a failing test for "Enabled without the dependency" (the warning names the pipx, uv and pip commands). Then fix `anomaly/model.py` and the `[model]` comment in `defaults/anomaly.toml`. Verify that the test and `test_repo_config_matches_defaults` pass
+- [x] 5.3 Write failing browser tests: "Beta tag on open" and "Beta tag with nothing flagged". Then add the BETA tag, the note and the guide link to `anomalies.js`, with the address from `/api/docs` (`mvp-install-and-first-run` 2.4); if that hasn't merged, name the page by title (design §9). Verify that `pytest -m browser -k anomalies` passes
 
 ## 6. Non-Pro hoots and temperature status
 

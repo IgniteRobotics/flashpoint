@@ -17,6 +17,7 @@ MEDIAN_BIN_US = 20_000
 MEDIAN_MIN_DEVICES = 3
 # Part of the brownout cache's thresholds hash: changing the fallback must recount.
 FALLBACK_RULE = f"median/{MEDIAN_BIN_US}us/{MEDIAN_MIN_DEVICES}"
+FALLBACK_PREFIX = "median of "  # the label of the fallback proxy: "median of N devices"
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class Proxy:
 
     @property
     def label(self) -> str:
-        return self.slot if self.slot is not None else f"median of {self.devices} devices"
+        return self.slot if self.slot is not None else f"{FALLBACK_PREFIX}{self.devices} devices"
 
 
 def _source(path: Path) -> str:

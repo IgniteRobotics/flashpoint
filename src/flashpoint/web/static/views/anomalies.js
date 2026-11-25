@@ -85,12 +85,25 @@
     } catch (_) {
       combos = []; // the bar still works; every value is named as having no data
     }
+    await FP.docs(); // the beta note's guide address
     if (ui !== mine || !el.isConnected) return; // the route changed while waiting
     ui.combos = combos;
     renderBar();
     const band = h(
       'section',
       { class: 'band', 'aria-label': 'Anomaly summary' },
+      // Always shown, whatever the counts; nothing here hides it (anomaly-review, beta).
+      h(
+        'div',
+        { class: 'anom-beta', id: 'beta' },
+        h('span', { class: 'badge badge--beta', id: 'beta-tag' }, 'BETA'),
+        h(
+          'span',
+          { class: 'meta', id: 'beta-note' },
+          'Detection is tuned on one team\u2019s robots: a finding is a suggestion to check against its evidence. ',
+          FP.docLink('anomalies', 'Anomalies view guide', { id: 'beta-guide' }),
+        ),
+      ),
       h(
         'div',
         { class: 'clock' },

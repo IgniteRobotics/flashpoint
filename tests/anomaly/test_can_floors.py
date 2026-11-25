@@ -113,6 +113,7 @@ def test_rows_without_a_frame_rate(tmp_path: Path) -> None:
 def test_floor_uses_the_median_rate_of_the_window_and_the_match() -> None:
     rates = np.array([250.0, 250.0, np.nan, 100.0, 100.0, 100.0])
     got = floors("isolated_gaps", 2.5, rates, window=2)
-    assert list(got) == [12.5, 12.5, 2.5, 8.75, 2.5, 2.5]  # type: ignore[arg-type]
+    assert isinstance(got, np.ndarray)
+    assert list(got) == [12.5, 12.5, 2.5, 8.75, 2.5, 2.5]
     assert floors("temp_max_c", 1.0, rates, window=2) == 1.0
     assert floors("isolated_gaps", 2.5, np.full(3, np.nan), window=2) == 2.5

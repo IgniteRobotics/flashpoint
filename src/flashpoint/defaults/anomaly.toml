@@ -47,7 +47,12 @@ drift_z = 1.5
 sibling_z = 2.0
 persist = 2
 
-[model]                     # isolation forest; needs `poetry install -E ml`
+# The model detector needs the `ml` extra. Install it the way you installed Flashpoint:
+#   pipx install --force "flashpoint[ml]"
+#   uv tool install "flashpoint[ml]"
+#   pip install "flashpoint[ml]"
+#   poetry install -E ml            (a development checkout)
+[model]                     # isolation forest
 enabled = false
 contamination = 0.01        # flag the top 1 % of scores
 min_train = 200             # unit-matches needed before it scores anything

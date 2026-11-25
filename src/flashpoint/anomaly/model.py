@@ -18,8 +18,10 @@ from flashpoint.anomaly.frame import Frame
 from flashpoint.anomaly.settings import BASELINE_METRICS, METRIC_INFO, MODEL_METRIC, AnomalyConfig
 
 MISSING = (
-    "the model detector is enabled in anomaly.toml, but scikit-learn is not installed:"
-    " install the `ml` extra (poetry install --extras ml); MODEL was skipped"
+    "the model detector is enabled in anomaly.toml, but scikit-learn is not installed, so MODEL"
+    " was skipped. Install the `ml` extra the way you installed Flashpoint:"
+    ' pipx install --force "flashpoint[ml]", uv tool install "flashpoint[ml]",'
+    ' pip install "flashpoint[ml]", or in a development checkout poetry install -E ml'
 )
 FEATURES = BASELINE_METRICS
 N_ESTIMATORS = 100

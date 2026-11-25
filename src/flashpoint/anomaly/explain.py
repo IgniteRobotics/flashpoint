@@ -14,6 +14,7 @@ from flashpoint.anomaly.floors import CAN_FLOOR_RIO_MAX_HZ
 from flashpoint.anomaly.settings import METRIC_INFO, POWER, AnomalyConfig, format_value
 from flashpoint.anomaly.spec_rules import episode_level
 from flashpoint.report.build import event_of, match_label
+from flashpoint.report.proxy import FALLBACK_PREFIX
 
 EVIDENCE_MATCHES = 40
 SEVERITIES = ("LOW", "MED", "HIGH")
@@ -222,6 +223,13 @@ def describe(finding: Finding, episode: Episode, ctx: Context) -> dict[str, Any]
     used = sorted({ctx.proxies[k] for k in keys if k in ctx.proxies})
     if power and used:
         texts["why"] += f" Brownouts were judged on the battery proxy: {', '.join(used)}."
+        if any(u.startswith(FALLBACK_PREFIX) for u in used):
+            texts["why"] += (
+                " The robot file declares no battery proxy, so this used the median of its"
+                " devices' supply voltages, which can read wiring drops as brownouts; it is"
+                " shown as MED at most. To make the finding trustworthy, declare a battery-proxy"
+                " slot (`battery_proxy` in the robot file)."
+            )
     return {
         "id": anomaly_id(finding.subject, finding.method, finding.metric,
                          finding.keys[episode.onset]),
