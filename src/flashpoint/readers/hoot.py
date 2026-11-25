@@ -53,6 +53,9 @@ HEALTH_PATTERN = re.compile(
     r"|Fault_\w+)$"
 )
 
+# Signals CTRE exports only from a Pro-licensed hoot (03 §6: the free export has no DeviceTemp).
+PRO_ONLY_SIGNALS = ("DeviceTemp", "ProcessorTemp", "AncillaryDeviceTemp")
+
 
 class HootError(Exception):
     """A hoot that can't be converted. `reason` is a stable quarantine code."""
@@ -78,6 +81,7 @@ class HootConversion:
     signal_count: int
     bus_description: str
     warnings: tuple[str, ...] = ()
+    dropped_signals: tuple[str, ...] = ()  # Pro-only kinds left out for licensing
 
 
 def read_header(path: Path) -> HootHeader:
@@ -288,14 +292,40 @@ def convert(
     if selected is not None and not selected:
         raise HootError("no-signals-for-profile", profile)
     out_dir.mkdir(parents=True, exist_ok=True)
-    wpilog, output = _export(owlet, hoot_path, out_dir, selected)
+    pro = check_pro(owlet, hoot_path)
+    dropped: tuple[str, ...] = ()
+    try:
+        wpilog, output = _export(owlet, hoot_path, out_dir, selected)
+    except HootError as exc:
+        # A non-Pro hoot may make owlet refuse a Pro-only signal: export once more without
+        # them, and record what was left out (hoot-conversion, "Non-Pro hoots convert").
+        free = _without_pro_only(signals, selected)
+        if pro or exc.reason != "owlet-failed" or free is None:
+            raise
+        selected, dropped = free
+        LOG.info("owlet refused %s on non-Pro %s; exporting without them", dropped, hoot_path)
+        wpilog, output = _export(owlet, hoot_path, out_dir, selected)
     return HootConversion(
         wpilog=wpilog,
         compliancy=header.compliancy,
         owlet_version=registry.version_for(header.compliancy),
-        pro_licensed=check_pro(owlet, hoot_path),
+        pro_licensed=pro,
         profile=profile,
         signal_count=len(signals) if selected is None else len(selected),
         bus_description=header.bus_description,
         warnings=("incomplete-read",) if output.incomplete else (),
+        dropped_signals=dropped,
     )
+
+
+def _without_pro_only(
+    signals: dict[str, str], selected: list[str] | None
+) -> tuple[list[str], tuple[str, ...]] | None:
+    """The selection minus Pro-only signals, and the kinds left out; None if none were asked."""
+    names = {sid: name for name, sid in signals.items()}
+    wanted = list(signals.values()) if selected is None else selected
+    kind = {sid: names.get(sid, "").rsplit("/", 1)[-1] for sid in wanted}
+    left_out = sorted({kind[sid] for sid in wanted if kind[sid] in PRO_ONLY_SIGNALS})
+    if not left_out:
+        return None
+    return [sid for sid in wanted if kind[sid] not in PRO_ONLY_SIGNALS], tuple(left_out)

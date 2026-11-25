@@ -350,6 +350,7 @@ class Ingestor:
                 "profile": conversion.profile, "signal_count": conversion.signal_count,
                 "read_status": "incomplete" if conversion.warnings else "complete",
                 "integrity": "unchecked",
+                "dropped_signals": ",".join(conversion.dropped_signals) or None,
             }  # fmt: skip
             self.ledger.replace_metadata(
                 sha,
