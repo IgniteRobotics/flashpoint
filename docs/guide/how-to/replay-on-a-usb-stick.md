@@ -55,6 +55,8 @@ Only Replay is in the export. History, Anomalies, Setup and Live CAN need `flash
 
 With `--no-raw`, the downloads are replaced by "Raw logs not included in this export. Their lake hashes:" and a hash per log.
 
+The export holds no folder path from the laptop that made it, so it is safe to hand out.
+
 ## Check it worked
 
 `report` ends with two lines like these:

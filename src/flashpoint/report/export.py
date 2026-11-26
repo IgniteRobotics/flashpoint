@@ -18,6 +18,7 @@ from typing import Any
 from flashpoint.config import config_root
 from flashpoint.lake.paths import LakePaths
 from flashpoint.lake.raw import raw_path
+from flashpoint.report.build import to_script
 from flashpoint.report.paths import data_dir
 from flashpoint.web.branding import THEME_CSS, load_branding, mode_js
 
@@ -122,6 +123,9 @@ def export_static(
     _static(out, static_dir, include_raw, config_dir)
     shutil.copytree(built, out / "data", ignore=shutil.ignore_patterns(".*"))
     index = _payload(built / "matches.js")
+    # The lake's folder path stays in the lake's own index (served mode shows it); not exported.
+    exported = {k: v for k, v in index.items() if k != "lake"}
+    (out / "data" / "matches.js").write_text(to_script("FP.index", exported), encoding="utf-8")
     snapshot = anomaly_snapshot(lake, {e["key"] for e in index["matches"]}, config_dir)
     (out / "data" / SNAPSHOT).write_text(
         "FP.anomalySnapshot = " + json.dumps(snapshot).replace("</", "<\\/") + ";\n",

@@ -1,5 +1,7 @@
+import json
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -79,6 +81,31 @@ def test_refuses_foreign_folder_but_replaces_own(built: MatchLake, tmp_path: Pat
     (out / "data" / "stale.js").write_text("old")
     export_static(built.lake, out, include_raw=False)
     assert not (out / "data" / "stale.js").exists() and not (out / "raw").exists()
+
+
+def _index(path: Path) -> Any:
+    text = path.read_text(encoding="utf-8")
+    return json.loads(text[text.index("(") + 1 : text.rindex(")")])
+
+
+@pytest.mark.parametrize("include_raw", [True, False])
+def test_export_holds_no_lake_path(built: MatchLake, tmp_path: Path, include_raw: bool) -> None:
+    out = tmp_path / "export"
+    export_static(built.lake, out, include_raw=include_raw)
+    paths = {str(built.root), built.root.as_posix(), json.dumps(str(built.root))[1:-1]}
+    texts = [p for p in out.rglob("*") if p.suffix in {".js", ".html", ".css"} or p.name == MARKER]
+    assert any(p.name == "matches.js" for p in texts)
+    for path in texts:
+        text = path.read_text(encoding="utf-8")
+        assert not any(lake_path in text for lake_path in paths), path
+    exported = _index(out / "data" / "matches.js")
+    assert "lake" not in exported
+    assert exported["matches"] == _index(built.root / "report" / "data" / "matches.js")["matches"]
+
+
+def test_lake_index_keeps_lake_path(built: MatchLake, tmp_path: Path) -> None:
+    export_static(built.lake, tmp_path / "export")
+    assert _index(built.root / "report" / "data" / "matches.js")["lake"] == str(built.root)
 
 
 def test_nothing_built(tmp_path: Path) -> None:
