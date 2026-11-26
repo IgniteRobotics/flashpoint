@@ -107,7 +107,9 @@ def _hoot_rows(lake: LakePaths) -> dict[str, dict[str, object]]:
 
 def _bronze_signals(lake: LakePaths) -> set[str]:
     glob = (lake.bronze / "season=*" / "log_id=*" / "*.parquet").as_posix()
-    return {r[0] for r in duckdb.sql(f"SELECT DISTINCT signal FROM '{glob}'").fetchall()}
+    rel = duckdb.sql(f"SELECT DISTINCT signal FROM '{glob}'")
+    assert rel is not None
+    return {r[0] for r in rel.fetchall()}
 
 
 def test_non_pro_hoot_with_a_converter_that_reports_it(

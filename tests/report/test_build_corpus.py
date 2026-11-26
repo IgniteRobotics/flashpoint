@@ -51,10 +51,10 @@ def test_q7_envelope_matches_silver(built: Any) -> None:
         (built.root / "silver/samples/season=2026").glob(f"session_id={data['session_id']}")
     )
     # match start on the wpilog clock, from the auto phase (seconds 0)
-    start_us = duckdb.execute(
+    [(start_us,)] = duckdb.execute(
         "SELECT start_us FROM read_parquet(?) WHERE session_id = ? AND phase = 'auto'",
         [str(built.meta / "match_phases.parquet"), data["session_id"]],
-    ).fetchone()[0]  # type: ignore[index]  # count always returns a row
+    ).fetchall()
     t0 = start_us + round(window["t0"] * 1_000_000)
     width = round(window["width"] * 1_000_000)
     rows = duckdb.execute(
@@ -149,9 +149,11 @@ def test_nofms_has_no_match_key(corpus_group: Any, tmp_path: Path) -> None:
         deriver.run()
     finally:
         deriver.close()
-    sessions = duckdb.sql(
+    rel = duckdb.sql(
         f"SELECT match_key FROM read_parquet('{(lake.meta / 'sessions.parquet').as_posix()}')"
-    ).fetchall()
+    )
+    assert rel is not None
+    sessions = rel.fetchall()
     assert sessions == [(None,)]
 
 

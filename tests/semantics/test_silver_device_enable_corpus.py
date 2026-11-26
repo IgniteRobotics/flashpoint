@@ -24,9 +24,9 @@ def q7(derived_corpus_lake: Any) -> dict[str, Any]:
     finally:
         ledger.close()
     path = silver_dir(derived_corpus_lake) / "season=*" / f"session_id={session['session_id']}"
-    rows = duckdb.sql(
-        f"SELECT slot_id, metric, phase, value FROM read_parquet('{path}/*.parquet')"
-    ).fetchall()
+    rel = duckdb.sql(f"SELECT slot_id, metric, phase, value FROM read_parquet('{path}/*.parquet')")
+    assert rel is not None
+    rows = rel.fetchall()
     root = config.config_root()
     robot = next(
         r for r in load_robots(root / "robots", load_seasons(root / "seasons"))

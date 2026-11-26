@@ -59,10 +59,11 @@ def test_ingests_wpilog_into_bronze_and_metadata(
 
     assert (report.count("success"), report.exit_code) == (1, 0)
     con = connect(lake)
-    assert con.sql("select count(*) from samples where signal = 'motor/current'").fetchone() == (2,)
-    assert con.sql("select fms_event, file_match_number, season from meta_logs").fetchone() == (
-        "GACMP", 7, "2026",
-    )  # fmt: skip
+    current = con.sql("select count(*) from samples where signal = 'motor/current'")
+    assert current.fetchall() == [(2,)]
+    assert con.sql("select fms_event, file_match_number, season from meta_logs").fetchall() == [
+        ("GACMP", 7, "2026"),
+    ]  # fmt: skip
 
 
 def test_reingest_is_noop_and_names_become_aliases(
@@ -79,7 +80,7 @@ def test_reingest_is_noop_and_names_become_aliases(
     assert report.count("skipped") == 2
     assert {p: p.read_bytes() for p in lake.bronze.rglob("*.parquet")} == bronze_files
     con = connect(lake)
-    assert con.sql("select count(*) from meta_aliases").fetchone() == (2,)
+    assert con.sql("select count(*) from meta_aliases").fetchall() == [(2,)]
 
 
 def test_bad_files_are_quarantined_without_stopping_the_batch(
@@ -142,9 +143,9 @@ def test_rebuild_reprocesses_older_pipeline_versions_from_raw(
 
     assert report.count("success") == 1
     assert files[0]["pipeline_version"] == config.PIPELINE_VERSION
-    assert connect(lake).sql("select filename from meta_logs").fetchone() == (
-        "FRC_20260409_215113_GACMP_Q7.wpilog",
-    )
+    assert connect(lake).sql("select filename from meta_logs").fetchall() == [
+        ("FRC_20260409_215113_GACMP_Q7.wpilog",),
+    ]
 
 
 # --- machine failures are retried (#14) ---------------------------------------------------

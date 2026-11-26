@@ -81,10 +81,12 @@ def test_no_pro_flag_is_missing(tmp_path: Path) -> None:
 def test_corpus_q7_statuses(derived_corpus_lake: LakePaths) -> None:
     def statuses(table: str) -> dict[str, set[str]]:
         glob = (gold.gold_dir(derived_corpus_lake, table) / "*" / "*" / "*.parquet").as_posix()
-        rows = duckdb.sql(
+        rel = duckdb.sql(
             f"SELECT slot_id, temp_status FROM read_parquet('{glob}', hive_partitioning = false)"
             " WHERE match_key = '2026gacmp_qm7'"
-        ).fetchall()
+        )
+        assert rel is not None
+        rows = rel.fetchall()
         out: dict[str, set[str]] = {}
         for slot, status in rows:
             out.setdefault(slot, set()).add(status)

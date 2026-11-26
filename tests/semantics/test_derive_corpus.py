@@ -142,12 +142,14 @@ def test_q7_silver(corpus_lake: Any) -> None:
         / f"session_id={session_id}"
         / "*.parquet"
     )
-    stats = duckdb.sql(
+    rel = duckdb.sql(
         f"SELECT count(DISTINCT slot_id), count(DISTINCT unit_id), min(t_us), max(t_us),"
         " count(*) FILTER (WHERE phase = 'teleop' AND metric = 'supply_current'"
         " AND slot_id = 'drive-fl')"
         f" FROM read_parquet('{path}')"
-    ).fetchone()
+    )
+    assert rel is not None
+    (stats,) = rel.fetchall()
     assert stats is not None
     slots, units, _t_min, t_max, teleop_rows = stats
     assert slots == 22 and units == 22
@@ -172,40 +174,46 @@ def test_full_derive_gold_and_noop_rerun(corpus_lake: Any) -> None:
     assert second["rebuilt"] == 0
 
     gold = corpus_lake.root / "gold" / "match_features" / "*" / "*" / "*.parquet"
-    q7 = duckdb.sql(
+    rel = duckdb.sql(
         f"SELECT phase, count(*), count(DISTINCT slot_id), min(alignment), max(alignment)"
         f" FROM read_parquet('{gold}', hive_partitioning = true)"
         " WHERE match_key = '2026gacmp_qm7' GROUP BY phase ORDER BY phase"
-    ).fetchall()
+    )
+    assert rel is not None
+    q7 = rel.fetchall()
     assert q7 == [
         ("auto", 17, 17, "high", "high"),
         ("match", 17, 17, "high", "high"),
         ("teleop", 17, 17, "high", "high"),
     ]
 
-    drive = duckdb.sql(
+    rel = duckdb.sql(
         f"SELECT stator_current_p95, supply_energy_wh, temp_max_c, residual_p95_a, flags"
         f" FROM read_parquet('{gold}', hive_partitioning = true)"
         " WHERE match_key = '2026gacmp_qm7' AND phase = 'match' AND slot_id = 'drive-fl'"
-    ).fetchone()
+    )
+    assert rel is not None
+    (drive,) = rel.fetchall()
     assert drive is not None
     p95, energy, temp_max, residual, flags = drive
     assert 10 < p95 < 200 and 0 < energy < 20 and 20 < temp_max < 80
     assert residual is not None and flags == ""
 
     started = time.perf_counter()
-    duckdb.sql(
+    rel = duckdb.sql(
         f"SELECT slot_id, max(temp_max_c) FROM read_parquet('{gold}', hive_partitioning = true)"
         " WHERE season = '2026' AND subsystem = 'drivetrain' GROUP BY slot_id"
-    ).fetchall()
+    )
+    assert rel is not None
+    rel.fetchall()
     assert time.perf_counter() - started < 1.0
 
-    stalls = dict(
-        duckdb.sql(
-            f"SELECT slot_id, stall_s FROM read_parquet('{gold}', hive_partitioning = true)"
-            " WHERE match_key = '2026gacmp_qm7' AND phase = 'match' AND stall_s > 0"
-        ).fetchall()
+    rel = duckdb.sql(
+        f"SELECT slot_id, stall_s FROM read_parquet('{gold}', hive_partitioning = true)"
+        " WHERE match_key = '2026gacmp_qm7' AND phase = 'match' AND stall_s > 0"
     )
+    assert rel is not None
+    stalls = dict(rel.fetchall())
     # P4 spike: the extension holds against its stop and the rollers jam, at the current limit
     # (0.20-0.30 of stall current); nothing else stalls.
     assert set(stalls) == {"intake-extension", "intake-roller", "intake-roller-follower"}
@@ -217,12 +225,14 @@ def test_q7_drive_motor_supply_path_resistance(derived_corpus_lake: Any) -> None
     """Spec: motor-physics / Corpus drive motors (probed at 18-20 mΩ on the season lake)."""
     import duckdb
 
-    rows = duckdb.sql(
+    rel = duckdb.sql(
         "SELECT slot_id, supply_resistance_mohm, supply_resistance_flag FROM read_parquet(?)"
         " WHERE match_key = '2026gacmp_qm7' AND phase = 'match' AND slot_id LIKE 'drive-%'"
         " ORDER BY slot_id",
         params=[str(derived_corpus_lake.root / "gold/match_features/*/*/*.parquet")],
-    ).fetchall()
+    )
+    assert rel is not None
+    rows = rel.fetchall()
     assert [r[0] for r in rows] == ["drive-bl", "drive-br", "drive-fl", "drive-fr"]
     for slot, mohm, flag in rows:
         assert flag is None and 5.0 <= mohm <= 40.0, (slot, mohm, flag)

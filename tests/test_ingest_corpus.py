@@ -76,8 +76,8 @@ def test_metadata_is_queryable(ingested: tuple[LakePaths, IngestReport]) -> None
     q7 = con.sql(
         "select fms_event, fms_match_type, fms_match_number, season from meta_logs"
         " where filename = 'FRC_20260409_215113_GACMP_Q7.wpilog'"
-    ).fetchone()
-    assert q7 == ("GACMP", 2, 7, "2026")
+    ).fetchall()
+    assert q7 == [("GACMP", 2, 7, "2026")]
     compliancies = dict(
         con.sql(
             "select season, max(compliancy) from meta_hoot_logs h"
@@ -85,7 +85,7 @@ def test_metadata_is_queryable(ingested: tuple[LakePaths, IngestReport]) -> None
         ).fetchall()
     )
     assert compliancies == {"2025": 13, "2026": 19}
-    assert con.sql("select bool_and(pro_licensed = 1) from meta_hoot_logs").fetchone() == (True,)
+    assert con.sql("select bool_and(pro_licensed = 1) from meta_hoot_logs").fetchall() == [(True,)]
 
 
 def test_one_signal_query_is_fast(ingested: tuple[LakePaths, IngestReport]) -> None:
@@ -93,7 +93,9 @@ def test_one_signal_query_is_fast(ingested: tuple[LakePaths, IngestReport]) -> N
 
     lake, _ = ingested
     con = connect(lake)
-    log_id = con.sql("select log_id from meta_logs where filename like 'GACMP_Q7_rio%'").fetchone()
+    (log_id,) = con.sql(
+        "select log_id from meta_logs where filename like 'GACMP_Q7_rio%'"
+    ).fetchall()
     assert log_id is not None
     started = time.perf_counter()
     rows = con.sql(

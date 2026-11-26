@@ -53,9 +53,9 @@ def _signals(hoot: b.Hoot) -> duckdb.DuckDBPyConnection:
 
 def test_enable_follows_windows() -> None:
     con = _signals(b.Hoot([], duration_s=10.0, enabled=[(2.0, 4.0)]))
-    on = con.sql(
+    (on,) = con.sql(
         "SELECT min(ts_us), max(ts_us) FROM t WHERE signal = 'RobotEnable' AND v_bool"
-    ).fetchone()
+    ).fetchall()
     assert on is not None and 2.0 * S <= on[0] < 2.05 * S and 3.95 * S <= on[1] < 4.0 * S
 
 
@@ -71,8 +71,8 @@ def test_q105_like() -> None:
     first_on = con.sql(
         "SELECT min(ts_us) FROM t"
         " WHERE signal = 'Phoenix6/TalonFX-2/Fault_BootDuringEnable' AND v_f64 = 1"
-    ).fetchone()
-    assert first_on == (345_250_000,)  # first 4 Hz sample at or after 345.16 s
+    ).fetchall()
+    assert first_on == [(345_250_000,)]  # first 4 Hz sample at or after 345.16 s
     others = [d for d in hoot.devices if d is not roller]
     assert all(int(np.diff(hoot.frame_times(d)).max()) == 8_000 for d in others)
 
@@ -103,7 +103,7 @@ def test_stops_early() -> None:
 
 def test_no_reset_count() -> None:
     con = _signals(b.no_reset_count())
-    assert con.sql("SELECT count(*) FROM t WHERE signal LIKE '%/ResetCount'").fetchone() == (0,)
+    assert con.sql("SELECT count(*) FROM t WHERE signal LIKE '%/ResetCount'").fetchall() == [(0,)]
     assert con.sql(
         "SELECT count(*) FROM t WHERE signal LIKE '%/Fault_BootDuringEnable' AND v_f64 = 1"
-    ).fetchone() == (1,)
+    ).fetchall() == [(1,)]
