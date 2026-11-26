@@ -2266,6 +2266,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#adding-both-to-a-drafted-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Adding both to a drafted file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#which-robot-file-a-log-uses" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2961,6 +2972,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#adding-both-to-a-drafted-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Adding both to a drafted file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#which-robot-file-a-log-uses" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3225,9 +3247,27 @@
 </tr>
 </tbody>
 </table>
-<p>The SIBLING anomaly method compares each slot with the median of its group, so put motors that do the same job together: the four drive motors, or a shooter's two flywheels.</p>
+<p>The SIBLING anomaly method compares each slot with the median of its group, so put motors that do the same job together: the four drive motors, or a shooter's two flywheels. With no groups, there are no SIBLING findings.</p>
 <h2 id="the-battery-proxy">The battery proxy<a class="headerlink" href="#the-battery-proxy" title="Permanent link">&para;</a></h2>
-<p><code>battery_proxy</code> names a low-current device on the main power bus, such as the gyro, whose supply voltage stands in for the battery: Replay's battery track, brownout markers and brownout findings use it. A motor is a bad choice, because its own wiring drop under load reads as a brownout. With no proxy, Flashpoint uses the median supply voltage across devices. See <a href="../../../robot-side/battery-and-pdh/">Battery voltage and the PDH</a>.</p>
+<p><code>battery_proxy</code> names a low-current device on the main power bus, such as the gyro, whose supply voltage stands in for the battery: Replay's battery track, brownout markers and brownout findings use it. A motor is a bad choice, because its own wiring drop under load reads as a brownout. With no proxy, Flashpoint uses the median supply voltage across devices, and a brownout found that way is at most MED. See <a href="../../../robot-side/battery-and-pdh/">Battery voltage and the PDH</a>.</p>
+<h2 id="adding-both-to-a-drafted-file">Adding both to a drafted file<a class="headerlink" href="#adding-both-to-a-drafted-file" title="Permanent link">&para;</a></h2>
+<p>A drafted robot file (from <strong>Draft robot</strong>, or your first import) has neither a battery proxy nor sibling groups, because a log can't tell Flashpoint which devices do the same job. Add them by hand: <code>battery_proxy</code> at the top level, and one <code>[[siblings]]</code> block per group, using the slot ids the draft wrote (the model and CAN id, such as <code>talonfx-11</code>). You can rename the slots first; use whatever ids the file has.</p>
+<div class="highlight"><pre><span></span><code><span class="n">robot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"2026-comp"</span>
+<span class="n">season</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2026</span>
+<span class="n">project</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Robot-2026"</span>
+<span class="n">battery_proxy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"pigeon2-10"</span><span class="w">   </span><span class="c1"># added: the drafted gyro slot</span>
+
+<span class="c1"># ... the drafted [[slot]] blocks stay as they are ...</span>
+
+<span class="k">[[siblings]]</span><span class="w">                   </span><span class="c1"># added: the four drive motors</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"drive"</span>
+<span class="n">slots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"talonfx-11"</span><span class="p">,</span><span class="w"> </span><span class="s2">"talonfx-21"</span><span class="p">,</span><span class="w"> </span><span class="s2">"talonfx-31"</span><span class="p">,</span><span class="w"> </span><span class="s2">"talonfx-41"</span><span class="p">]</span>
+
+<span class="k">[[siblings]]</span><span class="w">                   </span><span class="c1"># added: the shooter's two flywheels</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"flywheel"</span>
+<span class="n">slots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"talonfx-5"</span><span class="p">,</span><span class="w"> </span><span class="s2">"talonfx-6"</span><span class="p">]</span>
+</code></pre></div>
+<p>Then run <code>flashpoint derive --all</code>. The <a href="../../views/anomalies/#make-findings-trustworthy">Anomalies view</a> says why both make findings more trustworthy.</p>
 <h2 id="which-robot-file-a-log-uses">Which robot file a log uses<a class="headerlink" href="#which-robot-file-a-log-uses" title="Permanent link">&para;</a></h2>
 <p>A log's season is the calendar year it was recorded in. Flashpoint takes the robot files for that season. If there's only one, that's the one. If there are several (a practice bot and a comp bot), it picks the one whose <code>project</code> matches the project name the robot code wrote into the log. With no match, the log's matches show robot "unknown" and their motors stay unmapped. Logs from December testing of next season's robot count as this season, so give that robot a file for this season too, or wait until January.</p>
 <p>After editing a robot file, run <code>flashpoint derive --all</code>. You don't need to re-ingest.</p>

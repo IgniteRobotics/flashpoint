@@ -2765,6 +2765,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ingest-says-derive-failed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ingest says derive failed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#every-log-is-a-non-match-session" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3281,6 +3292,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ingest-says-derive-failed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ingest says derive failed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#every-log-is-a-non-match-session" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3470,6 +3492,11 @@
 <p><strong>Message:</strong> <code>&lt;count&gt; waiting for Replay data. On the laptop that holds the lake, run:</code></p>
 <p><strong>Why:</strong> the matches are imported, but their Replay data hasn't been built. The automatic import builds it; a plain <code>ingest</code> builds it too, unless it was run with <code>--no-derive</code>.</p>
 <p><strong>Fix:</strong> <code>flashpoint report</code>. For one match the view names, <code>flashpoint report --match &lt;key&gt;</code>.</p>
+<h3 id="ingest-says-derive-failed">Ingest says derive failed<a class="headerlink" href="#ingest-says-derive-failed" title="Permanent link">&para;</a></h3>
+<p><strong>What you see:</strong> <code>ingest</code> or <code>rebuild</code> lists the imported files, then an error from derive, then:</p>
+<p><strong>Message:</strong> <code>derive failed: Replay data was not built. Fix the error above, then run: flashpoint derive --report</code></p>
+<p><strong>Why:</strong> the files were imported, but the derive that runs after the import stopped with an error, so no Replay data was built for them. The error printed just above says why; a broken robot file shows as <code>robot configuration error</code>. The command exits 1 even when every file imported. Running <code>ingest</code> again doesn't help: it skips files it already has, so derive doesn't run again.</p>
+<p><strong>Fix:</strong> fix the error derive printed (for a robot file, see <a href="#a-settings-file-doesnt-load">A settings file doesn't load</a>), then run <code>flashpoint derive --report</code>.</p>
 <h3 id="every-log-is-a-non-match-session">Every log is a non-match session<a class="headerlink" href="#every-log-is-a-non-match-session" title="Permanent link">&para;</a></h3>
 <p><strong>What you see:</strong> Replay lists no matches, and History shows the logs' motor usage.</p>
 <p><strong>Why:</strong> Flashpoint names a match from the FMS info in the log, then from the file name (<code>FRC_yyyyMMdd_HHmmss_&lt;event&gt;_&lt;match&gt;.wpilog</code>), then from The Blue Alliance. A log from practice, the pit or home has none of those, so it's a non-match session. That's expected away from an event. At an event, the Driver Station gets FMS info only when connected to the field.</p>
@@ -3492,13 +3519,14 @@
 <p><strong>Why:</strong> the hoots were lined up by the robot-enable edges or the wall clock, not by a signal written to both logs, so times can be off by up to half a second.</p>
 <p><strong>Fix:</strong> treat marker times as approximate. Robot code that writes one signal to both logs (CTRE's swerve code does) gets exact alignment.</p>
 <h3 id="no-temperature">No temperature<a class="headerlink" href="#no-temperature" title="Permanent link">&para;</a></h3>
-<p><strong>What you see:</strong> Replay has no temperature track, and says why:</p>
+<p><strong>What you see:</strong> Replay's header names the buses without temperature:</p>
+<p><strong>Message:</strong> <code>Temperature not logged on &lt;buses&gt;: the hoots are not Pro-licensed, and temperature needs a Phoenix Pro-licensed device on that bus.</code></p>
+<p>and those buses' temperature cells read <code>not logged (needs Phoenix Pro)</code>. A gyro or CANcoder reads <code>temperature not tracked</code>, Pro or not. When no bus has temperature and every hoot was Pro-licensed, the header says instead:</p>
 <p><strong>Message:</strong> <code>Temperature not logged. &lt;reason&gt;</code></p>
 <p>with the reason:</p>
-<p><strong>Message:</strong> <code>The hoots are not Pro-licensed, so they carry no temperature.</code></p>
 <p><strong>Message:</strong> <code>No temperature was logged for this match.</code></p>
-<p><strong>Why:</strong> a hoot exports motor temperature only when the log has a Phoenix Pro-licensed device. The second reason means the hoots had Pro but no temperature signal was recorded.</p>
-<p><strong>Fix:</strong> see <a href="../robot-side/pro-and-temperature/">Phoenix Pro and temperature</a>. Everything except temperature works without Pro.</p>
+<p><strong>Why:</strong> a hoot exports motor temperature only when that bus's log has a Phoenix Pro-licensed device. The second message means the hoots had Pro but no temperature signal was recorded.</p>
+<p><strong>Fix:</strong> see <a href="../robot-side/pro-and-temperature/">Phoenix Pro and temperature</a>. Everything except temperature works without Pro. <code>flashpoint doctor</code> shows how many of your hoots are Pro-licensed.</p>
 <h3 id="a-file-was-quarantined">A file was quarantined<a class="headerlink" href="#a-file-was-quarantined" title="Permanent link">&para;</a></h3>
 <p><strong>What you see:</strong> ingest lists the file as quarantined, with a reason such as <code>empty-file</code>:</p>
 <p><strong>Message:</strong> <code>QUARANTINED &lt;file&gt;: &lt;reason&gt;</code></p>

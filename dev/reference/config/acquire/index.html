@@ -2862,7 +2862,7 @@
 <tr>
 <td><code>lake</code></td>
 <td><code>~/flashpoint-lake</code></td>
-<td>The lake folder for every command. <code>--lake</code> and <code>FLASHPOINT_LAKE</code> override it</td>
+<td>The lake folder for every command. <code>--lake</code> and <code>FLASHPOINT_LAKE</code> override it. A relative path is taken from the folder the command runs in, not the config folder, so give the acquire service an absolute path: it runs from a different folder than your shell. <code>init</code> and the Setup view always write an absolute path</td>
 </tr>
 <tr>
 <td><code>hosts</code></td>

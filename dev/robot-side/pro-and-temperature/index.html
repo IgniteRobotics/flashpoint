@@ -1680,10 +1680,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-one-pro-device-is-enough-for-a-bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why one Pro device is enough for a bus
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-you-get-without-pro" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         What you get without Pro
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#na-and-needs-pro-in-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        N/A and NEEDS PRO in History
       </span>
     </span>
   </a>
@@ -2810,10 +2832,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-one-pro-device-is-enough-for-a-bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why one Pro device is enough for a bus
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-you-get-without-pro" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         What you get without Pro
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#na-and-needs-pro-in-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        N/A and NEEDS PRO in History
       </span>
     </span>
   </a>
@@ -2844,14 +2888,41 @@
 <p>Motor temperature is only in a hoot when the log has a Phoenix Pro-licensed device. Without Pro, Flashpoint gets everything else, but no temperature.</p>
 <h2 id="what-a-free-hoot-has">What a free hoot has<a class="headerlink" href="#what-a-free-hoot-has" title="Permanent link">&para;</a></h2>
 <p>Checked 2026-11-21 against the "Free Signals" list on CTRE's <a href="https://v6.docs.ctr-electronics.com/en/stable/docs/api-reference/api-usage/signal-logging.html">signal logging page</a>: "Any log that contains a pro-licensed device will export all signals." Without one, only the free list exports. For a Talon FX that's <code>SupplyCurrent</code>, <code>StatorCurrent</code>, <code>MotorVoltage</code>, <code>Position</code> and <code>Velocity</code> (plus <code>SupplyVoltage</code> for every device) and some fault flags, but not <code>DeviceTemp</code>. Only the over-temperature fault flags are free.</p>
-<p>So a free hoot has every motor signal Flashpoint uses except temperature.</p>
+<p>So a free hoot has every motor signal Flashpoint uses except temperature. A Pigeon 2 or CANcoder has no temperature Flashpoint tracks at all, Pro or not.</p>
+<h2 id="why-one-pro-device-is-enough-for-a-bus">Why one Pro device is enough for a bus<a class="headerlink" href="#why-one-pro-device-is-enough-for-a-bus" title="Permanent link">&para;</a></h2>
+<p>CTRE licenses the export per log: "Any log that contains a pro-licensed device will export all signals." Each CAN bus writes its own hoot, so one Pro-licensed device on a bus unlocks that bus's whole hoot, temperature included, for every device on it. A bus with no Pro device gets the free list only. A robot can have both: a Pro CANivore with temperature, and a free rio bus without it. Flashpoint decides per bus.</p>
 <h2 id="what-you-get-without-pro">What you get without Pro<a class="headerlink" href="#what-you-get-without-pro" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Works:</strong> Replay's current, voltage and velocity tracks, CAN dropouts, stall and brownout detection, History for everything except temperature, and the anomaly findings that don't depend on temperature.</li>
-<li><strong>Missing:</strong> the temperature track and temperature limits in Replay, temperature in History, and thermal findings. Replay says why in place of the track: "Temperature not logged. The hoots are not Pro-licensed, so they carry no temperature."</li>
-<li>History's temperature health reads NO DATA for now. <a href="https://github.com/IgniteRobotics/flashpoint/issues/75">#75</a> changes that to "not logged (needs Phoenix Pro)", and adds a Pro count to <code>flashpoint doctor</code>.</li>
+<li><strong>Missing:</strong> the temperature track and temperature limits in Replay, temperature in History, and thermal findings. Detection never raises a finding because temperature is missing; it skips it, and its summary counts those rows as "not logged (needs Phoenix Pro)".</li>
+<li>Replay's header names each bus without temperature and says it needs a Phoenix Pro-licensed device. That bus's temperature cells read "not logged (needs Phoenix Pro)".</li>
+<li><code>flashpoint doctor</code> and the Setup view's checks report the Phoenix Pro coverage: how many hoots are Pro-licensed, and how many aren't on each bus. It's information, never a warning, because the only fix is buying Pro.</li>
 </ul>
-<p>A Pigeon 2 or CANcoder has no temperature signal at all, Pro or not.</p>
+<h2 id="na-and-needs-pro-in-history">N/A and NEEDS PRO in History<a class="headerlink" href="#na-and-needs-pro-in-history" title="Permanent link">&para;</a></h2>
+<p>When a unit has no temperature value in range, History's health reads one of three things instead of OK, WARN or HOT:</p>
+<table>
+<thead>
+<tr>
+<th>Health</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>NEEDS PRO</strong></td>
+<td>The device reports temperature, but every hoot that carried it was not Pro-licensed. Its latest temperature reads "not logged (needs Phoenix Pro)".</td>
+</tr>
+<tr>
+<td><strong>N/A</strong></td>
+<td>Flashpoint tracks no temperature for this kind of device: a CANcoder has no temperature signal, and a Pigeon 2's own temperature isn't tracked. Reads "temperature not tracked", Pro or not.</td>
+</tr>
+<tr>
+<td><strong>NO DATA</strong></td>
+<td>The device should report temperature, its hoots were Pro-licensed, and there's still no value: check the log.</td>
+</tr>
+</tbody>
+</table>
+<p>All three rank below OK, and none counts toward the "units warn/hot" tile. An open anomaly still raises any of them to WARN or HOT.</p>
 <p>Flashpoint reads motor temperature only from hoots. If thermal tracking matters to your team, Pro on the motors you worry about is the way to get it.</p>
 
 

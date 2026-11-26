@@ -1781,6 +1781,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  AdvantageKit
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -1796,6 +1813,48 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What works
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-doesnt-yet" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What doesn't, yet
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2716,6 +2775,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -2727,6 +2791,36 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What works
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-doesnt-yet" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What doesn't, yet
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2747,7 +2841,22 @@
 
 
 <h1 id="advantagekit">AdvantageKit<a class="headerlink" href="#advantagekit" title="Permanent link">&para;</a></h1>
-<p>What Flashpoint reads from AdvantageKit logs, and what it doesn't yet.</p>
+<p>What Flashpoint reads from AdvantageKit logs, and what it doesn't yet. <strong>Not tested on real logs:</strong> everything here is built and tested on synthetic logs made from AdvantageKit's own entry names (v26), and no outside team's AdvantageKit log has been checked yet (<a href="https://github.com/IgniteRobotics/flashpoint/issues/76">#76</a>).</p>
+<h2 id="what-works">What works<a class="headerlink" href="#what-works" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Match identity.</strong> AdvantageKit logs the driver station's FMS data under <code>/DriverStation/</code> (<code>EventName</code>, <code>MatchType</code>, <code>MatchNumber</code>, <code>ReplayNumber</code>, <code>AllianceStation</code>). Flashpoint reads them as in-log FMS data when the log has no WPILib <code>FMSInfo</code> entries, taking the whole set from one place, never mixing the two.</li>
+<li><strong>The filename.</strong> AdvantageKit names its log <code>akit_yy-MM-dd_HH-mm-ss_&lt;event&gt;_&lt;p|q|e&gt;&lt;n&gt;.wpilog</code>. Flashpoint reads the event, match and start time from it, like a WPILib <code>FRC_…</code> name.</li>
+<li><strong>The hoots' names.</strong> If the wpilog gives no identity at all, the match comes from the hoots' filenames (<code>GACMP_Q7_…</code>), which CTRE's signal logger takes from the same FMS data.</li>
+<li><strong>Pairing with hoots.</strong> AdvantageKit doesn't write WPILib's <code>systemTime</code> entry. Flashpoint anchors the log to wall-clock time with <code>/SystemStats/EpochTimeMicros</code> instead, so the wpilog and its hoots form one session.</li>
+</ul>
+<p>A lake imported with an earlier Flashpoint picks these up on the next <code>derive</code>, which reads the affected logs' metadata again once.</p>
+<h2 id="what-doesnt-yet">What doesn't, yet<a class="headerlink" href="#what-doesnt-yet" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Alignment is very low.</strong> Flashpoint lines a hoot up with the wpilog by a payload both logged (<code>DriveState/Pose</code> over NetworkTables) or by enable edges. AdvantageKit's CTRE swerve template publishes neither the way Flashpoint looks for them, so alignment falls back to wall-clock time, with <strong>very low</strong> confidence. Replay shows its low-alignment warning: check the timing of events against AdvantageScope.</li>
+<li><strong>No enable-edge alignment yet.</strong> Reading AdvantageKit's <code>/DriverStation/Enabled</code> for enable edges would lift alignment to low. It waits for a real AdvantageKit log to check against.</li>
+<li><strong>Match phases</strong> come from the hoots' robot mode, so auto and teleop still frame correctly.</li>
+</ul>
+<p>See the <a href="../../support-matrix/">support matrix</a> for how well each log setup is supported.</p>
 
 
 

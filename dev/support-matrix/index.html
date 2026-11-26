@@ -3075,7 +3075,7 @@
 <td>Pigeon 2</td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code>; voltage and CAN timing; it's Ignite's battery proxy</small></td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code>; CAN gaps and voltage</small></td>
-<td>not supported (<a href="https://github.com/IgniteRobotics/flashpoint/issues/75">#75</a>)<br><small>no temperature signal</small></td>
+<td>not supported (<a href="https://github.com/IgniteRobotics/flashpoint/issues/75">#75</a>)<br><small>not tracked: its IMU temperature isn't exported; History reads N/A</small></td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code></small></td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code></small></td>
 <td>not tested on real logs<br><small>fake robot only; experimental</small></td>
@@ -3084,7 +3084,7 @@
 <td>CANcoder</td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code>; CAN timing</small></td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code>; CAN gaps</small></td>
-<td>not supported (<a href="https://github.com/IgniteRobotics/flashpoint/issues/75">#75</a>)<br><small>no temperature signal</small></td>
+<td>not supported (<a href="https://github.com/IgniteRobotics/flashpoint/issues/75">#75</a>)<br><small>not tracked: no temperature signal; History reads N/A</small></td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code></small></td>
 <td>supported<br><small>corpus <code>2026-gacmp-q7</code></small></td>
 <td>not tested on real logs<br><small>fake robot only; experimental</small></td>
@@ -3183,12 +3183,12 @@
 </tr>
 <tr>
 <td>non-Pro hoots with wpilog</td>
-<td>not tested</td>
-<td>not tested</td>
-<td>not tested</td>
-<td>not supported (<a href="https://github.com/IgniteRobotics/flashpoint/issues/75">#75</a>)<br><small>free hoots carry no temperature</small></td>
-<td>not tested</td>
-<td>not tested</td>
+<td>not tested on real logs<br><small>the same paths as Pro logs</small></td>
+<td>not tested on real logs<br><small>the same paths as Pro logs</small></td>
+<td>not tested on real logs<br><small>the free signal set: current, voltage, position, velocity</small></td>
+<td>not supported (<a href="https://github.com/IgniteRobotics/flashpoint/issues/75">#75</a>)<br><small>free hoots carry no temperature: NEEDS PRO per bus</small></td>
+<td>not tested on real logs<br><small>beta; temperature is skipped, never flagged</small></td>
+<td>not tested on real logs</td>
 </tr>
 <tr>
 <td>wpilog only</td>
@@ -3210,12 +3210,12 @@
 </tr>
 <tr>
 <td>AdvantageKit wpilog with hoots</td>
-<td>not tested<br><small>#76 adds AdvantageKit's FMS fields</small></td>
-<td>not tested</td>
-<td>not tested</td>
-<td>not tested</td>
-<td>not tested</td>
-<td>not tested</td>
+<td>not tested on real logs<br><small>/DriverStation fields, akit_ names, then the hoots' names</small></td>
+<td>not tested on real logs<br><small>wall-clock only: very low confidence</small></td>
+<td>not tested on real logs<br><small>from the hoots</small></td>
+<td>not tested on real logs<br><small>from the hoots; needs Phoenix Pro</small></td>
+<td>not tested on real logs<br><small>beta</small></td>
+<td>not tested on real logs</td>
 </tr>
 <tr>
 <td>rio bus only</td>
@@ -3223,7 +3223,7 @@
 <td>not tested</td>
 <td>not tested</td>
 <td>not tested</td>
-<td>not tested</td>
+<td>not tested on real logs<br><small>beta; rio rates keep the configured CAN-gap floors</small></td>
 <td>not tested</td>
 </tr>
 </tbody>
@@ -3309,7 +3309,6 @@
 <h3 id="known-issues">Known issues<a class="headerlink" href="#known-issues" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Linux owlet can crash on power-loss-truncated hoots.</strong> On Linux, CTRE's owlet sometimes exits with an error on a hoot whose tail was cut off by a power loss (macOS doesn't). Flashpoint retries the conversion, so the file usually still imports with <code>incomplete-read</code>. If a hoot stays <code>failed (owlet-failed)</code>, run <code>flashpoint rebuild</code> once. History: <a href="https://github.com/IgniteRobotics/flashpoint/issues/4">#4</a> (closed), tracked end to end in <a href="https://github.com/IgniteRobotics/flashpoint/issues/71">#71</a>.</li>
-<li><strong>A relative <code>--lake</code> path crashes <code>detect</code>.</strong> Give <code>--lake</code> an absolute path (<code>--lake "$PWD/lake"</code>). <code>ingest</code> still exits 0 in that case, with no Replay data (<a href="https://github.com/IgniteRobotics/flashpoint/issues/107">#107</a>).</li>
 </ul>
 
 
