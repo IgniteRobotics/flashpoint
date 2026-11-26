@@ -20,18 +20,26 @@ import threading
 import time
 from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from types import FrameType, TracebackType
-from typing import Any, Self, TextIO
+from typing import Any, Self, TextIO, TypeVar
 
 from flashpoint.acquire import volumes
 from flashpoint.acquire.backup import BackupSchedule, last_ok
 from flashpoint.acquire.config import AcquireConfig
-from flashpoint.acquire.cycle import REPORT_LOCKED, Connect, CycleResult, SourceStatus, run_cycle
+from flashpoint.acquire.cycle import (
+    REPORT_LOCKED,
+    Connect,
+    CycleResult,
+    InboxOutcome,
+    SourceStatus,
+    run_cycle,
+)
 from flashpoint.acquire.pulls import BUSY_TIMEOUT_MS, PullLedger
 from flashpoint.acquire.removable import RemovableMedia
 from flashpoint.acquire.robot import RobotClient
-from flashpoint.acquire.transfer import sweep_parts
+from flashpoint.acquire.transfer import TransferStatus, sweep_parts
 from flashpoint.lake.paths import LakePaths
 
 log = logging.getLogger(__name__)
@@ -45,6 +53,7 @@ DERIVE_ERROR_CHARS = 2000
 _WINDOWS_LOCK_OFFSET = 1 << 20  # lock a byte past the holder text so others can still read it
 
 Cycle = Callable[..., CycleResult]
+_Status = TypeVar("_Status", bound=StrEnum)
 
 
 def _connect(config: AcquireConfig) -> RobotClient | None:
@@ -515,8 +524,8 @@ def _loop(
 
 
 def _log_summary(result: CycleResult) -> None:
-    moved = _count(t.status.value for s in result.sources for t in s.transfers)
-    inbox = _count(f.outcome.value for f in result.inbox)
+    moved = _counts(TransferStatus, (t.status for s in result.sources for t in s.transfers))
+    inbox = _counts(InboxOutcome, (f.outcome for f in result.inbox))
     sources = ", ".join(
         f"{_source_name(s.kind, s.label or s.id)} {s.status.value}" for s in result.sources
     )
@@ -527,6 +536,12 @@ def _log_summary(result: CycleResult) -> None:
         moved or "none",
         inbox or "empty",
     )
+
+
+def _counts(kinds: type[_Status], values: Iterable[_Status]) -> str:
+    """`<n> <status>` pairs joined by `, `, in the enum's definition order; "" when none."""
+    counts = _count(values)
+    return ", ".join(f"{counts[kind]} {kind}" for kind in kinds if kind in counts)
 
 
 def _dry_run(

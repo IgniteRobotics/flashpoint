@@ -63,7 +63,7 @@ Run `flashpoint doctor`. Its `acquire` section shows the last cycle and each sou
 Each cycle of the watch ends with a log line like this:
 
 ```text
-cycle done: robot 10.68.29.2 ok, volume ROBOT-USB ok; transfers {'verified': 3}; inbox {'success': 3}
+cycle done: robot 10.68.29.2 ok, volume ROBOT-USB ok; transfers 3 verified; inbox 3 success
 ```
 
 If a source is `unreachable` or a file failed to copy, see the [table below](#troubleshooting). For files that fail to import, see [Troubleshooting](../troubleshooting.md#a-file-was-quarantined).
