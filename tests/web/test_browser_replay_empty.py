@@ -124,6 +124,8 @@ def test_static_export_of_practice_logs(page: Any, tmp_path: Path) -> None:
     assert guide.inner_text() == GUIDE_TITLE and guide.get_attribute("href") is None
     assert page.locator("#replay-empty-setup").count() == 0
     assert "flashpoint report" not in page.inner_text("#replay-empty")
+    assert str(lake.root) not in page.inner_text("body")
+    assert "STATIC EXPORT" in page.inner_text("header")
     assert watch.clean(), watch
     assert watch.remote == []
 
