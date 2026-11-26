@@ -19,13 +19,15 @@ from flashpoint.acquire.config import AcquireConfig
 from flashpoint.acquire.cycle import (
     CycleResult,
     DeriveOutcome,
+    InboxFile,
+    InboxOutcome,
     SourceOutcome,
     SourceStatus,
     run_cycle,
 )
 from flashpoint.acquire.pulls import PullLedger, PullStatus
 from flashpoint.acquire.robot import LowSpaceWarning, RemoteFile, SpaceReading
-from flashpoint.acquire.transfer import PART_SUFFIX, robot_key
+from flashpoint.acquire.transfer import PART_SUFFIX, TransferResult, TransferStatus, robot_key
 from flashpoint.acquire.watch import (
     EXIT_INTERRUPTED,
     EXIT_LOCKED,
@@ -616,6 +618,102 @@ def test_owed_build_is_passed_to_the_first_cycle_after_a_restart(lake: LakePaths
 
     assert seen == [True]
     assert json.loads(lake.status.read_text())["report"] == {"pending": False, "error": None}
+
+
+# --- cycle done line -------------------------------------------------------------------------
+
+
+def _moved(*statuses: TransferStatus) -> list[TransferResult]:
+    return [
+        TransferResult(f"{ROOT}/FRC_{i}.wpilog", Path(f"inbox/FRC_{i}.wpilog"), 10, status)
+        for i, status in enumerate(statuses)
+    ]
+
+
+def _inbox(*outcomes: InboxOutcome) -> list[InboxFile]:
+    return [
+        InboxFile(Path(f"inbox/FRC_{i}.wpilog"), f"{i:064x}", "pull", outcome)
+        for i, outcome in enumerate(outcomes)
+    ]
+
+
+def _cycle_done_line(lake: LakePaths, result: CycleResult, caplog: pytest.LogCaptureFixture) -> str:
+    caplog.clear()
+    config = AcquireConfig(removable_media=False)
+    with caplog.at_level(logging.INFO, logger="flashpoint.acquire.watch"):
+        run_acquire(config, lake, stop=threading.Event(), cycle=lambda *_a, **_k: result)
+    records = [
+        r
+        for r in caplog.records
+        if r.name == "flashpoint.acquire.watch" and r.getMessage().startswith("cycle done")
+    ]
+    assert len(records) == 1 and records[0].levelno == logging.INFO
+    line = records[0].getMessage()
+    assert not set(line) & set("{}[]'")
+    return line
+
+
+def test_cycle_done_robot_pull_of_three_logs(
+    lake: LakePaths, caplog: pytest.LogCaptureFixture
+) -> None:
+    robot = SourceOutcome(
+        "robot", "10.68.29.2", "10.68.29.2", transfers=_moved(*[TransferStatus.VERIFIED] * 3)
+    )
+    result = CycleResult(started="t", sources=[robot], inbox=_inbox(*[InboxOutcome.SUCCESS] * 3))
+    assert _cycle_done_line(lake, result, caplog) == (
+        "cycle done: robot 10.68.29.2 ok; transfers 3 verified; inbox 3 success"
+    )
+
+
+def test_cycle_done_mixed_results(lake: LakePaths, caplog: pytest.LogCaptureFixture) -> None:
+    moved = _moved(TransferStatus.VERIFIED, TransferStatus.RETRY, TransferStatus.VERIFIED)
+    robot = SourceOutcome("robot", "10.68.29.2", "10.68.29.2", transfers=moved)
+    inbox = _inbox(InboxOutcome.QUARANTINED, InboxOutcome.SUCCESS)
+    result = CycleResult(started="t", sources=[robot], inbox=inbox)
+    line = _cycle_done_line(lake, result, caplog)
+    assert "; transfers 2 verified, 1 retry; " in line
+    assert line.endswith("; inbox 1 success, 1 quarantined")
+
+
+def test_cycle_done_same_results_in_a_different_finish_order_log_the_same_line(
+    lake: LakePaths, caplog: pytest.LogCaptureFixture
+) -> None:
+    def result(order: list[TransferStatus], outcomes: list[InboxOutcome]) -> CycleResult:
+        robot = SourceOutcome("robot", "10.68.29.2", "10.68.29.2", transfers=_moved(*order[:2]))
+        usb = SourceOutcome("volume", "uuid-1", "ROBOT-USB", transfers=_moved(*order[2:]))
+        return CycleResult(started="t", sources=[robot, usb], inbox=_inbox(*outcomes))
+
+    first = _cycle_done_line(
+        lake,
+        result(
+            [TransferStatus.RETRY, TransferStatus.VERIFIED, TransferStatus.SIZE_VERIFIED],
+            [InboxOutcome.KEPT, InboxOutcome.SUCCESS, InboxOutcome.SKIPPED],
+        ),
+        caplog,
+    )
+    second = _cycle_done_line(
+        lake,
+        result(
+            [TransferStatus.SIZE_VERIFIED, TransferStatus.VERIFIED, TransferStatus.RETRY],
+            [InboxOutcome.SKIPPED, InboxOutcome.KEPT, InboxOutcome.SUCCESS],
+        ),
+        caplog,
+    )
+    assert first == second
+
+
+def test_cycle_done_nothing_to_do(lake: LakePaths, caplog: pytest.LogCaptureFixture) -> None:
+    assert _cycle_done_line(lake, CycleResult(started="t"), caplog) == (
+        "cycle done: no sources; transfers none; inbox empty"
+    )
+
+
+def test_cycle_done_stopped_cycle(lake: LakePaths, caplog: pytest.LogCaptureFixture) -> None:
+    robot = SourceOutcome(
+        "robot", "10.68.29.2", "10.68.29.2", transfers=_moved(TransferStatus.STOPPED)
+    )
+    result = CycleResult(started="t", stopped=True, sources=[robot])
+    assert _cycle_done_line(lake, result, caplog).startswith("cycle done (stopped): ")
 
 
 # --- doctor ----------------------------------------------------------------------------------
