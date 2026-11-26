@@ -526,7 +526,9 @@
         h(
           'p',
           { class: 'prose' },
-          index.lake ? 'The lake holds no imported logs yet: ' : 'The lake holds no imported logs yet.',
+          index.lake
+            ? 'The lake holds no imported logs yet: '
+            : 'The lake holds no imported logs yet.',
           index.lake ? h('code', { class: 'code' }, index.lake) : null,
         ),
         h('p', { class: 'prose' }, "Import one match's .wpilog and .hoot files:"),
