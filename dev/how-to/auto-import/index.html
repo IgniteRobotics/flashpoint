@@ -3124,7 +3124,7 @@ dry run: 2 file(s), 41127424 bytes would be copied; nothing changed
 <h2 id="check-it-worked">Check it worked<a class="headerlink" href="#check-it-worked" title="Permanent link">&para;</a></h2>
 <p>Run <code>flashpoint doctor</code>. Its <code>acquire</code> section shows the last cycle and each source with its result (<code>ok</code>, <code>unreachable</code> or <code>error</code>) and what it copied. The pulled matches are in Replay after you reload the page. <a href="#check-the-status">Check the status</a> lists everything the section can show.</p>
 <p>Each cycle of the watch ends with a log line like this:</p>
-<div class="highlight"><pre><span></span><code>cycle done: robot 10.68.29.2 ok, volume ROBOT-USB ok; transfers {'verified': 3}; inbox {'success': 3}
+<div class="highlight"><pre><span></span><code>cycle done: robot 10.68.29.2 ok, volume ROBOT-USB ok; transfers 3 verified; inbox 3 success
 </code></pre></div>
 <p>If a source is <code>unreachable</code> or a file failed to copy, see the <a href="#troubleshooting">table below</a>. For files that fail to import, see <a href="../../troubleshooting/#a-file-was-quarantined">Troubleshooting</a>.</p>
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
