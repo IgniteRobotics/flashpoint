@@ -99,8 +99,8 @@ def _count(
         if m["kind"] == "brownout" and m["level"] == "FAULT"
     )
     query, params = proxy.series_sql(found, span.silver, window.t0_us, window.end_us)
-    lowest = con.execute(f"SELECT min(value) FROM ({query})", params).fetchone()  # noqa: S608 - query built by proxy.series_sql; values bound
-    low = None if lowest is None or lowest[0] is None else float(lowest[0])
+    lowest = con.sql(f"SELECT min(value) FROM ({query})", params=params).fetchall()  # noqa: S608 - query built by proxy.series_sql; values bound
+    low = None if not lowest or lowest[0][0] is None else float(lowest[0][0])
     return brownouts, low, found.label
 
 

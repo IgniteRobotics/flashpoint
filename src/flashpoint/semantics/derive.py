@@ -164,10 +164,11 @@ class Deriver:
         return wpilogs, hoots, by_id
 
     def _samples(self, log_id: str, where: str) -> pl.DataFrame:
-        return self.con.sql(
+        frame: pl.DataFrame = self.con.sql(
             f"SELECT {_SAMPLE_COLUMNS} FROM samples WHERE log_id = ? AND ({where})",  # noqa: S608 - where built from quoted signal names
             params=[log_id],
         ).pl()
+        return frame
 
     def _anchor_signals(self, log_id: str) -> list[str]:
         rows = self.ledger.query(

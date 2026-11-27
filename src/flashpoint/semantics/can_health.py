@@ -157,9 +157,10 @@ def _reboots(
 def analyse_hoot(con: duckdb.DuckDBPyConnection, lake: LakePaths, log_id: str) -> HootHealth:
     """Reboots and frame gaps of every device in one hoot, on the hoot's own clock."""
     source = _source(lake, log_id)
-    first_us, last_us = con.execute(
+    span = con.sql(
         f"SELECT min(ts_us), max(ts_us) FROM {source}"  # noqa: S608 - internal path
-    ).fetchone() or (None, None)
+    ).fetchall()
+    first_us, last_us = span[0] if span else (None, None)
     if first_us is None or last_us is None:
         return HootHealth([], [], [], {}, [], [], [], False, None, None, None)
     enabled = _enabled(con, source, last_us)

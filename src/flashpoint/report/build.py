@@ -212,11 +212,11 @@ def match_span(
     phases = meta.rows("match_phases", session_id=primary["session_id"])
     enabled = [p for p in phases if p["phase"] in ("auto", "teleop", "test")]
     framed = bool(enabled) and enabled[0]["start_us"] is not None
-    span = con.execute(
-        "SELECT min(t_us), max(t_us) FROM read_parquet(?)", [str(silver / "*.parquet")]
-    ).fetchone()
-    assert span is not None
-    first_us, last_us = int(span[0]), int(span[1])
+    span = con.sql(
+        "SELECT min(t_us), max(t_us) FROM read_parquet(?)", params=[str(silver / "*.parquet")]
+    ).fetchall()
+    assert span
+    first_us, last_us = int(span[0][0]), int(span[0][1])
     if framed:
         match_start = int(enabled[0]["start_us"])
         match_end = max((p["end_us"] for p in enabled if p["end_us"] is not None), default=None)
