@@ -23,6 +23,6 @@
 
 ## 5. Ship
 
-- [ ] 5.1 Open the PR from `feature/56-duckdb-polars-2-migration` into `development` with `Closes #56` and `Closes #57` and the AI disclosure. Verify: `ci-ok`, corpus and browser are green
+- [x] 5.1 Open the PR from `feature/56-duckdb-polars-2-migration` into `development` with `Closes #56` and `Closes #57` and the AI disclosure. Verify: `ci-ok`, corpus and browser are green
 - [ ] 5.2 [HUMAN] Pit check: on the new lock, `flashpoint ingest` a fresh log, then `flashpoint serve` against the real lake, and click through Replay, History, Anomalies and Setup with no server errors in the console. Verify: tick here and on the [HUMAN] tracker issue
 - [ ] 5.3 `openspec archive duckdb-polars-2-migration` as the PR's last commit. Verify: `openspec validate` passes and the change directory is under `openspec/changes/archive/`
