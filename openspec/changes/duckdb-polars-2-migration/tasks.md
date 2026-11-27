@@ -13,13 +13,13 @@
 
 ## 3. Dependencies (design D2)
 
-- [ ] 3.1 Set `duckdb (>=2.0,<3)` and `polars (>=2.0,<3)` in `pyproject.toml` and run `poetry lock`. Verify: the lock shows duckdb 2.0.x and polars + polars-runtime-32 2.2.x, and the cap test from #55 passes
+- [x] 3.1 Set `duckdb (>=2.0,<3)` and `polars (>=2.0,<3)` in `pyproject.toml` and run `poetry lock`. Verify: the lock shows duckdb 2.0.x and polars + polars-runtime-32 2.2.x, and the cap test from #55 passes
 - [ ] 3.2 Full local check on the new lock: `poetry run pytest`, `-m corpus`, `-m browser`, `-m perf`, ruff and mypy. Verify: everything is green except known non-blocking perf overruns, which go in the PR with their numbers next to the design's baseline band
 
 ## 4. Docs
 
-- [ ] 4.1 Add a CHANGELOG `Unreleased / Changed` entry saying Flashpoint now requires duckdb 2 and polars 2 (#56, #57). Verify: the docs drift tests pass
-- [ ] 4.2 Run the DuckDB snippets in `docs/guide/under-the-hood/how-it-works.md` against a lake on the new lock and fix any that break. Confirm `docs/rewrite/` needs no edit (D1/D2 unchanged, no version pins). Verify: the snippets print rows, and the PR notes the docs/rewrite check
+- [x] 4.1 Add a CHANGELOG `Unreleased / Changed` entry saying Flashpoint now requires duckdb 2 and polars 2 (#56, #57). Verify: the docs drift tests pass
+- [x] 4.2 Run the DuckDB snippets in `docs/guide/under-the-hood/how-it-works.md` against a lake on the new lock and fix any that break. Confirm `docs/rewrite/` needs no edit (D1/D2 unchanged, no version pins). Verify: the snippets print rows, and the PR notes the docs/rewrite check
 
 ## 5. Ship
 
