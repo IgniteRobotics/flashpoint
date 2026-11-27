@@ -160,11 +160,10 @@ def session_usage(
     rows = []
     for slot_id, unit_id, powered_us, enabled_us, first_us, last_us in units:
         # One unit at a time keeps memory bounded by a unit's samples, not the session's.
-        # (execute() with parameters: a parameterised con.sql() relation is ~25x slower here.)
-        samples = con.execute(
+        samples = con.sql(
             f"SELECT metric, t_us, value FROM {source}"  # noqa: S608 - source is a quoted lake path
             f" WHERE slot_id = ? AND unit_id = ? AND metric IN ({names})",
-            [slot_id, unit_id],
+            params=[slot_id, unit_id],
         ).pl()
         features = motor_features(samples, first_us, last_us + 1, config)
         temps = samples.filter(pl.col("metric") == "temp_c").sort("t_us").get_column("value")

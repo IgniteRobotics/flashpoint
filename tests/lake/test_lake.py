@@ -102,7 +102,9 @@ def test_files_snapshot_carries_attempts(lake: LakePaths) -> None:
     ledger.register("abc", "hoot", 10, Path("a.hoot"))
     ledger.fail("abc", "owlet-failed", pipeline_version=1)
     ledger.export_snapshots(lake.meta)
-    rows = duckdb.sql(f"select stage, attempts from '{lake.meta / 'files.parquet'}'").fetchall()
+    rel = duckdb.sql(f"select stage, attempts from '{lake.meta / 'files.parquet'}'")
+    assert rel is not None
+    rows = rel.fetchall()
     assert rows == [("failed", 1)]
 
 
@@ -193,7 +195,9 @@ def test_ledger_exports_parquet_snapshots(lake: LakePaths) -> None:
     ledger.register("abc", "wpilog", 10, Path("a.wpilog"))
     ledger.export_snapshots(lake.meta)
     assert (lake.meta / "files.parquet").is_file()
-    rows = duckdb.sql(f"select sha256 from '{lake.meta / 'files.parquet'}'").fetchall()
+    rel = duckdb.sql(f"select sha256 from '{lake.meta / 'files.parquet'}'")
+    assert rel is not None
+    rows = rel.fetchall()
     assert rows == [("abc",)]
 
 
@@ -244,14 +248,14 @@ def test_bronze_write_is_sorted_and_partitioned(lake: LakePaths) -> None:
         zip(on_disk.column("signal").to_pylist(), on_disk.column("ts_us").to_pylist(), strict=True)
     )
     assert rows == [("a", 2), ("a", 4), ("b", 1), ("b", 3)]
-    assert connect(lake).sql("select count(*) from samples").fetchone() == (4,)
+    assert connect(lake).sql("select count(*) from samples").fetchall() == [(4,)]
 
 
 def test_bronze_rewrite_replaces_atomically(lake: LakePaths) -> None:
     bronze.write(lake, _table(), season="2026", log_id="abc", run_id="r1")
     bronze.write(lake, _table(2), season="2026", log_id="abc", run_id="r2")
     con = connect(lake)
-    assert con.sql("select count(*) from samples").fetchone() == (2,)
+    assert con.sql("select count(*) from samples").fetchall() == [(2,)]
 
 
 def test_staging_leftovers_never_visible_and_are_cleaned(lake: LakePaths) -> None:
@@ -269,6 +273,6 @@ def test_query_reads_only_needed_partition(lake: LakePaths) -> None:
     bronze.write(lake, _table(), season="2026", log_id="abc", run_id="r1")
     bronze.write(lake, _table(), season="2025", log_id="def", run_id="r1")
     con = connect(lake)
-    result = con.sql("select count(*) from samples where log_id = 'def'").fetchone()
-    assert result == (4,)
+    result = con.sql("select count(*) from samples where log_id = 'def'").fetchall()
+    assert result == [(4,)]
     assert (lake.bronze / "season=2025" / "log_id=def").is_dir()

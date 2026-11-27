@@ -5,6 +5,7 @@ it is named for, so a rule switched off by accident breaks the build. The suppre
 workflow rules that no linter can express are checked here directly.
 """
 
+import ast
 import io
 import json
 import re
@@ -240,3 +241,63 @@ def test_dependabot_groups_leave_majors_out() -> None:
         if "major" in group.get("update-types", ["major", "minor", "patch"])
     ]
     assert not offenders, "group minor and patch only:\n" + "\n".join(offenders)
+
+
+# --- duckdb reads ---------------------------------------------------------------------------
+
+# On duckdb 2 a SELECT from execute() that isn't fully read blocks the next query on the
+# connection, execute() results have no .pl(), and relations have no .fetchone().
+EXECUTE_READS = {"fetchone", "fetchmany", "pl"}
+SQL_READS = {"fetchone"}
+
+
+def _imports_duckdb(tree: ast.Module) -> bool:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import) and any(a.name.startswith("duckdb") for a in node.names):
+            return True
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("duckdb"):
+            return True
+    return False
+
+
+def _unfinished_reads(path: Path, name: str) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    if not _imports_duckdb(tree):
+        return []
+    found = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        inner = node.func.value
+        if not (isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute)):
+            continue
+        reads = {"execute": EXECUTE_READS, "sql": SQL_READS}.get(inner.func.attr, set())
+        if node.func.attr in reads:
+            found.append(f"{name}:{node.lineno}: .{inner.func.attr}(...).{node.func.attr}()")
+    return found
+
+
+def test_duckdb_reads_finish_their_result() -> None:
+    offenders = [
+        hit
+        for path in sorted((REPO / "src").rglob("*.py"))
+        for hit in _unfinished_reads(path, path.relative_to(REPO).as_posix())
+    ]
+    assert not offenders, (
+        "read through a relation (con.sql(q, params=...).pl() / .fetchall()):\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_duckdb_read_check_catches_bad_reads(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text(
+        "import duckdb\ncon = duckdb.connect()\n"
+        "a = con.execute('SELECT 1').fetchone()\nb = con.execute('SELECT 1').pl()\n"
+        "c = con.sql('SELECT 1').fetchone()\nd = con.execute('SELECT 1').fetchmany(2)\n"
+        "e = con.execute('SELECT 1').fetchall()\nf = con.sql('SELECT 1').pl()\n"
+    )
+    flagged = {int(hit.split(":")[1]) for hit in _unfinished_reads(sample, "sample.py")}
+    assert flagged == {3, 4, 5, 6}
+    sample.write_text("import sqlite3\na = sqlite3.connect('x').execute('SELECT 1').fetchone()\n")
+    assert _unfinished_reads(sample, "sample.py") == []

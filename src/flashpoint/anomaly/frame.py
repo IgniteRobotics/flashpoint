@@ -75,9 +75,9 @@ def _read(
     select = ", ".join(
         f'"{c}"' if c in present else f'NULL::{_sql_type(t)} AS "{c}"' for c, t in schema.items()
     )
-    frame = con.execute(
+    frame: pl.DataFrame = con.sql(
         f"SELECT {select} FROM read_parquet(?, union_by_name = true) WHERE {where}",  # noqa: S608 - columns from the fixed schema; filter built by callers
-        [glob],
+        params=[glob],
     ).pl()
     return frame.cast(schema)  # type: ignore[arg-type]  # schema is a polars dict
 

@@ -37,7 +37,7 @@ deriver = Deriver(lake, config.config_root())
 (session,) = deriver.ledger.query("SELECT * FROM sessions WHERE match_key = '2026gacmp_qm7'")
 framing = deriver.framing_for(session["session_id"])
 robot = next(r for r in deriver.robots if r.robot == session["robot"])
-deriver.con.execute("SELECT 1")
+deriver.con.execute("SELECT 1").fetchall()
 started = time.perf_counter()
 if run_step:
     deriver._write_can_health(session, framing, robot, "high", "", "perf")

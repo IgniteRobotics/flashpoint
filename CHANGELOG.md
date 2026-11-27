@@ -13,6 +13,7 @@
 - CAN-gap DRIFT, STEP and SIBLING floors scale with a device's frame rate above 125 frames/s, so normal timing jitter on a 250 Hz CANivore no longer raises findings. roboRIO-rate devices are unchanged. A brownout judged on the median fallback (no `battery_proxy`) is at most MED. The first `derive` after upgrading rebuilds every session, and Replay data is rebuilt. (#77)
 - The missing-`ml`-extra warning gives the pipx, uv, pip and Poetry commands. (#77)
 - When the derive that `flashpoint ingest` or `flashpoint rebuild` runs afterwards fails, the command now says Replay data was not built, names `flashpoint derive --report` as the retry, and exits 1, even if every file imported. It used to exit 0. Scripts that call `ingest` may see the new exit code. (#107)
+- Flashpoint now requires duckdb 2 and polars 2 (`duckdb >=2.0,<3`, `polars >=2.0,<3`). pipx, uv and pip pick them up on upgrade. An environment that must keep duckdb 1 or polars 1 can't run this version. Lakes are unchanged: Parquet written by either version reads in the other. (#56, #57)
 
 ### Fixed
 

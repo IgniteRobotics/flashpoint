@@ -227,7 +227,7 @@ def test_undeclared_entry_stays_in_bronze_only(
     con = connect(lake)
     assert con.sql(
         "SELECT count(*) FROM samples WHERE signal = 'NT:/SmartDashboard/Foo'"
-    ).fetchone() == (1,)
+    ).fetchall() == [(1,)]
 
 
 def test_unknown_robot_gets_no_signals(
@@ -310,7 +310,7 @@ def test_deleting_all_signals_leaves_no_partitions(
 
 
 def test_signals_view(lake: LakePaths, registry: OwletRegistry, tmp_path: Path) -> None:
-    assert connect(lake).sql("SELECT count(*) FROM signals").fetchone() == (0,)
+    assert connect(lake).sql("SELECT count(*) FROM signals").fetchall() == [(0,)]
     _ingest(lake, registry, _wpilog(tmp_path / "FRC_20260409_215113_GACMP_Q7.wpilog"))
     _derive(lake, _config(tmp_path / "config", {"r": (2026, SIGNALS)}))
 
@@ -350,7 +350,7 @@ def test_missing_and_non_numeric_signals_reported(
     assert len(warnings) == 1
     assert "intake-renamed" in warnings[0].getMessage()
     con = connect(lake)
-    assert con.sql("SELECT count(*) FROM meta_missing_signals").fetchone() == (3,)
+    assert con.sql("SELECT count(*) FROM meta_missing_signals").fetchall() == [(3,)]
 
 
 def test_truncated_wpilog_keeps_signals_before_truncation(

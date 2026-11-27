@@ -99,7 +99,7 @@ def power_markers(
         return []
     query, params = proxy_series_sql(proxy, silver, window.t0_us, window.end_us)
     # Only samples below the sag threshold leave DuckDB, each with the time it holds until.
-    held = con.execute(
+    held = con.sql(
         f"""
         SELECT t_us, value, held_end FROM (
             SELECT t_us, value,
@@ -107,8 +107,8 @@ def power_markers(
             FROM ({query})
         ) WHERE value < ?
         """,  # noqa: S608 - internal query
-        [window.end_us, round(config.gap_limit_s * US_PER_S), *params,
-         max(config.sag_v, config.brownout_v)],
+        params=[window.end_us, round(config.gap_limit_s * US_PER_S), *params,
+                max(config.sag_v, config.brownout_v)],
     ).pl()  # fmt: skip
     if held.is_empty():
         return []
@@ -153,10 +153,10 @@ def stall_markers(
             " WHERE metric = 'stall_current' GROUP BY slot_id"
         ).fetchall()
     )
-    frame = con.execute(
+    frame = con.sql(
         f"SELECT slot_id, metric, t_us, value FROM {source}"  # noqa: S608 - source is a quoted lake path
         " WHERE metric IN ('stator_current', 'rotor_velocity_rps') AND t_us >= ? AND t_us < ?",
-        [window.t0_us, window.end_us],
+        params=[window.t0_us, window.end_us],
     ).pl()
     out = []
     for slot, stall_amps in sorted(stall.items()):
