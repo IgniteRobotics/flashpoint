@@ -9,12 +9,12 @@
 
 - [x] 2.1 Move the four `execute(...).pl()` reads (anomaly/frame, report/markers ×2, semantics/usage) to `con.sql(q, params=...).pl()`, fetching once per relation. Verify: the guard no longer names them, and tests/anomaly/test_frame, tests/report/test_markers and tests/semantics/test_usage pass
 - [x] 2.2 Move the three `execute(...).fetchone()` reads (anomaly/power, semantics/can_health, report/build) to relation `fetchall()`, keeping each missing-row branch, and the two `sql(...).fetchone()` counts (semantics/signals, silver) to `fetchall()`. Drop the `# type: ignore` comments that become unused. Verify: the guard test passes, tests/anomaly/test_power, tests/semantics/test_can_health_* and tests/report/test_build pass
-- [ ] 2.3 Full check on the current lock: `poetry run pytest`, `poetry run pytest -m corpus`, `poetry run ruff check .`, `poetry run mypy src tests tools` all green. This shows the code works on duckdb 1.5.6 before the bump
+- [x] 2.3 Full check on the current lock: `poetry run pytest`, `poetry run pytest -m corpus`, `poetry run ruff check .`, `poetry run mypy src tests tools` all green. This shows the code works on duckdb 1.5.6 before the bump
 
 ## 3. Dependencies (design D2)
 
 - [x] 3.1 Set `duckdb (>=2.0,<3)` and `polars (>=2.0,<3)` in `pyproject.toml` and run `poetry lock`. Verify: the lock shows duckdb 2.0.x and polars + polars-runtime-32 2.2.x, and the cap test from #55 passes
-- [ ] 3.2 Full local check on the new lock: `poetry run pytest`, `-m corpus`, `-m browser`, `-m perf`, ruff and mypy. Verify: everything is green except known non-blocking perf overruns, which go in the PR with their numbers next to the design's baseline band
+- [x] 3.2 Full local check on the new lock: `poetry run pytest`, `-m corpus`, `-m browser`, `-m perf`, ruff and mypy. Verify: everything is green except known non-blocking perf overruns, which go in the PR with their numbers next to the design's baseline band
 
 ## 4. Docs
 
